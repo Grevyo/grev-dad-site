@@ -21,7 +21,7 @@ function getCookieValue(cookieHeader, name) {
 }
 
 function buildSessionCookie(token) {
-  const maxAge = 60 * 60 * 24 * 7; // 7 days
+  const maxAge = 60 * 60 * 24 * 7;
   return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -148,8 +148,8 @@ export default {
 
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const saltBase64 = toBase64(salt);
-        const hashBase64 = await hashPassword(password, saltBase64);
-		const passwordHash = `pbkdf2_sha256$100000$${saltBase64}$${hashBase64}`;
+        const hashBase64 = await hashPassword(password, saltBase64, 100000);
+        const passwordHash = `pbkdf2_sha256$100000$${saltBase64}$${hashBase64}`;
 
         await env.DB.prepare(`
           INSERT INTO users (username, password_hash, approved, is_admin, created_at)
@@ -209,9 +209,13 @@ export default {
           .bind(sessionToken, user.id, now.toISOString(), expires.toISOString())
           .run();
 
-        const response = redirect(request, "/members.html");
-        response.headers.append("Set-Cookie", buildSessionCookie(sessionToken));
-        return response;
+        return new Response(null, {
+          status: 302,
+          headers: {
+            "Location": new URL("/members.html", request.url).toString(),
+            "Set-Cookie": buildSessionCookie(sessionToken)
+          }
+        });
       }
 
       if (path === "/api/logout") {
@@ -225,9 +229,13 @@ export default {
             .run();
         }
 
-        const response = redirect(request, "/login.html?msg=Logged%20out.");
-        response.headers.append("Set-Cookie", clearSessionCookie());
-        return response;
+        return new Response(null, {
+          status: 302,
+          headers: {
+            "Location": new URL("/login.html?msg=Logged%20out.", request.url).toString(),
+            "Set-Cookie": clearSessionCookie()
+          }
+        });
       }
 
       if (path === "/api/me") {
