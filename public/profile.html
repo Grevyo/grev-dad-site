@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile - Grev.dad</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f1115;
+      color: #f5f7fa;
+    }
+
+    .wrap {
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 24px;
+    }
+
+    .box {
+      background: #161b22;
+      border: 1px solid #222831;
+      border-radius: 18px;
+      padding: 24px;
+    }
+
+    a {
+      color: #9ecbff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="box">
+      <h1>Profile</h1>
+      <p><strong>Username:</strong> <span id="username">Loading...</span></p>
+      <p><strong>Joined:</strong> <span id="joined">Loading...</span></p>
+      <p><a href="/members.html">Back to members area</a></p>
+      <p><a href="/api/logout">Log out</a></p>
+    </div>
+  </div>
+
+  <script>
+    async function loadProfile() {
+      const res = await fetch("/api/me");
+      if (!res.ok) {
+        window.location.href = "/login.html?msg=Please%20log%20in.";
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById("username").textContent = data.user.username;
+      document.getElementById("joined").textContent = data.user.created_at;
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>
