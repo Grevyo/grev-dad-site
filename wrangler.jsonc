@@ -4,7 +4,8 @@
   "main": "src/index.js",
   "compatibility_date": "2026-03-20",
   "assets": {
-    "directory": "./public"
+    "directory": "./public",
+    "binding": "ASSETS"
   },
   "d1_databases": [
     {
@@ -12,5 +13,8 @@
       "database_name": "grev-dad-db",
       "database_id": "4e1a3548-6316-4a9b-926f-f536b4a6d5a6"
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true
+  }
 }
