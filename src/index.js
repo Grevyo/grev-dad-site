@@ -41,7 +41,7 @@ function fromBase64(str) {
   return Uint8Array.from(atob(str), c => c.charCodeAt(0));
 }
 
-async function hashPassword(password, saltBase64, iterations = 150000) {
+async function hashPassword(password, saltBase64, iterations = 100000) {
   const enc = new TextEncoder();
 
   const key = await crypto.subtle.importKey(
@@ -149,7 +149,7 @@ export default {
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const saltBase64 = toBase64(salt);
         const hashBase64 = await hashPassword(password, saltBase64);
-        const passwordHash = `pbkdf2_sha256$150000$${saltBase64}$${hashBase64}`;
+		const passwordHash = `pbkdf2_sha256$100000$${saltBase64}$${hashBase64}`;
 
         await env.DB.prepare(`
           INSERT INTO users (username, password_hash, approved, is_admin, created_at)
