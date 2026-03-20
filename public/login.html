@@ -16,9 +16,53 @@
       color: #f5f7fa;
     }
 
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: rgba(17, 21, 27, 0.96);
+    border-bottom: 1px solid #222831;
+  }
+
+  .logo-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .logo-img {
+    height: 95px;
+    width: auto;
+    display: block;
+  }
+
+  .nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .nav a {
+    color: #f5f7fa;
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    opacity: 0.92;
+  }
+
+  .nav a:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+
     .wrap {
       max-width: 500px;
-      margin: 60px auto;
+      margin: 40px auto;
       padding: 24px;
     }
 
@@ -82,9 +126,33 @@
       margin-top: 16px;
       min-height: 1.2em;
     }
+
+
+    @media (max-width: 700px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .logo-img {
+        height: 72px;
+      }
+    }
   </style>
 </head>
 <body>
+  <header class="topbar">
+    <a href="index.html" class="logo-link">
+      <img src="grev-dad-logo.png" alt="Grev.dad logo" class="logo-img">
+    </a>
+
+    <nav class="nav">
+      <a href="index.html">Home</a>
+      <a href="login.html">Log In</a>
+      <a href="register.html">Create Account</a>
+    </nav>
+  </header>
   <div class="wrap">
     <a href="index.html">
       <img src="grev-dad-logo.png" alt="Grev.dad logo" class="logo">
