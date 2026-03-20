@@ -108,12 +108,11 @@
     </div>
   </div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const msg = params.get("msg");
-    if (msg) {
-      document.getElementById("message").textContent = msg;
-    }
-  </script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const msg = params.get("msg");
+  const el = document.getElementById("message");
+  if (msg && el) el.textContent = msg;
+</script>
 </body>
 </html>
