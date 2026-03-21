@@ -185,7 +185,8 @@ export default {
           status: 302, 
           headers: { 
             "Location": "/login.html?msg=Logged%20Out", 
-            "Set-Cookie": "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" 
+            // Nuclear option for clearing the cookie: set past date and Max-Age 0
+            "Set-Cookie": "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT" 
           } 
         });
       }
@@ -204,11 +205,9 @@ export default {
 
       // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
-        // Secure check: Only logged-in/approved users can see the case list
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
 
-        // Trigger background sync
         ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
