@@ -9,29 +9,60 @@
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
-    .topbar { position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: rgba(17, 21, 27, 0.96); border-bottom: 1px solid #222831; }
-    .logo-link { display: inline-flex; align-items: center; text-decoration: none; }
-    .logo-img { height: 95px; width: auto; display: block; }
-    .nav { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-    .nav a { color: #f5f7fa; text-decoration: none; font-size: 0.95rem; font-weight: 600; opacity: 0.92; }
-    .nav a:hover { opacity: 1; text-decoration: underline; }
-    .wrap { max-width: 1100px; margin: 40px auto; padding: 24px; }
-    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 24px; margin-bottom: 24px; }
-    .form-input { width: 100%; padding: 12px; margin-bottom: 16px; border: 1px solid #222831; border-radius: 8px; color: #f5f7fa; background: #0f141a; }
+    
+    .wrap { max-width: 450px; margin: 80px auto; padding: 24px; }
+    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    
+    h1 { margin-top: 0; font-size: 1.8rem; text-align: center; color: #9ecbff; }
+    
+    .form-input { 
+      width: 100%; 
+      padding: 12px; 
+      margin-bottom: 16px; 
+      border: 1px solid #222831; 
+      border-radius: 8px; 
+      color: #f5f7fa; 
+      background: #0f141a; 
+      font-size: 1rem;
+    }
     .form-input:focus { outline: none; border-color: #9ecbff; }
-    .form-button { width: 100%; padding: 12px; background: #9ecbff; border: none; border-radius: 8px; color: #0f1115; font-size: 1rem; font-weight: 600; cursor: pointer; }
-    .form-button:hover { background: #4a8ab7; }
-    .footer { max-width: 1100px; margin: 0 auto; padding: 10px 24px 50px; color: #8f98a3; font-size: 0.92rem; }
+    
+    .form-button { 
+      width: 100%; 
+      padding: 14px; 
+      background: #9ecbff; 
+      border: none; 
+      border-radius: 8px; 
+      color: #0f1115; 
+      font-size: 1rem; 
+      font-weight: 700; 
+      cursor: pointer; 
+      transition: background 0.2s;
+    }
+    .form-button:hover { background: #7abaff; }
+    
+    .footer { text-align: center; margin-top: 20px; color: #8f98a3; font-size: 0.85rem; }
     
     .msg-box { 
       padding: 12px; 
-      background: #21262d; 
+      background: rgba(158, 203, 255, 0.1); 
       border: 1px solid #30363d; 
       border-radius: 8px; 
-      margin-bottom: 16px; 
+      margin-bottom: 20px; 
       color: #9ecbff; 
       text-align: center;
+      font-size: 0.9rem;
     }
+    
+    .register-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      color: #8f98a3;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .register-link span { color: #9ecbff; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -45,34 +76,36 @@
         <div id="message" class="msg-box hidden"></div>
 
         <form action="/api/login" method="POST">
-          <input class="form-input" type="text" name="username" placeholder="Username" required />
-          <input class="form-input" type="password" name="password" placeholder="Password" required />
-          <button class="form-button" type="submit">Log In</button>
+          <input class="form-input" type="text" name="username" placeholder="Username" required autocomplete="username" />
+          <input class="form-input" type="password" name="password" placeholder="Password" required autocomplete="current-password" />
+          <button class="form-button" type="submit">Sign In</button>
         </form>
+
+        <a href="/register.html" class="register-link">Don't have an account? <span>Register</span></a>
       </div>
+      
+      <footer class="footer">
+        © Grev.dad — personal projects & experiments.
+      </footer>
     </div>
   </main>
-
-  <footer class="footer">© Grev.dad — personal projects, playgrounds, and experiments.</footer>
 
   <script src="/header.js"></script>
 
   <script>
-    // 1. FORCED LOGOUT: Kill the cookie on the front-end immediately
-    // We match the Path=/ and add an expired date to force the browser to drop it.
-    document.cookie = "session_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    
-    // Clear any local storage/session storage to be safe
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // 2. Display messages from the URL (like ?msg=Logged Out)
+    // 1. Display messages from the URL (e.g., ?msg=Logged Out)
     const params = new URLSearchParams(window.location.search);
     const msg = params.get('msg');
     if (msg) {
       const msgDiv = document.getElementById('message');
-      msgDiv.textContent = msg;
+      msgDiv.textContent = decodeURIComponent(msg);
       msgDiv.classList.remove('hidden');
+    }
+
+    // 2. Clear ONLY specific storage if needed, but DO NOT touch document.cookie here
+    // as it will kill the session immediately after a successful login redirect.
+    if (msg === "Logged Out") {
+       localStorage.removeItem('user_prefs'); // Example of safe clearing
     }
   </script>
 </body>
