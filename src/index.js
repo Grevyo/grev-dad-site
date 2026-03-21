@@ -228,14 +228,28 @@ export default {
         if (!user) return json({ error: "Unauthorized" }, 401);
         const { caseName } = await request.json();
         const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
+        
+        if (!skins || skins.length === 0) return json({ error: "Case not found or empty" }, 404);
+
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
         for (const s of skins) { if (random < s.drop_weight) { winner = s; break; } random -= s.drop_weight; }
+        
         const qual = calculateSkinQuality(winner.base_price);
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
+        
         await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
-        return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
+        
+        return json({ 
+          success: true, 
+          item: fullName, 
+          rarity: winner.rarity, 
+          price: qual.price, 
+          float: qual.float,
+          weapon: winner.weapon_type,
+          skin: winner.skin_name
+        });
       }
 
       // GLOBAL FEED ENDPOINT
