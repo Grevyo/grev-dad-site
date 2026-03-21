@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Case Opener - Grev.dad</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
+    
+    .wrap { max-width: 1000px; margin: 40px auto; padding: 24px; text-align: center; }
+    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 40px; }
+
+    /* The Spinner Container */
+    .spinner-viewport {
+      position: relative;
+      width: 100%;
+      height: 160px;
+      background: #0d1117;
+      border: 2px solid #222831;
+      margin: 30px 0;
+      overflow: hidden;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+    }
+
+    /* The Red Vertical Line in the middle */
+    .center-line {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 3px;
+      height: 100%;
+      background: #ff4b4b;
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
+    }
+
+    /* The moving rail of items */
+    .items-rail {
+      display: flex;
+      position: absolute;
+      left: 0;
+      transition: transform 5s cubic-bezier(0.1, 0, 0.05, 1);
+      will-change: transform;
+    }
+
+    .skin-card {
+      min-width: 150px;
+      height: 140px;
+      margin: 0 5px;
+      background: #1c222d;
+      border-bottom: 5px solid #4b69ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+
+    .skin-card img { width: 80px; margin-bottom: 10px; }
+
+    /* Rarity Colors */
+    .rarity-covert { border-color: #eb4b4b; }
+    .rarity-classified { border-color: #d32ee6; }
+    .rarity-restricted { border-color: #8847ff; }
+    .rarity-milspec { border-color: #4b69ff; }
+
+    .btn-open {
+      background: #9ecbff;
+      color: #0f1115;
+      padding: 16px 40px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .btn-open:active { transform: scale(0.95); }
+    .btn-open:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #win-message { margin-top: 20px; font-size: 1.2rem; color: #9ecbff; font-weight: bold; min-height: 1.5em; }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <div class="wrap">
+    <div class="box">
+      <h1>CS2 Case Simulator</h1>
+      <p>Test your luck on the Kilowatt Case!</p>
+
+      <div class="spinner-viewport">
+        <div class="center-line"></div>
+        <div id="rail" class="items-rail">
+            </div>
+      </div>
+
+      <button id="openBtn" class="btn-open" onclick="startSpin()">Open Case</button>
+      <div id="win-message"></div>
+    </div>
+  </div>
+
+  <script src="/header.js"></script>
+  <script>
+    const caseSkins = [
+      { name: "Inheritance", type: "AK-47", rarity: "covert", val: 145 },
+      { name: "Chrome Cannon", type: "AWP", rarity: "covert", val: 95 },
+      { name: "Jawbreaker", type: "USP-S", rarity: "classified", val: 18 },
+      { name: "Black Lotus", type: "M4A1-S", rarity: "classified", val: 14 },
+      { name: "Light Box", type: "MAC-10", rarity: "milspec", val: 1.5 }
+    ];
+
+    const rail = document.getElementById('rail');
+    const openBtn = document.getElementById('openBtn');
+
+    function startSpin() {
+      openBtn.disabled = true;
+      document.getElementById('win-message').innerText = "";
+      
+      // Reset rail position
+      rail.style.transition = "none";
+      rail.style.transform = "translateX(0px)";
+      
+      // Fill rail with 60 random items
+      rail.innerHTML = "";
+      let winningIndex = 55; // The item that lands in the middle
+      
+      for(let i=0; i < 65; i++) {
+        const skin = caseSkins[Math.floor(Math.random() * caseSkins.length)];
+        const card = document.createElement('div');
+        card.className = `skin-card rarity-${skin.rarity}`;
+        card.innerHTML = `<span>${skin.type}</span><br><small>${skin.name}</small>`;
+        rail.
