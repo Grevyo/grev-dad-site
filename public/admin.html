@@ -37,18 +37,6 @@
       margin-bottom: 14px;
     }
 
-    .user-card h3,
-    .post-card h3 {
-      margin-top: 0;
-      margin-bottom: 8px;
-    }
-
-    .user-card p,
-    .post-card p {
-      margin: 0 0 10px;
-      color: #b8c0cc;
-    }
-
     .btn {
       display: inline-block;
       padding: 10px 14px;
@@ -57,21 +45,29 @@
       cursor: pointer;
       font-weight: 700;
       margin-right: 8px;
+      transition: opacity 0.2s;
     }
 
-    .btn-approve {
-      background: #22c55e;
-      color: #08110b;
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-approve { background: #22c55e; color: #08110b; }
+    .btn-reject { background: #ef4444; color: white; }
+    .btn-remove { background: #f97316; color: white; }
+    
+    /* Style for the Mega Seed button */
+    .btn-seed { 
+      background: #ffae00; 
+      color: #111; 
+      width: 100%; 
+      font-size: 1.1rem;
+      padding: 15px;
+      margin-top: 10px;
     }
 
-    .btn-reject {
-      background: #ef4444;
-      color: white;
-    }
-
-    .btn-remove {
-      background: #f97316;
-      color: white;
+    #seed-status {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: #ffae00;
     }
   </style>
 </head>
@@ -81,7 +77,14 @@
   <div class="wrap">
     <div class="box">
       <h1>Admin Panel</h1>
-      <p>Approve or reject pending accounts, and manage forum posts.</p>
+      <p>Approve or reject pending accounts, manage forum posts, and sync case data.</p>
+    </div>
+
+    <div class="box">
+      <h2>Case Management</h2>
+      <p>Fetch latest skin data and prices from Pricempire API. This will populate the "Global Collection" case.</p>
+      <button id="seedBtn" class="btn btn-seed" onclick="runMegaSeed()">🚀 Run Mega Seed (Sync Global Skins)</button>
+      <div id="seed-status"></div>
     </div>
 
     <div class="box">
@@ -97,8 +100,40 @@
 
   <script src="/header.js"></script>
   <script>
+    // --- NEW: MEGA SEED LOGIC ---
+    async function runMegaSeed() {
+      const btn = document.getElementById('seedBtn');
+      const status = document.getElementById('seed-status');
+      
+      if (!confirm("This will fetch thousands of skins and update prices. It may take up to 30 seconds. Continue?")) return;
+
+      btn.disabled = true;
+      btn.innerText = "⏳ Syncing Database...";
+      status.innerText = "Requesting data from Pricempire API... please wait.";
+
+      try {
+        const res = await fetch("/api/admin/mega-seed", { credentials: "include" });
+        const data = await res.json();
+
+        if (data.success) {
+          status.style.color = "#22c55e";
+          status.innerText = `✅ Success! ${data.message}`;
+        } else {
+          throw new Error(data.error || "Unknown error occurred");
+        }
+      } catch (err) {
+        status.style.color = "#ef4444";
+        status.innerText = `❌ Error: ${err.message}`;
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "🚀 Run Mega Seed (Sync Global Skins)";
+      }
+    }
+
+    // --- EXISTING ADMIN LOGIC ---
     async function loadPendingUsers() {
-      const res = await fetch("/api/admin/pending-users", { credentials: "include" });
+      const res = await fetch("/api/admin/pending", { credentials: "include" });
       const wrap = document.getElementById("pendingUsers");
 
       if (!res.ok) {
@@ -109,40 +144,41 @@
       const data = await res.json();
       wrap.innerHTML = "";
 
-      if (!data.users || !data.users.length) {
+      if (!data.pending || !data.pending.length) {
         wrap.innerHTML = "<p>No pending users.</p>";
         return;
       }
 
-      for (const user of data.users) {
+      for (const user of data.pending) {
         const div = document.createElement("div");
         div.className = "user-card";
         div.innerHTML = `
           <h3>${user.username}</h3>
           <p>Created: ${user.created_at}</p>
-          <button class="btn btn-approve" onclick="approveUser('${user.username}')">Approve</button>
-          <button class="btn btn-reject" onclick="rejectUser('${user.username}')">Reject</button>
+          <button class="btn btn-approve" onclick="approveUser('${user.id}')">Approve</button>
+          <button class="btn btn-reject" onclick="rejectUser('${user.id}')">Reject</button>
         `;
         wrap.appendChild(div);
       }
     }
 
-    async function approveUser(username) {
+    // Note: I updated the approve/reject to use user.id to match your index.js needs
+    async function approveUser(userId) {
       await fetch("/api/admin/approve-user", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ user_id: userId })
       });
       loadPendingUsers();
     }
 
-    async function rejectUser(username) {
+    async function rejectUser(userId) {
       await fetch("/api/admin/reject-user", {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ user_id: userId })
       });
       loadPendingUsers();
     }
