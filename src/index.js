@@ -121,6 +121,14 @@ async function autoSyncPrices(env) {
     const sixHours = 6 * 60 * 60 * 1000;
     if (Date.now() - lastSync > sixHours) {
       const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+      
+      // Safety check: Ensure we got JSON and not an HTML error page
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("API returned non-JSON response.");
+        return;
+      }
+
       const data = await res.json();
       if (data.items) {
         for (const [fullName, details] of Object.entries(data.items)) {
@@ -134,7 +142,7 @@ async function autoSyncPrices(env) {
           .bind(new Date().toISOString()).run();
       }
     }
-  } catch (e) { console.error("Background sync failed:", e); }
+  } catch (e) { console.error("Background sync failed:", e.message); }
 }
 
 export default {
@@ -142,6 +150,9 @@ export default {
     try {
       const url = new URL(request.url);
       const path = url.pathname.toLowerCase().replace(/\/$/, "");
+
+      // --- 0. DIRECTORY ROUTING ---
+      if (path === "/cases") return redirect(request, "/cases.html");
 
       // --- 1. AUTH CHECK ROUTES ---
       if (path === "/api/ping") return json({ ok: true });
@@ -271,6 +282,12 @@ export default {
 
         try {
           const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+          
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+             return json({ error: "API returned HTML instead of JSON. Try again later." }, 500);
+          }
+
           const data = await res.json();
           if (!data.items) return json({ error: "No items found in API" }, 500);
 
