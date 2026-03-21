@@ -26,10 +26,6 @@ function buildSessionCookie(token) {
   return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.grev.dad`;
 }
 
-function clearSessionCookie() {
-  return "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Domain=.grev.dad";
-}
-
 // --- PASSWORD & CRYPTO ---
 function toBase64(bytes) {
   let binary = "";
@@ -56,26 +52,19 @@ function parseStoredHash(stored) {
 
 // --- USER & SESSION HELPERS ---
 async function touchUser(env, userId) {
-  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE id = ?`).bind(new Date().toISOString(), userId).run();
+  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE id = ?`)
+    .bind(new Date().toISOString(), userId)
+    .run();
 }
 
 async function getCurrentUser(request, env) {
   const token = getCookieValue(request.headers.get("Cookie"), "session_token");
   if (!token) return null;
-  const user = await env.DB.prepare(`
+  return await env.DB.prepare(`
     SELECT users.id, users.username, users.approved, users.is_admin, users.created_at, users.last_seen_at
     FROM sessions JOIN users ON users.id = sessions.user_id
     WHERE sessions.session_token = ? AND sessions.expires_at > ? LIMIT 1
   `).bind(token, new Date().toISOString()).first();
-  return user || null;
-}
-
-function getStatus(lastSeenAt) {
-  if (!lastSeenAt) return "offline";
-  const diff = (Date.now() - new Date(lastSeenAt).getTime()) / 60000;
-  if (diff <= 5) return "online";
-  if (diff <= 30) return "away";
-  return "offline";
 }
 
 async function requireApprovedUser(request, env) {
@@ -91,15 +80,14 @@ async function requireAdminUser(request, env) {
   return user;
 }
 
-// --- THE MISSING ASSET FUNCTION ---
+// --- ASSET & WEAR HELPERS ---
 async function serveAssetOr404(env, request) {
   if (!env.ASSETS || typeof env.ASSETS.fetch !== "function") {
-    return new Response("ASSETS binding is missing.", { status: 500 });
+    return new Response("ASSETS binding missing in wrangler.toml", { status: 500 });
   }
-  return env.ASSETS.fetch(request);
+  return await env.ASSETS.fetch(request);
 }
 
-// --- CASE LOGIC ---
 function calculateSkinQuality(basePrice) {
   const float = Math.random();
   let wear = "Factory New";
@@ -119,73 +107,95 @@ export default {
 
       if (path === "/api/ping") return json({ ok: true });
 
-      // --- AUTH ROUTES ---
+      // --- AUTH: REGISTER ---
       if (path === "/api/register" && request.method === "POST") {
         const form = await request.formData();
         const username = String(form.get("username") || "").trim();
         const password = String(form.get("password") || "");
         if (password !== form.get("password2")) return redirect(request, "/register.html?msg=Passwords%20match%20error");
+        
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const saltBase64 = toBase64(salt);
         const hash = await hashPassword(password, saltBase64);
         const finalHash = `pbkdf2_sha256$100000$${saltBase64}$${hash}`;
-        await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at) VALUES (?, ?, 0, 0, ?)`).bind(username, finalHash, new Date().toISOString()).run();
+        const now = new Date().toISOString();
+
+        await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at) VALUES (?, ?, 0, 0, ?)`)
+          .bind(username, finalHash, now).run();
+        
         return redirect(request, "/login.html?msg=Pending%20Approval");
       }
 
+      // --- AUTH: LOGIN (FIXED) ---
       if (path === "/api/login" && request.method === "POST") {
         const form = await request.formData();
         const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(form.get("username")).first();
         if (!user) return redirect(request, "/login.html?msg=Invalid%20Credentials");
+        
         const parsed = parseStoredHash(user.password_hash);
         const calc = await hashPassword(form.get("password"), parsed.saltBase64, parsed.iterations);
         if (calc !== parsed.hashBase64) return redirect(request, "/login.html?msg=Invalid%20Credentials");
         if (!user.approved) return redirect(request, "/login.html?msg=Not%20Approved");
+
         const token = crypto.randomUUID();
+        const now = new Date().toISOString();
         const expires = new Date(Date.now() + 7 * 86400000).toISOString();
-        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, expires_at) VALUES (?, ?, ?)`).bind(token, user.id, expires).run();
-        return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
+
+        // FIX: Added created_at to satisfy the NOT NULL constraint
+        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
+          .bind(token, user.id, now, expires).run();
+
+        return new Response(null, { 
+          status: 302, 
+          headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } 
+        });
       }
 
-      // --- CASE API ---
+      // --- CASE ROUTES ---
       if (path === "/api/cases/list") {
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
       }
 
       if (path === "/api/cases/skins") {
-        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(url.searchParams.get("name")).all();
+        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
+          .bind(url.searchParams.get("name")).all();
         return json({ skins: results });
       }
 
       if (path === "/api/cases/open" && request.method === "POST") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
+
         const { caseName } = await request.json();
-        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
+        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
+          .bind(caseName).all();
+
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
         for (const s of skins) { if (random < s.drop_weight) { winner = s; break; } random -= s.drop_weight; }
+
         const qual = calculateSkinQuality(winner.base_price);
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
-        await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
-        return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float, weapon: winner.weapon_type, skin: winner.skin_name });
+
+        await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`)
+          .bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
+
+        return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
       }
 
-      // --- FEED & INVENTORY ---
+      // --- FEED & MEMBERS ---
       if (path === "/api/inventory/recent-global") {
-        const { results } = await env.DB.prepare(`SELECT i.skin_name, i.skin_rarity, u.username FROM inventory i JOIN users u ON i.user_id = u.id ORDER BY i.id DESC LIMIT 15`).all();
+        const { results } = await env.DB.prepare(`
+          SELECT i.skin_name, i.skin_rarity, u.username 
+          FROM inventory i JOIN users u ON i.user_id = u.id 
+          ORDER BY i.id DESC LIMIT 15
+        `).all();
         return json({ recent: results });
       }
 
-      if (path === "/api/members") {
-        const members = await env.DB.prepare(`SELECT u.id, u.username, u.last_seen_at, COUNT(i.id) as item_count, COALESCE(SUM(i.estimated_value), 0) as total_wealth FROM users u LEFT JOIN inventory i ON u.id = i.user_id WHERE u.approved = 1 GROUP BY u.id ORDER BY total_wealth DESC`).all();
-        return json({ members: members.results.map(m => ({ ...m, status: getStatus(m.last_seen_at) })) });
-      }
-
-      // --- FALLBACK TO ASSETS ---
-      return serveAssetOr404(env, request);
+      return await serveAssetOr404(env, request);
     } catch (err) {
       return new Response("Worker error:\n" + err.stack, { status: 500 });
     }
