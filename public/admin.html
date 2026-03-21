@@ -45,11 +45,16 @@
       cursor: pointer;
       font-weight: 700;
       margin-right: 8px;
+      transition: opacity 0.2s;
     }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-approve { background: #22c55e; color: #08110b; }
     .btn-reject { background: #ef4444; color: white; }
     .btn-remove { background: #f97316; color: white; }
+    .btn-sync { background: #3b82f6; color: white; }
+    .btn-seed { background: #8b5cf6; color: white; }
 
     /* Case Editor Styles */
     .input-group { margin-bottom: 15px; }
@@ -98,6 +103,12 @@
     }
 
     .skin-pill span { color: #ef4444; cursor: pointer; font-weight: bold; }
+    
+    .admin-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
@@ -107,6 +118,11 @@
     <div class="box">
       <h1>Admin Panel</h1>
       <p>Manage users, forum posts, and create custom cases.</p>
+      
+      <div class="admin-actions">
+        <button id="syncBtn" class="btn btn-sync" onclick="syncPrices()">🔄 Sync Steam Prices</button>
+        <button id="seedBtn" class="btn btn-seed" onclick="megaSeed()">🚀 Mega Seed Database</button>
+      </div>
     </div>
 
     <div class="box">
@@ -149,6 +165,38 @@
   <script>
     let selectedSkins = [];
 
+    // --- SYSTEM ACTIONS ---
+    async function syncPrices() {
+      const btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.innerText = "Syncing...";
+      
+      const res = await fetch("/api/admin/sync-prices", { method: "POST" });
+      if (res.ok) {
+        alert("Price sync started in background!");
+      }
+      btn.disabled = false;
+      btn.innerText = "🔄 Sync Steam Prices";
+    }
+
+    async function megaSeed() {
+      if (!confirm("This will fetch thousands of skins. Continue?")) return;
+      const btn = document.getElementById('seedBtn');
+      btn.disabled = true;
+      btn.innerText = "Seeding... (Wait 30s)";
+      
+      const res = await fetch("/api/admin/mega-seed");
+      const data = await res.json();
+      
+      if (res.ok) {
+        alert(data.message);
+      } else {
+        alert("Error: " + data.error);
+      }
+      btn.disabled = false;
+      btn.innerText = "🚀 Mega Seed Database";
+    }
+
     // --- CASE EDITOR LOGIC ---
     async function handleSearch() {
       const query = document.getElementById('skinSearch').value;
@@ -159,10 +207,12 @@
         return;
       }
 
-      // Fetch skins from your Global Collection
+      // Query the Global Collection
       const res = await fetch(`/api/cases/skins?name=Global%20Collection`);
       const data = await res.json();
       
+      if (!data.skins) return;
+
       const filtered = data.skins.filter(s => 
         s.skin_name.toLowerCase().includes(query.toLowerCase()) || 
         s.weapon_type.toLowerCase().includes(query.toLowerCase())
@@ -220,7 +270,12 @@
       }
     }
 
-    // --- EXISTING LOGIC ---
+    // --- USER MANAGEMENT ---
+    async function approveUser(userId) {
+      const res = await fetch(`/api/admin/approve-user?id=${userId}`, { method: "POST" });
+      if (res.ok) loadPendingUsers();
+    }
+
     async function loadPendingUsers() {
       const res = await fetch("/api/admin/pending", { credentials: "include" });
       const wrap = document.getElementById("pendingUsers");
@@ -239,7 +294,7 @@
     async function loadForumPosts() {
       const res = await fetch("/api/admin/forum-posts", { credentials: "include" });
       const wrap = document.getElementById("forumPosts");
-      if (!res.ok) return;
+      if (!res.ok) { wrap.innerHTML = "<p>No posts found.</p>"; return; }
       const data = await res.json();
       wrap.innerHTML = data.posts.length ? "" : "<p>No posts.</p>";
       data.posts.forEach(post => {
