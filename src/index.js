@@ -317,10 +317,56 @@ export default {
           username: member.username,
           is_admin: member.is_admin,
           created_at: member.created_at,
-          status: getStatus(member.last_seen_at)
+          status: getStatus(member.last_seenAt || member.last_seen_at)
         }));
 
         return json({ members: mapped });
+      }
+
+      // Global chat - get messages
+      if (path === "/api/chat/global/messages") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) {
+          return json({ error: "Not logged in" }, 401);
+        }
+
+        const messages = await env.DB.prepare(`
+          SELECT id, author_username, message, created_at
+          FROM global_chat_messages
+          ORDER BY id DESC
+          LIMIT 50
+        `).all();
+
+        const results = (messages.results || []).reverse();
+        return json({ messages: results });
+      }
+
+      // Global chat - send message
+      if (path === "/api/chat/global/send" && request.method === "POST") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) {
+          return json({ error: "Not logged in" }, 401);
+        }
+
+        const body = await request.json();
+        const message = String(body.message || "").trim();
+
+        if (!message) {
+          return json({ error: "Message is empty" }, 400);
+        }
+
+        if (message.length > 500) {
+          return json({ error: "Message too long" }, 400);
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO global_chat_messages (author_user_id, author_username, message, created_at)
+          VALUES (?, ?, ?, ?)
+        `)
+          .bind(user.id, user.username, message, new Date().toISOString())
+          .run();
+
+        return json({ ok: true });
       }
 
       // Admin - pending users
