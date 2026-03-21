@@ -18,3 +18,5 @@ database_id = "1a4c7386-4f09-42ce-a2d7-53c1bcdb9147"
 [assets]
 directory = "./" 
 binding = "ASSETS"
+# This line ensures your API routes work instead of 404ing
+run_worker_first = true
