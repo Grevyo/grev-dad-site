@@ -112,7 +112,7 @@ function calculateSkinQuality(basePrice) {
   return { wear, float: float.toFixed(5), price: (basePrice * multiplier).toFixed(2) };
 }
 
-// --- BACKGROUND SYNC LOGIC ---
+// --- SYNC LOGIC ---
 async function autoSyncPrices(env) {
   try {
     const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
@@ -129,11 +129,9 @@ async function autoSyncPrices(env) {
             .bind(price, fullName));
         }
       }
-      // Process in batches of 50
       for (let i = 0; i < stmts.length; i += 50) {
         await env.CASES_DB.batch(stmts.slice(i, i + 50));
       }
-      
       await env.CASES_DB.prepare("INSERT OR REPLACE INTO sync_log (id, last_sync) VALUES (1, ?)")
         .bind(new Date().toISOString()).run();
     }
@@ -147,26 +145,9 @@ export default {
       const path = url.pathname.toLowerCase().replace(/\/$/, "");
 
       if (path === "/cases") return redirect(request, "/cases.html");
-
       if (path === "/api/ping") return json({ ok: true });
-      if (path === "/api/me") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
-        return json({ user });
-      }
 
-      if (path === "/api/register" && request.method === "POST") {
-        const form = await request.formData();
-        const username = String(form.get("username") || "").trim();
-        const password = String(form.get("password") || "");
-        if (password !== form.get("password2")) return redirect(request, "/register.html?msg=Passwords%20match%20error");
-        const saltBase64 = toBase64(crypto.getRandomValues(new Uint8Array(16)));
-        const hash = await hashPassword(password, saltBase64);
-        const finalHash = `pbkdf2_sha256$100000$${saltBase64}$${hash}`;
-        await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at) VALUES (?, ?, 0, 0, ?)`).bind(username, finalHash, new Date().toISOString()).run();
-        return redirect(request, "/login.html?msg=Pending%20Approval");
-      }
-
+      // --- AUTH ROUTES ---
       if (path === "/api/login" && request.method === "POST") {
         const form = await request.formData();
         const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(form.get("username")).first();
@@ -182,67 +163,39 @@ export default {
         return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
       }
 
-      if (path === "/api/logout") {
-        const token = getCookieValue(request.headers.get("Cookie"), "session_v3");
-        if (token) { 
-          await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run(); 
-        }
-        const response = json({ success: true, message: "Logged out" });
-        response.headers.append("Set-Cookie", "session_v3=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
-        return response;
-      }
-
-      if (path === "/api/members") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
-        const members = await env.DB.prepare(`
-          SELECT u.id, u.username, u.is_admin, u.last_seen_at, COUNT(i.id) as item_count, COALESCE(SUM(i.estimated_value), 0) as total_wealth 
-          FROM users u LEFT JOIN inventory i ON u.id = i.user_id 
-          WHERE u.approved = 1 GROUP BY u.id ORDER BY total_wealth DESC
-        `).all();
-        return json({ members: members.results.map(m => ({ ...m, status: getStatus(m.last_seen_at) })) });
-      }
-
-      // --- ADMIN ROUTES ---
-      if (path === "/api/admin/pending") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        const { results } = await env.DB.prepare("SELECT id, username, created_at FROM users WHERE approved = 0").all();
-        return json({ pending: results });
-      }
-
-      if (path === "/api/admin/sync-prices" && request.method === "POST") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        ctx.waitUntil(autoSyncPrices(env));
-        return json({ success: true });
-      }
-
+      // --- CASE ROUTES ---
       if (path === "/api/cases/list") {
         if (!env.CASES_DB) return json({ error: "CASES_DB binding missing" }, 500);
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
-        return json({ cases: results || [] });
+        // Crucial: ensure results exist before returning
+        return json({ cases: results && results.length > 0 ? results : [] });
       }
 
       if (path === "/api/cases/skins") {
-        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(url.searchParams.get("name")).all();
+        const name = url.searchParams.get("name");
+        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(name).all();
         return json({ skins: results });
       }
 
-      // --- MEGA SEEDER ---
+      // --- ADMIN: MEGA SEEDER (Reliable Version) ---
       if (path === "/api/admin/mega-seed") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
 
         try {
+          // 1. Wipe old "Global Collection" data to prevent duplicates/errors
+          await env.CASES_DB.prepare("DELETE FROM item_definitions WHERE case_name = 'Global Collection'").run();
+
+          // 2. Fetch from ByMykel's clean CSGO API
           const res = await fetch("https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json");
           const allSkins = await res.json();
           const stmts = [];
 
           for (const skin of allSkins) {
             let rarity = "milspec", weight = 50;
-            const rName = skin.rarity.name.toLowerCase();
-            if (rName.includes("extraordinary") || skin.type.includes("Gloves") || skin.weapon?.name.includes("Knife")) { 
+            const rName = (skin.rarity?.name || "Consumer Grade").toLowerCase();
+            
+            if (rName.includes("extraordinary") || skin.type?.includes("Gloves") || skin.weapon?.name?.includes("Knife")) { 
               rarity = "rare_special"; weight = 1; 
             }
             else if (rName.includes("covert")) { rarity = "covert"; weight = 2; }
@@ -253,16 +206,17 @@ export default {
             const skinName = skin.name.replace(weaponType + " | ", "");
 
             stmts.push(env.CASES_DB.prepare(`
-              INSERT OR IGNORE INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
+              INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
               VALUES (?, ?, ?, ?, ?, ?)
             `).bind("Global Collection", weaponType, skinName, rarity, 0.0, weight));
           }
 
+          // 3. Batching to avoid D1 limits
           for (let i = 0; i < stmts.length; i += 50) {
             await env.CASES_DB.batch(stmts.slice(i, i + 50));
           }
 
-          return json({ success: true, message: `Seeded ${allSkins.length} skins. Running price sync now...` });
+          return json({ success: true, message: `Successfully seeded ${allSkins.length} skins. Refresh your Case Builder now.` });
         } catch (e) {
           return json({ error: e.message }, 500);
         }
