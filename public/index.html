@@ -8,14 +8,13 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
 
-    /* Main container for layout */
     .main-content { 
       display: flex; 
       justify-content: space-between; 
       padding: 30px 50px;
+      min-height: 80vh;
     }
 
-    /* Left panel with playground buttons */
     .left-panel {
       width: 25%;
       padding: 20px;
@@ -51,7 +50,6 @@
       text-decoration: none;
     }
 
-    /* Right panel with welcome and info */
     .right-panel {
       width: 70%;
       padding: 30px;
@@ -125,17 +123,54 @@
       color: #8f98a3;
       font-size: 1rem;
     }
+
+    .who-is-grev {
+      margin-top: 40px;
+    }
+
+    /* Private chat at bottom */
+    .private-chat {
+      position: fixed;
+      bottom: 10px;
+      right: 20px;
+      width: 300px;
+      background: #161b22;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    .private-chat input {
+      width: 100%;
+      padding: 12px;
+      background: #0f141a;
+      border: 1px solid #222831;
+      border-radius: 10px;
+      color: #f5f7fa;
+      margin-bottom: 12px;
+    }
+
+    .private-chat button {
+      width: 100%;
+      padding: 12px;
+      background: #9ecbff;
+      border-radius: 10px;
+      color: #0f1115;
+      font-weight: 700;
+    }
+
+    .private-chat button:hover {
+      background: #4a8ab7;
+    }
   </style>
 </head>
 <body>
-
-  <!-- Site header injected here -->
   <div id="site-header"></div>
 
   <!-- Main content area -->
   <div class="main-content">
-
-    <!-- Left panel: Playground buttons -->
+    <!-- Left panel with playground buttons -->
     <div class="left-panel">
       <h2>Explore Playgrounds</h2>
 
@@ -148,7 +183,7 @@
       </div>
     </div>
 
-    <!-- Right panel: Welcome text and info -->
+    <!-- Right panel with welcome and info -->
     <div class="right-panel">
       <h2 class="section-title">Welcome to Grev.dad!</h2>
       <p class="section-text">
@@ -157,7 +192,7 @@
       </p>
 
       <h2 class="section-title">Who is Grev?</h2>
-      <p class="section-text">
+      <p class="section-text who-is-grev">
         Grev is the mastermind behind Grev.dad—also known as the “Grev-ner” of games! 🎮 When he’s not tinkering with code or building projects, you’ll find him dominating Counter-Strike, dueling in Yu-Gi-Oh!, or collecting Pokémon cards! 🃏
         He’s currently rocking the CPL Manager with <strong>Medicarts</strong>, a top 100 team in <em>Medisports</em>. 
       </p>
@@ -169,17 +204,15 @@
         <button onclick="sendMessage()">Send</button>
       </div>
     </div>
-
   </div>
 
-  <!-- Footer -->
   <footer class="footer">
     © Grev.dad — fun playgrounds, games, and experiments.
   </footer>
 
   <script src="/header.js"></script>
   <script>
-    // Placeholder for the chat functionality
+    // Placeholder for the global chat functionality
     let chatMessages = [];
     const chatMessagesContainer = document.getElementById('chatMessages');
 
@@ -195,6 +228,28 @@
         chatMessages.push(newMessage);
         chatInput.value = '';
         updateChatMessages();
+      }
+    }
+  </script>
+
+  <!-- Private chat system (fixed at the bottom) -->
+  <div class="private-chat">
+    <h3>Private Chat</h3>
+    <input type="text" id="privateChatInput" placeholder="Message..." />
+    <button onclick="sendPrivateMessage()">Send</button>
+  </div>
+
+  <script>
+    // Private chat functionality
+    let privateChatMessages = [];
+    const privateChatInput = document.getElementById("privateChatInput");
+
+    function sendPrivateMessage() {
+      const message = privateChatInput.value.trim();
+      if (message) {
+        privateChatMessages.push(message);
+        privateChatInput.value = "";
+        alert("Private message sent!");
       }
     }
   </script>
