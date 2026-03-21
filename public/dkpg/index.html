@@ -22,6 +22,46 @@ body {
     padding: 40px 20px;
 }
 
+/* ================= TOP BUTTONS ================= */
+.top-buttons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.password-btn {
+    background: #ff4747;
+    color: white;
+    border: none;
+    padding: 14px 22px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.password-btn:hover {
+    transform: translateY(-2px);
+    background: #e63b3b;
+}
+
+.stop-btn {
+    background: #202436;
+    border: none;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    font-size: 22px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.stop-btn:hover {
+    background: #2a2f44;
+}
+
 /* ================= HEADER ================= */
 .profile-header {
     display: flex;
@@ -102,45 +142,6 @@ body {
     inset: 0;
 }
 
-/* ================= STEAM CARD ================= */
-.steam-card {
-    background: #171a21;
-    border-radius: 18px;
-    padding: 22px;
-    display: flex;
-    gap: 20px;
-    align-items: center;
-}
-
-.steam-card img {
-    width: 90px;
-    border-radius: 12px;
-}
-
-.steam-info h3 {
-    margin: 0;
-}
-
-.steam-status {
-    color: #9aa3b2;
-    margin-top: 4px;
-}
-
-.steam-button {
-    display: inline-block;
-    margin-top: 10px;
-    background: #1b2838;
-    padding: 10px 16px;
-    border-radius: 8px;
-    text-decoration: none;
-    color: white;
-    font-weight: 600;
-}
-
-.steam-button:hover {
-    background: #22394f;
-}
-
 /* ================= FOOTER ================= */
 .footer {
     margin-top: 60px;
@@ -155,6 +156,19 @@ body {
 <body>
 
 <div class="container">
+
+    <!-- ================= TOP BUTTONS ================= -->
+    <div class="top-buttons">
+        <button class="password-btn" onclick="playRickroll()">Show DontKnow Password</button>
+
+        <button class="stop-btn" onclick="stopRickroll()">🛑</button>
+    </div>
+
+    <!-- Hidden YouTube Player -->
+    <iframe id="rickrollPlayer" width="0" height="0" 
+    src="" 
+    frameborder="0" allow="autoplay"></iframe>
+
 
     <!-- ================= PROFILE HEADER ================= -->
     <div class="profile-header">
@@ -202,23 +216,6 @@ body {
     </div>
 
 
-    <!-- ================= STEAM LIVE PROFILE ================= -->
-    <div class="section-title">Live Steam Profile</div>
-
-    <div class="steam-card">
-        <img src="https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/ee/eeefplaceholder.jpg" id="steam-avatar">
-
-        <div class="steam-info">
-            <h3>iamdontknow69</h3>
-            <div class="steam-status">Status: Checking...</div>
-
-            <a href="https://steamcommunity.com/id/dont-know/" target="_blank" class="steam-button">
-                Open Steam Profile
-            </a>
-        </div>
-    </div>
-
-
     <!-- ================= SOCIAL & PROFESSIONAL ================= -->
     <div class="section-title">Social & Professional</div>
     <div class="links-grid">
@@ -250,39 +247,25 @@ body {
     </div>
 
 
-    <!-- ================= GAMING IDENTITY ================= -->
-    <div class="section-title">DontKnow Gaming</div>
-    <div class="links-grid">
-
-        <div class="card">
-            <h3>My Gaming Brand</h3>
-            <p>Main identity across all platforms</p>
-        </div>
-
-        <div class="card">
-            <h3>Future Game Project</h3>
-            <p>Football Manager style multiplayer game</p>
-        </div>
-
-        <div class="card">
-            <h3>Dev Logs</h3>
-            <p>Follow my progress from beginner to developer</p>
-        </div>
-
-        <div class="card">
-            <h3>Community Projects</h3>
-            <p>Ideas built with the community</p>
-        </div>
-
-    </div>
-
-
     <!-- ================= FOOTER ================= -->
     <div class="footer">
         © 2026 DontKnow Gaming — Official Digital Profile
     </div>
 
 </div>
+
+<script>
+
+function playRickroll() {
+    document.getElementById("rickrollPlayer").src =
+        "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1";
+}
+
+function stopRickroll() {
+    document.getElementById("rickrollPlayer").src = "";
+}
+
+</script>
 
 </body>
 </html>
