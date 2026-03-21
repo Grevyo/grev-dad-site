@@ -122,7 +122,6 @@ async function autoSyncPrices(env) {
     if (Date.now() - lastSync > sixHours) {
       const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
       
-      // Safety check: Ensure we got JSON and not an HTML error page
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         console.error("API returned non-JSON response.");
@@ -221,6 +220,7 @@ export default {
 
       // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
+        if (!env.CASES_DB) return json({ error: "CASES_DB binding missing" }, 500);
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ cases: [], error: "Unauthorized" }, 401);
         
@@ -276,14 +276,14 @@ export default {
       }
 
       // --- 5. ADMIN & MAINTENANCE: MEGA SEEDER ---
-      if (path === "/api/admin/mega-seed" && request.method === "POST") {
+      if (path === "/api/admin/mega-seed") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
 
         try {
           const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
-          
           const contentType = res.headers.get("content-type");
+          
           if (!contentType || !contentType.includes("application/json")) {
              return json({ error: "API returned HTML instead of JSON. Try again later." }, 500);
           }
