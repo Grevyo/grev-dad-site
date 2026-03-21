@@ -6,126 +6,50 @@
   <title>Case Opener - Grev.dad</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
+    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f1115; color: #f5f7fa; }
     
     .wrap { max-width: 1000px; margin: 40px auto; padding: 24px; text-align: center; }
     .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 40px; margin-bottom: 20px; }
 
+    /* --- Case Selection --- */
+    .case-nav { margin-bottom: 20px; }
+    select { 
+        background: #1c222d; color: white; padding: 10px; border-radius: 8px; 
+        border: 1px solid #4b69ff; font-size: 1rem; width: 100%; max-width: 400px;
+    }
+
     /* --- Live Feed Styles --- */
-    .feed-container {
-      background: #11151c;
-      border: 1px solid #222831;
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 20px;
-      text-align: left;
-    }
-    .feed-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.75rem;
-      color: #8f98a3;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 12px;
-    }
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      background: #22c55e;
-      border-radius: 50%;
-      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
-      animation: blink 2s infinite;
-    }
+    .feed-container { background: #11151c; border: 1px solid #222831; border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: left; }
+    .feed-header { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #8f98a3; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    .live-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px rgba(34, 197, 94, 0.6); animation: blink 2s infinite; }
     @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-    #global-feed {
-      display: flex;
-      gap: 12px;
-      overflow-x: auto;
-      padding-bottom: 5px;
-    }
+    #global-feed { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 5px; }
     #global-feed::-webkit-scrollbar { height: 4px; }
     #global-feed::-webkit-scrollbar-thumb { background: #222831; border-radius: 10px; }
 
-    .feed-item {
-      flex: 0 0 auto;
-      background: #1c222d;
-      padding: 8px 12px;
-      border-radius: 6px;
-      min-width: 180px;
-      font-size: 0.8rem;
-      border-left: 3px solid #4b69ff;
-    }
+    .feed-item { flex: 0 0 auto; background: #1c222d; padding: 8px 12px; border-radius: 6px; min-width: 220px; font-size: 0.8rem; border-left: 3px solid #4b69ff; }
     .feed-user { font-weight: bold; color: #f5f7fa; margin-bottom: 2px; }
     .feed-skin { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; }
 
     /* --- Spinner Styles --- */
-    .spinner-viewport {
-      position: relative;
-      width: 100%;
-      height: 160px;
-      background: #0d1117;
-      border: 2px solid #222831;
-      margin: 30px 0;
-      overflow: hidden;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-    }
-    .center-line {
-      position: absolute;
-      left: 50%;
-      top: 0;
-      width: 3px;
-      height: 100%;
-      background: #ff4b4b;
-      z-index: 10;
-      box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
-    }
-    .items-rail {
-      display: flex;
-      position: absolute;
-      left: 0;
-      transition: transform 5s cubic-bezier(0.1, 0, 0.05, 1);
-      will-change: transform;
-    }
-    .skin-card {
-      min-width: 160px;
-      height: 140px;
-      background: #1c222d;
-      border-bottom: 5px solid #4b69ff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 10px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      border-right: 1px solid #0d1117;
-    }
+    .spinner-viewport { position: relative; width: 100%; height: 160px; background: #0d1117; border: 2px solid #222831; margin: 30px 0; overflow: hidden; border-radius: 12px; display: flex; align-items: center; }
+    .center-line { position: absolute; left: 50%; top: 0; width: 3px; height: 100%; background: #ff4b4b; z-index: 10; box-shadow: 0 0 10px rgba(255, 75, 75, 0.5); }
+    .items-rail { display: flex; position: absolute; left: 0; transition: transform 5s cubic-bezier(0.1, 0, 0.05, 1); will-change: transform; }
+    .skin-card { min-width: 160px; height: 140px; background: #1c222d; border-bottom: 5px solid #4b69ff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; font-size: 0.8rem; font-weight: bold; border-right: 1px solid #0d1117; }
 
     .rarity-covert { border-bottom-color: #eb4b4b; }
     .rarity-classified { border-bottom-color: #d32ee6; }
     .rarity-restricted { border-bottom-color: #8847ff; }
     .rarity-milspec { border-bottom-color: #4b69ff; }
+    .rarity-rare_special { border-bottom-color: #ffae00; }
 
-    .btn-open {
-      background: #9ecbff;
-      color: #0f1115;
-      padding: 16px 40px;
-      border: none;
-      border-radius: 12px;
-      font-size: 1.2rem;
-      font-weight: 800;
-      cursor: pointer;
-      transition: transform 0.1s;
-    }
+    .btn-open { background: #9ecbff; color: #0f1115; padding: 16px 40px; border: none; border-radius: 12px; font-size: 1.2rem; font-weight: 800; cursor: pointer; transition: transform 0.1s; }
     .btn-open:active { transform: scale(0.95); }
     .btn-open:disabled { opacity: 0.5; cursor: not-allowed; }
 
     #win-message { margin-top: 20px; font-size: 1.2rem; color: #9ecbff; font-weight: bold; min-height: 1.5em; }
+    #win-details { font-size: 0.9rem; color: #8f98a3; margin-top: 5px; }
   </style>
 </head>
 <body>
@@ -133,18 +57,18 @@
 
   <div class="wrap">
     <div class="feed-container">
-      <div class="feed-header">
-        <div class="live-dot"></div>
-        Live Family Drops
-      </div>
-      <div id="global-feed">
-        <div style="color: #4b4e52; font-size: 0.8rem;">Loading latest unboxes...</div>
-      </div>
+      <div class="feed-header"><div class="live-dot"></div>Live Family Drops</div>
+      <div id="global-feed"></div>
     </div>
 
     <div class="box">
       <h1>CS2 Case Simulator</h1>
-      <p>Test your luck on the Kilowatt Case!</p>
+      
+      <div class="case-nav">
+          <select id="caseSelector" onchange="updateCasePreview()">
+              <option value="">Loading Cases...</option>
+          </select>
+      </div>
 
       <div class="spinner-viewport">
         <div class="center-line"></div>
@@ -153,101 +77,131 @@
 
       <button id="openBtn" class="btn-open" onclick="startSpin()">Open Case</button>
       <div id="win-message"></div>
+      <div id="win-details"></div>
     </div>
   </div>
 
   <script src="/header.js"></script>
   <script>
-    const caseSkins = [
-      { name: "Inheritance", type: "AK-47", rarity: "covert", val: 145 },
-      { name: "Chrome Cannon", type: "AWP", rarity: "covert", val: 95 },
-      { name: "Jawbreaker", type: "USP-S", rarity: "classified", val: 18 },
-      { name: "Black Lotus", type: "M4A1-S", rarity: "classified", val: 14 },
-      { name: "Light Box", type: "MAC-10", rarity: "milspec", val: 1.5 }
-    ];
-
+    let currentCaseSkins = [];
     const rail = document.getElementById('rail');
     const openBtn = document.getElementById('openBtn');
 
-    // Load Live Drops from all users
+    // 1. LOAD ALL AVAILABLE CASES FROM DATABASE
+    async function initCases() {
+        const res = await fetch("/api/cases/list");
+        const data = await res.json();
+        const selector = document.getElementById('caseSelector');
+        selector.innerHTML = "";
+        data.cases.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.case_name;
+            opt.innerText = c.case_name;
+            selector.appendChild(opt);
+        });
+        updateCasePreview();
+    }
+
+    // 2. PREVIEW SKINS IN THE SELECTED CASE
+    async function updateCasePreview() {
+        const caseName = document.getElementById('caseSelector').value;
+        const res = await fetch(`/api/cases/skins?name=${encodeURIComponent(caseName)}`);
+        const data = await res.json();
+        currentCaseSkins = data.skins;
+        
+        // Fill the rail with a preview
+        rail.innerHTML = "";
+        currentCaseSkins.forEach(skin => {
+            const card = document.createElement('div');
+            card.className = `skin-card rarity-${skin.rarity}`;
+            card.innerHTML = `<span>${skin.weapon_type}</span><br><small>${skin.skin_name}</small>`;
+            rail.appendChild(card);
+        });
+    }
+
+    // 3. LOAD THE LIVE GLOBAL FEED
     async function loadGlobalFeed() {
       try {
         const res = await fetch("/api/inventory/recent-global");
         const data = await res.json();
         const feed = document.getElementById("global-feed");
+        if (!data.recent) return;
 
-        if (data.recent && data.recent.length > 0) {
-          feed.innerHTML = "";
-          data.recent.forEach(drop => {
-            const colors = { covert: '#eb4b4b', classified: '#d32ee6', restricted: '#8847ff', milspec: '#4b69ff' };
-            const borderColor = colors[drop.skin_rarity] || '#4b69ff';
-            
-            const div = document.createElement("div");
-            div.className = "feed-item";
-            div.style.borderLeftColor = borderColor;
-            div.innerHTML = `
-              <div class="feed-user">${drop.username}</div>
-              <div class="feed-skin" style="color: ${borderColor}">${drop.skin_name}</div>
-            `;
-            feed.appendChild(div);
-          });
-        }
+        feed.innerHTML = "";
+        const colors = { covert: '#eb4b4b', classified: '#d32ee6', restricted: '#8847ff', milspec: '#4b69ff', rare_special: '#ffae00' };
+        
+        data.recent.forEach(drop => {
+          const borderColor = colors[drop.skin_rarity] || '#4b69ff';
+          const div = document.createElement("div");
+          div.className = "feed-item";
+          div.style.borderLeftColor = borderColor;
+          div.innerHTML = `
+            <div class="feed-user">${drop.username}</div>
+            <div class="feed-skin" style="color: ${borderColor}">${drop.skin_name}</div>
+          `;
+          feed.appendChild(div);
+        });
       } catch (e) { console.error("Feed error:", e); }
     }
 
+    // 4. THE SPIN LOGIC
     async function startSpin() {
+      const caseName = document.getElementById('caseSelector').value;
+      if (!caseName) return;
+
       openBtn.disabled = true;
-      document.getElementById('win-message').innerText = "Opening...";
+      document.getElementById('win-message').innerText = "Generating Roll...";
+      document.getElementById('win-details').innerText = "";
       
+      // Call the server to decide the winner (weighted and quality calculated)
+      const response = await fetch("/api/cases/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caseName: caseName })
+      });
+      const result = await response.json();
+      if (!result.success) {
+          alert(result.error);
+          openBtn.disabled = false;
+          return;
+      }
+
+      // Prepare Spinner
       rail.style.transition = "none";
       rail.style.transform = "translateX(0px)";
       rail.innerHTML = "";
       
-      const winningIndex = 50; 
-      const winner = caseSkins[Math.floor(Math.random() * caseSkins.length)];
-      
-      for(let i=0; i < 60; i++) {
-        const skin = (i === winningIndex) ? winner : caseSkins[Math.floor(Math.random() * caseSkins.length)];
+      const winningIndex = 40; 
+      const itemWidth = 160;
+
+      for(let i=0; i < 50; i++) {
+        const skin = (i === winningIndex) ? result : currentCaseSkins[Math.floor(Math.random() * currentCaseSkins.length)];
         const card = document.createElement('div');
         card.className = `skin-card rarity-${skin.rarity}`;
-        card.innerHTML = `<span>${skin.type}</span><br><small>${skin.name}</small>`;
+        // Note: result uses .weapon and .skin, currentCaseSkins uses .weapon_type and .skin_name
+        const wType = skin.weapon || skin.weapon_type;
+        const sName = skin.skin || skin.skin_name;
+        card.innerHTML = `<span>${wType}</span><br><small>${sName}</small>`;
         rail.appendChild(card);
       }
 
-      const itemWidth = 160;
       const viewportWidth = document.querySelector('.spinner-viewport').offsetWidth;
-      const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2);
+      const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2) + (Math.random() * 60 - 30);
 
       setTimeout(() => {
         rail.style.transition = "transform 5s cubic-bezier(0.1, 0, 0.05, 1)";
         rail.style.transform = `translateX(-${finalOffset}px)`;
       }, 50);
 
-      setTimeout(async () => {
-        document.getElementById('win-message').innerText = `You unboxed: ${winner.type} | ${winner.name}!`;
+      setTimeout(() => {
+        document.getElementById('win-message').innerText = result.item;
+        document.getElementById('win-details').innerText = `Float: ${result.float} | Value: $${result.price}`;
         openBtn.disabled = false;
-
-        try {
-          const response = await fetch("/api/inventory/add", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              name: `${winner.type} | ${winner.name}`,
-              rarity: winner.rarity,
-              value: winner.val
-            })
-          });
-          
-          if (response.ok) {
-            // Immediately refresh the feed so you see your own drop pop up!
-            loadGlobalFeed();
-          }
-        } catch (err) {
-          console.error("Error saving unboxed item:", err);
-        }
+        loadGlobalFeed(); // Refresh ticker immediately
       }, 5200);
     }
 
+    initCases();
     loadGlobalFeed();
     setInterval(loadGlobalFeed, 15000); 
   </script>
