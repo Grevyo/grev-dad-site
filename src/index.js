@@ -78,12 +78,22 @@ function parseStoredHash(stored) {
   };
 }
 
+async function touchUser(env, userId) {
+  await env.DB.prepare(`
+    UPDATE users
+    SET last_seen_at = ?
+    WHERE id = ?
+  `)
+    .bind(new Date().toISOString(), userId)
+    .run();
+}
+
 async function getCurrentUser(request, env) {
   const token = getCookieValue(request.headers.get("Cookie"), "session_token");
   if (!token) return null;
 
   const user = await env.DB.prepare(`
-    SELECT users.id, users.username, users.approved, users.is_admin, users.created_at
+    SELECT users.id, users.username, users.approved, users.is_admin, users.created_at, users.last_seen_at
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.session_token = ?
@@ -94,6 +104,18 @@ async function getCurrentUser(request, env) {
     .first();
 
   return user || null;
+}
+
+function getStatus(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+
+  const now = Date.now();
+  const seen = new Date(lastSeenAt).getTime();
+  const diffMinutes = (now - seen) / 60000;
+
+  if (diffMinutes <= 5) return "online";
+  if (diffMinutes <= 30) return "away";
+  return "offline";
 }
 
 async function serveAssetOr404(env, request) {
@@ -152,10 +174,10 @@ export default {
         const passwordHash = `pbkdf2_sha256$100000$${saltBase64}$${hashBase64}`;
 
         await env.DB.prepare(`
-          INSERT INTO users (username, password_hash, approved, is_admin, created_at)
-          VALUES (?, ?, 0, 0, ?)
+          INSERT INTO users (username, password_hash, approved, is_admin, created_at, last_seen_at)
+          VALUES (?, ?, 0, 0, ?, ?)
         `)
-          .bind(username, passwordHash, new Date().toISOString())
+          .bind(username, passwordHash, new Date().toISOString(), null)
           .run();
 
         return redirect(request, "/login.html?msg=Account%20created.%20Waiting%20for%20approval.");
@@ -171,7 +193,7 @@ export default {
         }
 
         const user = await env.DB.prepare(`
-          SELECT id, username, password_hash, approved, is_admin, created_at
+          SELECT id, username, password_hash, approved, is_admin, created_at, last_seen_at
           FROM users
           WHERE username = ?
           LIMIT 1
@@ -209,6 +231,8 @@ export default {
           .bind(sessionToken, user.id, now.toISOString(), expires.toISOString())
           .run();
 
+        await touchUser(env, user.id);
+
         return new Response(null, {
           status: 302,
           headers: {
@@ -245,6 +269,8 @@ export default {
           return json({ loggedIn: false }, 401);
         }
 
+        await touchUser(env, user.id);
+
         return json({
           loggedIn: true,
           user: {
@@ -262,16 +288,24 @@ export default {
           return json({ error: "Not logged in" }, 401);
         }
 
+        await touchUser(env, currentUser.id);
+
         const members = await env.DB.prepare(`
-          SELECT id, username, is_admin, created_at
+          SELECT id, username, is_admin, created_at, last_seen_at
           FROM users
           WHERE approved = 1
           ORDER BY username ASC
         `).all();
 
-        return json({
-          members: members.results || []
-        });
+        const mapped = (members.results || []).map(member => ({
+          id: member.id,
+          username: member.username,
+          is_admin: member.is_admin,
+          created_at: member.created_at,
+          status: getStatus(member.last_seen_at)
+        }));
+
+        return json({ members: mapped });
       }
 
       if (path === "/members.html" || path === "/profile.html" || path === "/admin.html") {
@@ -280,6 +314,8 @@ export default {
         if (!user || !user.approved) {
           return redirect(request, "/login.html?msg=Please%20log%20in.");
         }
+
+        await touchUser(env, user.id);
 
         if (path === "/admin.html" && !user.is_admin) {
           return redirect(request, "/members.html?msg=Admin%20access%20only.");
