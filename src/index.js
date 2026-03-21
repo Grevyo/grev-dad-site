@@ -1,14 +1,8 @@
-const SKIN_API_KEY = "395cf104-25ac-4093-8417-d9e58f936d48";
-
-// --- HELPER FUNCTIONS ---
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      "Pragma": "no-cache",
-      "Expires": "0"
+    headers: {
+      "content-type": "application/json; charset=utf-8"
     }
   });
 }
@@ -28,13 +22,18 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
-  return `session_v3=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;
+  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.grev.dad`;
 }
 
-// --- PASSWORD & CRYPTO ---
+function clearSessionCookie() {
+  return "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Domain=.grev.dad";
+}
+
 function toBase64(bytes) {
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
   return btoa(binary);
 }
 
@@ -44,32 +43,79 @@ function fromBase64(str) {
 
 async function hashPassword(password, saltBase64, iterations = 100000) {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromBase64(saltBase64), iterations }, key, 256);
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: fromBase64(saltBase64),
+      iterations
+    },
+    key,
+    256
+  );
+
   return toBase64(new Uint8Array(bits));
 }
 
 function parseStoredHash(stored) {
   const parts = String(stored || "").split("$");
   if (parts.length !== 4) return null;
-  return { algorithm: parts[0], iterations: Number(parts[1]), saltBase64: parts[2], hashBase64: parts[3] };
+
+  return {
+    algorithm: parts[0],
+    iterations: Number(parts[1]),
+    saltBase64: parts[2],
+    hashBase64: parts[3]
+  };
 }
 
-// --- USER & SESSION HELPERS ---
 async function touchUser(env, userId) {
-  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE id = ?`)
+  await env.DB.prepare(`
+    UPDATE users
+    SET last_seen_at = ?
+    WHERE id = ?
+  `)
     .bind(new Date().toISOString(), userId)
     .run();
 }
 
 async function getCurrentUser(request, env) {
-  const token = getCookieValue(request.headers.get("Cookie"), "session_v3");
+  const token = getCookieValue(request.headers.get("Cookie"), "session_token");
   if (!token) return null;
-  return await env.DB.prepare(`
+
+  const user = await env.DB.prepare(`
     SELECT users.id, users.username, users.approved, users.is_admin, users.created_at, users.last_seen_at
-    FROM sessions JOIN users ON users.id = sessions.user_id
-    WHERE sessions.session_token = ? AND sessions.expires_at > ? LIMIT 1
-  `).bind(token, new Date().toISOString()).first();
+    FROM sessions
+    JOIN users ON users.id = sessions.user_id
+    WHERE sessions.session_token = ?
+      AND sessions.expires_at > ?
+    LIMIT 1
+  `)
+    .bind(token, new Date().toISOString())
+    .first();
+
+  return user || null;
+}
+
+function getStatus(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+
+  const now = Date.now();
+  const seen = new Date(lastSeenAt).getTime();
+  const diffMinutes = (now - seen) / 60000;
+
+  if (diffMinutes <= 5) return "online";
+  if (diffMinutes <= 30) return "away";
+  return "offline";
 }
 
 async function requireApprovedUser(request, env) {
@@ -87,196 +133,527 @@ async function requireAdminUser(request, env) {
 
 async function serveAssetOr404(env, request) {
   if (!env.ASSETS || typeof env.ASSETS.fetch !== "function") {
-    return new Response("ASSETS binding missing.", { status: 500 });
+    return new Response("ASSETS binding is missing.", { status: 500 });
   }
-  return await env.ASSETS.fetch(request);
-}
-
-function getStatus(lastSeenAt) {
-  if (!lastSeenAt) return "offline";
-  const diff = (Date.now() - new Date(lastSeenAt).getTime()) / 60000;
-  if (diff <= 5) return "online";
-  if (diff <= 30) return "away";
-  return "offline";
-}
-
-// --- FLOAT & WEAR ---
-function calculateSkinQuality(basePrice) {
-  const float = Math.random();
-  let wear = "Factory New";
-  let multiplier = 1.0;
-  if (float > 0.07 && float <= 0.15) { wear = "Minimal Wear"; multiplier = 0.85; }
-  else if (float > 0.15 && float <= 0.38) { wear = "Field-Tested"; multiplier = 0.70; }
-  else if (float > 0.38 && float <= 0.45) { wear = "Well-Worn"; multiplier = 0.55; }
-  else if (float > 0.45) { wear = "Battle-Scarred"; multiplier = 0.40; }
-  return { wear, float: float.toFixed(5), price: (basePrice * multiplier).toFixed(2) };
+  return env.ASSETS.fetch(request);
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     try {
       const url = new URL(request.url);
-      const path = url.pathname.toLowerCase().replace(/\/$/, "");
+      const path = url.pathname;
 
-      // --- CLEAN ROUTING: FIXED TO PREVENT REDIRECT LOOPS ---
-      if (path === "/cases") return redirect(request, "/cases.html");
-      if (path === "/members") return redirect(request, "/members.html");
-      if (path === "/profile" && !url.pathname.endsWith(".html")) {
-        return redirect(request, "/profile.html" + url.search);
-      }
-      
-      if (path === "/api/ping") return json({ ok: true });
-
-      // --- AUTH: ME ---
-      if (path === "/api/me") {
-        const user = await getCurrentUser(request, env);
-        if (!user) return json({ authenticated: false }, 401);
-        return json({ authenticated: true, user });
+      if (path === "/api/ping") {
+        return json({ ok: true });
       }
 
-      // --- AUTH: LOGIN ---
+      // Register
+      if (path === "/api/register" && request.method === "POST") {
+        const form = await request.formData();
+        const username = String(form.get("username") || "").trim();
+        const password = String(form.get("password") || "");
+        const password2 = String(form.get("password2") || "");
+
+        if (!username || !password || !password2) {
+          return redirect(request, "/register.html?msg=Please%20fill%20in%20all%20fields.");
+        }
+
+        if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) {
+          return redirect(request, "/register.html?msg=Username%20must%20be%203-24%20characters.");
+        }
+
+        if (password !== password2) {
+          return redirect(request, "/register.html?msg=Passwords%20do%20not%20match.");
+        }
+
+        if (password.length < 8) {
+          return redirect(request, "/register.html?msg=Password%20must%20be%20at%20least%208%20characters.");
+        }
+
+        const existing = await env.DB.prepare(
+          "SELECT id FROM users WHERE username = ? LIMIT 1"
+        )
+          .bind(username)
+          .first();
+
+        if (existing) {
+          return redirect(request, "/register.html?msg=That%20username%20is%20already%20taken.");
+        }
+
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const saltBase64 = toBase64(salt);
+        const hashBase64 = await hashPassword(password, saltBase64, 100000);
+        const passwordHash = `pbkdf2_sha256$100000$${saltBase64}$${hashBase64}`;
+
+        await env.DB.prepare(`
+          INSERT INTO users (username, password_hash, approved, is_admin, created_at, last_seen_at)
+          VALUES (?, ?, 0, 0, ?, ?)
+        `)
+          .bind(username, passwordHash, new Date().toISOString(), null)
+          .run();
+
+        return redirect(request, "/login.html?msg=Account%20created.%20Waiting%20for%20approval.");
+      }
+
+      // Login
       if (path === "/api/login" && request.method === "POST") {
         const form = await request.formData();
-        const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(form.get("username")).first();
-        if (!user) return redirect(request, "/login.html?msg=Invalid%20Credentials");
+        const username = String(form.get("username") || "").trim();
+        const password = String(form.get("password") || "");
+
+        if (!username || !password) {
+          return redirect(request, "/login.html?msg=Please%20enter%20username%20and%20password.");
+        }
+
+        const user = await env.DB.prepare(`
+          SELECT id, username, password_hash, approved, is_admin, created_at, last_seen_at
+          FROM users
+          WHERE username = ?
+          LIMIT 1
+        `)
+          .bind(username)
+          .first();
+
+        if (!user) {
+          return redirect(request, "/login.html?msg=Invalid%20username%20or%20password.");
+        }
+
         const parsed = parseStoredHash(user.password_hash);
-        const calc = await hashPassword(form.get("password"), parsed.saltBase64, parsed.iterations);
-        if (calc !== parsed.hashBase64) return redirect(request, "/login.html?msg=Invalid%20Credentials");
-        if (!user.approved) return redirect(request, "/login.html?msg=Not%20Approved");
-        const token = crypto.randomUUID();
-        const now = new Date().toISOString();
-        const expires = new Date(Date.now() + 7 * 86400000).toISOString();
-        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(token, user.id, now, expires).run();
-        return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
-      }
+        if (!parsed || parsed.algorithm !== "pbkdf2_sha256") {
+          return redirect(request, "/login.html?msg=Account%20password%20format%20is%20invalid.");
+        }
 
-      // --- LEADERBOARD API ---
-      if (path === "/api/members") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
+        const calc = await hashPassword(password, parsed.saltBase64, parsed.iterations);
 
-        const { results: users } = await env.DB.prepare(`SELECT id, username, is_admin, last_seen_at FROM users WHERE approved = 1`).all();
-        const { results: totals } = await env.CASES_DB.prepare(`SELECT user_id, COUNT(*) as item_count, SUM(price) as total_wealth FROM user_inventory GROUP BY user_id`).all();
+        if (calc !== parsed.hashBase64) {
+          return redirect(request, "/login.html?msg=Invalid%20username%20or%20password.");
+        }
 
-        const members = users.map(u => {
-          const stats = totals.find(t => t.user_id === u.id) || { item_count: 0, total_wealth: 0 };
-          return {
-            id: u.id,
-            username: u.username,
-            is_admin: u.is_admin,
-            status: getStatus(u.last_seen_at),
-            item_count: stats.item_count,
-            total_wealth: stats.total_wealth || 0
-          };
+        if (!user.approved) {
+          return redirect(request, "/login.html?msg=Your%20account%20has%20not%20been%20approved%20yet.");
+        }
+
+        const sessionToken = crypto.randomUUID();
+        const now = new Date();
+        const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        await env.DB.prepare(`
+          INSERT INTO sessions (session_token, user_id, created_at, expires_at)
+          VALUES (?, ?, ?, ?)
+        `)
+          .bind(sessionToken, user.id, now.toISOString(), expires.toISOString())
+          .run();
+
+        await touchUser(env, user.id);
+
+        return new Response(null, {
+          status: 302,
+          headers: {
+            "Location": new URL("/members.html", request.url).toString(),
+            "Set-Cookie": buildSessionCookie(sessionToken)
+          }
         });
-
-        members.sort((a, b) => b.total_wealth - a.total_wealth);
-        return json({ members });
       }
 
-      // --- PROFILE API ---
-      if (path === "/api/profile") {
-        const id = url.searchParams.get("id");
-        if (!id) return json({ error: "No ID" }, 400);
+      // Logout
+      if (path === "/api/logout") {
+        const token = getCookieValue(request.headers.get("Cookie"), "session_token");
 
-        const user = await env.DB.prepare(`SELECT id, username, last_seen_at, created_at FROM users WHERE id = ?`).bind(id).first();
-        if (!user) return json({ error: "User not found" }, 404);
+        if (token) {
+          await env.DB.prepare(
+            "DELETE FROM sessions WHERE session_token = ?"
+          )
+            .bind(token)
+            .run();
+        }
 
-        const { results: inventory } = await env.CASES_DB.prepare(`SELECT * FROM user_inventory WHERE user_id = ? ORDER BY unboxed_at DESC`).bind(id).all();
+        return new Response(null, {
+          status: 302,
+          headers: {
+            "Location": new URL("/login.html?msg=Logged%20out.", request.url).toString(),
+            "Set-Cookie": clearSessionCookie()
+          }
+        });
+      }
+
+      // Me
+      if (path === "/api/me") {
+        const user = await getCurrentUser(request, env);
+
+        if (!user || !user.approved) {
+          return json({ loggedIn: false }, 401);
+        }
+
+        await touchUser(env, user.id);
 
         return json({
-          username: user.username,
-          status: getStatus(user.last_seen_at),
-          created_at: user.created_at,
-          inventory: inventory || []
+          loggedIn: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            is_admin: user.is_admin,
+            created_at: user.created_at
+          }
         });
       }
 
-      // --- CASE OPENING ---
-      if (path === "/api/cases/open" && request.method === "POST") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Please log in" }, 401);
-
-        const { caseName } = await request.json();
-        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
-        if (!skins || skins.length === 0) return json({ error: "Case empty" }, 404);
-
-        const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
-        let random = Math.random() * totalWeight;
-        let selected = skins[0];
-        for (const s of skins) {
-          if (random < s.drop_weight) { selected = s; break; }
-          random -= s.drop_weight;
+      // Members
+      if (path === "/api/members") {
+        const currentUser = await requireApprovedUser(request, env);
+        if (!currentUser) {
+          return json({ error: "Not logged in" }, 401);
         }
 
-        const quality = calculateSkinQuality(selected.base_price);
-        
-        await env.CASES_DB.prepare(`
-          INSERT INTO user_inventory (user_id, skin_name, rarity, wear, price)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(user.id, `${selected.weapon_type} | ${selected.skin_name}`, selected.rarity, quality.wear, quality.price).run();
+        const members = await env.DB.prepare(`
+          SELECT id, username, is_admin, created_at, last_seen_at
+          FROM users
+          WHERE approved = 1
+          ORDER BY username ASC
+        `).all();
 
-        return json({ success: true, item: selected, quality });
+        const mapped = (members.results || []).map(member => ({
+          id: member.id,
+          username: member.username,
+          is_admin: member.is_admin,
+          created_at: member.created_at,
+          status: getStatus(member.last_seen_at)
+        }));
+
+        return json({ members: mapped });
       }
 
-      // --- PRICE SYNC ROUTE ---
-      if (path === "/api/admin/sync-prices") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
 
-        const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`);
-        const data = await res.json();
-        const stmts = [];
-        
-        for (const [fullName, details] of Object.entries(data)) {
-          const price = (details.steam?.price || 0) / 100;
-          if (price > 0) {
-            stmts.push(env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
-              .bind(price, fullName));
+async function handleRequest(request) {
+  const url = new URL(request.url);
+
+  // Global Chat API
+  if (url.pathname === '/api/chat') {
+    return handleChatRequest(request);
+  }
+
+  // If it doesn't match, return 404
+  return new Response('Not found', { status: 404 });
+}
+
+async function handleChatRequest(request) {
+  // Handle incoming global chat messages (POST)
+  if (request.method === 'POST') {
+    const data = await request.json();
+
+    // Save the chat message to D1
+    const messageSaved = await saveChatMessage(data);
+    if (messageSaved) {
+      return new Response('Message saved', { status: 200 });
+    }
+    return new Response('Failed to save message', { status: 500 });
+  }
+
+  // Handle getting chat history (GET)
+  if (request.method === 'GET') {
+    const messages = await fetchMessages();
+    return new Response(JSON.stringify(messages), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response('Method Not Allowed', { status: 405 });
+}
+
+// Function to save chat message to D1
+async function saveChatMessage(data) {
+  const { username, message } = data;
+
+  try {
+    // Insert message into chat_messages table in D1
+    const query = `
+      INSERT INTO chat_messages (author_username, message, created_at)
+      VALUES (?, ?, ?)
+    `;
+    const params = [username, message, new Date().toISOString()];
+
+    await DB.prepare(query).bind(...params).run();
+    return true;
+  } catch (error) {
+    console.error('Error saving message:', error);
+    return false;
+  }
+}
+
+// Function to fetch all chat messages
+async function fetchMessages() {
+  try {
+    const query = `SELECT * FROM chat_messages ORDER BY created_at ASC`;
+    const rows = await DB.prepare(query).all();
+
+    // Return messages sorted by date
+    return rows.map(row => ({
+      username: row.author_username,
+      message: row.message,
+      created_at: row.created_at,
+    }));
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    return [];
+  }
+}
+
+      // Admin - pending users
+      if (path === "/api/admin/pending-users") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) {
+          return json({ error: "Forbidden" }, 403);
+        }
+
+        const users = await env.DB.prepare(`
+          SELECT username, created_at
+          FROM users
+          WHERE approved = 0
+          ORDER BY created_at ASC
+        `).all();
+
+        return json({ users: users.results || [] });
+      }
+
+      // Admin - approve user
+      if (path === "/api/admin/approve-user" && request.method === "POST") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) {
+          return json({ error: "Forbidden" }, 403);
+        }
+
+        const body = await request.json();
+        const username = String(body.username || "").trim();
+
+        if (!username) {
+          return json({ error: "Missing username" }, 400);
+        }
+
+        await env.DB.prepare(`
+          UPDATE users
+          SET approved = 1
+          WHERE username = ?
+        `)
+          .bind(username)
+          .run();
+
+        return json({ ok: true });
+      }
+
+      // Admin - reject user
+      if (path === "/api/admin/reject-user" && request.method === "POST") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) {
+          return json({ error: "Forbidden" }, 403);
+        }
+
+        const body = await request.json();
+        const username = String(body.username || "").trim();
+
+        if (!username) {
+          return json({ error: "Missing username" }, 400);
+        }
+
+        await env.DB.prepare(`
+          DELETE FROM users
+          WHERE username = ?
+            AND approved = 0
+        `)
+          .bind(username)
+          .run();
+
+        return json({ ok: true });
+      }
+
+      // Admin - forum posts list
+      if (path === "/api/admin/forum-posts") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) {
+          return json({ error: "Forbidden" }, 403);
+        }
+
+        const posts = await env.DB.prepare(`
+          SELECT id, subject, author_username, created_at
+          FROM forum_posts
+          ORDER BY id DESC
+        `).all();
+
+        return json({ posts: posts.results || [] });
+      }
+
+      // Admin - remove forum post
+      if (path === "/api/admin/remove-post" && request.method === "POST") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) {
+          return json({ error: "Forbidden" }, 403);
+        }
+
+        const body = await request.json();
+        const postId = body.post_id;
+
+        if (!postId) {
+          return json({ error: "Missing post_id" }, 400);
+        }
+
+        await env.DB.prepare(`DELETE FROM forum_comments WHERE post_id = ?`)
+          .bind(postId)
+          .run();
+
+        await env.DB.prepare(`DELETE FROM forum_posts WHERE id = ?`)
+          .bind(postId)
+          .run();
+
+        return json({ ok: true });
+      }
+
+      // Forum - list posts
+      if (path === "/api/forum/posts") {
+        const posts = await env.DB.prepare(`
+          SELECT id, subject, author_username, created_at
+          FROM forum_posts
+          ORDER BY id DESC
+        `).all();
+
+        return json({ posts: posts.results || [] });
+      }
+
+      // Forum - create post
+      if (path === "/api/forum/create-post" && request.method === "POST") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) {
+          return json({ error: "Not logged in" }, 401);
+        }
+
+        const body = await request.json();
+        const subject = String(body.subject || "").trim();
+        const description = String(body.description || "").trim();
+        const imageUrl = String(body.image_url || "").trim();
+
+        if (!subject || !description) {
+          return json({ error: "Missing subject or description" }, 400);
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO forum_posts (subject, description, image_url, author_user_id, author_username, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `)
+          .bind(
+            subject,
+            description,
+            imageUrl || null,
+            user.id,
+            user.username,
+            new Date().toISOString()
+          )
+          .run();
+
+        return json({ ok: true });
+      }
+
+      // Forum - single post
+      if (path === "/api/forum/post") {
+        const postId = url.searchParams.get("id");
+
+        if (!postId) {
+          return json({ post: null }, 400);
+        }
+
+        const post = await env.DB.prepare(`
+          SELECT id, subject, description, image_url, author_username, created_at
+          FROM forum_posts
+          WHERE id = ?
+          LIMIT 1
+        `)
+          .bind(postId)
+          .first();
+
+        return json({ post: post || null });
+      }
+
+      // Forum - comments
+      if (path === "/api/forum/comments") {
+        const postId = url.searchParams.get("post_id");
+
+        if (!postId) {
+          return json({ comments: [] }, 400);
+        }
+
+        const comments = await env.DB.prepare(`
+          SELECT id, author_username, comment, created_at
+          FROM forum_comments
+          WHERE post_id = ?
+          ORDER BY id ASC
+        `)
+          .bind(postId)
+          .all();
+
+        return json({ comments: comments.results || [] });
+      }
+
+      // Forum - create comment
+      if (path === "/api/forum/create-comment" && request.method === "POST") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) {
+          return json({ error: "Not logged in" }, 401);
+        }
+
+        const body = await request.json();
+        const postId = body.post_id;
+        const comment = String(body.comment || "").trim();
+
+        if (!postId || !comment) {
+          return json({ error: "Missing post_id or comment" }, 400);
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO forum_comments (post_id, author_user_id, author_username, comment, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `)
+          .bind(
+            postId,
+            user.id,
+            user.username,
+            comment,
+            new Date().toISOString()
+          )
+          .run();
+
+        return json({ ok: true });
+      }
+
+      // Protected pages
+      if (
+        path === "/members.html" ||
+        path === "/profile.html" ||
+        path === "/admin.html" ||
+        path === "/new-post.html"
+      ) {
+        const user = await requireApprovedUser(request, env);
+        if (!user) {
+          return redirect(request, "/login.html?msg=Please%20log%20in.");
+        }
+
+        if (path === "/admin.html" && !user.is_admin) {
+          return redirect(request, "/members.html?msg=Admin%20access%20only.");
+        }
+      }
+
+      return serveAssetOr404(env, request);
+    } catch (err) {
+      return new Response(
+        "Worker crash:\n\n" + (err && err.stack ? err.stack : String(err)),
+        return await serveAssetOr404(env, request);
+		{
+          status: 500,
+          headers: {
+            "content-type": "text/plain; charset=utf-8"
           }
         }
-        for (let i = 0; i < stmts.length; i += 50) { await env.CASES_DB.batch(stmts.slice(i, i + 50)); }
-        return json({ success: true, updated: stmts.length });
-      }
-
-      // --- CASE ROUTES ---
-      if (path === "/api/cases/list") {
-        const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
-        return json({ cases: results || [] });
-      }
-
-      if (path === "/api/cases/skins") {
-        const name = url.searchParams.get("name");
-        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(name).all();
-        return json({ skins: results });
-      }
-
-      // --- ADMIN: MEGA SEEDER ---
-      if (path === "/api/admin/mega-seed") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        await env.CASES_DB.prepare("DELETE FROM item_definitions WHERE case_name = 'Global Collection'").run();
-        const res = await fetch("https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json");
-        const allSkins = await res.json();
-        const stmts = [];
-        for (const skin of allSkins) {
-          let rarity = "Mil-Spec", weight = 50;
-          const rName = (skin.rarity?.name || "").toLowerCase();
-          if (rName.includes("extraordinary") || skin.weapon?.name?.includes("Knife") || skin.type?.includes("Gloves")) { rarity = "Covert"; weight = 1; }
-          else if (rName.includes("covert")) { rarity = "Covert"; weight = 2; }
-          else if (rName.includes("classified")) { rarity = "Classified"; weight = 10; }
-          else if (rName.includes("restricted")) { rarity = "Restricted"; weight = 20; }
-          const weaponType = skin.weapon ? skin.weapon.name : "Other";
-          const skinName = skin.name.replace(weaponType + " | ", "");
-          stmts.push(env.CASES_DB.prepare(`INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight) VALUES (?, ?, ?, ?, ?, ?)`).bind("Global Collection", weaponType, skinName, rarity, 0.0, weight));
-        }
-        for (let i = 0; i < stmts.length; i += 50) { await env.CASES_DB.batch(stmts.slice(i, i + 50)); }
-        return json({ success: true, count: allSkins.length });
-      }
-
-      return await serveAssetOr404(env, request);
-    } catch (err) {
-      return new Response("Worker error:\n" + err.stack, { status: 500 });
+      );
     }
   }
 };
