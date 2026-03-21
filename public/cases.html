@@ -47,9 +47,9 @@
     }
 
     .skin-card {
-      min-width: 150px;
+      min-width: 160px; /* Adjusted to match offset math */
       height: 140px;
-      margin: 0 5px;
+      margin: 0; /* Removed margin to make offset calculation more precise */
       background: #1c222d;
       border-bottom: 5px solid #4b69ff;
       display: flex;
@@ -59,15 +59,14 @@
       padding: 10px;
       font-size: 0.8rem;
       font-weight: bold;
+      border-right: 1px solid #0d1117;
     }
 
-    .skin-card img { width: 80px; margin-bottom: 10px; }
-
     /* Rarity Colors */
-    .rarity-covert { border-color: #eb4b4b; }
-    .rarity-classified { border-color: #d32ee6; }
-    .rarity-restricted { border-color: #8847ff; }
-    .rarity-milspec { border-color: #4b69ff; }
+    .rarity-covert { border-bottom-color: #eb4b4b; }
+    .rarity-classified { border-bottom-color: #d32ee6; }
+    .rarity-restricted { border-bottom-color: #8847ff; }
+    .rarity-milspec { border-bottom-color: #4b69ff; }
 
     .btn-open {
       background: #9ecbff;
@@ -96,8 +95,7 @@
 
       <div class="spinner-viewport">
         <div class="center-line"></div>
-        <div id="rail" class="items-rail">
-            </div>
+        <div id="rail" class="items-rail"></div>
       </div>
 
       <button id="openBtn" class="btn-open" onclick="startSpin()">Open Case</button>
@@ -118,21 +116,63 @@
     const rail = document.getElementById('rail');
     const openBtn = document.getElementById('openBtn');
 
-    function startSpin() {
+    async function startSpin() {
       openBtn.disabled = true;
-      document.getElementById('win-message').innerText = "";
+      document.getElementById('win-message').innerText = "Opening...";
       
-      // Reset rail position
+      // 1. Reset rail position
       rail.style.transition = "none";
       rail.style.transform = "translateX(0px)";
-      
-      // Fill rail with 60 random items
       rail.innerHTML = "";
-      let winningIndex = 55; // The item that lands in the middle
       
-      for(let i=0; i < 65; i++) {
-        const skin = caseSkins[Math.floor(Math.random() * caseSkins.length)];
+      // 2. Pick the winning item first so we can place it accurately
+      const winningIndex = 50; 
+      const winner = caseSkins[Math.floor(Math.random() * caseSkins.length)];
+      
+      // 3. Fill the rail
+      for(let i=0; i < 60; i++) {
+        const skin = (i === winningIndex) ? winner : caseSkins[Math.floor(Math.random() * caseSkins.length)];
         const card = document.createElement('div');
         card.className = `skin-card rarity-${skin.rarity}`;
         card.innerHTML = `<span>${skin.type}</span><br><small>${skin.name}</small>`;
-        rail.
+        rail.appendChild(card);
+      }
+
+      // 4. Calculate spin distance (160px width per card)
+      const itemWidth = 160;
+      const viewportWidth = document.querySelector('.spinner-viewport').offsetWidth;
+      // Offset centers the winning card on the red line
+      const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2);
+
+      // 5. Trigger animation
+      setTimeout(() => {
+        rail.style.transition = "transform 5s cubic-bezier(0.1, 0, 0.05, 1)";
+        rail.style.transform = `translateX(-${finalOffset}px)`;
+      }, 50);
+
+      // 6. Finalize (Phase 3 Integration)
+      setTimeout(async () => {
+        document.getElementById('win-message').innerText = `You unboxed: ${winner.type} | ${winner.name}!`;
+        openBtn.disabled = false;
+
+        // Save to Database
+        try {
+          const response = await fetch("/api/inventory/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              name: `${winner.type} | ${winner.name}`,
+              rarity: winner.rarity,
+              value: winner.val
+            })
+          });
+          
+          if (!response.ok) console.error("Could not save item. Check login status.");
+        } catch (err) {
+          console.error("Error saving unboxed item:", err);
+        }
+      }, 5200);
+    }
+  </script>
+</body>
+</html>
