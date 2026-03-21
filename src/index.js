@@ -185,7 +185,7 @@ export default {
           status: 302, 
           headers: { 
             "Location": "/login.html?msg=Logged%20Out", 
-            // Nuclear option for clearing the cookie: set past date and Max-Age 0
+            // Matching Path=/ and SameSite=Lax from buildSessionCookie is vital
             "Set-Cookie": "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT" 
           } 
         });
@@ -207,7 +207,6 @@ export default {
       if (path === "/api/cases/list") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
-
         ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
