@@ -2,16 +2,1187 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=/CS2/index.html" />
-  <title>Redirecting… | Grev.dad</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gambling · CS2 | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
-  <script>
-    window.location.replace("/CS2/index.html");
-  </script>
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .cs2-page { display: grid; gap: 20px; }
+    .gambling-hero {
+      padding: 28px 26px;
+      border-radius: var(--radius-md);
+      background:
+        linear-gradient(120deg, rgba(235, 75, 75, 0.12), rgba(30, 41, 59, 0.92)),
+        url("/dust2bg.webp") center center / cover no-repeat;
+      border: 1px solid var(--border);
+    }
+    .gambling-hero h1 { margin: 0 0 10px; font-size: 2rem; }
+    .gambling-hero p { margin: 0; color: #e2e8f0; line-height: 1.6; max-width: 860px; }
+    .cs2-balance {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .balance-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.35);
+      font-weight: 800;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .tab-btn.active {
+      border-color: #eb4b4b;
+      background: rgba(235, 75, 75, 0.12);
+    }
+    .cs2-panel { display: none; }
+    .cs2-panel.active { display: block; }
+    .case-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .case-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.02);
+    }
+    .case-card h3 { margin: 0 0 8px; font-size: 1rem; }
+    .case-meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; line-height: 1.45; }
+    .feed-list { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
+    .feed-row {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+      font-size: 0.92rem;
+    }
+    .rarity-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+    .inv-row, .list-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1.2fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+    .inv-thumb {
+      width: 56px; height: 56px; object-fit: contain;
+      border-radius: 8px; background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+    }
+    .inv-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+    .search-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .search-row input { flex: 1; min-width: 200px; }
+    .drop-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+      padding: 20px;
+    }
+    .drop-modal-overlay.open { display: flex; }
+    .drop-modal {
+      max-width: 480px; width: 100%;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      padding: 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .drop-modal h3 { margin: 0 0 12px; }
+    .drop-modal-img {
+      width: 100%; max-height: 200px; object-fit: contain;
+      border-radius: 12px; background: rgba(0,0,0,0.4); margin-bottom: 12px;
+    }
+    .drop-modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .mode-badge {
+      font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
+      padding: 4px 8px; border-radius: 6px; background: rgba(235,75,75,0.2); color: #fecaca;
+    }
+    .showcase-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+    }
+    .showcase-slot {
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+    @media (max-width: 720px) {
+      .inv-row, .list-row { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-<body class="page-shell">
-  <main class="page-main" style="padding: 40px;">
-    <p>Redirecting to <a href="/CS2/index.html">CS2 / Grev Coins</a>…</p>
-  </main>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <div id="cs2-message" class="hidden"></div>
+
+      <div class="cs2-page">
+        <section class="gambling-hero panel">
+          <h1>Gambling playground · CS2</h1>
+          <p>
+            Simulated Grev Coins economy: case prices use the Steam Community Market (GBP) when available.
+            Wear is rolled as Factory New through Battle-Scarred (prices follow the correct wear listing, not float).
+            After a case open, claim the drop to your inventory, quick sell, or discard. Trade on the market with fixed price, auctions, or open offers.
+          </p>
+          <div class="cs2-balance">
+            <span class="balance-pill" id="balance-pill">Balance: —</span>
+            <span class="balance-pill" id="inv-value-pill">Inventory value: —</span>
+            <span class="balance-pill" id="key-pill">Key: £2.50 / open</span>
+            <span class="muted" id="auth-note"></span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="tabs" id="cs2-tabs">
+            <button type="button" class="tab-btn active" data-tab="cases">Case opener</button>
+            <button type="button" class="tab-btn" data-tab="store">Store</button>
+            <button type="button" class="tab-btn" data-tab="inventory">Inventory</button>
+            <button type="button" class="tab-btn" data-tab="trading">Trading</button>
+            <button type="button" class="tab-btn" data-tab="catalog">Skin catalog</button>
+            <button type="button" class="tab-btn" data-tab="feed">Live feed</button>
+            <button type="button" class="tab-btn" data-tab="battles">Case battles</button>
+          </div>
+        </section>
+
+        <section class="panel cs2-panel active" id="panel-cases">
+          <h2 class="panel-title">Open cases</h2>
+          <p class="panel-subtitle">Select an unopened case. Each open uses one key (£2.50). You must claim the drop before it goes to inventory.</p>
+          <div id="open-inventory-list"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-store">
+          <h2 class="panel-title">Case store</h2>
+          <p class="panel-subtitle">Buy unopened cases at market-derived prices (or admin fallback).</p>
+          <div id="store-case-grid" class="case-grid"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-inventory">
+          <h2 class="panel-title">Inventory</h2>
+          <p class="panel-subtitle">Skins show live reference value. Quick sell pays 35% of that reference. List on the trading tab for player sales.</p>
+          <h3 class="mt-24">Profile showcase (5 slots)</h3>
+          <p class="panel-subtitle">Pick skins to display on your public profile.</p>
+          <div id="showcase-mount" class="showcase-grid"></div>
+          <h3 class="mt-24">Skins</h3>
+          <div id="skin-inventory-list"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-trading">
+          <h2 class="panel-title">Trading</h2>
+          <p class="panel-subtitle">Fixed price, timed auctions (bid, then seller finalizes after end), or listings that accept offers. Incoming offers appear below.</p>
+          <h3 class="mt-0">Incoming offers</h3>
+          <div id="incoming-offers" class="feed-list" style="max-height:220px"></div>
+          <div class="search-row mt-24">
+            <input id="listing-search" class="form-input" type="search" placeholder="Filter listings..." />
+            <button type="button" class="btn btn-primary" id="reload-listings">Refresh</button>
+          </div>
+          <div id="market-listings"></div>
+          <h3 class="mt-24">Search all-time trades</h3>
+          <div class="search-row">
+            <input id="trade-search" class="form-input" type="search" placeholder="Search item name..." />
+            <button type="button" class="btn" id="run-trade-search">Search</button>
+          </div>
+          <div id="trade-search-results" class="feed-list"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-catalog">
+          <h2 class="panel-title">Skin catalog</h2>
+          <p class="panel-subtitle">Resolved skins in the database with live Steam reference prices by wear.</p>
+          <div class="search-row">
+            <input id="catalog-search" class="form-input" type="search" placeholder="Filter by name..." />
+            <button type="button" class="btn btn-primary" id="reload-catalog">Refresh</button>
+          </div>
+          <div id="catalog-grid" class="case-grid"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-feed">
+          <h2 class="panel-title">Live feed</h2>
+          <div class="case-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start;">
+            <div>
+              <h3 class="mt-0">Recent site opens</h3>
+              <div id="feed-opens" class="feed-list"></div>
+            </div>
+            <div>
+              <h3 class="mt-0">Recent trades</h3>
+              <div id="feed-trades" class="feed-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-battles">
+          <h2 class="panel-title">Case battles</h2>
+          <p class="panel-subtitle muted">Coming soon — shared-pot, head-to-head case openings with spectators and brackets.</p>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — gambling playground · CS2 simulator (simulated currency only)</div>
+    </footer>
+  </div>
+
+  <div class="drop-modal-overlay" id="drop-modal" aria-hidden="true">
+    <div class="drop-modal" role="dialog" aria-labelledby="drop-modal-title">
+      <h3 id="drop-modal-title">Unclaimed drop</h3>
+      <img class="drop-modal-img" id="drop-modal-img" alt="" hidden />
+      <div id="drop-modal-body"></div>
+      <div class="drop-modal-actions">
+        <button type="button" class="btn btn-primary" id="drop-claim">Add to inventory</button>
+        <button type="button" class="btn" id="drop-quick">Quick sell (35%)</button>
+        <button type="button" class="btn" id="drop-discard">Discard</button>
+        <button type="button" class="btn" id="drop-close">Later</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const cs2Message = document.getElementById("cs2-message");
+    const balancePill = document.getElementById("balance-pill");
+    const invValuePill = document.getElementById("inv-value-pill");
+    const authNote = document.getElementById("auth-note");
+    const openInventoryList = document.getElementById("open-inventory-list");
+    const storeCaseGrid = document.getElementById("store-case-grid");
+    const skinInventoryList = document.getElementById("skin-inventory-list");
+    const marketListings = document.getElementById("market-listings");
+    const feedOpens = document.getElementById("feed-opens");
+    const feedTrades = document.getElementById("feed-trades");
+    const tradeSearchResults = document.getElementById("trade-search-results");
+    const catalogGrid = document.getElementById("catalog-grid");
+    const incomingOffersEl = document.getElementById("incoming-offers");
+    const showcaseMount = document.getElementById("showcase-mount");
+    const dropModal = document.getElementById("drop-modal");
+    const dropModalImg = document.getElementById("drop-modal-img");
+    const dropModalBody = document.getElementById("drop-modal-body");
+
+    let currentUser = null;
+    let balancePence = 0;
+    let inventoryValuePence = 0;
+    let activePendingId = null;
+
+    const WEAR_LABEL = {
+      FN: "Factory New",
+      MW: "Minimal Wear",
+      FT: "Field-Tested",
+      WW: "Well-Worn",
+      BS: "Battle-Scarred"
+    };
+
+    function wearLabel(code, wear) {
+      if (code && WEAR_LABEL[code]) return `${WEAR_LABEL[code]} (${code})`;
+      return wear || "—";
+    }
+
+    function showMessage(type, text) {
+      cs2Message.className = `alert alert-${type}`;
+      cs2Message.textContent = text;
+    }
+
+    function clearMessage() {
+      cs2Message.className = "hidden";
+      cs2Message.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatGbpPence(pence) {
+      const n = Number(pence || 0) / 100;
+      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function setBalancePills() {
+      balancePill.textContent = `Balance: ${formatGbpPence(balancePence)} Grev Coins`;
+      invValuePill.textContent = `Inventory value: ${formatGbpPence(inventoryValuePence)} (live ref.)`;
+    }
+
+    async function fetchMe() {
+      try {
+        const response = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) return null;
+        return data.user || null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function loadBalance() {
+      try {
+        const response = await fetch("/api/gambling/profile", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          balancePence = 0;
+          inventoryValuePence = 0;
+          setBalancePills();
+          return;
+        }
+        balancePence = Number(data.profile?.balance || 0);
+        inventoryValuePence = Number(data.profile?.total_inventory_value || 0);
+        setBalancePills();
+      } catch {
+        balancePence = 0;
+        inventoryValuePence = 0;
+        setBalancePills();
+      }
+    }
+
+    function openDropModal() {
+      dropModal.classList.add("open");
+      dropModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeDropModal() {
+      dropModal.classList.remove("open");
+      dropModal.setAttribute("aria-hidden", "true");
+      activePendingId = null;
+    }
+
+    function showDropModalFromPending(p) {
+      activePendingId = p.id;
+      const img = p.image_url;
+      if (img) {
+        dropModalImg.src = img;
+        dropModalImg.hidden = false;
+        dropModalImg.alt = p.item_name || "drop";
+      } else {
+        dropModalImg.hidden = true;
+        dropModalImg.removeAttribute("src");
+      }
+      dropModalBody.innerHTML = `
+        <div><span class="rarity-dot" style="background:${escapeHtml(p.color_hex || "#999")}"></span>
+        <strong>${escapeHtml(p.item_name || "")}</strong></div>
+        <div class="muted">${escapeHtml(p.rarity || "")} · ${escapeHtml(wearLabel(p.wear_code, p.wear))}</div>
+        <div class="muted">${escapeHtml(p.case_name || "")}</div>
+      `;
+      openDropModal();
+    }
+
+    function showDropModalFromOpen(data) {
+      const d = data.dropped || {};
+      activePendingId = data.pending_drop_id;
+      const img = d.image_url;
+      if (img) {
+        dropModalImg.src = img;
+        dropModalImg.hidden = false;
+        dropModalImg.alt = d.item_name || "drop";
+      } else {
+        dropModalImg.hidden = true;
+        dropModalImg.removeAttribute("src");
+      }
+      dropModalBody.innerHTML = `
+        <div><span class="rarity-dot" style="background:${escapeHtml(d.color_hex || "#999")}"></span>
+        <strong>${escapeHtml(d.item_name || "")}</strong></div>
+        <div class="muted">${escapeHtml(d.rarity || "")} · ${escapeHtml(wearLabel(d.wear_code, d.wear))}</div>
+        <div class="muted">Case: ${escapeHtml(data.case_name || "")}</div>
+      `;
+      openDropModal();
+    }
+
+    async function loadPendingDrops() {
+      if (!currentUser) return;
+      try {
+        const response = await fetch("/api/cs2/pending", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) return;
+        const pending = data.pending || [];
+        if (pending.length && !dropModal.classList.contains("open")) {
+          showDropModalFromPending(pending[0]);
+        }
+      } catch { /* ignore */ }
+    }
+
+    document.getElementById("drop-claim").addEventListener("click", async () => {
+      if (!activePendingId) return;
+      try {
+        const response = await fetch("/api/cs2/drop/claim", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_drop_id: activePendingId })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Claim failed.");
+          return;
+        }
+        showMessage("success", "Added to inventory.");
+        closeDropModal();
+        await loadBalance();
+        await loadInventoryUi();
+        await loadFeeds();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    document.getElementById("drop-quick").addEventListener("click", async () => {
+      if (!activePendingId) return;
+      try {
+        const response = await fetch("/api/cs2/drop/quick-sell", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_drop_id: activePendingId })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Quick sell failed.");
+          return;
+        }
+        showMessage("success", `Quick sold for ${formatGbpPence(data.payout_pence)}.`);
+        closeDropModal();
+        await loadBalance();
+        await loadInventoryUi();
+        await loadFeeds();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    document.getElementById("drop-discard").addEventListener("click", async () => {
+      if (!activePendingId) return;
+      try {
+        const response = await fetch("/api/cs2/drop/discard", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_drop_id: activePendingId })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Discard failed.");
+          return;
+        }
+        showMessage("success", "Drop discarded.");
+        closeDropModal();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    document.getElementById("drop-close").addEventListener("click", () => {
+      closeDropModal();
+    });
+
+    dropModal.addEventListener("click", (e) => {
+      if (e.target === dropModal) closeDropModal();
+    });
+
+    async function loadCasesStore() {
+      storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
+      try {
+        const response = await fetch("/api/cs2/cases", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          storeCaseGrid.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Could not load cases")}</div>`;
+          return;
+        }
+        const cases = data.cases || [];
+        if (!cases.length) {
+          storeCaseGrid.innerHTML = `<div class="muted">No cases available.</div>`;
+          return;
+        }
+        storeCaseGrid.innerHTML = cases.map((c) => `
+          <div class="case-card">
+            <h3>${escapeHtml(c.case_name)}</h3>
+            <div class="case-meta">
+              ${formatGbpPence(c.store_price_pence)} · Key ${formatGbpPence(c.key_price_pence)}
+            </div>
+            <button type="button" class="btn btn-primary" data-buy-case="${c.id}">Buy case</button>
+          </div>
+        `).join("");
+
+        storeCaseGrid.querySelectorAll("[data-buy-case]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!currentUser) {
+              window.location.href = "/login.html";
+              return;
+            }
+            const id = Number(btn.getAttribute("data-buy-case"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/store/buy-case", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ case_id: id })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Purchase failed.");
+                return;
+              }
+              showMessage("success", "Case added to inventory.");
+              await loadBalance();
+              await loadInventoryUi();
+            } catch (e) {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        storeCaseGrid.innerHTML = `<div class="alert alert-error">Could not load store.</div>`;
+      }
+    }
+
+    function renderShowcase(skins) {
+      if (!currentUser) {
+        showcaseMount.innerHTML = `<div class="muted">Login to set showcase slots.</div>`;
+        return;
+      }
+      const opts = skins.map((s) =>
+        `<option value="${s.inventory_id}">${escapeHtml(s.item_name)} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</option>`
+      ).join("");
+      showcaseMount.innerHTML = [0, 1, 2, 3, 4].map((slot) => `
+        <div class="showcase-slot">
+          <div class="muted" style="font-size:0.8rem;margin-bottom:6px">Slot ${slot + 1}</div>
+          <select class="form-input" data-showcase-slot="${slot}" style="width:100%;margin-bottom:8px">
+            <option value="">— empty —</option>
+            ${opts}
+          </select>
+          <button type="button" class="btn btn-primary" data-showcase-save="${slot}" style="width:100%">Save</button>
+        </div>
+      `).join("");
+
+      showcaseMount.querySelectorAll("[data-showcase-save]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const slot = Number(btn.getAttribute("data-showcase-save"));
+          const sel = showcaseMount.querySelector(`[data-showcase-slot="${slot}"]`);
+          const inventoryId = Number(sel?.value || 0);
+          btn.disabled = true;
+          try {
+            const response = await fetch("/api/cs2/showcase", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ slot, inventory_id: inventoryId || 0 })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+              showMessage("error", data?.error || "Could not update showcase.");
+              return;
+            }
+            showMessage("success", "Showcase updated.");
+          } catch {
+            showMessage("error", "Network error.");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    async function loadInventoryUi() {
+      openInventoryList.innerHTML = `<div class="muted">Loading…</div>`;
+      skinInventoryList.innerHTML = `<div class="muted">Loading…</div>`;
+
+      if (!currentUser) {
+        openInventoryList.innerHTML = `<div class="alert alert-info">Login to manage inventory.</div>`;
+        skinInventoryList.innerHTML = `<div class="alert alert-info">Login to see skins.</div>`;
+        showcaseMount.innerHTML = "";
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/cs2/inventory", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          openInventoryList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Failed")}</div>`;
+          return;
+        }
+        const items = data.items || [];
+        const cases = items.filter((i) => i.item_kind === "case");
+        const skins = items.filter((i) => i.item_kind === "skin");
+
+        openInventoryList.innerHTML = cases.length ? cases.map((c) => `
+          <div class="inv-row">
+            <div></div>
+            <div>
+              <strong>${escapeHtml(c.item_name)}</strong>
+              <div class="muted">${escapeHtml(c.acquired_at || "")}</div>
+            </div>
+            <div class="inv-actions">
+              <button type="button" class="btn btn-primary" data-open="${c.inventory_id}">Open (£2.50 key)</button>
+            </div>
+          </div>
+        `).join("") : `<div class="muted">No unopened cases. Buy some from the store.</div>`;
+
+        openInventoryList.querySelectorAll("[data-open]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-open"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/open", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inventory_id: inventoryId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Open failed.");
+                return;
+              }
+              showDropModalFromOpen(data);
+              await loadBalance();
+              await loadInventoryUi();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        skinInventoryList.innerHTML = skins.length ? skins.map((s) => `
+          <div class="inv-row">
+            ${s.image_url ? `<img class="inv-thumb" src="${escapeHtml(s.image_url)}" alt="" />` : `<div></div>`}
+            <div>
+              <span class="rarity-dot" style="background:${escapeHtml(s.color_hex || "#999")}"></span>
+              <strong>${escapeHtml(s.item_name)}</strong>
+              <div class="muted">${escapeHtml(s.rarity || "")} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</div>
+              <div class="muted">Live ref: ${formatGbpPence(s.live_price_pence)} · Inv #${s.inventory_id}</div>
+            </div>
+            <div class="inv-actions">
+              <button type="button" class="btn" data-quick="${s.inventory_id}">Quick sell</button>
+              <select class="form-input" data-list-mode="${s.inventory_id}" style="max-width:130px">
+                <option value="fixed">Fixed price</option>
+                <option value="auction">Auction</option>
+                <option value="accept_offers">Offers only</option>
+              </select>
+              <input class="form-input" type="number" min="1" step="1" placeholder="Price (p)" data-ask="${s.inventory_id}" style="max-width:100px" title="Ask in pence (or start bid)" />
+              <input class="form-input" type="datetime-local" data-auct-end="${s.inventory_id}" style="max-width:180px" title="Auction end (local time)" />
+              <button type="button" class="btn btn-primary" data-list="${s.inventory_id}">List</button>
+            </div>
+          </div>
+        `).join("") : `<div class="muted">No skins yet.</div>`;
+
+        renderShowcase(skins);
+
+        skinInventoryList.querySelectorAll("[data-quick]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-quick"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/quick-sell", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inventory_id: inventoryId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Quick sell failed.");
+                return;
+              }
+              showMessage("success", `Sold for ${formatGbpPence(data.payout_pence)} (35% of market ref).`);
+              await loadBalance();
+              await loadInventoryUi();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        skinInventoryList.querySelectorAll("[data-list]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-list"));
+            const modeEl = skinInventoryList.querySelector(`[data-list-mode="${inventoryId}"]`);
+            const input = skinInventoryList.querySelector(`[data-ask="${inventoryId}"]`);
+            const endEl = skinInventoryList.querySelector(`[data-auct-end="${inventoryId}"]`);
+            const asking = Number(input?.value || 0);
+            const listMode = (modeEl?.value || "fixed").toLowerCase();
+            let auctionEndAt = "";
+            if (listMode === "auction" && endEl?.value) {
+              const d = new Date(endEl.value);
+              if (!Number.isNaN(d.getTime())) auctionEndAt = d.toISOString();
+            }
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const body = {
+                inventory_id: inventoryId,
+                asking_price_pence: asking,
+                list_mode: listMode
+              };
+              if (listMode === "auction") {
+                body.auction_end_at = auctionEndAt;
+                body.auction_start_bid_pence = asking;
+              }
+              const response = await fetch("/api/cs2/listings", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not list.");
+                return;
+              }
+              showMessage("success", `Listed (${data.list_mode || listMode}).`);
+              await loadInventoryUi();
+              await loadListings(document.getElementById("listing-search").value.trim());
+              await loadIncomingOffers();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        openInventoryList.innerHTML = `<div class="alert alert-error">Could not load inventory.</div>`;
+      }
+    }
+
+    function auctionEnded(auctionEndAt) {
+      if (!auctionEndAt) return false;
+      const t = Date.parse(auctionEndAt);
+      return Number.isFinite(t) && t <= Date.now();
+    }
+
+    async function loadListings(filter) {
+      marketListings.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const q = filter ? `?search=${encodeURIComponent(filter)}` : "";
+        const response = await fetch(`/api/cs2/listings${q}`, { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          marketListings.innerHTML = `<div class="alert alert-error">Could not load listings.</div>`;
+          return;
+        }
+        const rows = data.listings || [];
+        if (!rows.length) {
+          marketListings.innerHTML = `<div class="muted">No active listings.</div>`;
+          return;
+        }
+        marketListings.innerHTML = rows.map((row) => {
+          const mode = row.list_mode || "fixed";
+          const ended = mode === "auction" && auctionEnded(row.auction_end_at);
+          const isSeller = currentUser && Number(row.seller_user_id) === Number(currentUser.id);
+          const canBuy = currentUser && !isSeller && mode === "fixed";
+          const canBid = currentUser && !isSeller && mode === "auction" && !ended;
+          const canOffer = currentUser && !isSeller && mode === "accept_offers";
+          const canFinalize = currentUser && isSeller && mode === "auction" && ended;
+          const img = row.image_url
+            ? `<img class="inv-thumb" src="${escapeHtml(row.image_url)}" alt="" />`
+            : `<div></div>`;
+          return `
+          <div class="list-row">
+            ${img}
+            <div>
+              <span class="mode-badge">${escapeHtml(mode)}</span>
+              <strong>${escapeHtml(row.item_name)}</strong>
+              <div class="muted">Seller: ${escapeHtml(row.seller)} · ${escapeHtml(row.rarity || "")}</div>
+              <div class="muted">${escapeHtml(wearLabel(row.wear_code, row.wear))}</div>
+              ${mode === "auction" ? `
+                <div class="muted">Ends: ${escapeHtml(row.auction_end_at || "")}</div>
+                <div class="muted">Current bid: ${formatGbpPence(row.current_bid_pence || 0)} · Start: ${formatGbpPence(row.auction_start_bid_pence || row.asking_price_pence)}</div>
+              ` : `<div class="muted">Ask: ${formatGbpPence(row.asking_price_pence)}</div>`}
+            </div>
+            <div class="inv-actions">
+              ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy</button>` : ""}
+              ${canBid ? `
+                <input class="form-input" type="number" min="1" step="1" placeholder="Bid (p)" data-bid-amt="${row.id}" style="max-width:100px" />
+                <button type="button" class="btn btn-primary" data-bid-listing="${row.id}">Bid</button>
+              ` : ""}
+              ${canOffer ? `
+                <input class="form-input" type="number" min="1" step="1" placeholder="Offer (p)" data-offer-amt="${row.id}" style="max-width:100px" />
+                <button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Offer</button>
+              ` : ""}
+              ${canFinalize ? `<button type="button" class="btn btn-primary" data-finalize="${row.id}">Finalize auction</button>` : ""}
+              ${isSeller ? `<button type="button" class="btn" data-cancel-listing="${row.id}">Cancel listing</button>` : ""}
+              ${!isSeller && mode === "auction" && ended ? `<span class="muted">Awaiting seller finalize</span>` : ""}
+            </div>
+          </div>`;
+        }).join("");
+
+        marketListings.querySelectorAll("[data-buy-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-buy-listing"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/listings/buy", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Purchase failed.");
+                return;
+              }
+              showMessage("success", "Purchase complete.");
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(filter);
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-bid-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-bid-listing"));
+            const input = marketListings.querySelector(`[data-bid-amt="${id}"]`);
+            const amount = Number(input?.value || 0);
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/auctions/bid", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id, amount_pence: amount })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Bid failed.");
+                return;
+              }
+              showMessage("success", "Bid placed.");
+              await loadListings(filter);
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-offer-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-offer-listing"));
+            const input = marketListings.querySelector(`[data-offer-amt="${id}"]`);
+            const offerPence = Number(input?.value || 0);
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/offers", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id, offer_pence: offerPence })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Offer failed.");
+                return;
+              }
+              showMessage("success", "Offer submitted.");
+              await loadIncomingOffers();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-finalize]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-finalize"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/auctions/finalize", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Finalize failed.");
+                return;
+              }
+              showMessage("success", data.message || "Auction finalized.");
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(filter);
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-cancel-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-cancel-listing"));
+            btn.disabled = true;
+            try {
+              await fetch("/api/cs2/listings/cancel", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id })
+              });
+              await loadListings(filter);
+              await loadInventoryUi();
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        marketListings.innerHTML = `<div class="alert alert-error">Could not load listings.</div>`;
+      }
+    }
+
+    async function loadIncomingOffers() {
+      if (!currentUser) {
+        incomingOffersEl.innerHTML = `<div class="muted">Login to see offers on your listings.</div>`;
+        return;
+      }
+      incomingOffersEl.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const response = await fetch("/api/cs2/offers/incoming", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          incomingOffersEl.innerHTML = `<div class="muted">No incoming offers.</div>`;
+          return;
+        }
+        const offers = data.offers || [];
+        if (!offers.length) {
+          incomingOffersEl.innerHTML = `<div class="muted">No pending offers.</div>`;
+          return;
+        }
+        incomingOffersEl.innerHTML = offers.map((o) => `
+          <div class="feed-row">
+            <div><strong>${escapeHtml(o.item_name)}</strong> · ${escapeHtml(wearLabel(o.wear_code, o.wear))}</div>
+            <div class="muted">${escapeHtml(o.buyer)} offers ${formatGbpPence(o.offer_pence)}</div>
+            <button type="button" class="btn btn-primary" data-accept-offer="${o.offer_id}">Accept</button>
+          </div>
+        `).join("");
+
+        incomingOffersEl.querySelectorAll("[data-accept-offer]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-accept-offer"));
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/accept", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Accept failed.");
+                return;
+              }
+              showMessage("success", "Offer accepted.");
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(document.getElementById("listing-search").value.trim());
+              await loadIncomingOffers();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        incomingOffersEl.innerHTML = `<div class="alert alert-error">Could not load offers.</div>`;
+      }
+    }
+
+    async function loadCatalog() {
+      const q = document.getElementById("catalog-search").value.trim();
+      catalogGrid.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const response = await fetch(`/api/cs2/catalog?limit=120&q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          catalogGrid.innerHTML = `<div class="alert alert-error">Could not load catalog.</div>`;
+          return;
+        }
+        const items = data.items || [];
+        if (!items.length) {
+          catalogGrid.innerHTML = `<div class="muted">No skins match.</div>`;
+          return;
+        }
+        catalogGrid.innerHTML = items.map((it) => `
+          <div class="case-card">
+            ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" style="width:100%;max-height:120px;object-fit:contain;margin-bottom:8px;border-radius:8px;background:rgba(0,0,0,0.35)" />` : ""}
+            <h3>${escapeHtml(it.item_name)}</h3>
+            <div class="case-meta">
+              ${escapeHtml(it.rarity || "")} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}<br/>
+              Live: ${formatGbpPence(it.live_price_pence)}<br/>
+              Fallback: ${formatGbpPence(it.fallback_value_pence)}
+            </div>
+          </div>
+        `).join("");
+      } catch {
+        catalogGrid.innerHTML = `<div class="alert alert-error">Catalog failed.</div>`;
+      }
+    }
+
+    async function loadFeeds() {
+      try {
+        const [o, t] = await Promise.all([
+          fetch("/api/cs2/feed/opens?limit=25", { credentials: "same-origin" }),
+          fetch("/api/cs2/feed/trades?limit=25", { credentials: "same-origin" })
+        ]);
+        const opensData = await o.json().catch(() => null);
+        const tradesData = await t.json().catch(() => null);
+
+        if (o.ok && opensData?.success) {
+          const opens = opensData.opens || [];
+          feedOpens.innerHTML = opens.length ? opens.map((x) => `
+            <div class="feed-row">
+              <div><strong>${escapeHtml(x.username)}</strong> opened <strong>${escapeHtml(x.case_name)}</strong></div>
+              <div><span class="rarity-dot" style="background:${escapeHtml(x.color_hex || "#999")}"></span>${escapeHtml(x.item_name)}</div>
+              <div class="muted">${escapeHtml(x.opened_at || "")}</div>
+            </div>
+          `).join("") : `<div class="muted">No opens yet.</div>`;
+        }
+
+        if (t.ok && tradesData?.success) {
+          const trades = tradesData.trades || [];
+          feedTrades.innerHTML = trades.length ? trades.map((x) => `
+            <div class="feed-row">
+              <div>${escapeHtml(x.item_name)}</div>
+              <div class="muted">${escapeHtml(x.trade_type)} · ${formatGbpPence(x.price_pence)}</div>
+              <div class="muted">${escapeHtml(x.buyer)} → ${escapeHtml(x.seller)}</div>
+              <div class="muted">${escapeHtml(x.created_at || "")}</div>
+            </div>
+          `).join("") : `<div class="muted">No trades yet.</div>`;
+        }
+      } catch {
+        feedOpens.innerHTML = `<div class="muted">Feed unavailable.</div>`;
+      }
+    }
+
+    async function runTradeSearch() {
+      const q = document.getElementById("trade-search").value.trim();
+      tradeSearchResults.innerHTML = `<div class="muted">Searching…</div>`;
+      try {
+        const response = await fetch(`/api/cs2/trades/search?q=${encodeURIComponent(q)}&limit=60`, { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          tradeSearchResults.innerHTML = `<div class="alert alert-error">Search failed.</div>`;
+          return;
+        }
+        const trades = data.trades || [];
+        tradeSearchResults.innerHTML = trades.length ? trades.map((x) => `
+          <div class="feed-row">
+            <div>${escapeHtml(x.item_name)} · ${formatGbpPence(x.price_pence)}</div>
+            <div class="muted">${escapeHtml(x.trade_type)} · ${escapeHtml(x.buyer)} / ${escapeHtml(x.seller)}</div>
+            <div class="muted">${escapeHtml(x.created_at || "")}</div>
+          </div>
+        `).join("") : `<div class="muted">No results.</div>`;
+      } catch {
+        tradeSearchResults.innerHTML = `<div class="alert alert-error">Search failed.</div>`;
+      }
+    }
+
+    function setupTabs() {
+      const buttons = document.querySelectorAll("#cs2-tabs .tab-btn");
+      const panels = document.querySelectorAll(".cs2-panel");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tab = btn.getAttribute("data-tab");
+          buttons.forEach((b) => b.classList.toggle("active", b === btn));
+          panels.forEach((p) => p.classList.toggle("active", p.id === `panel-${tab}`));
+        });
+      });
+    }
+
+    document.getElementById("reload-listings").addEventListener("click", () => {
+      loadListings(document.getElementById("listing-search").value.trim().toLowerCase());
+    });
+
+    document.getElementById("listing-search").addEventListener("input", (e) => {
+      loadListings(e.target.value.trim().toLowerCase());
+    });
+
+    document.getElementById("run-trade-search").addEventListener("click", runTradeSearch);
+
+    document.getElementById("reload-catalog").addEventListener("click", loadCatalog);
+    document.getElementById("catalog-search").addEventListener("input", () => {
+      clearTimeout(window.__catT);
+      window.__catT = setTimeout(loadCatalog, 300);
+    });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      setupTabs();
+      currentUser = await fetchMe();
+      authNote.textContent = currentUser
+        ? `Signed in as ${currentUser.username}`
+        : `Guest — login to play · `;
+      if (!currentUser) {
+        authNote.innerHTML = `Guest — <a href="/login.html">login</a> to use Grev Coins.`;
+      }
+
+      await loadBalance();
+      await loadCasesStore();
+      await loadInventoryUi();
+      await loadListings("");
+      await loadIncomingOffers();
+      await loadCatalog();
+      await loadFeeds();
+      await runTradeSearch();
+      await loadPendingDrops();
+
+      setInterval(() => {
+        if (document.visibilityState === "visible") {
+          loadBalance();
+        }
+      }, 60000);
+    });
+  </script>
 </body>
 </html>

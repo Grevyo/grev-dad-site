@@ -76,3 +76,36 @@ export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date
 
   return null;
 }
+
+/**
+ * Resolves weapon icon URL from Steam Community Market search (CS2 appid 730).
+ */
+export async function fetchSteamIconUrl(marketHashName) {
+  if (!marketHashName || typeof marketHashName !== "string") return null;
+
+  const encoded = encodeURIComponent(marketHashName);
+  const url = `https://steamcommunity.com/market/search/render/?query=${encoded}&start=0&count=1&appid=${STEAM_APPID_CS2}&norender=1&currency=${STEAM_CURRENCY_GBP}`;
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; GrevDadBot/1.0)"
+    }
+  });
+
+  if (!response.ok) return null;
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    return null;
+  }
+
+  const results = data.results || [];
+  const first = results[0];
+  const icon = first?.asset_description?.icon_url || first?.asset_description?.icon_url_large;
+  if (!icon) return null;
+
+  return `https://community.cloudflare.steamstatic.com/economy/image/${icon}`;
+}

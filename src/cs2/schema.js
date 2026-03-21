@@ -20,6 +20,7 @@ export async function ensureCs2Extensions(db) {
   await ensureColumn(db, "case_items", "item_kind", "TEXT NOT NULL DEFAULT 'skin'");
   await ensureColumn(db, "case_items", "case_def_id", "INTEGER");
   await ensureColumn(db, "case_items", "market_hash_name", "TEXT");
+  await ensureColumn(db, "case_items", "wear_code", "TEXT");
 
   await ensureColumn(db, "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
 
@@ -56,8 +57,59 @@ export async function ensureCs2Extensions(db) {
     )
   `).run();
 
+  await ensureColumn(db, "market_listings", "list_mode", "TEXT NOT NULL DEFAULT 'fixed'");
+  await ensureColumn(db, "market_listings", "auction_end_at", "TEXT");
+  await ensureColumn(db, "market_listings", "auction_start_bid_pence", "INTEGER");
+  await ensureColumn(db, "market_listings", "current_bid_pence", "INTEGER");
+  await ensureColumn(db, "market_listings", "current_high_bidder_id", "INTEGER");
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS pending_drops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      case_id INTEGER NOT NULL,
+      resolved_item_id INTEGER NOT NULL,
+      key_paid INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending'
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS auction_bids (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listing_id INTEGER NOT NULL,
+      bidder_user_id INTEGER NOT NULL,
+      amount_pence INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS market_offers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listing_id INTEGER NOT NULL,
+      buyer_user_id INTEGER NOT NULL,
+      offer_pence INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS profile_showcase (
+      user_id INTEGER NOT NULL,
+      slot INTEGER NOT NULL,
+      inventory_id INTEGER NOT NULL,
+      PRIMARY KEY (user_id, slot)
+    )
+  `).run();
+
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_trade_history_created_at ON trade_history (created_at DESC)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_market_listings_status ON market_listings (status)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_market_listings_seller ON market_listings (seller_user_id)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_case_items_case_def ON case_items (case_def_id)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_pending_drops_user ON pending_drops (user_id)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_auction_bids_listing ON auction_bids (listing_id)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_market_offers_listing ON market_offers (listing_id)`).run();
 }
