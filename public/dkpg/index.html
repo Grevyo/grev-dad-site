@@ -23,6 +23,22 @@ body {
 }
 
 /* ================= TOP BUTTONS ================= */
+.home-btn {
+    background: #5865F2;
+    color: white;
+    text-decoration: none;
+    padding: 14px 22px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 15px;
+    transition: 0.2s ease;
+}
+
+.home-btn:hover {
+    transform: translateY(-2px);
+    background: #4752c4;
+}
+
 .top-buttons {
     display: flex;
     justify-content: space-between;
@@ -159,6 +175,7 @@ body {
 
     <!-- ================= TOP BUTTONS ================= -->
     <div class="top-buttons">
+        <a href="https://grev.dad" class="home-btn">Home</a>
         <button class="password-btn" onclick="playRickroll()">Show DontKnow Password</button>
 
         <button class="stop-btn" onclick="stopRickroll()">🛑</button>
