@@ -144,7 +144,7 @@ export default {
         return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
       }
 
-      // --- PROFILE API (Fixes your /profile?id=4 issue) ---
+      // --- PROFILE API ---
       if (path === "/api/profile") {
         const id = url.searchParams.get("id");
         if (!id) return json({ error: "No ID" }, 400);
@@ -162,7 +162,7 @@ export default {
         });
       }
 
-      // --- CASE OPENING (Saves to Database) ---
+      // --- CASE OPENING ---
       if (path === "/api/cases/open" && request.method === "POST") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Please log in" }, 401);
@@ -181,13 +181,32 @@ export default {
 
         const quality = calculateSkinQuality(selected.base_price);
         
-        // SAVE TO INVENTORY
         await env.CASES_DB.prepare(`
           INSERT INTO user_inventory (user_id, skin_name, rarity, wear, price)
           VALUES (?, ?, ?, ?, ?)
         `).bind(user.id, `${selected.weapon_type} | ${selected.skin_name}`, selected.rarity, quality.wear, quality.price).run();
 
         return json({ success: true, item: selected, quality });
+      }
+
+      // --- PRICE SYNC ROUTE (New!) ---
+      if (path === "/api/admin/sync-prices") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+
+        const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`);
+        const data = await res.json();
+        const stmts = [];
+        
+        for (const [fullName, details] of Object.entries(data)) {
+          const price = (details.steam?.price || 0) / 100;
+          if (price > 0) {
+            stmts.push(env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
+              .bind(price, fullName));
+          }
+        }
+        for (let i = 0; i < stmts.length; i += 50) { await env.CASES_DB.batch(stmts.slice(i, i + 50)); }
+        return json({ success: true, updated: stmts.length });
       }
 
       // --- CASE ROUTES ---
@@ -211,12 +230,12 @@ export default {
         const allSkins = await res.json();
         const stmts = [];
         for (const skin of allSkins) {
-          let rarity = "milspec", weight = 50;
+          let rarity = "Mil-Spec", weight = 50;
           const rName = (skin.rarity?.name || "").toLowerCase();
-          if (rName.includes("extraordinary") || skin.weapon?.name?.includes("Knife") || skin.type?.includes("Gloves")) { rarity = "rare_special"; weight = 1; }
-          else if (rName.includes("covert")) { rarity = "covert"; weight = 2; }
-          else if (rName.includes("classified")) { rarity = "classified"; weight = 10; }
-          else if (rName.includes("restricted")) { rarity = "restricted"; weight = 20; }
+          if (rName.includes("extraordinary") || skin.weapon?.name?.includes("Knife") || skin.type?.includes("Gloves")) { rarity = "Covert"; weight = 1; }
+          else if (rName.includes("covert")) { rarity = "Covert"; weight = 2; }
+          else if (rName.includes("classified")) { rarity = "Classified"; weight = 10; }
+          else if (rName.includes("restricted")) { rarity = "Restricted"; weight = 20; }
           const weaponType = skin.weapon ? skin.weapon.name : "Other";
           const skinName = skin.name.replace(weaponType + " | ", "");
           stmts.push(env.CASES_DB.prepare(`INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight) VALUES (?, ?, ?, ?, ?, ?)`).bind("Global Collection", weaponType, skinName, rarity, 0.0, weight));
