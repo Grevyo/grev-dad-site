@@ -126,7 +126,6 @@ async function autoSyncPrices(env) {
       
       const data = await res.json();
       if (data) {
-        // Handle object structure: keys are the full skin names
         for (const [fullName, details] of Object.entries(data)) {
           const price = (details.steam?.price || details.price || 0) / 100;
           if (price > 0) {
@@ -250,25 +249,22 @@ export default {
         if (!admin) return json({ error: "Forbidden" }, 403);
 
         try {
-          // Changed to use the v1 prices endpoint with a stronger User-Agent
           const apiUrl = `https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`;
           const res = await fetch(apiUrl, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
           });
           
           const data = await res.json();
-          const skinEntries = Object.entries(data); // Important: Convert object to array for counting
+          const skinEntries = Object.entries(data); 
           
           if (skinEntries.length === 0) return json({ error: "API returned no items" }, 500);
 
           let addedCount = 0;
           for (const [fullName, details] of skinEntries) {
             if (!fullName.includes(" | ")) continue;
-
             const parts = fullName.split(" | ");
             const weaponType = parts[0];
             const skinAndWear = parts[1];
-            // Split "Head Shot (Field-Tested)" -> "Head Shot"
             const skinName = skinAndWear.split(" (")[0]; 
             const price = (details.steam?.price || details.price || 0) / 100;
 
@@ -291,6 +287,36 @@ export default {
         } catch (e) {
           return json({ error: e.message }, 500);
         }
+      }
+
+      // --- NEW: CREATE CUSTOM CASE ---
+      if (path === "/api/admin/create-case" && request.method === "POST") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+
+        const { name, price, skins } = await request.json();
+
+        for (const s of skins) {
+          let weight = 50;
+          if (s.rarity === "rare_special") weight = 1;
+          else if (s.rarity === "covert") weight = 2;
+          else if (s.rarity === "classified") weight = 10;
+          else if (s.rarity === "restricted") weight = 20;
+
+          await env.CASES_DB.prepare(`
+            INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(name, s.weapon, s.skin, s.rarity, s.price, weight).run();
+        }
+
+        // Optional: Save case config for the unbox price
+        if (env.DB) {
+          await env.DB.prepare(`
+            INSERT OR REPLACE INTO case_configs (case_name, price) VALUES (?, ?)
+          `).bind(name, parseFloat(price)).run();
+        }
+
+        return json({ success: true });
       }
 
       if (path === "/api/user/inventory") {
