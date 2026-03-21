@@ -129,6 +129,31 @@
       font-style: italic;
     }
 
+    .music-frame {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      overflow: hidden;
+    }
+
+    .music-frame iframe {
+      width: 100%;
+      border: 0;
+      display: block;
+    }
+
+    .music-link-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .music-audio {
+      width: 100%;
+    }
+
     @media (max-width: 980px) {
       .profile-layout {
         grid-template-columns: 1fr;
@@ -238,10 +263,10 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label" for="music-url">Music URL</label>
-                <input id="music-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+                <label class="form-label" for="music-url">Music link</label>
+                <input id="music-url" class="form-input" type="url" maxlength="1200" placeholder="Spotify, SoundCloud, YouTube, or direct audio link" />
                 <div class="form-help">
-                  Direct audio files work best, like mp3/ogg links.
+                  Supports Spotify, SoundCloud, YouTube, and direct audio files like mp3.
                 </div>
               </div>
 
@@ -368,7 +393,6 @@
     }
 
     function renderProfile(profile) {
-      const displayName = profile.real_name || profile.username || "Profile";
       const firstLetter = (profile.username || "U").charAt(0).toUpperCase();
 
       if (profile.avatar_url) {
@@ -415,16 +439,7 @@
         profileMediaEmpty.style.display = "block";
       }
 
-      if (profile.music_url) {
-        profileMusicWrap.innerHTML = `
-          <audio controls preload="none" style="width:100%;">
-            <source src="${escapeHtml(profile.music_url)}" />
-            Your browser does not support the audio element.
-          </audio>
-        `;
-      } else {
-        profileMusicWrap.innerHTML = `<div class="empty-note">No music linked.</div>`;
-      }
+      renderMusic(profile.music_url || "");
 
       profileInfo.innerHTML = `
         <div class="info-card">
@@ -460,6 +475,136 @@
       media2Input.value = profile.media_2_url || "";
       media3Input.value = profile.media_3_url || "";
       musicUrlInput.value = profile.music_url || "";
+    }
+
+    function getYouTubeId(url) {
+      try {
+        const parsed = new URL(url);
+
+        if (parsed.hostname.includes("youtu.be")) {
+          return parsed.pathname.split("/").filter(Boolean)[0] || "";
+        }
+
+        if (parsed.hostname.includes("youtube.com")) {
+          if (parsed.pathname === "/watch") {
+            return parsed.searchParams.get("v") || "";
+          }
+
+          const parts = parsed.pathname.split("/").filter(Boolean);
+          if (parts[0] === "embed" && parts[1]) return parts[1];
+          if ((parts[0] === "shorts" || parts[0] === "live") && parts[1]) return parts[1];
+        }
+
+        return "";
+      } catch {
+        return "";
+      }
+    }
+
+    function getSpotifyEmbedUrl(url) {
+      try {
+        const parsed = new URL(url);
+        if (!parsed.hostname.includes("spotify.com")) return "";
+
+        const parts = parsed.pathname.split("/").filter(Boolean);
+        const allowed = ["track", "album", "playlist", "artist", "episode", "show"];
+
+        if (parts.length >= 2 && allowed.includes(parts[0])) {
+          return `https://open.spotify.com/embed/${parts[0]}/${parts[1]}`;
+        }
+
+        return "";
+      } catch {
+        return "";
+      }
+    }
+
+    function getSoundCloudEmbedUrl(url) {
+      try {
+        const parsed = new URL(url);
+        if (!parsed.hostname.includes("soundcloud.com")) return "";
+        return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2310a37f&auto_play=false&hide_related=false&show_comments=false&show_user=true&show_reposts=false&show_teaser=true`;
+      } catch {
+        return "";
+      }
+    }
+
+    function isDirectAudio(url) {
+      return /\.(mp3|ogg|wav|m4a|aac|flac)(\?|#|$)/i.test(url);
+    }
+
+    function renderMusic(url) {
+      if (!url) {
+        profileMusicWrap.innerHTML = `<div class="empty-note">No music linked.</div>`;
+        return;
+      }
+
+      const spotifyEmbed = getSpotifyEmbedUrl(url);
+      if (spotifyEmbed) {
+        profileMusicWrap.innerHTML = `
+          <div class="music-frame">
+            <iframe
+              src="${escapeHtml(spotifyEmbed)}"
+              height="152"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy">
+            </iframe>
+          </div>
+          <div class="music-link-note">Spotify embed</div>
+        `;
+        return;
+      }
+
+      const soundCloudEmbed = getSoundCloudEmbedUrl(url);
+      if (soundCloudEmbed) {
+        profileMusicWrap.innerHTML = `
+          <div class="music-frame">
+            <iframe
+              src="${escapeHtml(soundCloudEmbed)}"
+              height="166"
+              allow="autoplay"
+              loading="lazy">
+            </iframe>
+          </div>
+          <div class="music-link-note">SoundCloud embed</div>
+        `;
+        return;
+      }
+
+      const youtubeId = getYouTubeId(url);
+      if (youtubeId) {
+        profileMusicWrap.innerHTML = `
+          <div class="music-frame">
+            <iframe
+              src="https://www.youtube.com/embed/${escapeHtml(youtubeId)}"
+              height="315"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              loading="lazy">
+            </iframe>
+          </div>
+          <div class="music-link-note">YouTube embed</div>
+        `;
+        return;
+      }
+
+      if (isDirectAudio(url)) {
+        profileMusicWrap.innerHTML = `
+          <audio class="music-audio" controls preload="none">
+            <source src="${escapeHtml(url)}" />
+            Your browser does not support the audio element.
+          </audio>
+          <div class="music-link-note">Direct audio file</div>
+        `;
+        return;
+      }
+
+      profileMusicWrap.innerHTML = `
+        <div class="empty-note">This link type could not be embedded automatically.</div>
+        <div class="music-link-note">
+          Saved link: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open music link</a>
+        </div>
+      `;
     }
 
     async function saveProfile(event) {
