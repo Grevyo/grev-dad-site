@@ -1,91 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Profile - Grev.dad</title>
-  <style>
-    .hidden { display: none !important; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
-    
-    .wrap { max-width: 1100px; margin: 40px auto; padding: 24px; }
-    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 24px; margin-bottom: 24px; }
-    .footer { max-width: 1100px; margin: 0 auto; padding: 10px 24px 50px; color: #8f98a3; font-size: 0.92rem; }
-
-    /* Inventory Specific Styling */
-    .inventory-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 15px;
-      margin-top: 20px;
-    }
-
-    .skin-card {
-      background: #1c222d;
-      border: 1px solid #2d333b;
-      border-radius: 12px;
-      padding: 15px;
-      text-align: center;
-      transition: transform 0.2s;
-      border-bottom: 4px solid #4b69ff; 
-    }
-    .skin-card:hover { transform: translateY(-5px); }
-
-    .skin-name { font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #fff; }
-    .skin-value { font-size: 0.75rem; color: #9ecbff; font-weight: bold; }
-
-    /* Rarity Borders - Updated to match CS2 case logic */
-    .rarity-Covert { border-bottom-color: #eb4b4b; }
-    .rarity-Classified { border-bottom-color: #d32ee6; }
-    .rarity-Restricted { border-bottom-color: #8847ff; }
-    .rarity-Mil-Spec { border-bottom-color: #4b69ff; }
-    .rarity-Industrial { border-bottom-color: #5e98d9; }
-    .rarity-Consumer { border-bottom-color: #b0c3d9; }
-
-    #total-worth { font-size: 1.5rem; color: #9ecbff; }
-    .status-badge { font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; margin-left: 10px; }
-    .online { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
-    .offline { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
-  </style>
-</head>
-<body>
-  <div id="site-header"></div>
-
-  <main>
-    <div class="wrap">
-      <div class="box">
-        <h1 id="profile-title">User Profile</h1>
-        <p>Viewing: <strong id="username">Loading...</strong> <span id="user-status"></span></p>
-      </div>
-
-      <div class="box">
-        <h2>CS2 Inventory</h2>
-        <p>Total Estimated Value: <strong id="total-worth">$0.00</strong></p>
-        <hr style="border: 0; border-top: 1px solid #222831; margin: 20px 0;">
-        <div id="inventory-grid" class="inventory-grid">
-          <p>Loading items...</p>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <footer class="footer">© Grev.dad — personal projects, playgrounds, and experiments.</footer>
-
-  <script src="/header.js"></script>
-  <script>
+<script>
     async function loadProfile() {
-      // 1. Get ID from URL (e.g., profile.html?id=1)
+      // 1. Get ID from URL (e.g., profile.html?id=4)
       const params = new URLSearchParams(window.location.search);
       let userId = params.get("id");
 
-      // 2. If NO ID is in the URL, try to find the logged-in user's own ID
+      // 2. If NO ID is in the URL, fetch the logged-in user's data
       if (!userId) {
         const meRes = await fetch("/api/me");
         if (meRes.ok) {
           const meData = await meRes.json();
           userId = meData.user.id;
-          // Clean up the URL so refreshing works
+          // Update URL without refreshing so the ID is visible
           window.history.replaceState({}, '', `${window.location.pathname}?id=${userId}`);
         } else {
           window.location.href = "/login.html?msg=Please%20log%20in.";
@@ -93,27 +18,28 @@
         }
       }
 
-      // 3. Fetch the inventory for the specific ID
       const grid = document.getElementById("inventory-grid");
       const worthDisplay = document.getElementById("total-worth");
 
       try {
-        const res = await fetch(`/api/user/inventory?id=${userId}`);
+        // 3. Fetch from /api/profile (Matching our Worker route)
+        const res = await fetch(`/api/profile?id=${userId}`);
         if (!res.ok) throw new Error("Profile not found");
 
         const data = await res.json();
         
-        // Update User Details
-        document.getElementById("username").textContent = data.user.username;
-        document.title = `${data.user.username}'s Profile - Grev.dad`;
+        // 4. Update Header Details
+        document.getElementById("username").textContent = data.username;
+        document.title = `${data.username}'s Profile - Grev.dad`;
         
         const statusEl = document.getElementById("user-status");
-        statusEl.textContent = data.user.status.toUpperCase();
-        statusEl.className = `status-badge ${data.user.status}`;
+        statusEl.textContent = data.status.toUpperCase();
+        statusEl.className = `status-badge ${data.status}`;
 
-        // Update Inventory Grid
+        // 5. Update Inventory Grid
         if (!data.inventory || data.inventory.length === 0) {
           grid.innerHTML = "<p style='grid-column: 1/-1;'>This user's inventory is empty.</p>";
+          worthDisplay.textContent = "$0.00";
           return;
         }
 
@@ -121,16 +47,19 @@
         let total = 0;
 
         data.inventory.forEach(item => {
-          total += Number(item.estimated_value);
+          // Note: Using 'price' and 'rarity' to match our index.js logic
+          const itemPrice = Number(item.price) || 0;
+          total += itemPrice;
 
           const card = document.createElement("div");
-          // Handle rarity names with spaces for CSS classes
-          const rarityClass = item.skin_rarity.replace(" ", "-");
+          // Clean up rarity string for CSS (e.g., "Mil-Spec" -> "Mil-Spec")
+          const rarityClass = (item.rarity || "Consumer").replace(/\s+/g, '-');
           card.className = `skin-card rarity-${rarityClass}`;
           
           card.innerHTML = `
             <div class="skin-name">${item.skin_name}</div>
-            <div class="skin-value">$${Number(item.estimated_value).toFixed(2)}</div>
+            <div class="skin-value">$${itemPrice.toFixed(2)}</div>
+            <div style="font-size: 0.65rem; color: #8f98a3; margin-top: 5px;">${item.wear || ''}</div>
           `;
           grid.appendChild(card);
         });
@@ -145,5 +74,3 @@
 
     loadProfile();
   </script>
-</body>
-</html>
