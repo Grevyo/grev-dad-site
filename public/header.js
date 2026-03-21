@@ -2,18 +2,13 @@ async function loadHeader() {
   const mount = document.getElementById("site-header");
   if (!mount) return;
 
-  // 1. Fetch the static HTML structure
-  const res = await fetch("/header.html");
-  mount.innerHTML = await res.text();
-
   try {
-    // 2. Check authentication with a Cache Buster
-    // Adding a timestamp (?t=...) ensures the browser gets a fresh status
-    const meRes = await fetch(`/api/me?t=${Date.now()}`, { 
-      credentials: "include" 
-    });
+    // 1. Fetch the static HTML structure
+    const res = await fetch("/header.html");
+    const htmlText = await res.text();
+    mount.innerHTML = htmlText;
 
-    // Grab the elements from the freshly injected HTML
+    // 2. Grab all potential nav elements
     const navLogin = document.getElementById("navLogin");
     const navRegister = document.getElementById("navRegister");
     const navCases = document.getElementById("navCases");
@@ -23,42 +18,63 @@ async function loadHeader() {
     const navLogout = document.getElementById("navLogout");
     const navWelcome = document.getElementById("navWelcome");
 
-    // If NOT logged in (401), ensure auth links are visible and exit
+    // 3. Check authentication with a Cache Buster
+    // This 'nocache' parameter is vital to stop the browser from 
+    // showing you a "logged in" state from its memory.
+    const meRes = await fetch(`/api/me?nocache=${Date.now()}`, { 
+      credentials: "include" 
+    });
+
+    // --- CASE A: USER IS NOT LOGGED IN (OR JUST LOGGED OUT) ---
     if (!meRes.ok) {
+      // Ensure Guest links are VISIBLE
       if (navLogin) navLogin.classList.remove("hidden");
       if (navRegister) navRegister.classList.remove("hidden");
+
+      // FORCE HIDE all Member/Admin links (The "Safety Scrub")
+      if (navCases) navCases.classList.add("hidden");
+      if (navMembers) navMembers.classList.add("hidden");
+      if (navProfile) navProfile.classList.add("hidden");
+      if (navAdmin) navAdmin.classList.add("hidden");
+      if (navLogout) navLogout.classList.add("hidden");
+      if (navWelcome) navWelcome.classList.add("hidden");
+      
       return; 
     }
 
+    // --- CASE B: USER IS LOGGED IN ---
     const data = await meRes.json();
     if (!data || !data.user) return;
 
-    // 3. User is Logged In: Toggle visibility
+    // Hide Guest links
     if (navLogin) navLogin.classList.add("hidden");
     if (navRegister) navRegister.classList.add("hidden");
     
+    // Show Member links
     if (navCases) navCases.classList.remove("hidden");
     if (navMembers) navMembers.classList.remove("hidden");
     if (navLogout) navLogout.classList.remove("hidden");
 
     if (navProfile) {
       navProfile.classList.remove("hidden");
-      // Matches your profile.html naming
       navProfile.href = `/profile.html?id=${data.user.id}`; 
     }
 
+    // Admin Check
     if (data.user.is_admin && navAdmin) {
       navAdmin.classList.remove("hidden");
     }
 
+    // Welcome Message
     if (navWelcome) {
       navWelcome.textContent = `Welcome, ${data.user.username}`;
       navWelcome.classList.remove("hidden");
     }
 
   } catch (err) {
-    console.error("Header load failed", err);
+    console.error("Header load failed:", err);
   }
 }
 
+// Initial Load
 loadHeader();
