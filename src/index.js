@@ -9,7 +9,7 @@ export default {
       return json(
         {
           success: false,
-          error: "Internal server error"
+          error: error?.message || "Internal server error"
         },
         500
       );
@@ -30,21 +30,24 @@ async function handleRequest(request, env, ctx) {
   const { pathname } = url;
 
   if (request.method === "OPTIONS") {
-    return handleOptions();
+    return handleOptions(request);
   }
 
   if (pathname === "/api/health" && request.method === "GET") {
-    return json({
-      success: true,
-      message: "grev.dad worker is running"
-    });
+    return json(
+      {
+        success: true,
+        message: "grev.dad worker is running"
+      },
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/setup" && request.method === "POST") {
-    return await handleSetup(env);
+    return await handleSetup(env, request);
   }
 
-  // Auth
   if (pathname === "/api/auth/register" && request.method === "POST") {
     return await handleRegister(request, env);
   }
@@ -61,21 +64,18 @@ async function handleRequest(request, env, ctx) {
     return await handleMe(request, env);
   }
 
-  // Users
   if (pathname === "/api/users/members" && request.method === "GET") {
     return await handleMembers(request, env);
   }
 
-  // Global chat
   if (pathname === "/api/chat/global" && request.method === "GET") {
-    return await handleGetGlobalChat(env);
+    return await handleGetGlobalChat(request, env);
   }
 
   if (pathname === "/api/chat/global" && request.method === "POST") {
     return await handlePostGlobalChat(request, env);
   }
 
-  // Forum
   if (pathname === "/api/forum/posts" && request.method === "GET") {
     return await handleForumPosts(request, env);
   }
@@ -104,7 +104,6 @@ async function handleRequest(request, env, ctx) {
     return await handleForumRemovePost(request, env);
   }
 
-  // Admin
   if (pathname === "/api/admin/users" && request.method === "GET") {
     return await handleAdminUsers(request, env);
   }
@@ -118,16 +117,19 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname === "/api/admin/pending-users" && request.method === "GET") {
-    return await handleAdminPendingUsers(env, request);
+    return await handleAdminPendingUsers(request, env);
   }
 
-  // Future routes
   if (pathname === "/api/chat/private" && request.method === "GET") {
-    return json({
-      success: true,
-      messages: [],
-      note: "Private chat route is ready for a later phase"
-    });
+    return json(
+      {
+        success: true,
+        messages: [],
+        note: "Private chat route is ready for a later phase"
+      },
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/chat/private" && request.method === "POST") {
@@ -136,7 +138,8 @@ async function handleRequest(request, env, ctx) {
         success: false,
         error: "Private chat sending will be added in a later phase"
       },
-      501
+      501,
+      request
     );
   }
 
@@ -146,7 +149,8 @@ async function handleRequest(request, env, ctx) {
         success: false,
         error: "Cases routes will be added in a later phase"
       },
-      501
+      501,
+      request
     );
   }
 
@@ -159,7 +163,8 @@ async function handleRequest(request, env, ctx) {
       success: false,
       error: "Not found"
     },
-    404
+    404,
+    request
   );
 }
 
@@ -167,13 +172,17 @@ async function handleRequest(request, env, ctx) {
 /*                               SETUP / SCHEMA                               */
 /* -------------------------------------------------------------------------- */
 
-async function handleSetup(env) {
+async function handleSetup(env, request) {
   await ensureCoreTables(env);
 
-  return json({
-    success: true,
-    message: "Core database tables created or already exist"
-  });
+  return json(
+    {
+      success: true,
+      message: "Core database tables and migrations applied"
+    },
+    200,
+    request
+  );
 }
 
 async function ensureCoreTables(env) {
@@ -181,8 +190,7 @@ async function ensureCoreTables(env) {
     throw new Error("Missing DB binding");
   }
 
-  const statements = [
-    `
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
@@ -193,37 +201,58 @@ async function ensureCoreTables(env) {
       created_at TEXT NOT NULL,
       last_seen_at TEXT
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "users", "approved", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.DB, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.DB, "users", "group_name", "TEXT NOT NULL DEFAULT 'standard'");
+  await ensureColumn(env.DB, "users", "created_at", "TEXT");
+  await ensureColumn(env.DB, "users", "last_seen_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_token TEXT NOT NULL UNIQUE,
       user_id INTEGER NOT NULL,
       created_at TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      expires_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "sessions", "session_token", "TEXT");
+  await ensureColumn(env.DB, "sessions", "user_id", "INTEGER");
+  await ensureColumn(env.DB, "sessions", "created_at", "TEXT");
+  await ensureColumn(env.DB, "sessions", "expires_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_profiles (
       user_id INTEGER PRIMARY KEY,
       bio TEXT,
-      avatar_url TEXT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      avatar_url TEXT
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "user_profiles", "bio", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "avatar_url", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS global_chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       author_user_id INTEGER NOT NULL,
       author_username TEXT NOT NULL,
       author_group TEXT NOT NULL,
       message TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "global_chat_messages", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "global_chat_messages", "author_username", "TEXT");
+  await ensureColumn(env.DB, "global_chat_messages", "author_group", "TEXT");
+  await ensureColumn(env.DB, "global_chat_messages", "message", "TEXT");
+  await ensureColumn(env.DB, "global_chat_messages", "created_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       author_user_id INTEGER NOT NULL,
@@ -232,11 +261,19 @@ async function ensureCoreTables(env) {
       title TEXT NOT NULL,
       body TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+      updated_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "forum_posts", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_posts", "author_username", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "author_group", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "title", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "body", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "created_at", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "updated_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       post_id INTEGER NOT NULL,
@@ -244,59 +281,50 @@ async function ensureCoreTables(env) {
       author_username TEXT NOT NULL,
       author_group TEXT NOT NULL,
       comment TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE,
-      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "forum_comments", "post_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_comments", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_comments", "author_username", "TEXT");
+  await ensureColumn(env.DB, "forum_comments", "author_group", "TEXT");
+  await ensureColumn(env.DB, "forum_comments", "comment", "TEXT");
+  await ensureColumn(env.DB, "forum_comments", "created_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_reactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       post_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
       reaction_type TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      UNIQUE(post_id, user_id),
-      FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     )
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_users_username
-    ON users (username)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_users_group_name
-    ON users (group_name)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_users_approved
-    ON users (approved)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_sessions_token
-    ON sessions (session_token)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_global_chat_created_at
-    ON global_chat_messages (created_at)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at
-    ON forum_posts (created_at)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id
-    ON forum_comments (post_id)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id
-    ON forum_reactions (post_id)
-    `
-  ];
+  `).run();
 
-  for (const sqlText of statements) {
-    await env.DB.prepare(sqlText).run();
+  await ensureColumn(env.DB, "forum_reactions", "post_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_reactions", "user_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_reactions", "reaction_type", "TEXT");
+  await ensureColumn(env.DB, "forum_reactions", "created_at", "TEXT");
+
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_token ON sessions (session_token)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_users_group_name ON users (group_name)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_users_approved ON users (approved)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_global_chat_created_at ON global_chat_messages (created_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts (created_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id ON forum_comments (post_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id ON forum_reactions (post_id)`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_forum_reactions_post_user ON forum_reactions (post_id, user_id)`).run();
+}
+
+async function ensureColumn(db, tableName, columnName, columnDefinition) {
+  const result = await db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const cols = result.results || [];
+  const exists = cols.some((col) => String(col.name).toLowerCase() === String(columnName).toLowerCase());
+
+  if (!exists) {
+    await db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`).run();
   }
 }
 
@@ -312,11 +340,11 @@ async function handleRegister(request, env) {
   const password = typeof body?.password === "string" ? body.password : "";
 
   if (!username || username.length < 3) {
-    return json({ success: false, error: "Username must be at least 3 characters" }, 400);
+    return json({ success: false, error: "Username must be at least 3 characters" }, 400, request);
   }
 
   if (password.length < 6) {
-    return json({ success: false, error: "Password must be at least 6 characters" }, 400);
+    return json({ success: false, error: "Password must be at least 6 characters" }, 400, request);
   }
 
   const existingUser = await env.DB.prepare(
@@ -324,14 +352,13 @@ async function handleRegister(request, env) {
   ).bind(username).first();
 
   if (existingUser) {
-    return json({ success: false, error: "Username already exists" }, 409);
+    return json({ success: false, error: "Username already exists" }, 409, request);
   }
 
   const passwordHash = await hashPassword(password);
   const now = isoNow();
 
-  const result = await env.DB.prepare(
-    `
+  const result = await env.DB.prepare(`
     INSERT INTO users (
       username,
       password_hash,
@@ -342,24 +369,21 @@ async function handleRegister(request, env) {
       last_seen_at
     )
     VALUES (?, ?, 0, 0, ?, ?, ?)
-    `
-  ).bind(username, passwordHash, DEFAULT_USER_GROUP, now, now).run();
+  `).bind(username, passwordHash, DEFAULT_USER_GROUP, now, now).run();
 
   const userId = result.meta?.last_row_id ?? null;
 
   if (userId) {
-    await env.DB.prepare(
-      `
+    await env.DB.prepare(`
       INSERT OR IGNORE INTO user_profiles (user_id, bio, avatar_url)
       VALUES (?, '', '')
-      `
-    ).bind(userId).run();
+    `).bind(userId).run();
   }
 
   return json({
     success: true,
     message: "Registration submitted. Your account is awaiting approval."
-  });
+  }, 200, request);
 }
 
 async function handleLogin(request, env) {
@@ -370,49 +394,43 @@ async function handleLogin(request, env) {
   const password = typeof body?.password === "string" ? body.password : "";
 
   if (!username || !password) {
-    return json({ success: false, error: "Username and password are required" }, 400);
+    return json({ success: false, error: "Username and password are required" }, 400, request);
   }
 
-  const user = await env.DB.prepare(
-    `
+  const user = await env.DB.prepare(`
     SELECT id, username, password_hash, approved, is_admin, group_name
     FROM users
     WHERE LOWER(username) = LOWER(?)
     LIMIT 1
-    `
-  ).bind(username).first();
+  `).bind(username).first();
 
   if (!user) {
-    return json({ success: false, error: "Invalid username or password" }, 401);
+    return json({ success: false, error: "Invalid username or password" }, 401, request);
   }
 
   const passwordOk = await verifyPassword(password, user.password_hash);
   if (!passwordOk) {
-    return json({ success: false, error: "Invalid username or password" }, 401);
+    return json({ success: false, error: "Invalid username or password" }, 401, request);
   }
 
   if (!Number(user.approved)) {
-    return json({ success: false, error: "Your account is still awaiting approval" }, 403);
+    return json({ success: false, error: "Your account is still awaiting approval" }, 403, request);
   }
 
   const sessionToken = crypto.randomUUID();
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     INSERT INTO sessions (session_token, user_id, created_at, expires_at)
     VALUES (?, ?, ?, ?)
-    `
-  ).bind(sessionToken, user.id, now.toISOString(), expires.toISOString()).run();
+  `).bind(sessionToken, user.id, now.toISOString(), expires.toISOString()).run();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE users
     SET last_seen_at = ?
     WHERE id = ?
-    `
-  ).bind(now.toISOString(), user.id).run();
+  `).bind(now.toISOString(), user.id).run();
 
   const group = normaliseGroupName(user.group_name, Boolean(user.is_admin));
 
@@ -427,7 +445,7 @@ async function handleLogin(request, env) {
       group,
       groups: buildUserGroups(group, Boolean(user.is_admin))
     }
-  });
+  }, 200, request);
 
   response.headers.append("Set-Cookie", buildSessionCookie(sessionToken, expires));
   return response;
@@ -448,7 +466,7 @@ async function handleLogout(request, env) {
   const response = json({
     success: true,
     message: "Logged out"
-  });
+  }, 200, request);
 
   response.headers.append("Set-Cookie", clearSessionCookie());
   return response;
@@ -460,7 +478,7 @@ async function handleMe(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!session) {
-    return json({ success: false, authenticated: false }, 401);
+    return json({ success: false, authenticated: false }, 401, request);
   }
 
   const group = normaliseGroupName(session.group_name, Boolean(session.is_admin));
@@ -480,7 +498,7 @@ async function handleMe(request, env) {
       avatar_url: session.avatar_url || "",
       last_seen_at: session.last_seen_at || null
     }
-  });
+  }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -492,11 +510,10 @@ async function handleMembers(request, env) {
 
   const session = await getSessionUser(request, env);
   if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401);
+    return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
@@ -509,8 +526,7 @@ async function handleMembers(request, env) {
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.approved = 1
     ORDER BY LOWER(u.username) ASC
-    `
-  ).all();
+  `).all();
 
   const members = (rows.results || []).map((row) => {
     const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
@@ -526,29 +542,27 @@ async function handleMembers(request, env) {
     };
   });
 
-  return json({ success: true, members });
+  return json({ success: true, members }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
 /*                                GLOBAL CHAT                                 */
 /* -------------------------------------------------------------------------- */
 
-async function handleGetGlobalChat(env) {
+async function handleGetGlobalChat(request, env) {
   await ensureCoreTables(env);
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT id, author_user_id, author_username, author_group, message, created_at
     FROM global_chat_messages
     ORDER BY id DESC
     LIMIT ?
-    `
-  ).bind(GLOBAL_CHAT_MESSAGE_LIMIT).all();
+  `).bind(GLOBAL_CHAT_MESSAGE_LIMIT).all();
 
   return json({
     success: true,
     messages: (rows.results || []).reverse()
-  });
+  }, 200, request);
 }
 
 async function handlePostGlobalChat(request, env) {
@@ -556,14 +570,14 @@ async function handlePostGlobalChat(request, env) {
 
   const session = await getSessionUser(request, env);
   if (!session) {
-    return json({ success: false, error: "You must be logged in to send messages" }, 401);
+    return json({ success: false, error: "You must be logged in to send messages" }, 401, request);
   }
 
   const body = await safeJson(request);
   const message = cleanMessage(body?.message);
 
   if (!message) {
-    return json({ success: false, error: "Message cannot be empty" }, 400);
+    return json({ success: false, error: "Message cannot be empty" }, 400, request);
   }
 
   const authorGroup = displayGroupName(
@@ -573,8 +587,7 @@ async function handlePostGlobalChat(request, env) {
 
   const now = isoNow();
 
-  const result = await env.DB.prepare(
-    `
+  const result = await env.DB.prepare(`
     INSERT INTO global_chat_messages (
       author_user_id,
       author_username,
@@ -583,16 +596,13 @@ async function handlePostGlobalChat(request, env) {
       created_at
     )
     VALUES (?, ?, ?, ?, ?)
-    `
-  ).bind(session.id, session.username, authorGroup, message, now).run();
+  `).bind(session.id, session.username, authorGroup, message, now).run();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE users
     SET last_seen_at = ?
     WHERE id = ?
-    `
-  ).bind(now, session.id).run();
+  `).bind(now, session.id).run();
 
   return json({
     success: true,
@@ -605,7 +615,7 @@ async function handlePostGlobalChat(request, env) {
       message,
       created_at: now
     }
-  });
+  }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -619,8 +629,7 @@ async function handleForumPosts(request, env) {
   const search = (url.searchParams.get("search") || "").trim().toLowerCase();
   const session = await getSessionUser(request, env);
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       p.id,
       p.author_user_id,
@@ -649,8 +658,7 @@ async function handleForumPosts(request, env) {
     ) r ON r.post_id = p.id
     ORDER BY p.id DESC
     LIMIT ?
-    `
-  ).bind(FORUM_POST_LIMIT).all();
+  `).bind(FORUM_POST_LIMIT).all();
 
   let posts = rows.results || [];
 
@@ -673,7 +681,7 @@ async function handleForumPosts(request, env) {
           )
         : false
     }))
-  });
+  }, 200, request);
 }
 
 async function handleForumPost(request, env) {
@@ -684,11 +692,10 @@ async function handleForumPost(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
-  const post = await env.DB.prepare(
-    `
+  const post = await env.DB.prepare(`
     SELECT
       p.id,
       p.author_user_id,
@@ -717,25 +724,22 @@ async function handleForumPost(request, env) {
     ) r ON r.post_id = p.id
     WHERE p.id = ?
     LIMIT 1
-    `
-  ).bind(postId).first();
+  `).bind(postId).first();
 
   if (!post) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
   let userReaction = null;
   let canRemove = false;
 
   if (session) {
-    const reaction = await env.DB.prepare(
-      `
+    const reaction = await env.DB.prepare(`
       SELECT reaction_type
       FROM forum_reactions
       WHERE post_id = ? AND user_id = ?
       LIMIT 1
-      `
-    ).bind(postId, session.id).first();
+    `).bind(postId, session.id).first();
 
     userReaction = reaction?.reaction_type || null;
 
@@ -752,7 +756,7 @@ async function handleForumPost(request, env) {
       user_reaction: userReaction,
       can_remove: canRemove
     }
-  });
+  }, 200, request);
 }
 
 async function handleForumComments(request, env) {
@@ -762,11 +766,10 @@ async function handleForumComments(request, env) {
   const postId = Number(url.searchParams.get("post_id") || "");
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       id,
       post_id,
@@ -778,13 +781,12 @@ async function handleForumComments(request, env) {
     FROM forum_comments
     WHERE post_id = ?
     ORDER BY id ASC
-    `
-  ).bind(postId).all();
+  `).bind(postId).all();
 
   return json({
     success: true,
     comments: rows.results || []
-  });
+  }, 200, request);
 }
 
 async function handleForumCreatePost(request, env) {
@@ -798,11 +800,11 @@ async function handleForumCreatePost(request, env) {
   const postBody = cleanForumBody(body?.body);
 
   if (!title) {
-    return json({ success: false, error: "Post title is required" }, 400);
+    return json({ success: false, error: "Post title is required" }, 400, request);
   }
 
   if (!postBody) {
-    return json({ success: false, error: "Post body is required" }, 400);
+    return json({ success: false, error: "Post body is required" }, 400, request);
   }
 
   const authorGroup = displayGroupName(
@@ -812,8 +814,7 @@ async function handleForumCreatePost(request, env) {
 
   const now = isoNow();
 
-  const result = await env.DB.prepare(
-    `
+  const result = await env.DB.prepare(`
     INSERT INTO forum_posts (
       author_user_id,
       author_username,
@@ -824,22 +825,13 @@ async function handleForumCreatePost(request, env) {
       updated_at
     )
     VALUES (?, ?, ?, ?, ?, ?, ?)
-    `
-  ).bind(
-    session.id,
-    session.username,
-    authorGroup,
-    title,
-    postBody,
-    now,
-    now
-  ).run();
+  `).bind(session.id, session.username, authorGroup, title, postBody, now, now).run();
 
   return json({
     success: true,
     message: "Post created",
     post_id: result.meta?.last_row_id ?? null
-  });
+  }, 200, request);
 }
 
 async function handleForumCreateComment(request, env) {
@@ -853,19 +845,19 @@ async function handleForumCreateComment(request, env) {
   const comment = cleanForumComment(body?.comment);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
   if (!comment) {
-    return json({ success: false, error: "Comment cannot be empty" }, 400);
+    return json({ success: false, error: "Comment cannot be empty" }, 400, request);
   }
 
-  const post = await env.DB.prepare(
-    `SELECT id FROM forum_posts WHERE id = ? LIMIT 1`
-  ).bind(postId).first();
+  const post = await env.DB.prepare(`SELECT id FROM forum_posts WHERE id = ? LIMIT 1`)
+    .bind(postId)
+    .first();
 
   if (!post) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
   const authorGroup = displayGroupName(
@@ -875,8 +867,7 @@ async function handleForumCreateComment(request, env) {
 
   const now = isoNow();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     INSERT INTO forum_comments (
       post_id,
       author_user_id,
@@ -886,28 +877,18 @@ async function handleForumCreateComment(request, env) {
       created_at
     )
     VALUES (?, ?, ?, ?, ?, ?)
-    `
-  ).bind(
-    postId,
-    session.id,
-    session.username,
-    authorGroup,
-    comment,
-    now
-  ).run();
+  `).bind(postId, session.id, session.username, authorGroup, comment, now).run();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE forum_posts
     SET updated_at = ?
     WHERE id = ?
-    `
-  ).bind(now, postId).run();
+  `).bind(now, postId).run();
 
   return json({
     success: true,
     message: "Comment added"
-  });
+  }, 200, request);
 }
 
 async function handleForumReact(request, env) {
@@ -921,57 +902,51 @@ async function handleForumReact(request, env) {
   const reactionType = normaliseReactionType(body?.reaction_type);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
   if (!reactionType) {
-    return json({ success: false, error: "Reaction must be like or dislike" }, 400);
+    return json({ success: false, error: "Reaction must be like or dislike" }, 400, request);
   }
 
-  const post = await env.DB.prepare(
-    `SELECT id FROM forum_posts WHERE id = ? LIMIT 1`
-  ).bind(postId).first();
+  const post = await env.DB.prepare(`SELECT id FROM forum_posts WHERE id = ? LIMIT 1`)
+    .bind(postId)
+    .first();
 
   if (!post) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
-  const existing = await env.DB.prepare(
-    `
+  const existing = await env.DB.prepare(`
     SELECT id, reaction_type
     FROM forum_reactions
     WHERE post_id = ? AND user_id = ?
     LIMIT 1
-    `
-  ).bind(postId, session.id).first();
+  `).bind(postId, session.id).first();
 
   const now = isoNow();
 
   if (!existing) {
-    await env.DB.prepare(
-      `
+    await env.DB.prepare(`
       INSERT INTO forum_reactions (post_id, user_id, reaction_type, created_at)
       VALUES (?, ?, ?, ?)
-      `
-    ).bind(postId, session.id, reactionType, now).run();
+    `).bind(postId, session.id, reactionType, now).run();
   } else if (existing.reaction_type === reactionType) {
-    await env.DB.prepare(
-      `DELETE FROM forum_reactions WHERE id = ?`
-    ).bind(existing.id).run();
+    await env.DB.prepare(`DELETE FROM forum_reactions WHERE id = ?`)
+      .bind(existing.id)
+      .run();
   } else {
-    await env.DB.prepare(
-      `
+    await env.DB.prepare(`
       UPDATE forum_reactions
       SET reaction_type = ?, created_at = ?
       WHERE id = ?
-      `
-    ).bind(reactionType, now, existing.id).run();
+    `).bind(reactionType, now, existing.id).run();
   }
 
   return json({
     success: true,
     message: "Reaction updated"
-  });
+  }, 200, request);
 }
 
 async function handleForumRemovePost(request, env) {
@@ -982,22 +957,22 @@ async function handleForumRemovePost(request, env) {
 
   const group = normaliseGroupName(session.group_name, Boolean(session.is_admin));
   if (!canModerateForum(group, Boolean(session.is_admin))) {
-    return json({ success: false, error: "You do not have permission to remove posts" }, 403);
+    return json({ success: false, error: "You do not have permission to remove posts" }, 403, request);
   }
 
   const body = await safeJson(request);
   const postId = Number(body?.post_id);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
-  const existing = await env.DB.prepare(
-    `SELECT id FROM forum_posts WHERE id = ? LIMIT 1`
-  ).bind(postId).first();
+  const existing = await env.DB.prepare(`SELECT id FROM forum_posts WHERE id = ? LIMIT 1`)
+    .bind(postId)
+    .first();
 
   if (!existing) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
   await env.DB.prepare(`DELETE FROM forum_comments WHERE post_id = ?`).bind(postId).run();
@@ -1007,7 +982,7 @@ async function handleForumRemovePost(request, env) {
   return json({
     success: true,
     message: "Post removed"
-  });
+  }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1023,8 +998,7 @@ async function handleAdminUsers(request, env) {
   const url = new URL(request.url);
   const search = (url.searchParams.get("search") || "").trim().toLowerCase();
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
@@ -1038,8 +1012,7 @@ async function handleAdminUsers(request, env) {
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     ORDER BY LOWER(u.username) ASC
-    `
-  ).all();
+  `).all();
 
   let users = (rows.results || []).map(formatAdminUserRow);
 
@@ -1054,7 +1027,7 @@ async function handleAdminUsers(request, env) {
     success: true,
     users,
     available_groups: ALLOWED_GROUPS
-  });
+  }, 200, request);
 }
 
 async function handleAdminUser(request, env) {
@@ -1067,11 +1040,10 @@ async function handleAdminUser(request, env) {
   const userId = Number(url.searchParams.get("id") || "");
 
   if (!Number.isInteger(userId) || userId <= 0) {
-    return json({ success: false, error: "A valid user id is required" }, 400);
+    return json({ success: false, error: "A valid user id is required" }, 400, request);
   }
 
-  const row = await env.DB.prepare(
-    `
+  const row = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
@@ -1086,28 +1058,26 @@ async function handleAdminUser(request, env) {
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
-    `
-  ).bind(userId).first();
+  `).bind(userId).first();
 
   if (!row) {
-    return json({ success: false, error: "User not found" }, 404);
+    return json({ success: false, error: "User not found" }, 404, request);
   }
 
   return json({
     success: true,
     user: formatAdminUserRow(row),
     available_groups: ALLOWED_GROUPS
-  });
+  }, 200, request);
 }
 
-async function handleAdminPendingUsers(env, request) {
+async function handleAdminPendingUsers(request, env) {
   await ensureCoreTables(env);
 
   const adminUser = await requireAdmin(request, env);
   if (adminUser instanceof Response) return adminUser;
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       id,
       username,
@@ -1119,13 +1089,12 @@ async function handleAdminPendingUsers(env, request) {
     FROM users
     WHERE approved = 0
     ORDER BY created_at ASC
-    `
-  ).all();
+  `).all();
 
   return json({
     success: true,
     users: (rows.results || []).map(formatAdminUserRow)
-  });
+  }, 200, request);
 }
 
 async function handleAdminUpdateUser(request, env) {
@@ -1142,44 +1111,39 @@ async function handleAdminUpdateUser(request, env) {
   const requestedGroup = sanitiseGroupName(body?.group_name);
 
   if (!Number.isInteger(userId) || userId <= 0) {
-    return json({ success: false, error: "A valid user id is required" }, 400);
+    return json({ success: false, error: "A valid user id is required" }, 400, request);
   }
 
   if (!requestedGroup) {
-    return json({ success: false, error: "A valid group is required" }, 400);
+    return json({ success: false, error: "A valid group is required" }, 400, request);
   }
 
-  const existingUser = await env.DB.prepare(
-    `
+  const existingUser = await env.DB.prepare(`
     SELECT id, username, is_admin, group_name
     FROM users
     WHERE id = ?
     LIMIT 1
-    `
-  ).bind(userId).first();
+  `).bind(userId).first();
 
   if (!existingUser) {
-    return json({ success: false, error: "User not found" }, 404);
+    return json({ success: false, error: "User not found" }, 404, request);
   }
 
   if (existingUser.id === adminUser.id && approved === false) {
-    return json({ success: false, error: "You cannot unapprove your own account" }, 400);
+    return json({ success: false, error: "You cannot unapprove your own account" }, 400, request);
   }
 
   const nextIsAdmin = Boolean(isAdmin) || requestedGroup === "admin";
   const nextApproved = approved === undefined ? true : Boolean(approved);
   const nextGroup = requestedGroup === "admin" ? "admin" : requestedGroup;
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE users
     SET approved = ?, is_admin = ?, group_name = ?
     WHERE id = ?
-    `
-  ).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, userId).run();
+  `).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, userId).run();
 
-  const updatedRow = await env.DB.prepare(
-    `
+  const updatedRow = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
@@ -1194,25 +1158,24 @@ async function handleAdminUpdateUser(request, env) {
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
-    `
-  ).bind(userId).first();
+  `).bind(userId).first();
 
   return json({
     success: true,
     message: "User updated successfully",
     user: formatAdminUserRow(updatedRow)
-  });
+  }, 200, request);
 }
 
 async function requireAdmin(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401);
+    return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
   if (!Boolean(session.is_admin)) {
-    return json({ success: false, error: "Admin access required" }, 403);
+    return json({ success: false, error: "Admin access required" }, 403, request);
   }
 
   return session;
@@ -1230,8 +1193,7 @@ async function getSessionUser(request, env) {
     return null;
   }
 
-  const row = await env.DB.prepare(
-    `
+  const row = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
@@ -1248,8 +1210,7 @@ async function getSessionUser(request, env) {
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE s.session_token = ?
     LIMIT 1
-    `
-  ).bind(sessionToken).first();
+  `).bind(sessionToken).first();
 
   if (!row) {
     return null;
@@ -1270,11 +1231,11 @@ async function getApprovedUser(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401);
+    return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
   if (!Boolean(session.approved)) {
-    return json({ success: false, error: "Account is not approved" }, 403);
+    return json({ success: false, error: "Account is not approved" }, 403, request);
   }
 
   return session;
@@ -1284,30 +1245,31 @@ async function getApprovedUser(request, env) {
 /*                                  HELPERS                                   */
 /* -------------------------------------------------------------------------- */
 
-function json(data, status = 200) {
+function json(data, status = 200, request = null) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...corsHeaders()
+      ...corsHeaders(request)
     }
   });
 }
 
-function handleOptions() {
+function handleOptions(request) {
   return new Response(null, {
     status: 204,
     headers: {
-      ...corsHeaders(),
+      ...corsHeaders(request),
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     }
   });
 }
 
-function corsHeaders() {
+function corsHeaders(request) {
+  const origin = request?.headers?.get("Origin");
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Credentials": "true"
   };
 }
