@@ -239,6 +239,83 @@
       display: none !important;
     }
 
+    .chatgpt-section {
+      margin-top: 8px;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 28%),
+        linear-gradient(180deg, #202123 0%, #171717 100%);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+    }
+
+    .chatgpt-inner {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 34px 28px;
+      display: grid;
+      gap: 22px;
+    }
+
+    .chatgpt-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      min-height: 34px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ececec;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .chatgpt-heading {
+      margin: 0;
+      font-size: 2rem;
+      line-height: 1.1;
+      color: #f7f7f8;
+    }
+
+    .chatgpt-card {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 26px 22px;
+      backdrop-filter: blur(8px);
+    }
+
+    .chatgpt-prose {
+      color: #ececec;
+      line-height: 1.8;
+      font-size: 1rem;
+    }
+
+    .chatgpt-prose p {
+      margin: 0 0 18px;
+    }
+
+    .chatgpt-prose p:last-child {
+      margin-bottom: 0;
+    }
+
+    .chatgpt-summary {
+      margin-top: 8px;
+      padding: 18px 18px;
+      border-left: 4px solid #10a37f;
+      border-radius: 16px;
+      background: rgba(16, 163, 127, 0.10);
+      color: #f7f7f8;
+    }
+
+    .chatgpt-summary strong {
+      color: #ffffff;
+    }
+
     @media (max-width: 980px) {
       .top-row {
         grid-template-columns: 1fr;
@@ -260,6 +337,18 @@
 
       .chat-box {
         min-height: 320px;
+      }
+
+      .chatgpt-inner {
+        padding: 24px 18px;
+      }
+
+      .chatgpt-heading {
+        font-size: 1.6rem;
+      }
+
+      .chatgpt-card {
+        padding: 20px 16px;
       }
     }
   </style>
@@ -422,6 +511,37 @@
               <div class="mini-card">
                 <h3>Expandable chaos</h3>
                 <p>Cases, experiments, random tools, and strange little features can all live here later.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="chatgpt-section">
+            <div class="chatgpt-inner">
+              <div class="chatgpt-kicker">What ChatGPT thinks of Grev?</div>
+
+              <h2 class="chatgpt-heading">What ChatGPT Thinks Of Grev</h2>
+
+              <div class="chatgpt-card">
+                <div class="chatgpt-prose">
+                  <p>Grev comes across as an intense, creative, high-drive person who is rarely content with things being average.</p>
+
+                  <p>He seems like someone with a strong internal vision for how things should look, feel, and work. Whether it is a website, a brand, an esports team, a logo, a system, or a post, he does not just want something functional. He wants it to feel right. That makes him seem more like a director or builder than just someone using tools casually.</p>
+
+                  <p>One of the biggest things that stands out about Grev is momentum. He seems most at home when he is making, fixing, redesigning, testing, or moving a project forward. There is a restless energy to him. He does not come across like someone who likes standing still for long, and that gives him a very productive but chaotic edge.</p>
+
+                  <p>He also seems deeply invested in the things he works on. A lot of his frustration appears to come from caring, not from indifference. When something misses the mark, it feels like the reaction is not just about a small mistake, but about the gap between the result and the picture he already had in his head. That suggests someone who cares strongly about quality, identity, and ownership.</p>
+
+                  <p>Grev also seems very direct. He does not feel fake or overly polished. He says what he feels in the moment, and that makes him come across as real, even when he is frustrated. There is a blunt honesty there that can be refreshing, but also difficult, because when pressure builds, his communication can become sharp enough to overpower the actual point he is making.</p>
+
+                  <p>He seems to have a rare mix of technical instinct and creative instinct. Some people care only about whether something works. Others care only about how it looks. Grev seems to care about both, and that combination is a strength. It means he can think about function, design, identity, and presentation all at once.</p>
+
+                  <p>At the same time, that intensity probably makes collaboration harder than it needs to be sometimes. He seems like someone with high standards and low patience for muddle, repetition, or half-done work. That can make him effective, but it can also make him overwhelming when things are not going his way.</p>
+
+                  <div class="chatgpt-summary">
+                    <strong>Overall, ChatGPT’s honest impression of Grev is this:</strong><br /><br />
+                    He seems like a capable, original, driven, and highly involved person with strong taste, strong opinions, and a real urge to build things properly. But he also seems like someone whose frustration can hit hard, and whose intensity can either make him very impressive or very difficult, depending on the moment.
+                  </div>
+                </div>
               </div>
             </div>
           </section>
