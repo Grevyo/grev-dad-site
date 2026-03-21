@@ -14,6 +14,7 @@
             --card-hover: #1b2030;
             --text-main: white;
             --text-muted: #9aa3b2;
+            --danger: #ff4747;
         }
 
         body {
@@ -22,6 +23,7 @@
             background: var(--bg-dark);
             color: var(--text-main);
             line-height: 1.6;
+            overflow-x: hidden;
         }
 
         .container {
@@ -36,6 +38,11 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
+        }
+
+        .nav-left {
+            display: flex;
+            gap: 12px;
         }
 
         .btn {
@@ -54,18 +61,61 @@
         .home-btn { background: var(--brand-color); color: white; }
         .home-btn:hover { transform: translateY(-2px); background: var(--brand-hover); }
 
-        .password-btn { background: #ff4747; color: white; }
-        .password-btn:hover { transform: translateY(-2px); background: #e63b3b; }
+        .password-btn { 
+            background: var(--danger); 
+            color: white; 
+            box-shadow: 0 0 15px rgba(255, 71, 71, 0.2);
+        }
+        .password-btn:hover { 
+            transform: translateY(-2px); 
+            background: #e63b3b; 
+            box-shadow: 0 0 20px rgba(255, 71, 71, 0.4);
+        }
 
         .stop-btn {
             background: #202436;
             color: white;
-            width: 48px;
-            height: 48px;
+            width: 50px;
+            height: 50px;
             font-size: 22px;
+            justify-content: center;
+        }
+        .stop-btn:hover { background: #2a2f44; transform: scale(1.1); }
+
+        /* ================= LOGIN POPUP ================= */
+        #loginOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* ================= HEADER ================= */
+        .login-box {
+            background: #1a1d29;
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid #333;
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #0f1117;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        /* ================= HEADER & SECTIONS ================= */
         header.profile-header {
             display: flex;
             gap: 30px;
@@ -74,118 +124,72 @@
         }
 
         .avatar {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
+            width: 140px; height: 140px; border-radius: 50%;
             background: linear-gradient(135deg, var(--brand-color), #1f2330);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            font-weight: 800;
-            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px; font-weight: 800; flex-shrink: 0;
         }
 
-        .profile-info h1 { margin: 0; font-size: 38px; }
-        .tag { color: var(--text-muted); margin-top: 5px; font-weight: 400; }
-        .bio { margin-top: 12px; max-width: 600px; }
-
-        /* ================= SECTIONS ================= */
-        section { margin-bottom: 50px; }
         h2.section-title {
-            font-size: 22px;
-            margin-bottom: 20px;
-            font-weight: 600;
-            border-left: 4px solid var(--brand-color);
-            padding-left: 15px;
+            font-size: 22px; margin-bottom: 20px; font-weight: 600;
+            border-left: 4px solid var(--brand-color); padding-left: 15px;
         }
 
         .links-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;
         }
 
-        /* ================= CARDS ================= */
         .card {
-            background: var(--card-bg);
-            padding: 22px;
-            border-radius: 18px;
-            transition: 0.25s ease;
-            position: relative;
-            border: 1px solid transparent;
+            background: var(--card-bg); padding: 22px; border-radius: 18px;
+            transition: 0.25s ease; position: relative; border: 1px solid transparent;
         }
 
-        .card:hover {
-            transform: translateY(-6px);
-            background: var(--card-hover);
-            border-color: var(--brand-color);
-        }
-
-        .card h3 { margin: 0; font-size: 20px; }
-        .card p { margin: 6px 0 0; color: var(--text-muted); font-size: 14px; }
+        .card:hover { transform: translateY(-6px); background: var(--card-hover); border-color: var(--brand-color); }
         .card a { position: absolute; inset: 0; border-radius: 18px; }
 
-        /* ================= MERCH ================= */
-        .merch-item {
-            text-align: center;
-            background: #1a1d29;
-        }
+        .merch-item { text-align: center; background: #1a1d29; }
+        .merch-visual { font-size: 3rem; background: #0f1117; padding: 20px; border-radius: 12px; margin-bottom: 10px; }
+        .price { display: block; margin-top: 10px; font-weight: 800; color: #00ff88; }
 
-        .merch-visual {
-            font-size: 3rem;
-            background: #0f1117;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-        }
-
-        .price {
-            display: block;
-            margin-top: 10px;
-            font-weight: 800;
-            color: #00ff88;
-        }
-
-        /* ================= FOOTER ================= */
-        footer {
-            margin-top: 60px;
-            padding: 30px 0;
-            border-top: 1px solid #202436;
-            color: #8a91a3;
-            font-size: 14px;
-            text-align: center;
-        }
+        footer { margin-top: 60px; padding: 30px 0; border-top: 1px solid #202436; color: #8a91a3; font-size: 14px; text-align: center; }
 
         @media (max-width: 600px) {
             header.profile-header { flex-direction: column; text-align: center; }
+            nav.top-nav { flex-direction: column; gap: 15px; }
         }
     </style>
 </head>
 <body>
 
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h3>Admin Login</h3>
+            <p style="color: var(--text-muted); font-size: 13px;">Enter credentials to view password</p>
+            <input type="text" placeholder="Username">
+            <input type="password" placeholder="Password">
+            <button class="btn home-btn" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="triggerTrap()">Login</button>
+            <button onclick="closeLogin()" style="background:none; border:none; color:gray; cursor:pointer; margin-top:15px; font-size:12px;">Cancel</button>
+        </div>
+    </div>
+
     <main class="container">
         
         <nav class="top-nav">
-            <a href="https://grev.dad" class="btn home-btn">Home</a>
-            <div>
-                <button class="btn password-btn" onclick="playRickroll()">Show Password</button>
-                <button class="btn stop-btn" onclick="stopRickroll()" title="Stop Audio">🛑</button>
+            <div class="nav-left">
+                <a href="https://grev.dad" class="btn home-btn">Home</a>
+                <button class="btn password-btn" onclick="showLogin()">Show DontKnows Password</button>
             </div>
+            <button class="btn stop-btn" onclick="stopRickroll()" title="Stop Audio">🛑</button>
         </nav>
 
-        <div id="video-container" aria-hidden="true">
-            <iframe id="rickrollPlayer" width="0" height="0" src="" frameborder="0" allow="autoplay"></iframe>
-        </div>
+        <iframe id="rickrollPlayer" width="0" height="0" src="" frameborder="0" allow="autoplay"></iframe>
 
         <header class="profile-header">
-            <div class="avatar" role="img" aria-label="DK Avatar">DK</div>
+            <div class="avatar">DK</div>
             <div class="profile-info">
                 <h1>DontKnow Gaming</h1>
                 <p class="tag">Creator • Gamer • Future Game Developer</p>
-                <p class="bio">
-                    Welcome to the official DontKnow Gaming profile. This page is my full digital footprint — gaming platforms, streaming, social media, and dev projects.
-                </p>
+                <p class="bio">Welcome to the official DontKnow Gaming profile. This page is my full digital footprint.</p>
             </div>
         </header>
 
@@ -195,17 +199,12 @@
                 <article class="card">
                     <h3>Discord</h3>
                     <p>Join the community</p>
-                    <a href="https://discord.com/users/271074067489095680" target="_blank" aria-label="Join Discord"></a>
+                    <a href="https://discord.com/users/271074067489095680" target="_blank"></a>
                 </article>
                 <article class="card">
                     <h3>Steam</h3>
-                    <p>View my gaming library</p>
-                    <a href="https://steamcommunity.com/id/dont-know/" target="_blank" aria-label="Steam Profile"></a>
-                </article>
-                <article class="card">
-                    <h3>YouTube</h3>
-                    <p>Watch latest clips</p>
-                    <a href="#" target="_blank" aria-label="YouTube Channel"></a>
+                    <p>View my library</p>
+                    <a href="https://steamcommunity.com/id/dont-know/" target="_blank"></a>
                 </article>
             </div>
         </section>
@@ -217,30 +216,42 @@
                     <div class="merch-visual">👕</div>
                     <h3>IDK Hoodie</h3>
                     <span class="price">$45.00</span>
-                    <a href="#" aria-label="Buy Hoodie"></a>
-                </article>
-                <article class="card merch-item">
-                    <div class="merch-visual">🧢</div>
-                    <h3>Gaming Cap</h3>
-                    <span class="price">$25.00</span>
-                    <a href="#" aria-label="Buy Cap"></a>
+                    <a href="#"></a>
                 </article>
                 <article class="card merch-item">
                     <div class="merch-visual">🎁</div>
                     <h3>Loot Box</h3>
                     <p>Surprise item!</p>
-                    <a href="#" aria-label="Buy Loot Box"></a>
+                    <a href="#"></a>
                 </article>
             </div>
         </section>
 
         <footer>
-            <p>&copy; 2026 DontKnow Gaming — Built with HTML5 & CSS3</p>
+            <p>&copy; 2026 DontKnow Gaming — Official Profile</p>
         </footer>
-
     </main>
 
     <script>
         const player = document.getElementById("rickrollPlayer");
-        
-        function play
+        const overlay = document.getElementById("loginOverlay");
+
+        function showLogin() {
+            overlay.style.display = "flex";
+        }
+
+        function closeLogin() {
+            overlay.style.display = "none";
+        }
+
+        function triggerTrap() {
+            overlay.style.display = "none";
+            player.src = "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1";
+        }
+
+        function stopRickroll() {
+            player.src = "";
+        }
+    </script>
+</body>
+</html>
