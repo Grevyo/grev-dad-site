@@ -385,7 +385,7 @@
       }
       const num = Number(value);
       if (Number.isNaN(num)) return "—";
-      return `$${num.toLocaleString("en-GB")}`;
+      return `£${(num / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 
     function renderLeaderboards(members) {

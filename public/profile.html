@@ -220,6 +220,15 @@
             <div id="profile-info" class="profile-info-grid"></div>
           </section>
 
+          <section class="panel">
+            <h2 class="panel-title">CS2 simulator</h2>
+            <p class="panel-subtitle">Simulated Grev Coins balance, opens, and recent drops (fake economy).</p>
+            <div id="cs2-profile-body" class="muted">Loading CS2 stats…</div>
+            <div class="mt-16">
+              <a class="btn btn-primary" href="/CS2/index.html">Open CS2 hub</a>
+            </div>
+          </section>
+
           <section class="panel" id="profile-edit-panel">
             <h2 class="panel-title">Edit your profile</h2>
             <p class="panel-subtitle">
@@ -302,6 +311,7 @@
     const profileMediaEmpty = document.getElementById("profile-media-empty");
     const profileMusicWrap = document.getElementById("profile-music-wrap");
     const profileInfo = document.getElementById("profile-info");
+    const cs2ProfileBody = document.getElementById("cs2-profile-body");
     const profileEditPanel = document.getElementById("profile-edit-panel");
     const profileForm = document.getElementById("profile-form");
     const saveProfileBtn = document.getElementById("save-profile-btn");
@@ -347,6 +357,68 @@
       });
     }
 
+    function formatGbpPence(pence) {
+      const n = Number(pence || 0) / 100;
+      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    async function loadCs2Profile(userId) {
+      if (!cs2ProfileBody) return;
+      cs2ProfileBody.textContent = "Loading CS2 stats…";
+
+      try {
+        const response = await fetch(`/api/cs2/profile/public?user_id=${encodeURIComponent(userId)}`, {
+          method: "GET",
+          credentials: "same-origin"
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          cs2ProfileBody.textContent = "CS2 stats are unavailable (database may not be configured).";
+          return;
+        }
+
+        if (!data.profile) {
+          cs2ProfileBody.textContent = "No CS2 profile yet — visit the CS2 hub after logging in.";
+          return;
+        }
+
+        const p = data.profile;
+        const opens = Array.isArray(data.opens) ? data.opens : [];
+        const recentOpens = opens.slice(0, 5).map((o) => `
+          <li>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${escapeHtml(o.color_hex || "#999")};margin-right:6px;vertical-align:middle;"></span>
+            ${escapeHtml(o.item_name || "")} · ${escapeHtml(o.case_name || "")}
+          </li>
+        `).join("");
+
+        cs2ProfileBody.innerHTML = `
+          <div class="profile-info-grid">
+            <div class="info-card">
+              <h3>Balance</h3>
+              <p>${escapeHtml(formatGbpPence(p.balance_pence))} Grev Coins</p>
+            </div>
+            <div class="info-card">
+              <h3>Cases opened</h3>
+              <p>${escapeHtml(String(p.total_cases_opened || 0))}</p>
+            </div>
+            <div class="info-card">
+              <h3>Total spent</h3>
+              <p>${escapeHtml(formatGbpPence(p.total_spent_pence))}</p>
+            </div>
+            <div class="info-card">
+              <h3>Inventory value</h3>
+              <p>${escapeHtml(formatGbpPence(p.total_inventory_value_pence))}</p>
+            </div>
+          </div>
+          ${recentOpens ? `<ul class="mt-16" style="margin:0;padding-left:18px;line-height:1.6;">${recentOpens}</ul>` : `<p class="mt-16 empty-note">No opens recorded yet.</p>`}
+        `;
+      } catch (error) {
+        console.error(error);
+        cs2ProfileBody.textContent = "Could not load CS2 stats.";
+      }
+    }
+
     async function fetchCurrentUser() {
       try {
         const response = await fetch("/api/auth/me", {
@@ -386,6 +458,7 @@
         loadedProfile = data.profile;
         renderProfile(data.profile);
         populateForm(data.profile);
+        loadCs2Profile(data.profile.id);
       } catch (error) {
         console.error(error);
         showMessage("error", "Could not load profile.");

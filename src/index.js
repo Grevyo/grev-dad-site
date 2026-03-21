@@ -1,5 +1,10 @@
 // src/index.js
 
+import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
+import { handleCs2Request } from "./cs2/handlers.js";
+import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
+import { ensureCs2Extensions } from "./cs2/schema.js";
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -127,6 +132,17 @@ async function handleRequest(request, env, ctx) {
     return await handleGamblingProfile(request, env);
   }
 
+  if (pathname.startsWith("/api/cs2")) {
+    const cs2Response = await handleCs2Request(request, env, {
+      json,
+      getApprovedUser,
+      requireAdmin,
+      isoNow,
+      safeJson
+    });
+    if (cs2Response) return cs2Response;
+  }
+
   // Admin
   if (pathname === "/api/admin/users" && request.method === "GET") {
     return await handleAdminUsers(request, env);
@@ -172,7 +188,7 @@ async function handleRequest(request, env, ctx) {
     return json(
       {
         success: false,
-        error: "Use /api/gambling routes for the new gambling playground phase"
+        error: "Use /api/cs2 and /api/gambling/profile for the CS2 simulator"
       },
       501,
       request
@@ -200,11 +216,13 @@ async function handleRequest(request, env, ctx) {
 async function handleSetup(env, request) {
   await ensureCoreTables(env);
   await ensureCasesTables(env);
+  const cs2Seed = await seedCs2CatalogIfEmpty(env);
 
   return json(
     {
       success: true,
-      message: "Core database tables and gambling tables applied"
+      message: "Core database tables and gambling tables applied",
+      cs2_seed: cs2Seed
     },
     200,
     request
@@ -442,6 +460,8 @@ async function ensureCasesTables(env) {
   await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
   await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
   await env.CASES_DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
+
+  await ensureCs2Extensions(env.CASES_DB);
 }
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
@@ -1395,8 +1415,8 @@ async function handleGamblingProfile(request, env) {
       created_at,
       updated_at
     )
-    VALUES (?, ?, 1000, 0, 0, 0, ?, ?)
-  `).bind(session.id, session.username, now, now).run();
+    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+  `).bind(session.id, session.username, STARTING_BALANCE_PENCE, now, now).run();
 
   const row = await env.CASES_DB.prepare(`
     SELECT

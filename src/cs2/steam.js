@@ -1,0 +1,78 @@
+import { MARKET_CACHE_TTL_MS, STEAM_APPID_CS2, STEAM_CURRENCY_GBP } from "./constants.js";
+
+/**
+ * Fetches median/last Steam Community Market price for CS2 (appid 730), GBP.
+ * Returns price in pence or null if unavailable.
+ */
+export async function fetchSteamPricePence(marketHashName) {
+  if (!marketHashName || typeof marketHashName !== "string") return null;
+
+  const encoded = encodeURIComponent(marketHashName);
+  const url = `https://steamcommunity.com/market/priceoverview/?appid=${STEAM_APPID_CS2}&currency=${STEAM_CURRENCY_GBP}&market_hash_name=${encoded}`;
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; GrevDadBot/1.0)"
+    }
+  });
+
+  if (!response.ok) return null;
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    return null;
+  }
+
+  if (!data || !data.success) return null;
+
+  const raw = data.median_price || data.lowest_price || "";
+  const pence = parseSteamGbpToPence(raw);
+  return pence;
+}
+
+function parseSteamGbpToPence(value) {
+  if (!value || typeof value !== "string") return null;
+  const cleaned = value.replace(/£/g, "").replace(/,/g, "").trim();
+  const num = Number.parseFloat(cleaned);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(num * 100);
+}
+
+export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date.now()) {
+  if (!env.CASES_DB || !marketHashName) return null;
+
+  const cached = await env.CASES_DB.prepare(`
+    SELECT price_pence, updated_at
+    FROM market_price_cache
+    WHERE market_hash_name = ?
+    LIMIT 1
+  `).bind(marketHashName).first();
+
+  const updated = cached?.updated_at ? Date.parse(cached.updated_at) : 0;
+  if (cached && Number.isFinite(updated) && nowMs - updated < MARKET_CACHE_TTL_MS) {
+    return Number(cached.price_pence) || null;
+  }
+
+  const live = await fetchSteamPricePence(marketHashName);
+  const stamp = new Date(nowMs).toISOString();
+
+  if (live != null && live > 0) {
+    await env.CASES_DB.prepare(`
+      INSERT INTO market_price_cache (market_hash_name, price_pence, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(market_hash_name) DO UPDATE SET
+        price_pence = excluded.price_pence,
+        updated_at = excluded.updated_at
+    `).bind(marketHashName, live, stamp).run();
+    return live;
+  }
+
+  if (cached && Number(cached.price_pence) > 0) {
+    return Number(cached.price_pence);
+  }
+
+  return null;
+}
