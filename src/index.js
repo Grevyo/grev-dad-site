@@ -220,16 +220,14 @@ export default {
       // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
         if (!env.CASES_DB) return json({ error: "CASES_DB binding missing" }, 500);
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ cases: [], error: "Unauthorized" }, 401);
-        
-        ctx.waitUntil(autoSyncPrices(env));
+        // We allow the case list to be seen even if not logged in for the preview
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results || [] });
       }
 
       if (path === "/api/cases/skins") {
-        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(url.searchParams.get("name")).all();
+        const name = url.searchParams.get("name");
+        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(name).all();
         return json({ skins: results });
       }
 
