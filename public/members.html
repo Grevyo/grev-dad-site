@@ -40,6 +40,17 @@
     .member-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .member-card h3 { margin: 0; font-size: 1.1rem; }
     
+    /* STYLE FOR THE CLICKABLE USERNAME */
+    .member-link {
+      color: #f5f7fa;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .member-link:hover {
+      color: #9ecbff;
+      text-decoration: underline;
+    }
+
     .stats-row { 
       margin-top: 12px; 
       padding-top: 12px; 
@@ -121,11 +132,14 @@
         // Use rank #1 color for the top player
         const rankColor = index === 0 ? 'style="color: #ffd700; border-color: #ffd700;"' : '';
 
+        // PHASE 5 UPDATE: Username is now a link to user.html?id=...
         div.innerHTML = `
           <div class="rank-badge" ${rankColor}>#${index + 1}</div>
           <div class="member-row">
             <span class="status-dot ${statusClass(member.status)}"></span>
-            <h3>${member.username}</h3>
+            <h3>
+              <a href="/user.html?id=${member.id}" class="member-link">${member.username}</a>
+            </h3>
           </div>
           <p style="font-size: 0.85rem; color: #8f98a3;">
             ${member.is_admin ? '<span style="color:#ff4b4b">Admin</span>' : 'Member'} · ${statusLabel(member.status)}
@@ -140,7 +154,6 @@
     }
 
     loadPage();
-    // Refresh every 30 seconds to keep the leaderboard and status dots current
     setInterval(loadPage, 30000);
   </script>
 </body>
