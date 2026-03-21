@@ -2,21 +2,22 @@ name = "grev-dad-site"
 main = "index.js"
 compatibility_date = "2026-03-21"
 
-# 1. Main Database (Users, Sessions, Inventory)
+# 1. Main Database (Users, Sessions)
 [[d1_databases]]
 binding = "DB"
 database_name = "grev-dad-db"
 database_id = "4e1a3548-6316-4a9b-926f-f536b4a6d5a6"
 
-# 2. Case/Skin Database
+# 2. Case/Skin Database (Items, Inventory)
 [[d1_databases]]
 binding = "CASES_DB"
 database_name = "cases"
 database_id = "1a4c7386-4f09-42ce-a2d7-53c1bcdb9147"
 
-# 3. Static Assets
+# 3. Static Assets Configuration
 [assets]
-directory = "./" 
+directory = "./"
 binding = "ASSETS"
-# This line ensures your API routes work instead of 404ing
+# CRITICAL: This allows your API routes in index.js to override static files
+not_found_handling = "none"
 run_worker_first = true
