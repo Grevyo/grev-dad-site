@@ -79,7 +79,7 @@ async function handleRequest(request, env, ctx) {
     return await handleProfileView(request, env);
   }
 
-  // Users / Members
+  // Members
   if (pathname === "/api/users/members" && request.method === "GET") {
     return await handleMembers(request, env);
   }
@@ -120,6 +120,11 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/forum/remove-post" && request.method === "POST") {
     return await handleForumRemovePost(request, env);
+  }
+
+  // Gambling / Cases
+  if (pathname === "/api/gambling/profile" && request.method === "GET") {
+    return await handleGamblingProfile(request, env);
   }
 
   // Admin
@@ -167,7 +172,7 @@ async function handleRequest(request, env, ctx) {
     return json(
       {
         success: false,
-        error: "Cases routes will be added in a later phase"
+        error: "Use /api/gambling routes for the new gambling playground phase"
       },
       501,
       request
@@ -194,11 +199,12 @@ async function handleRequest(request, env, ctx) {
 
 async function handleSetup(env, request) {
   await ensureCoreTables(env);
+  await ensureCasesTables(env);
 
   return json(
     {
       success: true,
-      message: "Core database tables and migrations applied"
+      message: "Core database tables and gambling tables applied"
     },
     200,
     request
@@ -344,6 +350,98 @@ async function ensureCoreTables(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id ON forum_comments (post_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id ON forum_reactions (post_id)`).run();
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_forum_reactions_post_user ON forum_reactions (post_id, user_id)`).run();
+}
+
+async function ensureCasesTables(env) {
+  if (!env.CASES_DB) {
+    return;
+  }
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_profiles (
+      user_id INTEGER PRIMARY KEY,
+      display_name TEXT,
+      balance INTEGER NOT NULL DEFAULT 1000,
+      total_cases_opened INTEGER NOT NULL DEFAULT 0,
+      total_spent INTEGER NOT NULL DEFAULT 0,
+      total_inventory_value INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(env.CASES_DB, "case_profiles", "display_name", "TEXT");
+  await ensureColumn(env.CASES_DB, "case_profiles", "balance", "INTEGER NOT NULL DEFAULT 1000");
+  await ensureColumn(env.CASES_DB, "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.CASES_DB, "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.CASES_DB, "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.CASES_DB, "case_profiles", "created_at", "TEXT");
+  await ensureColumn(env.CASES_DB, "case_profiles", "updated_at", "TEXT");
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_name TEXT NOT NULL,
+      weapon_name TEXT,
+      skin_name TEXT,
+      rarity TEXT NOT NULL,
+      wear TEXT,
+      image_url TEXT,
+      market_value INTEGER NOT NULL DEFAULT 0,
+      color_hex TEXT,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_definitions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      image_url TEXT,
+      price INTEGER NOT NULL DEFAULT 100,
+      description TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_drops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      drop_weight INTEGER NOT NULL DEFAULT 1
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS inventory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      source_case_id INTEGER,
+      acquired_at TEXT NOT NULL,
+      locked INTEGER NOT NULL DEFAULT 0
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_open_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      case_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      price_paid INTEGER NOT NULL,
+      opened_at TEXT NOT NULL
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_profiles_user_id ON case_profiles (user_id)`).run();
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory (user_id)`).run();
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
+  await env.CASES_DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
 }
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
@@ -780,10 +878,32 @@ async function handleMembers(request, env) {
     ORDER BY LOWER(u.username) ASC
   `).all();
 
-  const members = (rows.results || []).map((row) => {
+  const members = [];
+
+  for (const row of rows.results || []) {
     const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
 
-    return {
+    let caseSummary = {
+      case_money: 0,
+      case_rarest_item_name: "",
+      case_rarest_score: 0,
+      case_most_expensive_item_name: "",
+      case_inventory_value: 0
+    };
+
+    if (env.CASES_DB) {
+      const profile = await env.CASES_DB.prepare(`
+        SELECT balance, total_inventory_value
+        FROM case_profiles
+        WHERE user_id = ?
+        LIMIT 1
+      `).bind(row.id).first();
+
+      caseSummary.case_money = Number(profile?.balance || 0);
+      caseSummary.case_inventory_value = Number(profile?.total_inventory_value || 0);
+    }
+
+    members.push({
       id: row.id,
       username: row.username,
       is_admin: Boolean(row.is_admin),
@@ -794,15 +914,9 @@ async function handleMembers(request, env) {
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
       motto: row.motto || "",
-
-      // Cases placeholders for later
-      case_money: 0,
-      case_rarest_item_name: "",
-      case_rarest_score: 0,
-      case_most_expensive_item_name: "",
-      case_inventory_value: 0
-    };
-  });
+      ...caseSummary
+    });
+  }
 
   return json({ success: true, members }, 200, request);
 }
@@ -1248,6 +1362,70 @@ async function handleForumRemovePost(request, env) {
   return json({
     success: true,
     message: "Post removed"
+  }, 200, request);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              GAMBLING / CASES                              */
+/* -------------------------------------------------------------------------- */
+
+async function handleGamblingProfile(request, env) {
+  await ensureCoreTables(env);
+  await ensureCasesTables(env);
+
+  if (!env.CASES_DB) {
+    return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+  }
+
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const now = isoNow();
+
+  await env.CASES_DB.prepare(`
+    INSERT OR IGNORE INTO case_profiles (
+      user_id,
+      display_name,
+      balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, 1000, 0, 0, 0, ?, ?)
+  `).bind(session.id, session.username, now, now).run();
+
+  const row = await env.CASES_DB.prepare(`
+    SELECT
+      user_id,
+      display_name,
+      balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    FROM case_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  return json({
+    success: true,
+    profile: {
+      user_id: row.user_id,
+      username: session.username,
+      display_name: row.display_name || session.username,
+      balance: Number(row.balance || 0),
+      total_cases_opened: Number(row.total_cases_opened || 0),
+      total_spent: Number(row.total_spent || 0),
+      total_inventory_value: Number(row.total_inventory_value || 0),
+      created_at: row.created_at || now,
+      updated_at: row.updated_at || now
+    }
   }, 200, request);
 }
 

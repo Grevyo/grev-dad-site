@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gambling Playground | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .gambling-page {
+      display: grid;
+      gap: 24px;
+    }
+
+    .gambling-hero {
+      position: relative;
+      overflow: hidden;
+      padding: 30px;
+    }
+
+    .gambling-hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top left, rgba(16, 163, 127, 0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(142, 197, 255, 0.12), transparent 34%);
+      pointer-events: none;
+    }
+
+    .gambling-hero > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-title {
+      margin: 0 0 12px;
+      font-size: 2.2rem;
+      line-height: 1.05;
+    }
+
+    .hero-text {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 760px;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      font-size: 0.9rem;
+    }
+
+    .gambling-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .gambling-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.025);
+      padding: 16px;
+    }
+
+    .stat-label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      display: block;
+      color: var(--text);
+      font-size: 1.2rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .action-card {
+      display: block;
+      text-decoration: none;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.025);
+      padding: 18px;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .action-card:hover {
+      transform: translateY(-1px);
+      border-color: #3a4a61;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .action-card h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .action-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+
+    .feed-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .feed-item {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.02);
+      padding: 14px;
+    }
+
+    .feed-item-title {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .feed-item-text {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+
+    .empty-note {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    @media (max-width: 980px) {
+      .gambling-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .stats-grid,
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-title {
+        font-size: 1.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <div class="gambling-page">
+        <section class="panel gambling-hero">
+          <h1 class="hero-title">Gambling Playground</h1>
+          <p class="hero-text">
+            This is the in-site gambling and case opening area for Grev.dad. It uses fake site money only,
+            shares your main site account, and will grow into the home of CS2-style cases, inventory,
+            item values, leaderboards, and more weird little gambling systems later.
+          </p>
+
+          <div class="hero-badges">
+            <span class="hero-badge">No Real Money</span>
+            <span class="hero-badge">Linked To Your Site Account</span>
+            <span class="hero-badge">Backed By CASES_DB</span>
+          </div>
+        </section>
+
+        <div id="gambling-message" class="hidden"></div>
+
+        <div class="gambling-grid">
+          <section class="gambling-stack">
+            <section class="panel">
+              <h2 class="panel-title">Your Gambling Profile</h2>
+              <p class="panel-subtitle">
+                A quick overview of your current in-site gambling progress.
+              </p>
+
+              <div id="stats-grid" class="stats-grid">
+                <div class="stat-card">
+                  <span class="stat-label">Balance</span>
+                  <span class="stat-value">Loading...</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2 class="panel-title">What you can do here</h2>
+              <p class="panel-subtitle">
+                The full system is still being built, but the playground structure is now in place.
+              </p>
+
+              <div class="action-grid">
+                <a class="action-card" href="#">
+                  <h3>Open Cases</h3>
+                  <p>Use in-site money to open CS2-style cases and pull items into your inventory.</p>
+                </a>
+
+                <a class="action-card" href="#">
+                  <h3>View Inventory</h3>
+                  <p>See what you own, your rarest pulls, and the total market value of your items.</p>
+                </a>
+
+                <a class="action-card" href="#">
+                  <h3>Big Wins</h3>
+                  <p>Track your biggest pulls and eventually compare them against other site members.</p>
+                </a>
+
+                <a class="action-card" href="#">
+                  <h3>Leaderboards</h3>
+                  <p>Compete on balance, inventory value, rarest item, and biggest opening streaks later on.</p>
+                </a>
+              </div>
+            </section>
+          </section>
+
+          <aside class="gambling-stack">
+            <section class="panel">
+              <h2 class="panel-title">Current Status</h2>
+              <div id="gambling-profile-box" class="feed-list">
+                <div class="feed-item">
+                  <span class="feed-item-title">Loading profile...</span>
+                  <div class="feed-item-text">Pulling your gambling playground data.</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2 class="panel-title">Planned Additions</h2>
+              <div class="feed-list">
+                <div class="feed-item">
+                  <span class="feed-item-title">Case Definitions</span>
+                  <div class="feed-item-text">Named cases, prices, art, and drop tables stored in CASES_DB.</div>
+                </div>
+
+                <div class="feed-item">
+                  <span class="feed-item-title">Inventory Value</span>
+                  <div class="feed-item-text">Total value, rarest item, and most expensive item tied back into profiles and members.</div>
+                </div>
+
+                <div class="feed-item">
+                  <span class="feed-item-title">Extra Games</span>
+                  <div class="feed-item-text">Coinflip, contracts, roulette-style ideas, or whatever else you want to add later.</div>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — gambling playground</div>
+    </footer>
+  </div>
+
+  <script>
+    const gamblingMessage = document.getElementById("gambling-message");
+    const statsGrid = document.getElementById("stats-grid");
+    const gamblingProfileBox = document.getElementById("gambling-profile-box");
+
+    function showMessage(type, text) {
+      gamblingMessage.className = `alert alert-${type}`;
+      gamblingMessage.textContent = text;
+    }
+
+    function clearMessage() {
+      gamblingMessage.className = "hidden";
+      gamblingMessage.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function moneyFormat(value) {
+      const num = Number(value || 0);
+      return `$${num.toLocaleString("en-GB")}`;
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function renderProfile(profile) {
+      statsGrid.innerHTML = `
+        <div class="stat-card">
+          <span class="stat-label">Balance</span>
+          <span class="stat-value">${escapeHtml(moneyFormat(profile.balance))}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Cases Opened</span>
+          <span class="stat-value">${escapeHtml(String(profile.total_cases_opened || 0))}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Spent</span>
+          <span class="stat-value">${escapeHtml(moneyFormat(profile.total_spent))}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Inventory Value</span>
+          <span class="stat-value">${escapeHtml(moneyFormat(profile.total_inventory_value))}</span>
+        </div>
+      `;
+
+      gamblingProfileBox.innerHTML = `
+        <div class="feed-item">
+          <span class="feed-item-title">${escapeHtml(profile.display_name || profile.username || "Player")}</span>
+          <div class="feed-item-text">
+            Gambling profile created: ${escapeHtml(formatDate(profile.created_at))}
+          </div>
+        </div>
+        <div class="feed-item">
+          <span class="feed-item-title">Linked User ID</span>
+          <div class="feed-item-text">${escapeHtml(String(profile.user_id))}</div>
+        </div>
+        <div class="feed-item">
+          <span class="feed-item-title">Last Updated</span>
+          <div class="feed-item-text">${escapeHtml(formatDate(profile.updated_at))}</div>
+        </div>
+      `;
+    }
+
+    async function loadGamblingProfile() {
+      clearMessage();
+
+      try {
+        const response = await fetch("/api/gambling/profile", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load gambling profile.");
+          return;
+        }
+
+        renderProfile(data.profile);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load gambling playground.");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadGamblingProfile);
+  </script>
+</body>
+</html>

@@ -15,11 +15,11 @@
       "database_name": "DB",
       "database_id": "4e1a3548-6316-4a9b-926f-f536b4a6d5a6"
     },
-    {
-      "binding": "CASES_DB",
-      "database_name": "CASES_DB",
-      "database_id": "1a4c7386-4f09-42ce-a2d7-53c1bcdb9147"
-    }
+{
+  "binding": "CASES_DB",
+  "database_name": "CASES_DB",
+  "database_id": "234f3636-88f9-4c28-91cb-07d88af04d5b"
+}
   ],
 
   "observability": {
