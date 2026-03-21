@@ -1,288 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DontKnow Gaming - Digital Profile</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DontKnow Gaming - Digital Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-color: #5865F2;
+            --brand-hover: #4752c4;
+            --bg-dark: #0f1117;
+            --card-bg: #151824;
+            --card-hover: #1b2030;
+            --text-main: white;
+            --text-muted: #9aa3b2;
+        }
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
 
-<style>
+        .container {
+            max-width: 1100px;
+            margin: auto;
+            padding: 40px 20px;
+        }
 
-body {
-    margin: 0;
-    font-family: 'Inter', sans-serif;
-    background: #0f1117;
-    color: white;
-}
+        /* ================= NAVIGATION ================= */
+        nav.top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
 
-.container {
-    max-width: 1100px;
-    margin: auto;
-    padding: 40px 20px;
-}
+        .btn {
+            padding: 14px 22px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: 0.2s ease;
+            border: none;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
 
-/* ================= TOP BUTTONS ================= */
-.home-btn {
-    background: #5865F2;
-    color: white;
-    text-decoration: none;
-    padding: 14px 22px;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 15px;
-    transition: 0.2s ease;
-}
+        .home-btn { background: var(--brand-color); color: white; }
+        .home-btn:hover { transform: translateY(-2px); background: var(--brand-hover); }
 
-.home-btn:hover {
-    transform: translateY(-2px);
-    background: #4752c4;
-}
+        .password-btn { background: #ff4747; color: white; }
+        .password-btn:hover { transform: translateY(-2px); background: #e63b3b; }
 
-.top-buttons {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-}
+        .stop-btn {
+            background: #202436;
+            color: white;
+            width: 48px;
+            height: 48px;
+            font-size: 22px;
+        }
 
-.password-btn {
-    background: #ff4747;
-    color: white;
-    border: none;
-    padding: 14px 22px;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
+        /* ================= HEADER ================= */
+        header.profile-header {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            margin-bottom: 40px;
+        }
 
-.password-btn:hover {
-    transform: translateY(-2px);
-    background: #e63b3b;
-}
+        .avatar {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand-color), #1f2330);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
 
-.stop-btn {
-    background: #202436;
-    border: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    font-size: 22px;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
+        .profile-info h1 { margin: 0; font-size: 38px; }
+        .tag { color: var(--text-muted); margin-top: 5px; font-weight: 400; }
+        .bio { margin-top: 12px; max-width: 600px; }
 
-.stop-btn:hover {
-    background: #2a2f44;
-}
+        /* ================= SECTIONS ================= */
+        section { margin-bottom: 50px; }
+        h2.section-title {
+            font-size: 22px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            border-left: 4px solid var(--brand-color);
+            padding-left: 15px;
+        }
 
-/* ================= HEADER ================= */
-.profile-header {
-    display: flex;
-    gap: 30px;
-    align-items: center;
-    margin-bottom: 40px;
-}
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
 
-.avatar {
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    background: linear-gradient(135deg,#5865F2,#1f2330);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 40px;
-    font-weight: 800;
-}
+        /* ================= CARDS ================= */
+        .card {
+            background: var(--card-bg);
+            padding: 22px;
+            border-radius: 18px;
+            transition: 0.25s ease;
+            position: relative;
+            border: 1px solid transparent;
+        }
 
-.profile-info h1 {
-    margin: 0;
-    font-size: 38px;
-}
+        .card:hover {
+            transform: translateY(-6px);
+            background: var(--card-hover);
+            border-color: var(--brand-color);
+        }
 
-.tag {
-    color: #9aa3b2;
-    margin-top: 5px;
-}
+        .card h3 { margin: 0; font-size: 20px; }
+        .card p { margin: 6px 0 0; color: var(--text-muted); font-size: 14px; }
+        .card a { position: absolute; inset: 0; border-radius: 18px; }
 
-.bio {
-    margin-top: 12px;
-    line-height: 1.6;
-    max-width: 600px;
-}
+        /* ================= MERCH ================= */
+        .merch-item {
+            text-align: center;
+            background: #1a1d29;
+        }
 
-/* ================= SECTIONS ================= */
-.section-title {
-    font-size: 22px;
-    margin: 40px 0 20px;
-    font-weight: 600;
-}
+        .merch-visual {
+            font-size: 3rem;
+            background: #0f1117;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
 
-.links-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-}
+        .price {
+            display: block;
+            margin-top: 10px;
+            font-weight: 800;
+            color: #00ff88;
+        }
 
-.card {
-    background: #151824;
-    padding: 22px;
-    border-radius: 18px;
-    transition: 0.25s ease;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-}
+        /* ================= FOOTER ================= */
+        footer {
+            margin-top: 60px;
+            padding: 30px 0;
+            border-top: 1px solid #202436;
+            color: #8a91a3;
+            font-size: 14px;
+            text-align: center;
+        }
 
-.card:hover {
-    transform: translateY(-6px);
-    background: #1b2030;
-}
-
-.card h3 {
-    margin: 0;
-    font-size: 20px;
-}
-
-.card p {
-    margin: 6px 0 0;
-    color: #9aa3b2;
-    font-size: 14px;
-}
-
-.card a {
-    position: absolute;
-    inset: 0;
-}
-
-/* ================= FOOTER ================= */
-.footer {
-    margin-top: 60px;
-    padding-top: 30px;
-    border-top: 1px solid #202436;
-    color: #8a91a3;
-    font-size: 14px;
-}
-
-</style>
+        @media (max-width: 600px) {
+            header.profile-header { flex-direction: column; text-align: center; }
+        }
+    </style>
 </head>
 <body>
 
-<div class="container">
-
-    <!-- ================= TOP BUTTONS ================= -->
-    <div class="top-buttons">
-        <a href="https://grev.dad" class="home-btn">Home</a>
-        <button class="password-btn" onclick="playRickroll()">Show DontKnow Password</button>
-
-        <button class="stop-btn" onclick="stopRickroll()">🛑</button>
-    </div>
-
-    <!-- Hidden YouTube Player -->
-    <iframe id="rickrollPlayer" width="0" height="0" 
-    src="" 
-    frameborder="0" allow="autoplay"></iframe>
-
-
-    <!-- ================= PROFILE HEADER ================= -->
-    <div class="profile-header">
-        <div class="avatar">DK</div>
+    <main class="container">
         
-        <div class="profile-info">
-            <h1>DontKnow Gaming</h1>
-            <div class="tag">Creator • Gamer • Future Game Developer</div>
-            
-            <div class="bio">
-                Welcome to the official DontKnow Gaming profile. This page is my full digital footprint — gaming platforms, streaming, social media, development projects, and everything I am building.
+        <nav class="top-nav">
+            <a href="https://grev.dad" class="btn home-btn">Home</a>
+            <div>
+                <button class="btn password-btn" onclick="playRickroll()">Show Password</button>
+                <button class="btn stop-btn" onclick="stopRickroll()" title="Stop Audio">🛑</button>
             </div>
-        </div>
-    </div>
+        </nav>
 
-
-    <!-- ================= MAIN PLATFORMS ================= -->
-    <div class="section-title">Main Platforms</div>
-    <div class="links-grid">
-
-        <div class="card">
-            <h3>Discord</h3>
-            <p>Join the DontKnow Gaming community</p>
-            <a href="https://discord.com/users/271074067489095680" target="_blank"></a>
+        <div id="video-container" aria-hidden="true">
+            <iframe id="rickrollPlayer" width="0" height="0" src="" frameborder="0" allow="autoplay"></iframe>
         </div>
 
-        <div class="card">
-            <h3>Steam</h3>
-            <p>My games, stats, and activity</p>
-            <a href="https://steamcommunity.com/id/dont-know/" target="_blank"></a>
-        </div>
+        <header class="profile-header">
+            <div class="avatar" role="img" aria-label="DK Avatar">DK</div>
+            <div class="profile-info">
+                <h1>DontKnow Gaming</h1>
+                <p class="tag">Creator • Gamer • Future Game Developer</p>
+                <p class="bio">
+                    Welcome to the official DontKnow Gaming profile. This page is my full digital footprint — gaming platforms, streaming, social media, and dev projects.
+                </p>
+            </div>
+        </header>
 
-        <div class="card">
-            <h3>YouTube</h3>
-            <p>Gaming content and dev updates</p>
-            <a href="#" target="_blank"></a>
-        </div>
+        <section id="platforms">
+            <h2 class="section-title">Main Platforms</h2>
+            <div class="links-grid">
+                <article class="card">
+                    <h3>Discord</h3>
+                    <p>Join the community</p>
+                    <a href="https://discord.com/users/271074067489095680" target="_blank" aria-label="Join Discord"></a>
+                </article>
+                <article class="card">
+                    <h3>Steam</h3>
+                    <p>View my gaming library</p>
+                    <a href="https://steamcommunity.com/id/dont-know/" target="_blank" aria-label="Steam Profile"></a>
+                </article>
+                <article class="card">
+                    <h3>YouTube</h3>
+                    <p>Watch latest clips</p>
+                    <a href="#" target="_blank" aria-label="YouTube Channel"></a>
+                </article>
+            </div>
+        </section>
 
-        <div class="card">
-            <h3>Twitch</h3>
-            <p>Live streams and gameplay</p>
-            <a href="#" target="_blank"></a>
-        </div>
+        <section id="merch">
+            <h2 class="section-title">Interactive Merch</h2>
+            <div class="links-grid">
+                <article class="card merch-item">
+                    <div class="merch-visual">👕</div>
+                    <h3>IDK Hoodie</h3>
+                    <span class="price">$45.00</span>
+                    <a href="#" aria-label="Buy Hoodie"></a>
+                </article>
+                <article class="card merch-item">
+                    <div class="merch-visual">🧢</div>
+                    <h3>Gaming Cap</h3>
+                    <span class="price">$25.00</span>
+                    <a href="#" aria-label="Buy Cap"></a>
+                </article>
+                <article class="card merch-item">
+                    <div class="merch-visual">🎁</div>
+                    <h3>Loot Box</h3>
+                    <p>Surprise item!</p>
+                    <a href="#" aria-label="Buy Loot Box"></a>
+                </article>
+            </div>
+        </section>
 
-    </div>
+        <footer>
+            <p>&copy; 2026 DontKnow Gaming — Built with HTML5 & CSS3</p>
+        </footer>
 
+    </main>
 
-    <!-- ================= SOCIAL & PROFESSIONAL ================= -->
-    <div class="section-title">Social & Professional</div>
-    <div class="links-grid">
-
-        <div class="card">
-            <h3>LinkedIn</h3>
-            <p>Professional profile</p>
-            <a href="#" target="_blank"></a>
-        </div>
-
-        <div class="card">
-            <h3>GitHub</h3>
-            <p>Projects and apps</p>
-            <a href="#" target="_blank"></a>
-        </div>
-
-        <div class="card">
-            <h3>Website Projects</h3>
-            <p>Tools and web apps I build</p>
-            <a href="#" target="_blank"></a>
-        </div>
-
-        <div class="card">
-            <h3>Contact Me</h3>
-            <p>Business enquiries and collaborations</p>
-            <a href="#" target="_blank"></a>
-        </div>
-
-    </div>
-
-
-    <!-- ================= FOOTER ================= -->
-    <div class="footer">
-        © 2026 DontKnow Gaming — Official Digital Profile
-    </div>
-
-</div>
-
-<script>
-
-function playRickroll() {
-    document.getElementById("rickrollPlayer").src =
-        "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1";
-}
-
-function stopRickroll() {
-    document.getElementById("rickrollPlayer").src = "";
-}
-
-</script>
-
-</body>
-</html>
+    <script>
+        const player = document.getElementById("rickrollPlayer");
+        
+        function play
