@@ -23,7 +23,6 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
-  // Bumping cookie name to session_v3 to force-refresh all browsers
   return `session_v3=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -137,7 +136,8 @@ export default {
   async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);
-      const path = url.pathname;
+      // Clean path: lowercase and remove trailing slash to prevent 404s
+      const path = url.pathname.toLowerCase().replace(/\/$/, "");
 
       // --- 1. AUTH CHECK ROUTES ---
       if (path === "/api/ping") return json({ ok: true });
@@ -183,7 +183,7 @@ export default {
         return response;
       }
 
-      // --- 3. MEMBERS & LEADERBOARD ---
+      // --- 3. MEMBERS & ADMIN ---
       if (path === "/api/members") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
@@ -193,6 +193,13 @@ export default {
           WHERE u.approved = 1 GROUP BY u.id ORDER BY total_wealth DESC
         `).all();
         return json({ members: members.results.map(m => ({ ...m, status: getStatus(m.last_seen_at) })) });
+      }
+
+      if (path === "/api/admin/pending") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+        const { results } = await env.DB.prepare("SELECT id, username, created_at FROM users WHERE approved = 0").all();
+        return json({ pending: results });
       }
 
       // --- 4. CASE SYSTEM ---
@@ -224,7 +231,7 @@ export default {
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
       }
 
-      // --- 5. NEW: USER PROFILES & INVENTORY ---
+      // --- 5. USER PROFILES & INVENTORY ---
       if (path === "/api/user/inventory") {
         const targetUserId = url.searchParams.get("id");
         if (!targetUserId) return json({ error: "No User ID provided" }, 400);
