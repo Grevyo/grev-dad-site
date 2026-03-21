@@ -118,7 +118,10 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname.toLowerCase().replace(/\/$/, "");
 
+      // --- CLEAN ROUTING REDIRECTS ---
       if (path === "/cases") return redirect(request, "/cases.html");
+      if (path === "/members") return redirect(request, "/members.html");
+      if (path === "/profile") return redirect(request, "/profile.html" + url.search);
       if (path === "/api/ping") return json({ ok: true });
 
       // --- AUTH: ME ---
@@ -142,6 +145,30 @@ export default {
         const expires = new Date(Date.now() + 7 * 86400000).toISOString();
         await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(token, user.id, now, expires).run();
         return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
+      }
+
+      // --- LEADERBOARD API ---
+      if (path === "/api/members") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        const { results: users } = await env.DB.prepare(`SELECT id, username, is_admin, last_seen_at FROM users WHERE approved = 1`).all();
+        const { results: totals } = await env.CASES_DB.prepare(`SELECT user_id, COUNT(*) as item_count, SUM(price) as total_wealth FROM user_inventory GROUP BY user_id`).all();
+
+        const members = users.map(u => {
+          const stats = totals.find(t => t.user_id === u.id) || { item_count: 0, total_wealth: 0 };
+          return {
+            id: u.id,
+            username: u.username,
+            is_admin: u.is_admin,
+            status: getStatus(u.last_seen_at),
+            item_count: stats.item_count,
+            total_wealth: stats.total_wealth || 0
+          };
+        });
+
+        members.sort((a, b) => b.total_wealth - a.total_wealth);
+        return json({ members });
       }
 
       // --- PROFILE API ---
@@ -189,7 +216,7 @@ export default {
         return json({ success: true, item: selected, quality });
       }
 
-      // --- PRICE SYNC ROUTE (New!) ---
+      // --- PRICE SYNC ROUTE ---
       if (path === "/api/admin/sync-prices") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
