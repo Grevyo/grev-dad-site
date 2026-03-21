@@ -64,6 +64,10 @@
       text-decoration: underline;
     }
 
+    .hidden {
+      display: none !important;
+    }
+
     .hero {
       max-width: 1100px;
       margin: 0 auto;
@@ -153,6 +157,11 @@
       font-size: 0.92rem;
     }
 
+    #welcomeUser {
+      color: #9ecbff;
+      font-weight: 600;
+    }
+
     @media (max-width: 700px) {
       .topbar {
         flex-direction: column;
@@ -172,14 +181,20 @@
 </head>
 <body>
   <header class="topbar">
-    <a href="index.html" class="logo-link">
-      <img src="grev-dad-logo.png" alt="Grev.dad logo" class="logo-img">
+    <a href="/index.html" class="logo-link">
+      <img src="/grev-dad-logo.png" alt="Grev.dad logo" class="logo-img">
     </a>
 
     <nav class="nav">
-      <a href="index.html">Home</a>
-      <a href="login.html">Log In</a>
-      <a href="register.html">Create Account</a>
+      <a href="/index.html">Home</a>
+
+      <a href="/login.html" id="navLogin">Log In</a>
+      <a href="/register.html" id="navRegister">Create Account</a>
+
+      <a href="/members.html" id="navMembers" class="hidden">Members</a>
+      <a href="/profile.html" id="navProfile" class="hidden">Profile</a>
+      <a href="/admin.html" id="navAdmin" class="hidden">Admin</a>
+      <a href="/api/logout" id="navLogout" class="hidden">Log Out</a>
     </nav>
   </header>
 
@@ -187,6 +202,7 @@
     <section class="hero">
       <div class="hero-box">
         <h1>Welcome to Grev.dad</h1>
+        <p id="welcomeUser"></p>
         <p>
           Grev.dad is a personal project website hosted by Grev — a home for experiments,
           community ideas, side projects, esports tools, and mini projects built by Grev
@@ -245,5 +261,38 @@
   <footer class="footer">
     © Grev.dad — personal projects, playgrounds, and experiments.
   </footer>
+
+  <script>
+    async function loadHomeState() {
+      try {
+        const res = await fetch("/api/me", {
+          credentials: "include"
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!data.loggedIn) return;
+
+        document.getElementById("navLogin").classList.add("hidden");
+        document.getElementById("navRegister").classList.add("hidden");
+
+        document.getElementById("navMembers").classList.remove("hidden");
+        document.getElementById("navProfile").classList.remove("hidden");
+        document.getElementById("navLogout").classList.remove("hidden");
+
+        if (data.user.is_admin) {
+          document.getElementById("navAdmin").classList.remove("hidden");
+        }
+
+        document.getElementById("welcomeUser").textContent =
+          "Logged in as " + data.user.username + ".";
+      } catch (err) {
+        console.error("Home state load failed", err);
+      }
+    }
+
+    loadHomeState();
+  </script>
 </body>
 </html>

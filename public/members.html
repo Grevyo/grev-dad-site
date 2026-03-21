@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Members - Grev.dad</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -16,52 +14,52 @@
       color: #f5f7fa;
     }
 
-  .topbar {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 24px;
-    background: rgba(17, 21, 27, 0.96);
-    border-bottom: 1px solid #222831;
-  }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: rgba(17, 21, 27, 0.96);
+      border-bottom: 1px solid #222831;
+    }
 
-  .logo-link {
-    display: inline-flex;
-    align-items: center;
-    text-decoration: none;
-  }
+    .logo-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+    }
 
-  .logo-img {
-    height: 95px;
-    width: auto;
-    display: block;
-  }
+    .logo-img {
+      height: 95px;
+      width: auto;
+      display: block;
+    }
 
-  .nav {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
+    .nav {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
 
-  .nav a {
-    color: #f5f7fa;
-    text-decoration: none;
-    font-size: 0.95rem;
-    font-weight: 600;
-    opacity: 0.92;
-  }
+    .nav a {
+      color: #f5f7fa;
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      opacity: 0.92;
+    }
 
-  .nav a:hover {
-    opacity: 1;
-    text-decoration: underline;
-  }
+    .nav a:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
 
     .wrap {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 40px auto;
       padding: 24px;
     }
@@ -71,12 +69,35 @@
       border: 1px solid #222831;
       border-radius: 18px;
       padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .member-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .member-card {
+      background: #0f141a;
+      border: 1px solid #222831;
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .member-card h3 {
+      margin: 0 0 8px;
+    }
+
+    .member-card p {
+      margin: 0;
+      color: #b8c0cc;
+      font-size: 0.95rem;
     }
 
     a {
       color: #9ecbff;
     }
-
 
     @media (max-width: 700px) {
       .topbar {
@@ -93,40 +114,63 @@
 </head>
 <body>
   <header class="topbar">
-    <a href="index.html" class="logo-link">
-      <img src="grev-dad-logo.png" alt="Grev.dad logo" class="logo-img">
+    <a href="/index.html" class="logo-link">
+      <img src="/grev-dad-logo.png" alt="Grev.dad logo" class="logo-img">
     </a>
 
     <nav class="nav">
-      <a href="index.html">Home</a>
-      <a href="members.html">Members</a>
-      <a href="profile.html">Profile</a>
+      <a href="/index.html">Home</a>
+      <a href="/members.html">Members</a>
+      <a href="/profile.html">Profile</a>
+      <a href="/login.html">Log In</a>
+      <a href="/register.html">Create Account</a>
       <a href="/api/logout">Log Out</a>
     </nav>
   </header>
+
   <div class="wrap">
     <div class="box">
       <h1>Members Area</h1>
       <p id="welcome">Loading...</p>
-      <p><a href="/profile.html">Go to profile</a></p>
-      <p><a href="/api/logout">Log out</a></p>
+    </div>
+
+    <div class="box">
+      <h2>Approved Members</h2>
+      <div id="memberList" class="member-list"></div>
     </div>
   </div>
 
   <script>
-    async function loadUser() {
-      const res = await fetch("/api/me");
-      if (!res.ok) {
+    async function loadPage() {
+      const meRes = await fetch("/api/me");
+      if (!meRes.ok) {
         window.location.href = "/login.html?msg=Please%20log%20in.";
         return;
       }
 
-      const data = await res.json();
+      const meData = await meRes.json();
       document.getElementById("welcome").textContent =
-        "Welcome, " + data.user.username + ". You are logged in.";
+        "Welcome, " + meData.user.username + ".";
+
+      const membersRes = await fetch("/api/members");
+      if (!membersRes.ok) return;
+
+      const membersData = await membersRes.json();
+      const list = document.getElementById("memberList");
+      list.innerHTML = "";
+
+      for (const member of membersData.members) {
+        const div = document.createElement("div");
+        div.className = "member-card";
+        div.innerHTML = `
+          <h3>${member.username}</h3>
+          <p>${member.is_admin ? "Admin" : "Member"}</p>
+        `;
+        list.appendChild(div);
+      }
     }
 
-    loadUser();
+    loadPage();
   </script>
 </body>
 </html>

@@ -22,11 +22,11 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
-  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.grev.dad`;
 }
 
 function clearSessionCookie() {
-  return "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+  return "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Domain=.grev.dad";
 }
 
 function toBase64(bytes) {
@@ -253,6 +253,24 @@ export default {
             is_admin: user.is_admin,
             created_at: user.created_at
           }
+        });
+      }
+
+      if (path === "/api/members") {
+        const currentUser = await getCurrentUser(request, env);
+        if (!currentUser || !currentUser.approved) {
+          return json({ error: "Not logged in" }, 401);
+        }
+
+        const members = await env.DB.prepare(`
+          SELECT id, username, is_admin, created_at
+          FROM users
+          WHERE approved = 1
+          ORDER BY username ASC
+        `).all();
+
+        return json({
+          members: members.results || []
         });
       }
 
