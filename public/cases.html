@@ -3,120 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grev.dad | Case Opening</title>
+    <title>Grev.dad | Cases</title>
     <style>
-        /* CORE STYLING */
+        /* CSS: Making it look like a real app */
         body {
             background-color: #1a1a1d;
             color: #ffffff;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
 
-        /* HEADER SPACE - Ensures content doesn't hide under the nav */
-        #header-container { width: 100%; min-height: 60px; background: #111; }
+        /* The Header Hook */
+        #header-container { width: 100%; min-height: 60px; }
 
-        .container { width: 90%; max-width: 1000px; margin-top: 30px; text-align: center; }
+        .container { width: 90%; max-width: 1100px; margin-top: 40px; text-align: center; }
 
-        /* THE SPINNER WINDOW */
+        /* THE SPINNER */
         .spinner-viewport {
             width: 100%;
-            height: 160px;
+            height: 180px;
             background: #111;
-            border: 3px solid #333;
+            border: 4px solid #333;
             position: relative;
             overflow: hidden;
-            border-radius: 4px;
+            border-radius: 8px;
             margin: 20px 0;
         }
 
-        /* The Selection Needle */
+        /* Center Needle */
         .spinner-viewport::after {
             content: "";
             position: absolute;
             top: 0; left: 50%;
-            width: 3px; height: 100%;
+            width: 4px; height: 100%;
             background: #ff4b4b;
             transform: translateX(-50%);
             z-index: 10;
-            box-shadow: 0 0 10px rgba(255, 75, 75, 0.8);
+            box-shadow: 0 0 15px rgba(255, 75, 75, 0.6);
         }
 
         #rail {
             display: flex;
             height: 100%;
             align-items: center;
-            transition: transform 5s cubic-bezier(0.1, 0, 0.05, 1);
+            transform: translateX(0);
         }
 
         /* SKIN CARDS */
         .skin-card {
-            min-width: 150px;
-            width: 150px;
-            height: 120px;
+            min-width: 160px;
+            width: 160px;
+            height: 140px;
             margin: 0 5px;
-            background: #25252b;
-            border-bottom: 4px solid #555;
+            background: #222;
+            border-bottom: 5px solid #555;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 10px;
+            align-items: center;
+            font-size: 14px;
+            text-align: center;
             border-radius: 4px;
             flex-shrink: 0;
-            font-size: 13px;
         }
 
-        /* RARITY BORDERS */
+        /* RARITY COLORS */
         .rarity-milspec { border-color: #4b69ff; }
         .rarity-restricted { border-color: #8847ff; }
         .rarity-classified { border-color: #d32ee6; }
         .rarity-covert { border-color: #eb4b4b; }
         .rarity-rare_special { border-color: #ffae00; }
 
-        /* BUTTONS & SELECT */
-        .controls { margin-top: 20px; }
+        /* CONTROLS */
+        .controls { margin: 20px 0; display: flex; gap: 10px; justify-content: center; }
         select, button {
-            background: #333;
-            color: white;
-            padding: 12px 20px;
-            border: 1px solid #444;
-            border-radius: 4px;
+            padding: 12px 24px;
             font-size: 16px;
+            border-radius: 5px;
+            border: none;
             cursor: pointer;
         }
-        button { background: #ffae00; color: #000; font-weight: bold; border: none; margin-left: 10px; }
+        select { background: #333; color: white; border: 1px solid #444; }
+        button { background: #ffae00; color: #111; font-weight: bold; }
         button:disabled { background: #555; cursor: not-allowed; }
 
-        /* GLOBAL FEED (SIDEBAR) */
+        /* GLOBAL FEED */
         #global-feed {
+            width: 250px;
             position: fixed;
-            left: 20px;
+            right: 20px;
             top: 100px;
-            width: 220px;
-            background: rgba(0,0,0,0.3);
-            padding: 10px;
-            border-radius: 4px;
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            border-radius: 8px;
             text-align: left;
+        }
+        .feed-item {
+            padding: 8px;
+            border-left: 4px solid #fff;
+            background: #222;
+            margin-bottom: 8px;
             font-size: 12px;
         }
-        .feed-item { margin-bottom: 8px; border-left: 3px solid #4b69ff; padding-left: 8px; }
+        .feed-user { font-weight: bold; color: #aaa; margin-bottom: 2px; }
 
-        #win-message { color: #888; margin-top: 15px; }
-        #win-details { font-weight: bold; color: #ffae00; font-size: 1.2em; }
+        #win-display { min-height: 80px; margin-top: 10px; }
+        #win-message { font-size: 1.1rem; color: #888; }
+        #win-details { font-size: 1.4rem; font-weight: bold; color: #ffae00; margin-top: 5px; }
+
+        @media (max-width: 800px) {
+            #global-feed { position: static; width: 90%; margin: 20px auto; }
+        }
     </style>
 </head>
 <body>
 
     <div id="header-container"></div>
-
-    <div id="global-feed">
-        <h3 style="margin:0 0 10px 0; font-size: 14px; color: #ffae00;">LIVE DROPS</h3>
-        <div id="feed-content">Loading feed...</div>
-    </div>
 
     <div class="container">
         <h1>Case Opening</h1>
@@ -127,20 +132,26 @@
         </div>
 
         <div id="win-display">
-            <div id="win-message">Ready to open?</div>
+            <div id="win-message">Select a case to begin...</div>
             <div id="win-details"></div>
         </div>
 
         <div class="controls">
             <select id="caseSelector" onchange="updateCasePreview()">
-                <option>Loading...</option>
+                <option>Loading Cases...</option>
             </select>
-            <button id="openBtn" onclick="startSpin()">Unbox ($2.50)</button>
+            <button id="openBtn" onclick="startSpin()">Open Case ($2.50)</button>
         </div>
+    </div>
+
+    <div id="global-feed">
+        <h4 style="margin: 0 0 10px 0; color: #ffae00;">Recent Drops</h4>
+        <div id="feed-container">Waiting for data...</div>
     </div>
 
     <script src="/header.js"></script>
     <script>
+        // --- YOUR JAVASCRIPT LOGIC ---
         let currentCaseSkins = [];
         const rail = document.getElementById('rail');
         const openBtn = document.getElementById('openBtn');
@@ -165,7 +176,8 @@
                 });
                 updateCasePreview();
             } catch (err) {
-                console.error("Init error:", err);
+                console.error("Failed to init cases:", err);
+                document.getElementById('caseSelector').innerHTML = "<option>Error Loading</option>";
             }
         }
 
@@ -181,7 +193,7 @@
             currentCaseSkins.forEach(skin => {
                 const card = document.createElement('div');
                 card.className = `skin-card rarity-${skin.rarity}`;
-                card.innerHTML = `<strong>${skin.weapon_type}</strong><br>${skin.skin_name}`;
+                card.innerHTML = `<span>${skin.weapon_type}</span><br><small>${skin.skin_name}</small>`;
                 rail.appendChild(card);
             });
         }
@@ -190,20 +202,24 @@
           try {
             const res = await fetch("/api/inventory/recent-global");
             const data = await res.json();
-            const feed = document.getElementById("feed-content");
-            if (!data.recent) return;
+            const feed = document.getElementById("feed-container");
+            if (!data.recent || data.recent.length === 0) return;
 
             feed.innerHTML = "";
             const colors = { covert: '#eb4b4b', classified: '#d32ee6', restricted: '#8847ff', milspec: '#4b69ff', rare_special: '#ffae00' };
             
             data.recent.forEach(drop => {
+              const borderColor = colors[drop.skin_rarity] || '#4b69ff';
               const div = document.createElement("div");
               div.className = "feed-item";
-              div.style.borderLeftColor = colors[drop.skin_rarity] || '#4b69ff';
-              div.innerHTML = `<div style="color:#aaa">${drop.username}</div><div style="color:${colors[drop.skin_rarity]}">${drop.skin_name}</div>`;
+              div.style.borderLeftColor = borderColor;
+              div.innerHTML = `
+                <div class="feed-user">${drop.username}</div>
+                <div class="feed-skin" style="color: ${borderColor}">${drop.skin_name}</div>
+              `;
               feed.appendChild(div);
             });
-          } catch (e) {}
+          } catch (e) { console.error("Feed error:", e); }
         }
 
         async function startSpin() {
@@ -211,6 +227,9 @@
           if (!caseName) return;
 
           openBtn.disabled = true;
+          document.getElementById('win-message').innerText = "Rolling...";
+          document.getElementById('win-details').innerText = "";
+          
           const response = await fetch("/api/cases/open", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -219,7 +238,7 @@
           const result = await response.json();
           
           if (!result.success) {
-              alert(result.error || "Login required.");
+              alert(result.error || "Login required to open cases.");
               openBtn.disabled = false;
               return;
           }
@@ -229,20 +248,23 @@
           rail.innerHTML = "";
           
           const winningIndex = 40; 
-          const itemWidth = 160; 
+          const itemWidth = 170; // 160 width + 10 margin
 
           for(let i=0; i < 60; i++) {
             const isWinner = (i === winningIndex);
             const skin = isWinner ? result : currentCaseSkins[Math.floor(Math.random() * currentCaseSkins.length)];
+            
             const card = document.createElement('div');
             const rarity = isWinner ? result.rarity : skin.rarity;
             card.className = `skin-card rarity-${rarity}`;
-            card.innerHTML = isWinner ? `<strong>${result.item}</strong>` : `<strong>${skin.weapon_type}</strong><br>${skin.skin_name}`;
+            
+            let displayName = isWinner ? `<span>${result.item}</span>` : `<span>${skin.weapon_type}</span><br><small>${skin.skin_name}</small>`;
+            card.innerHTML = displayName;
             rail.appendChild(card);
           }
 
           const viewportWidth = document.querySelector('.spinner-viewport').offsetWidth;
-          const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2);
+          const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2) + (Math.random() * 60 - 30);
 
           setTimeout(() => {
             rail.style.transition = "transform 5s cubic-bezier(0.1, 0, 0.05, 1)";
@@ -250,8 +272,8 @@
           }, 50);
 
           setTimeout(() => {
-            document.getElementById('win-message').innerText = "NEW DROP:";
-            document.getElementById('win-details').innerText = result.item;
+            document.getElementById('win-message').innerText = "You Unboxed:";
+            document.getElementById('win-details').innerText = `${result.item} | Value: $${result.price}`;
             openBtn.disabled = false;
             loadGlobalFeed();
           }, 5200);
@@ -259,7 +281,7 @@
 
         initCases();
         loadGlobalFeed();
-        setInterval(loadGlobalFeed, 10000); 
+        setInterval(loadGlobalFeed, 15000); 
     </script>
 </body>
 </html>
