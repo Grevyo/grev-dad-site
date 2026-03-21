@@ -79,7 +79,7 @@ async function handleRequest(request, env, ctx) {
     return await handleProfileView(request, env);
   }
 
-  // Users
+  // Users / Members
   if (pathname === "/api/users/members" && request.method === "GET") {
     return await handleMembers(request, env);
   }
@@ -782,6 +782,7 @@ async function handleMembers(request, env) {
 
   const members = (rows.results || []).map((row) => {
     const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
+
     return {
       id: row.id,
       username: row.username,
@@ -792,7 +793,14 @@ async function handleMembers(request, env) {
       bio: row.bio || "",
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
-      motto: row.motto || ""
+      motto: row.motto || "",
+
+      // Cases placeholders for later
+      case_money: 0,
+      case_rarest_item_name: "",
+      case_rarest_score: 0,
+      case_most_expensive_item_name: "",
+      case_inventory_value: 0
     };
   });
 

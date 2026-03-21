@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Members | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .members-page {
+      display: grid;
+      gap: 24px;
+    }
+
+    .members-top {
+      display: grid;
+      gap: 18px;
+    }
+
+    .members-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .member-card {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.025);
+      overflow: hidden;
+      display: grid;
+    }
+
+    .member-card-top {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .member-avatar {
+      width: 88px;
+      height: 88px;
+      border-radius: 18px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .member-avatar-placeholder {
+      width: 88px;
+      height: 88px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .member-name {
+      margin: 0 0 6px;
+      font-size: 1.15rem;
+      line-height: 1.15;
+    }
+
+    .member-real-name {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .member-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .member-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      font-size: 0.84rem;
+    }
+
+    .status-online {
+      color: #dbffe8;
+      background: rgba(74, 222, 128, 0.12);
+      border-color: rgba(74, 222, 128, 0.24);
+    }
+
+    .status-away {
+      color: #fff1c7;
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.24);
+    }
+
+    .status-offline {
+      color: #d7dde7;
+      background: rgba(148, 163, 184, 0.10);
+      border-color: rgba(148, 163, 184, 0.18);
+    }
+
+    .member-motto {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.45;
+    }
+
+    .member-body {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .member-bio {
+      color: var(--text);
+      line-height: 1.55;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+    }
+
+    .member-empty {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .member-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .member-stat {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 12px;
+    }
+
+    .member-stat-label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 4px;
+    }
+
+    .member-stat-value {
+      display: block;
+      color: var(--text);
+      font-weight: 700;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .member-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .leaderboard-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .leaderboard-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.025);
+      padding: 16px;
+    }
+
+    .leaderboard-card h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .leaderboard-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .leaderboard-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.92rem;
+      color: var(--text);
+    }
+
+    .leaderboard-rank {
+      color: var(--muted);
+      min-width: 24px;
+    }
+
+    .members-empty {
+      border: 1px dashed var(--border);
+      border-radius: 18px;
+      padding: 26px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+      .members-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .leaderboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .members-controls {
+        grid-template-columns: 1fr;
+      }
+
+      .members-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .member-card-top {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <div class="members-page">
+        <section class="panel members-top">
+          <div>
+            <h1 class="auth-title">Members</h1>
+            <p class="auth-subtitle">
+              Browse everyone on Grev.dad, see their status, role, profile details, and later their cases progression too.
+            </p>
+          </div>
+
+          <div class="members-controls">
+            <input
+              id="member-search"
+              class="form-input"
+              type="text"
+              placeholder="Search members by username, real name, role, motto..."
+            />
+
+            <select id="member-filter" class="form-select">
+              <option value="all">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="dev">Dev</option>
+              <option value="staff">Staff</option>
+              <option value="mod">Mod</option>
+              <option value="higher">Higher</option>
+              <option value="member">Member</option>
+              <option value="standard">Standard</option>
+            </select>
+
+            <button id="members-refresh" class="btn" type="button">Refresh</button>
+          </div>
+
+          <div id="members-message" class="hidden"></div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">Leaderboards</h2>
+          <p class="panel-subtitle">
+            Cases leaderboards are placeholder-ready now and will fill properly once the case system is built.
+          </p>
+
+          <div id="leaderboard-grid" class="leaderboard-grid"></div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">All members</h2>
+          <p class="panel-subtitle">
+            Every approved member on the site.
+          </p>
+
+          <div id="members-grid" class="members-grid"></div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — members</div>
+    </footer>
+  </div>
+
+  <script>
+    let allMembers = [];
+
+    const membersMessage = document.getElementById("members-message");
+    const memberSearch = document.getElementById("member-search");
+    const memberFilter = document.getElementById("member-filter");
+    const membersRefresh = document.getElementById("members-refresh");
+    const membersGrid = document.getElementById("members-grid");
+    const leaderboardGrid = document.getElementById("leaderboard-grid");
+
+    function showMessage(type, text) {
+      membersMessage.className = `alert alert-${type}`;
+      membersMessage.textContent = text;
+    }
+
+    function clearMessage() {
+      membersMessage.className = "hidden";
+      membersMessage.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function toTitleCase(value) {
+      if (!value) return "Standard";
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function getStatus(lastSeenAt) {
+      if (!lastSeenAt) {
+        return { key: "offline", label: "Offline" };
+      }
+
+      const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+      if (Number.isNaN(diffMs)) {
+        return { key: "offline", label: "Offline" };
+      }
+
+      const diffMinutes = diffMs / 60000;
+
+      if (diffMinutes <= 5) {
+        return { key: "online", label: "Online" };
+      }
+
+      if (diffMinutes <= 45) {
+        return { key: "away", label: "Away" };
+      }
+
+      return { key: "offline", label: "Offline" };
+    }
+
+    function moneyFormat(value) {
+      if (value === null || value === undefined || value === "") {
+        return "—";
+      }
+      const num = Number(value);
+      if (Number.isNaN(num)) return "—";
+      return `$${num.toLocaleString("en-GB")}`;
+    }
+
+    function renderLeaderboards(members) {
+      const byInventoryValue = [...members]
+        .sort((a, b) => Number(b.case_inventory_value || 0) - Number(a.case_inventory_value || 0))
+        .slice(0, 5);
+
+      const byRarest = [...members]
+        .sort((a, b) => Number(b.case_rarest_score || 0) - Number(a.case_rarest_score || 0))
+        .slice(0, 5);
+
+      const byMoney = [...members]
+        .sort((a, b) => Number(b.case_money || 0) - Number(a.case_money || 0))
+        .slice(0, 5);
+
+      leaderboardGrid.innerHTML = `
+        ${renderLeaderboardCard("Most Expensive Inventory", byInventoryValue, (m) => moneyFormat(m.case_inventory_value))}
+        ${renderLeaderboardCard("Rarest Item Owners", byRarest, (m) => m.case_rarest_item_name || "—")}
+        ${renderLeaderboardCard("Highest Case Balance", byMoney, (m) => moneyFormat(m.case_money))}
+      `;
+    }
+
+    function renderLeaderboardCard(title, rows, valueFn) {
+      return `
+        <article class="leaderboard-card">
+          <h3>${escapeHtml(title)}</h3>
+          <div class="leaderboard-list">
+            ${rows.length ? rows.map((member, index) => `
+              <div class="leaderboard-row">
+                <span><span class="leaderboard-rank">#${index + 1}</span> ${escapeHtml(member.username || "Unknown")}</span>
+                <span>${escapeHtml(valueFn(member))}</span>
+              </div>
+            `).join("") : `<div class="member-empty">No data yet.</div>`}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderMembers(members) {
+      if (!members.length) {
+        membersGrid.innerHTML = `<div class="members-empty">No members found.</div>`;
+        return;
+      }
+
+      membersGrid.innerHTML = members.map((member) => {
+        const status = getStatus(member.last_seen_at);
+        const firstLetter = (member.username || "U").charAt(0).toUpperCase();
+
+        return `
+          <article class="member-card">
+            <div class="member-card-top">
+              ${
+                member.avatar_url
+                  ? `<img class="member-avatar" src="${escapeHtml(member.avatar_url)}" alt="${escapeHtml(member.username)} avatar" />`
+                  : `<div class="member-avatar-placeholder">${escapeHtml(firstLetter)}</div>`
+              }
+
+              <div>
+                <h3 class="member-name">${escapeHtml(member.username || "Unknown")}</h3>
+                <p class="member-real-name">${escapeHtml(member.real_name || "No real name set")}</p>
+
+                <div class="member-badges">
+                  <span class="member-badge">${escapeHtml(toTitleCase(member.group || "standard"))}</span>
+                  <span class="member-badge status-${status.key}">${escapeHtml(status.label)}</span>
+                </div>
+
+                <div class="member-motto">
+                  ${member.motto ? escapeHtml(member.motto) : "No motto set."}
+                </div>
+              </div>
+            </div>
+
+            <div class="member-body">
+              <div class="member-bio ${member.bio ? "" : "member-empty"}">
+                ${member.bio ? escapeHtml(member.bio) : "No bio set."}
+              </div>
+
+              <div class="member-stats">
+                <div class="member-stat">
+                  <span class="member-stat-label">Last Seen</span>
+                  <span class="member-stat-value">${escapeHtml(formatDate(member.last_seen_at))}</span>
+                </div>
+
+                <div class="member-stat">
+                  <span class="member-stat-label">Case Money</span>
+                  <span class="member-stat-value">${escapeHtml(moneyFormat(member.case_money))}</span>
+                </div>
+
+                <div class="member-stat">
+                  <span class="member-stat-label">Rarest Item</span>
+                  <span class="member-stat-value">${escapeHtml(member.case_rarest_item_name || "—")}</span>
+                </div>
+
+                <div class="member-stat">
+                  <span class="member-stat-label">Most Expensive Item</span>
+                  <span class="member-stat-value">${escapeHtml(member.case_most_expensive_item_name || "—")}</span>
+                </div>
+
+                <div class="member-stat">
+                  <span class="member-stat-label">Inventory Value</span>
+                  <span class="member-stat-value">${escapeHtml(moneyFormat(member.case_inventory_value))}</span>
+                </div>
+
+                <div class="member-stat">
+                  <span class="member-stat-label">Profile</span>
+                  <span class="member-stat-value">
+                    <a href="/profile.html?id=${encodeURIComponent(member.id)}">View profile</a>
+                  </span>
+                </div>
+              </div>
+
+              <div class="member-actions">
+                <a class="btn" href="/profile.html?id=${encodeURIComponent(member.id)}">Open Profile</a>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function applyFilters() {
+      const search = memberSearch.value.trim().toLowerCase();
+      const role = memberFilter.value;
+
+      let filtered = [...allMembers];
+
+      if (role !== "all") {
+        filtered = filtered.filter((member) => String(member.group || "").toLowerCase() === role);
+      }
+
+      if (search) {
+        filtered = filtered.filter((member) => {
+          const haystack = [
+            member.username,
+            member.real_name,
+            member.group,
+            member.motto,
+            member.bio
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return haystack.includes(search);
+        });
+      }
+
+      renderMembers(filtered);
+      renderLeaderboards(filtered);
+    }
+
+    async function loadMembers() {
+      clearMessage();
+
+      try {
+        const response = await fetch("/api/users/members", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load members.");
+          renderMembers([]);
+          renderLeaderboards([]);
+          return;
+        }
+
+        allMembers = Array.isArray(data.members) ? data.members : [];
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load members.");
+        renderMembers([]);
+        renderLeaderboards([]);
+      }
+    }
+
+    memberSearch.addEventListener("input", applyFilters);
+    memberFilter.addEventListener("change", applyFilters);
+    membersRefresh.addEventListener("click", loadMembers);
+    document.addEventListener("DOMContentLoaded", loadMembers);
+  </script>
+</body>
+</html>
