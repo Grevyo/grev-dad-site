@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Post - Grev.dad</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f1115;
+      color: #f5f7fa;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 24px;
+    }
+    .box {
+      background: #161b22;
+      border: 1px solid #222831;
+      border-radius: 18px;
+      padding: 24px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+      border-radius: 10px;
+      border: 1px solid #222831;
+      background: #0f141a;
+      color: #f5f7fa;
+    }
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+    button {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      background: #9ecbff;
+      color: #0f1115;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <div class="wrap">
+    <div class="box">
+      <h1>Create New Post</h1>
+      <form id="postForm">
+        <input type="text" id="subject" placeholder="Subject" required>
+        <textarea id="description" placeholder="Description" required></textarea>
+        <input type="text" id="image_url" placeholder="Optional image URL">
+        <button type="submit">Post</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/header.js"></script>
+  <script>
+    document.getElementById("postForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const subject = document.getElementById("subject").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const image_url = document.getElementById("image_url").value.trim();
+
+      const res = await fetch("/api/forum/create-post", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subject, description, image_url })
+      });
+
+      if (res.ok) {
+        window.location.href = "/forum.html";
+      }
+    });
+  </script>
+</body>
+</html>

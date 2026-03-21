@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Grev.dad</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f1115;
+      color: #f5f7fa;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 24px;
+    }
+    .box {
+      background: #161b22;
+      border: 1px solid #222831;
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .user-card {
+      background: #0f141a;
+      border: 1px solid #222831;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .btn-approve {
+      background: #22c55e;
+      color: #08110b;
+    }
+    .btn-reject {
+      background: #ef4444;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <div class="wrap">
+    <div class="box">
+      <h1>Admin Panel</h1>
+      <p>Approve or reject pending accounts.</p>
+    </div>
+
+    <div class="box">
+      <h2>Pending Accounts</h2>
+      <div id="pendingUsers">Loading...</div>
+    </div>
+  </div>
+
+  <script src="/header.js"></script>
+  <script>
+    async function loadPendingUsers() {
+      const res = await fetch("/api/admin/pending-users", { credentials: "include" });
+      if (!res.ok) {
+        document.getElementById("pendingUsers").innerHTML = "<p>Unable to load pending users.</p>";
+        return;
+      }
+
+      const data = await res.json();
+      const wrap = document.getElementById("pendingUsers");
+      wrap.innerHTML = "";
+
+      if (!data.users.length) {
+        wrap.innerHTML = "<p>No pending users.</p>";
+        return;
+      }
+
+      for (const user of data.users) {
+        const div = document.createElement("div");
+        div.className = "user-card";
+        div.innerHTML = `
+          <h3>${user.username}</h3>
+          <p>Created: ${user.created_at}</p>
+          <button class="btn btn-approve" onclick="approveUser('${user.username}')">Approve</button>
+          <button class="btn btn-reject" onclick="rejectUser('${user.username}')">Reject</button>
+        `;
+        wrap.appendChild(div);
+      }
+    }
+
+    async function approveUser(username) {
+      await fetch("/api/admin/approve-user", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username })
+      });
+      loadPendingUsers();
+    }
+
+    async function rejectUser(username) {
+      await fetch("/api/admin/reject-user", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username })
+      });
+      loadPendingUsers();
+    }
+
+    loadPendingUsers();
+  </script>
+</body>
+</html>

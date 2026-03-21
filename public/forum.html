@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forum - Grev.dad</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f1115;
+      color: #f5f7fa;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 24px;
+    }
+    .box {
+      background: #161b22;
+      border: 1px solid #222831;
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .post-card {
+      background: #0f141a;
+      border: 1px solid #222831;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      text-decoration: none;
+      display: block;
+      color: #f5f7fa;
+    }
+    .post-card:hover {
+      background: #18212b;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: #9ecbff;
+      color: #0f1115;
+      text-decoration: none;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <div class="wrap">
+    <div class="box">
+      <h1>Forum</h1>
+      <p>Posts from members of the site.</p>
+      <a href="/new-post.html" class="btn">Create New Post</a>
+    </div>
+
+    <div class="box">
+      <h2>Latest Posts</h2>
+      <div id="forumPosts">Loading...</div>
+    </div>
+  </div>
+
+  <script src="/header.js"></script>
+  <script>
+    async function loadPosts() {
+      const res = await fetch("/api/forum/posts", { credentials: "include" });
+      const data = await res.json();
+      const wrap = document.getElementById("forumPosts");
+      wrap.innerHTML = "";
+
+      if (!data.posts.length) {
+        wrap.innerHTML = "<p>No posts yet.</p>";
+        return;
+      }
+
+      for (const post of data.posts) {
+        const a = document.createElement("a");
+        a.className = "post-card";
+        a.href = "/post.html?id=" + post.id;
+        a.innerHTML = `
+          <h3>${post.subject}</h3>
+          <p>By ${post.author_username} · ${post.created_at}</p>
+        `;
+        wrap.appendChild(a);
+      }
+    }
+
+    loadPosts();
+  </script>
+</body>
+</html>
