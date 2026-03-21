@@ -138,7 +138,6 @@ async function autoSyncPrices(env) {
 }
 
 export default {
-  // Added 'ctx' here to handle background tasks
   async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);
@@ -205,7 +204,11 @@ export default {
 
       // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
-        // Trigger background sync when someone views the cases
+        // Secure check: Only logged-in/approved users can see the case list
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        // Trigger background sync
         ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
