@@ -121,14 +121,12 @@ async function autoSyncPrices(env) {
     const sixHours = 6 * 60 * 60 * 1000;
     if (Date.now() - lastSync > sixHours) {
       const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
-        headers: { "User-Agent": "grev-dad-worker/1.0" }
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
       });
       
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) return;
-
       const data = await res.json();
       if (data) {
+        // Handle object structure: keys are the full skin names
         for (const [fullName, details] of Object.entries(data)) {
           const price = (details.steam?.price || details.price || 0) / 100;
           if (price > 0) {
@@ -149,10 +147,8 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname.toLowerCase().replace(/\/$/, "");
 
-      // --- 0. DIRECTORY ROUTING ---
       if (path === "/cases") return redirect(request, "/cases.html");
 
-      // --- 1. AUTH CHECK ROUTES ---
       if (path === "/api/ping") return json({ ok: true });
       if (path === "/api/me") {
         const user = await requireApprovedUser(request, env);
@@ -160,7 +156,6 @@ export default {
         return json({ user });
       }
 
-      // --- 2. AUTH: LOGIN, REGISTER & LOGOUT ---
       if (path === "/api/register" && request.method === "POST") {
         const form = await request.formData();
         const username = String(form.get("username") || "").trim();
@@ -198,7 +193,6 @@ export default {
         return response;
       }
 
-      // --- 3. MEMBERS & ADMIN ---
       if (path === "/api/members") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
@@ -217,11 +211,8 @@ export default {
         return json({ pending: results });
       }
 
-      // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
         if (!env.CASES_DB) return json({ error: "CASES_DB binding missing" }, 500);
-        
-        // Allowed for everyone so the dropdown populates, but unboxing still requires login
         ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results || [] });
@@ -237,39 +228,19 @@ export default {
         if (!user) return json({ error: "Unauthorized" }, 401);
         const { caseName } = await request.json();
         const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
-        
         if (!skins || skins.length === 0) return json({ error: "Case not found or empty" }, 404);
-
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
         for (const s of skins) { if (random < s.drop_weight) { winner = s; break; } random -= s.drop_weight; }
-        
         const qual = calculateSkinQuality(winner.base_price);
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
-        
         await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
-        
-        return json({ 
-          success: true, 
-          item: fullName, 
-          rarity: winner.rarity, 
-          price: qual.price, 
-          float: qual.float,
-          weapon: winner.weapon_type,
-          skin: winner.skin_name
-        });
+        return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float, weapon: winner.weapon_type, skin: winner.skin_name });
       }
 
-      // GLOBAL FEED ENDPOINT
       if (path === "/api/inventory/recent-global") {
-        const { results } = await env.DB.prepare(`
-          SELECT i.*, u.username 
-          FROM inventory i 
-          JOIN users u ON i.user_id = u.id 
-          ORDER BY i.unboxed_at DESC 
-          LIMIT 10
-        `).all();
+        const { results } = await env.DB.prepare(`SELECT i.*, u.username FROM inventory i JOIN users u ON i.user_id = u.id ORDER BY i.unboxed_at DESC LIMIT 10`).all();
         return json({ recent: results });
       }
 
@@ -279,32 +250,26 @@ export default {
         if (!admin) return json({ error: "Forbidden" }, 403);
 
         try {
+          // Changed to use the v1 prices endpoint with a stronger User-Agent
           const apiUrl = `https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`;
           const res = await fetch(apiUrl, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
           });
           
-          const contentType = res.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-             const errorText = await res.text();
-             return json({ 
-               error: "API returned non-JSON response", 
-               status: res.status,
-               preview: errorText.substring(0, 100) 
-             }, 500);
-          }
-
           const data = await res.json();
-          if (!data || Object.keys(data).length === 0) return json({ error: "No items found in API response" }, 500);
+          const skinEntries = Object.entries(data); // Important: Convert object to array for counting
+          
+          if (skinEntries.length === 0) return json({ error: "API returned no items" }, 500);
 
           let addedCount = 0;
-          for (const [fullName, details] of Object.entries(data)) {
+          for (const [fullName, details] of skinEntries) {
             if (!fullName.includes(" | ")) continue;
 
             const parts = fullName.split(" | ");
             const weaponType = parts[0];
             const skinAndWear = parts[1];
-            const skinName = skinAndWear.split(" (")[0];
+            // Split "Head Shot (Field-Tested)" -> "Head Shot"
+            const skinName = skinAndWear.split(" (")[0]; 
             const price = (details.steam?.price || details.price || 0) / 100;
 
             if (price > 0) {
@@ -328,25 +293,13 @@ export default {
         }
       }
 
-      // --- 6. USER PROFILES & INVENTORY ---
       if (path === "/api/user/inventory") {
         const targetUserId = url.searchParams.get("id");
         if (!targetUserId) return json({ error: "No User ID provided" }, 400);
-
-        const userBase = await env.DB.prepare(`
-          SELECT id, username, created_at, last_seen_at FROM users WHERE id = ?
-        `).bind(targetUserId).first();
-
+        const userBase = await env.DB.prepare(`SELECT id, username, created_at, last_seen_at FROM users WHERE id = ?`).bind(targetUserId).first();
         if (!userBase) return json({ error: "User not found" }, 404);
-
-        const { results: items } = await env.DB.prepare(`
-          SELECT * FROM inventory WHERE user_id = ? ORDER BY unboxed_at DESC
-        `).bind(targetUserId).all();
-
-        return json({ 
-          user: { ...userBase, status: getStatus(userBase.last_seen_at) }, 
-          inventory: items 
-        });
+        const { results: items } = await env.DB.prepare(`SELECT * FROM inventory WHERE user_id = ? ORDER BY unboxed_at DESC`).bind(targetUserId).all();
+        return json({ user: { ...userBase, status: getStatus(userBase.last_seen_at) }, inventory: items });
       }
 
       return await serveAssetOr404(env, request);
