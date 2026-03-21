@@ -23,9 +23,8 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
-  // REMOVED 'Secure' for better compatibility during testing/dev
-  // Kept HttpOnly and SameSite=Lax for safety
-  return `session_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+  // Bumping cookie name to session_v3 to force-refresh all browsers
+  return `session_v3=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
 // --- PASSWORD & CRYPTO ---
@@ -60,7 +59,7 @@ async function touchUser(env, userId) {
 }
 
 async function getCurrentUser(request, env) {
-  const token = getCookieValue(request.headers.get("Cookie"), "session_token");
+  const token = getCookieValue(request.headers.get("Cookie"), "session_v3");
   if (!token) return null;
   return await env.DB.prepare(`
     SELECT users.id, users.username, users.approved, users.is_admin, users.created_at, users.last_seen_at
@@ -114,14 +113,11 @@ async function autoSyncPrices(env) {
   try {
     const log = await env.CASES_DB.prepare("SELECT last_sync FROM sync_log WHERE id = 1").first();
     if (!log) return;
-
     const lastSync = new Date(log.last_sync).getTime();
     const sixHours = 6 * 60 * 60 * 1000;
-
     if (Date.now() - lastSync > sixHours) {
       const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
       const data = await res.json();
-
       if (data.items) {
         for (const [fullName, details] of Object.entries(data.items)) {
           const price = (details.steam?.price || 0) / 100;
@@ -134,9 +130,7 @@ async function autoSyncPrices(env) {
           .bind(new Date().toISOString()).run();
       }
     }
-  } catch (e) {
-    console.error("Background sync failed:", e);
-  }
+  } catch (e) { console.error("Background sync failed:", e); }
 }
 
 export default {
@@ -147,7 +141,6 @@ export default {
 
       // --- 1. AUTH CHECK ROUTES ---
       if (path === "/api/ping") return json({ ok: true });
-
       if (path === "/api/me") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
@@ -183,20 +176,10 @@ export default {
       }
 
       if (path === "/api/logout") {
-        const token = getCookieValue(request.headers.get("Cookie"), "session_token");
-        
-        if (token) {
-          await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run();
-        }
-
-        const response = new Response(null, { 
-          status: 302, 
-          headers: { "Location": "/login.html?msg=Logged%20Out" } 
-        });
-
-        // UPDATED: Removed 'Secure' here to match buildSessionCookie exactly
-        response.headers.append("Set-Cookie", "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
-        
+        const token = getCookieValue(request.headers.get("Cookie"), "session_v3");
+        if (token) { await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run(); }
+        const response = new Response(null, { status: 302, headers: { "Location": "/login.html?msg=Logged%20Out" } });
+        response.headers.append("Set-Cookie", "session_v3=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
         return response;
       }
 
@@ -239,6 +222,27 @@ export default {
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
         await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
+      }
+
+      // --- 5. NEW: USER PROFILES & INVENTORY ---
+      if (path === "/api/user/inventory") {
+        const targetUserId = url.searchParams.get("id");
+        if (!targetUserId) return json({ error: "No User ID provided" }, 400);
+
+        const userBase = await env.DB.prepare(`
+          SELECT id, username, created_at, last_seen_at FROM users WHERE id = ?
+        `).bind(targetUserId).first();
+
+        if (!userBase) return json({ error: "User not found" }, 404);
+
+        const { results: items } = await env.DB.prepare(`
+          SELECT * FROM inventory WHERE user_id = ? ORDER BY unboxed_at DESC
+        `).bind(targetUserId).all();
+
+        return json({ 
+          user: { ...userBase, status: getStatus(userBase.last_seen_at) }, 
+          inventory: items 
+        });
       }
 
       return await serveAssetOr404(env, request);
