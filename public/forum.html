@@ -25,17 +25,24 @@
       margin-bottom: 24px;
     }
     .post-card {
+      display: block;
       background: #0f141a;
       border: 1px solid #222831;
       border-radius: 14px;
       padding: 18px;
       margin-bottom: 14px;
       text-decoration: none;
-      display: block;
       color: #f5f7fa;
     }
     .post-card:hover {
       background: #18212b;
+    }
+    .post-card h3 {
+      margin: 0 0 8px;
+    }
+    .post-card p {
+      margin: 0;
+      color: #b8c0cc;
     }
     .btn {
       display: inline-block;
@@ -69,10 +76,11 @@
     async function loadPosts() {
       const res = await fetch("/api/forum/posts", { credentials: "include" });
       const data = await res.json();
+
       const wrap = document.getElementById("forumPosts");
       wrap.innerHTML = "";
 
-      if (!data.posts.length) {
+      if (!data.posts || !data.posts.length) {
         wrap.innerHTML = "<p>No posts yet.</p>";
         return;
       }
@@ -80,7 +88,7 @@
       for (const post of data.posts) {
         const a = document.createElement("a");
         a.className = "post-card";
-        a.href = "/post.html?id=" + post.id;
+        a.href = "/post.html?id=" + encodeURIComponent(post.id);
         a.innerHTML = `
           <h3>${post.subject}</h3>
           <p>By ${post.author_username} · ${post.created_at}</p>
