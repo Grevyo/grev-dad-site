@@ -21,9 +21,10 @@ function getCookieValue(cookieHeader, name) {
   return null;
 }
 
+// FIX: Relaxed cookie constraints to prevent the login loop
 function buildSessionCookie(token) {
-  const maxAge = 60 * 60 * 24 * 7;
-  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.grev.dad`;
+  const maxAge = 60 * 60 * 24 * 7; // 1 week
+  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
 // --- PASSWORD & CRYPTO ---
@@ -80,14 +81,14 @@ async function requireAdminUser(request, env) {
   return user;
 }
 
-// --- ASSET & WEAR HELPERS ---
 async function serveAssetOr404(env, request) {
   if (!env.ASSETS || typeof env.ASSETS.fetch !== "function") {
-    return new Response("ASSETS binding missing in wrangler.toml", { status: 500 });
+    return new Response("ASSETS binding missing.", { status: 500 });
   }
   return await env.ASSETS.fetch(request);
 }
 
+// --- FLOAT & WEAR ---
 function calculateSkinQuality(basePrice) {
   const float = Math.random();
   let wear = "Factory New";
@@ -105,7 +106,10 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname;
 
-      if (path === "/api/ping") return json({ ok: true });
+      if (path === "/api/ping") {
+        const user = await requireApprovedUser(request, env);
+        return json({ ok: !!user, username: user?.username || null });
+      }
 
       // --- AUTH: REGISTER ---
       if (path === "/api/register" && request.method === "POST") {
@@ -120,20 +124,23 @@ export default {
         const finalHash = `pbkdf2_sha256$100000$${saltBase64}$${hash}`;
         const now = new Date().toISOString();
 
+        // Ensure created_at is provided
         await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at) VALUES (?, ?, 0, 0, ?)`)
           .bind(username, finalHash, now).run();
         
         return redirect(request, "/login.html?msg=Pending%20Approval");
       }
 
-      // --- AUTH: LOGIN (FIXED) ---
+      // --- AUTH: LOGIN ---
       if (path === "/api/login" && request.method === "POST") {
         const form = await request.formData();
         const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(form.get("username")).first();
+        
         if (!user) return redirect(request, "/login.html?msg=Invalid%20Credentials");
         
         const parsed = parseStoredHash(user.password_hash);
         const calc = await hashPassword(form.get("password"), parsed.saltBase64, parsed.iterations);
+        
         if (calc !== parsed.hashBase64) return redirect(request, "/login.html?msg=Invalid%20Credentials");
         if (!user.approved) return redirect(request, "/login.html?msg=Not%20Approved");
 
@@ -141,7 +148,7 @@ export default {
         const now = new Date().toISOString();
         const expires = new Date(Date.now() + 7 * 86400000).toISOString();
 
-        // FIX: Added created_at to satisfy the NOT NULL constraint
+        // FIX: Satisfying the NOT NULL constraint for created_at
         await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
           .bind(token, user.id, now, expires).run();
 
@@ -151,15 +158,15 @@ export default {
         });
       }
 
-      // --- CASE ROUTES ---
+      // --- CASE API ---
       if (path === "/api/cases/list") {
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
       }
 
       if (path === "/api/cases/skins") {
-        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
-          .bind(url.searchParams.get("name")).all();
+        const name = url.searchParams.get("name");
+        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(name).all();
         return json({ skins: results });
       }
 
@@ -168,9 +175,8 @@ export default {
         if (!user) return json({ error: "Unauthorized" }, 401);
 
         const { caseName } = await request.json();
-        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
-          .bind(caseName).all();
-
+        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
+        
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
@@ -185,7 +191,7 @@ export default {
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
       }
 
-      // --- FEED & MEMBERS ---
+      // --- GLOBAL FEED ---
       if (path === "/api/inventory/recent-global") {
         const { results } = await env.DB.prepare(`
           SELECT i.skin_name, i.skin_rarity, u.username 
