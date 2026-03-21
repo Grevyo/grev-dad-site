@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .profile-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .profile-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .profile-hero {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .profile-avatar {
+      width: 140px;
+      height: 140px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      object-fit: cover;
+    }
+
+    .profile-avatar-placeholder {
+      width: 140px;
+      height: 140px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      display: grid;
+      place-items: center;
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .profile-title {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      line-height: 1.1;
+    }
+
+    .profile-subtitle {
+      margin: 0 0 8px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .profile-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .profile-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 0.9rem;
+    }
+
+    .profile-media-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .profile-media-grid img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .profile-info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .info-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.02);
+      padding: 16px;
+    }
+
+    .info-card h3 {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+    }
+
+    .info-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .profile-bio {
+      white-space: pre-wrap;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    .empty-note {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    @media (max-width: 980px) {
+      .profile-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .profile-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .profile-media-grid,
+      .profile-info-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <div id="profile-message" class="hidden"></div>
+
+      <div class="profile-layout">
+        <section class="profile-stack">
+          <section class="panel">
+            <div class="profile-hero">
+              <div id="profile-avatar-wrap"></div>
+
+              <div>
+                <h1 id="profile-title" class="profile-title">Loading profile...</h1>
+                <p id="profile-real-name" class="profile-subtitle"></p>
+                <p id="profile-motto" class="profile-subtitle"></p>
+
+                <div id="profile-badges" class="profile-badges"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Bio</h2>
+            <div id="profile-bio" class="profile-bio empty-note">No bio set.</div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Media</h2>
+            <div id="profile-media" class="profile-media-grid"></div>
+            <div id="profile-media-empty" class="empty-note mt-12">No profile media added.</div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Music</h2>
+            <div id="profile-music-wrap">
+              <div class="empty-note">No music linked.</div>
+            </div>
+          </section>
+        </section>
+
+        <aside class="profile-stack">
+          <section class="panel">
+            <h2 class="panel-title">Profile details</h2>
+            <div id="profile-info" class="profile-info-grid"></div>
+          </section>
+
+          <section class="panel" id="profile-edit-panel">
+            <h2 class="panel-title">Edit your profile</h2>
+            <p class="panel-subtitle">
+              Everything here is optional.
+            </p>
+
+            <form id="profile-form" class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="real-name">Real name</label>
+                <input id="real-name" class="form-input" type="text" maxlength="80" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="motto">Motto</label>
+                <input id="motto" class="form-input" type="text" maxlength="140" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="avatar-url">Avatar image URL</label>
+                <input id="avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="bio">Bio</label>
+                <textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height: 160px;"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="media-1-url">Media 1 URL</label>
+                <input id="media-1-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="media-2-url">Media 2 URL</label>
+                <input id="media-2-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="media-3-url">Media 3 URL</label>
+                <input id="media-3-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="music-url">Music URL</label>
+                <input id="music-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+                <div class="form-help">
+                  Direct audio files work best, like mp3/ogg links.
+                </div>
+              </div>
+
+              <div class="button-row">
+                <button id="save-profile-btn" class="btn btn-primary" type="submit">Save profile</button>
+              </div>
+            </form>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — profile</div>
+    </footer>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const profileId = Number(params.get("id") || "");
+
+    let currentUser = null;
+    let loadedProfile = null;
+
+    const profileMessage = document.getElementById("profile-message");
+    const profileAvatarWrap = document.getElementById("profile-avatar-wrap");
+    const profileTitle = document.getElementById("profile-title");
+    const profileRealName = document.getElementById("profile-real-name");
+    const profileMotto = document.getElementById("profile-motto");
+    const profileBadges = document.getElementById("profile-badges");
+    const profileBio = document.getElementById("profile-bio");
+    const profileMedia = document.getElementById("profile-media");
+    const profileMediaEmpty = document.getElementById("profile-media-empty");
+    const profileMusicWrap = document.getElementById("profile-music-wrap");
+    const profileInfo = document.getElementById("profile-info");
+    const profileEditPanel = document.getElementById("profile-edit-panel");
+    const profileForm = document.getElementById("profile-form");
+    const saveProfileBtn = document.getElementById("save-profile-btn");
+
+    const realNameInput = document.getElementById("real-name");
+    const mottoInput = document.getElementById("motto");
+    const avatarUrlInput = document.getElementById("avatar-url");
+    const bioInput = document.getElementById("bio");
+    const media1Input = document.getElementById("media-1-url");
+    const media2Input = document.getElementById("media-2-url");
+    const media3Input = document.getElementById("media-3-url");
+    const musicUrlInput = document.getElementById("music-url");
+
+    function showMessage(type, text) {
+      profileMessage.className = `alert alert-${type}`;
+      profileMessage.textContent = text;
+    }
+
+    function clearMessage() {
+      profileMessage.className = "hidden";
+      profileMessage.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    async function fetchCurrentUser() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) return null;
+        return data.user || null;
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
+    }
+
+    async function loadProfile() {
+      clearMessage();
+
+      const endpoint = Number.isInteger(profileId) && profileId > 0
+        ? `/api/profile/view?id=${encodeURIComponent(profileId)}`
+        : "/api/profile/me";
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load profile.");
+          return;
+        }
+
+        loadedProfile = data.profile;
+        renderProfile(data.profile);
+        populateForm(data.profile);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load profile.");
+      }
+    }
+
+    function renderProfile(profile) {
+      const displayName = profile.real_name || profile.username || "Profile";
+      const firstLetter = (profile.username || "U").charAt(0).toUpperCase();
+
+      if (profile.avatar_url) {
+        profileAvatarWrap.innerHTML = `
+          <img class="profile-avatar" src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(profile.username)} avatar" />
+        `;
+      } else {
+        profileAvatarWrap.innerHTML = `
+          <div class="profile-avatar-placeholder">${escapeHtml(firstLetter)}</div>
+        `;
+      }
+
+      profileTitle.textContent = profile.username || "Profile";
+
+      profileRealName.textContent = profile.real_name
+        ? `Real name: ${profile.real_name}`
+        : "No real name added.";
+
+      profileMotto.textContent = profile.motto
+        ? `“${profile.motto}”`
+        : "No motto added.";
+
+      profileBadges.innerHTML = `
+        <span class="profile-badge">${escapeHtml(profile.group_display || "Standard")}</span>
+        ${profile.is_admin ? `<span class="profile-badge">Admin Access</span>` : ""}
+      `;
+
+      if (profile.bio) {
+        profileBio.classList.remove("empty-note");
+        profileBio.textContent = profile.bio;
+      } else {
+        profileBio.classList.add("empty-note");
+        profileBio.textContent = "No bio set.";
+      }
+
+      const mediaItems = Array.isArray(profile.media) ? profile.media : [];
+      if (mediaItems.length) {
+        profileMedia.innerHTML = mediaItems.map((url) => `
+          <img src="${escapeHtml(url)}" alt="Profile media" loading="lazy" />
+        `).join("");
+        profileMediaEmpty.style.display = "none";
+      } else {
+        profileMedia.innerHTML = "";
+        profileMediaEmpty.style.display = "block";
+      }
+
+      if (profile.music_url) {
+        profileMusicWrap.innerHTML = `
+          <audio controls preload="none" style="width:100%;">
+            <source src="${escapeHtml(profile.music_url)}" />
+            Your browser does not support the audio element.
+          </audio>
+        `;
+      } else {
+        profileMusicWrap.innerHTML = `<div class="empty-note">No music linked.</div>`;
+      }
+
+      profileInfo.innerHTML = `
+        <div class="info-card">
+          <h3>Username</h3>
+          <p>${escapeHtml(profile.username || "—")}</p>
+        </div>
+        <div class="info-card">
+          <h3>Role</h3>
+          <p>${escapeHtml(profile.group_display || "Standard")}</p>
+        </div>
+        <div class="info-card">
+          <h3>Created</h3>
+          <p>${escapeHtml(formatDate(profile.created_at))}</p>
+        </div>
+        <div class="info-card">
+          <h3>Last seen</h3>
+          <p>${escapeHtml(formatDate(profile.last_seen_at))}</p>
+        </div>
+      `;
+
+      const isOwnProfile = currentUser && Number(currentUser.id) === Number(profile.id);
+      profileEditPanel.classList.toggle("hidden", !isOwnProfile);
+    }
+
+    function populateForm(profile) {
+      if (!profile) return;
+
+      realNameInput.value = profile.real_name || "";
+      mottoInput.value = profile.motto || "";
+      avatarUrlInput.value = profile.avatar_url || "";
+      bioInput.value = profile.bio || "";
+      media1Input.value = profile.media_1_url || "";
+      media2Input.value = profile.media_2_url || "";
+      media3Input.value = profile.media_3_url || "";
+      musicUrlInput.value = profile.music_url || "";
+    }
+
+    async function saveProfile(event) {
+      event.preventDefault();
+      clearMessage();
+
+      saveProfileBtn.disabled = true;
+      saveProfileBtn.textContent = "Saving...";
+
+      try {
+        const response = await fetch("/api/profile/update", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            real_name: realNameInput.value,
+            motto: mottoInput.value,
+            avatar_url: avatarUrlInput.value,
+            bio: bioInput.value,
+            media_1_url: media1Input.value,
+            media_2_url: media2Input.value,
+            media_3_url: media3Input.value,
+            music_url: musicUrlInput.value
+          })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to save profile.");
+          return;
+        }
+
+        loadedProfile = data.profile;
+        renderProfile(data.profile);
+        populateForm(data.profile);
+        showMessage("success", "Profile updated.");
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not save profile.");
+      } finally {
+        saveProfileBtn.disabled = false;
+        saveProfileBtn.textContent = "Save profile";
+      }
+    }
+
+    async function initPage() {
+      currentUser = await fetchCurrentUser();
+
+      if (!currentUser && !(Number.isInteger(profileId) && profileId > 0)) {
+        window.location.href = "/login.html";
+        return;
+      }
+
+      await loadProfile();
+    }
+
+    profileForm.addEventListener("submit", saveProfile);
+    document.addEventListener("DOMContentLoaded", initPage);
+  </script>
+</body>
+</html>
