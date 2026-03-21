@@ -3,23 +3,180 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Home - Grev.dad</title>
+  <title>Grev.dad</title>
   <style>
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
-    .hero { max-width: 1100px; margin: 0 auto; padding: 70px 24px 40px; }
-    .hero-box { background: linear-gradient(180deg, #161b22 0%, #12171d 100%); border: 1px solid #222831; border-radius: 22px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-    .hero h1 { font-size: clamp(2.2rem, 5vw, 4rem); margin: 0 0 14px; line-height: 1.1; }
-    .hero p { font-size: 1.08rem; color: #b8c0cc; line-height: 1.7; max-width: 780px; margin-bottom: 18px; }
-    .section { max-width: 1100px; margin: 0 auto; padding: 0 24px 36px; }
-    .section-title { font-size: 1.7rem; margin: 0 0 18px; }
-    .section-text { color: #b8c0cc; line-height: 1.7; max-width: 860px; margin-bottom: 24px; }
-    .button-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
-    .project-card { display: block; text-decoration: none; background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 22px; color: #f5f7fa; transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease; }
-    .project-card:hover { transform: translateY(-3px); border-color: #355070; background: #1a212a; }
-    .project-card h3 { margin: 0; font-size: 1.15rem; }
-    .footer { max-width: 1100px; margin: 0 auto; padding: 10px 24px 50px; color: #8f98a3; font-size: 0.92rem; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f1115;
+      color: #f5f7fa;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: rgba(17, 21, 27, 0.96);
+      border-bottom: 1px solid #222831;
+    }
+
+    .logo-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .logo-img {
+      height: 95px;
+      width: auto;
+      display: block;
+    }
+
+    .nav {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .nav a {
+      color: #f5f7fa;
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      opacity: 0.92;
+    }
+
+    .nav a:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 70px 24px 40px;
+    }
+
+    .hero-box {
+      background: linear-gradient(180deg, #161b22 0%, #12171d 100%);
+      border: 1px solid #222831;
+      border-radius: 22px;
+      padding: 40px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      margin: 0 0 14px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      font-size: 1.08rem;
+      color: #b8c0cc;
+      line-height: 1.7;
+      max-width: 780px;
+      margin-bottom: 18px;
+    }
+
+    #welcomeUser {
+      color: #9ecbff;
+      font-weight: 700;
+    }
+
+    .section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 36px;
+    }
+
+    .section-title {
+      font-size: 1.7rem;
+      margin: 0 0 18px;
+    }
+
+    .section-text {
+      color: #b8c0cc;
+      line-height: 1.7;
+      max-width: 860px;
+      margin-bottom: 24px;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .project-card {
+      display: block;
+      text-decoration: none;
+      background: #161b22;
+      border: 1px solid #222831;
+      border-radius: 18px;
+      padding: 22px;
+      color: #f5f7fa;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .project-card:hover {
+      transform: translateY(-3px);
+      border-color: #355070;
+      background: #1a212a;
+    }
+
+    .project-card h3 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .about-box {
+      background: #161b22;
+      border: 1px solid #222831;
+      border-radius: 18px;
+      padding: 28px;
+    }
+
+    .footer {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 10px 24px 50px;
+      color: #8f98a3;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 700px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .hero-box {
+        padding: 28px 22px;
+      }
+
+      .logo-img {
+        height: 72px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -29,31 +186,86 @@
     <section class="hero">
       <div class="hero-box">
         <h1>Welcome to Grev.dad</h1>
-        <p>Grev.dad is a personal project website hosted by Grev — a home for experiments, community ideas, side projects, and mini projects built by Grev and friends.</p>
-        <p>This is the main home page, and over time it will grow into a hub that links to different playgrounds, tools, project pages, and whatever else deserves its own corner on the internet.</p>
+        <p id="welcomeUser"></p>
+        <p>
+          Grev.dad is a personal project website hosted by Grev — a home for experiments,
+          community ideas, side projects, esports tools, and mini projects built by Grev
+          and friends.
+        </p>
+        <p>
+          This is the main home page, and over time it will grow into a hub that links to
+          different playgrounds, tools, project pages, and whatever else deserves its own
+          corner on the internet.
+        </p>
       </div>
     </section>
 
     <section class="section">
       <h2 class="section-title">Project Areas</h2>
-      <p class="section-text">These are the current areas of the site. More can be added at any time as new ideas, tools, and pages are created.</p>
+      <p class="section-text">
+        These are the current areas of the site. More can be added at any time as new ideas,
+        tools, and pages are created.
+      </p>
+
       <div class="button-grid">
-        <a href="#" class="project-card"><h3>Medisports CPL Pages</h3></a>
-        <a href="#" class="project-card"><h3>DontKnow Playground</h3></a>
-        <a href="#" class="project-card"><h3>Spaced Playground</h3></a>
-        <a href="#" class="project-card"><h3>More Coming Soon</h3></a>
+        <a href="#" class="project-card">
+          <h3>Medisports CPL Pages</h3>
+        </a>
+
+        <a href="#" class="project-card">
+          <h3>DontKnow Playground</h3>
+        </a>
+
+        <a href="#" class="project-card">
+          <h3>Spaced Playground</h3>
+        </a>
+
+        <a href="#" class="project-card">
+          <h3>More Coming Soon</h3>
+        </a>
       </div>
     </section>
 
     <section class="section">
       <h2 class="section-title">Who is Grev?</h2>
-      <p class="section-text">Grev is the person behind Grev.dad — building personal tools, community pages, esports-related projects, and random ideas that are worth turning into something real.</p>
-      <p class="section-text">The aim of this site is to be a central place for Grev’s own work, shared mini projects, and collaborative experiments with friends. Some pages will be practical, some will be weird, and some will just exist because they seemed like a good idea at the time.</p>
+      <div class="about-box">
+        <p class="section-text" style="margin-bottom: 14px;">
+          Grev is the person behind Grev.dad — building personal tools, community pages,
+          esports-related projects, and random ideas that are worth turning into something real.
+        </p>
+        <p class="section-text" style="margin-bottom: 0;">
+          The aim of this site is to be a central place for Grev’s own work, shared mini projects,
+          and collaborative experiments with friends. Some pages will be practical, some will be
+          weird, and some will just exist because they seemed like a good idea at the time.
+        </p>
+      </div>
     </section>
   </main>
 
-  <footer class="footer">© Grev.dad — personal projects, playgrounds, and experiments.</footer>
+  <footer class="footer">
+    © Grev.dad — personal projects, playgrounds, and experiments.
+  </footer>
 
   <script src="/header.js"></script>
+  <script>
+    async function loadHomeState() {
+      try {
+        const res = await fetch("/api/me", { credentials: "include" });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!data.loggedIn) return;
+
+        const welcome = document.getElementById("welcomeUser");
+        if (welcome) {
+          welcome.textContent = "Logged in as " + data.user.username + ".";
+        }
+      } catch (err) {
+        console.error("Home state load failed", err);
+      }
+    }
+
+    loadHomeState();
+  </script>
 </body>
 </html>

@@ -3,8 +3,7 @@ async function loadHeader() {
   if (!mount) return;
 
   const res = await fetch("/header.html", { credentials: "include" });
-  const html = await res.text();
-  mount.innerHTML = html;
+  mount.innerHTML = await res.text();
 
   try {
     const meRes = await fetch("/api/me", { credentials: "include" });
