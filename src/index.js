@@ -1,3 +1,4 @@
+// Hardcoded API Key for the Price Sync
 const SKIN_API_KEY = "395cf104-25ac-4093-8417-d9e58f936d48";
 
 // --- HELPER FUNCTIONS ---
@@ -12,14 +13,13 @@ function redirect(request, location) {
   return Response.redirect(new URL(location, request.url), 302);
 }
 
-// ... (Keep your existing Cookie, Base64, and Hash functions here) ...
-
-// --- NEW: SKIN QUALITY & FLOAT CALCULATOR ---
+// --- FLOAT & WEAR CALCULATOR ---
 function calculateSkinQuality(basePrice) {
   const float = Math.random();
   let wear = "Factory New";
   let multiplier = 1.0;
 
+  // Standard CS2 Wear Ranges
   if (float > 0.07 && float <= 0.15) { wear = "Minimal Wear"; multiplier = 0.85; }
   else if (float > 0.15 && float <= 0.38) { wear = "Field-Tested"; multiplier = 0.70; }
   else if (float > 0.38 && float <= 0.45) { wear = "Well-Worn"; multiplier = 0.55; }
@@ -32,7 +32,7 @@ function calculateSkinQuality(basePrice) {
   };
 }
 
-// ... (Keep touchUser, getCurrentUser, getStatus, requireApprovedUser, requireAdminUser) ...
+// ... (Your existing Cookie, Base64, Hash, touchUser, getCurrentUser, getStatus, and Auth helpers go here) ...
 
 export default {
   async fetch(request, env) {
@@ -42,49 +42,44 @@ export default {
 
       if (path === "/api/ping") return json({ ok: true });
 
-      // --- 1. ADMIN: SYNC LIVE PRICES ---
+      // --- 1. ADMIN: SYNC LIVE PRICES FROM STEAM ---
       if (path === "/api/admin/sync-prices") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
 
-        // Fetching from PriceEmpire (Steam Source)
         const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
         const data = await res.json();
 
         if (data.items) {
           for (const [fullName, details] of Object.entries(data.items)) {
-            const price = details.steam?.price / 100 || 0; // Convert cents to dollars
+            const price = (details.steam?.price || 0) / 100; // Convert cents to dollars
             if (price > 0) {
+              // Update the 'cases' database
               await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
                 .bind(price, fullName)
                 .run();
             }
           }
         }
-        return json({ success: true, message: "Live prices updated from Steam Market." });
+        return json({ success: true, message: "Steam Market prices synced to CASES_DB." });
       }
 
       // --- 2. CASE LISTING ---
       if (path === "/api/cases/list") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
-
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
       }
 
-      // --- 3. GET CASE SKINS (PREVIEW) ---
+      // --- 3. GET CASE SKINS ---
       if (path === "/api/cases/skins") {
         const caseName = url.searchParams.get("name");
-        if (!caseName) return json({ error: "Missing case name" }, 400);
-
         const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
           .bind(caseName)
           .all();
         return json({ skins: results });
       }
 
-      // --- 4. THE UNBOXING CORE ---
+      // --- 4. UNBOXING ROUTE ---
       if (path === "/api/cases/open" && request.method === "POST") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
@@ -94,9 +89,9 @@ export default {
           .bind(caseName)
           .all();
 
-        if (!skins || skins.length === 0) return json({ error: "Case is empty or not found" }, 404);
+        if (!skins || skins.length === 0) return json({ error: "Case not found" }, 404);
 
-        // Weighted Random Roll
+        // Weighted Odds (Blues common, Reds rare)
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
@@ -109,35 +104,29 @@ export default {
           random -= skin.drop_weight;
         }
 
-        // Calculate Float/Wear/Price
         const quality = calculateSkinQuality(winner.base_price);
-        const finalFullName = `${winner.weapon_type} | ${winner.skin_name} (${quality.wear})`;
+        const finalName = `${winner.weapon_type} | ${winner.skin_name} (${quality.wear})`;
 
-        // Insert into the User's Inventory (Original DB)
+        // Save to User's Inventory (Original DB)
         await env.DB.prepare(`
           INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at)
           VALUES (?, ?, ?, ?, ?)
-        `).bind(user.id, finalFullName, winner.rarity, quality.price, new Date().toISOString()).run();
+        `).bind(user.id, finalName, winner.rarity, quality.price, new Date().toISOString()).run();
 
         return json({
           success: true,
-          item: finalFullName,
+          item: finalName,
           rarity: winner.rarity,
           price: quality.price,
-          float: quality.float,
-          weapon: winner.weapon_type,
-          skin: winner.skin_name
+          float: quality.float
         });
       }
 
-      // ... (Rest of your existing Auth, Chat, Member, and Forum routes) ...
+      // ... (Keep the rest of your Auth, Chat, Member, and Forum routes) ...
 
-      // --- Ensure assets are served if no API route matches ---
       return serveAssetOr404(env, request);
     } catch (err) {
-      return new Response("Worker crash:\n\n" + (err && err.stack ? err.stack : String(err)), {
-        status: 500, headers: { "content-type": "text/plain; charset=utf-8" }
-      });
+      return new Response("Worker error:\n" + err.stack, { status: 500 });
     }
   }
 };
