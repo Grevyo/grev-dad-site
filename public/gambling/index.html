@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gambling · CS2 | Grev.dad</title>
+  <title>Gambling — CS2 case openings | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
@@ -141,47 +141,63 @@
 
       <div class="cs2-page">
         <section class="gambling-hero panel">
-          <h1>Gambling playground · CS2</h1>
+          <h1>Gambling hub — CS2 case openings</h1>
           <p>
-            Simulated Grev Coins economy: case prices use the Steam Community Market (GBP) when available.
-            Wear is rolled as Factory New through Battle-Scarred (prices follow the correct wear listing, not float).
-            After a case open, claim the drop to your inventory, quick sell, or discard. Trade on the market with fixed price, auctions, or open offers.
+            Grev Coins mirror real Steam Community Market prices in GBP (e.g. a Kilowatt case at about 0.30 GC, keys at 2.50 GC each).
+            Buy cases and keys separately; opening a case always consumes one key. More gambling modes (poker, blackjack, etc.) can plug into this hub later.
+            Quick sell pays live market reference minus an admin fee (default 10%). Trade with buy now, auctions, or offers with comments and seller counters.
           </p>
           <div class="cs2-balance">
             <span class="balance-pill" id="balance-pill">Balance: —</span>
-            <span class="balance-pill" id="inv-value-pill">Inventory value: —</span>
-            <span class="balance-pill" id="key-pill">Key: £2.50 / open</span>
+            <span class="balance-pill" id="inv-value-pill">Inventory (ref.): —</span>
+            <span class="balance-pill" id="key-pill">Keys: —</span>
             <span class="muted" id="auth-note"></span>
           </div>
         </section>
 
         <section class="panel">
           <div class="tabs" id="cs2-tabs">
-            <button type="button" class="tab-btn active" data-tab="cases">Case opener</button>
-            <button type="button" class="tab-btn" data-tab="store">Store</button>
+            <button type="button" class="tab-btn active" data-tab="cases">Case openings</button>
+            <button type="button" class="tab-btn" data-tab="store">Case market &amp; keys</button>
             <button type="button" class="tab-btn" data-tab="inventory">Inventory</button>
             <button type="button" class="tab-btn" data-tab="trading">Trading</button>
             <button type="button" class="tab-btn" data-tab="catalog">Skin catalog</button>
             <button type="button" class="tab-btn" data-tab="feed">Live feed</button>
+            <button type="button" class="tab-btn" data-tab="casino">Casino</button>
             <button type="button" class="tab-btn" data-tab="battles">Case battles</button>
           </div>
         </section>
 
         <section class="panel cs2-panel active" id="panel-cases">
-          <h2 class="panel-title">Open cases</h2>
-          <p class="panel-subtitle">Select an unopened case. Each open uses one key (£2.50). You must claim the drop before it goes to inventory.</p>
+          <h2 class="panel-title">Case openings</h2>
+          <p class="panel-subtitle">Each open uses one key from your key balance (not your coin balance). Select up to 10 cases and speed-open in one go, or open one at a time. Claim each drop before it is added to inventory.</p>
+          <div class="inv-actions" style="margin-bottom:14px;align-items:center">
+            <button type="button" class="btn btn-primary" id="open-selected-cases" disabled>Open selected (1–10)</button>
+            <span class="muted" id="case-selection-hint">Select cases below — requires one key per case.</span>
+          </div>
           <div id="open-inventory-list"></div>
         </section>
 
         <section class="panel cs2-panel" id="panel-store">
-          <h2 class="panel-title">Case store</h2>
-          <p class="panel-subtitle">Buy unopened cases at market-derived prices (or admin fallback).</p>
+          <h2 class="panel-title">Case market &amp; keys</h2>
+          <p class="panel-subtitle">Case prices follow the live market when available. Keys are always <span id="store-key-price-label">2.50 GC</span> each and are required to open cases.</p>
+          <div class="case-card" style="max-width:420px;margin-bottom:18px">
+            <h3 class="mt-0">Buy keys</h3>
+            <div class="case-meta">Keys are stored on your profile and spent when you open a case.</div>
+            <div class="inv-actions" style="margin-top:10px">
+              <label class="muted" style="display:flex;align-items:center;gap:8px">Qty
+                <input class="form-input" type="number" id="buy-keys-qty" min="1" max="100" value="1" style="max-width:100px" />
+              </label>
+              <button type="button" class="btn btn-primary" id="buy-keys-btn">Buy keys</button>
+            </div>
+          </div>
+          <h3 class="mt-0">Cases</h3>
           <div id="store-case-grid" class="case-grid"></div>
         </section>
 
         <section class="panel cs2-panel" id="panel-inventory">
           <h2 class="panel-title">Inventory</h2>
-          <p class="panel-subtitle">Skins show live reference value. Quick sell pays 35% of that reference. List on the trading tab for player sales.</p>
+          <p class="panel-subtitle">Skins show live reference value. Quick sell pays market reference minus the admin fee (see hero — default 10%). List on the trading tab for player sales.</p>
           <h3 class="mt-24">Profile showcase (5 slots)</h3>
           <p class="panel-subtitle">Pick skins to display on your public profile.</p>
           <div id="showcase-mount" class="showcase-grid"></div>
@@ -191,9 +207,11 @@
 
         <section class="panel cs2-panel" id="panel-trading">
           <h2 class="panel-title">Trading</h2>
-          <p class="panel-subtitle">Fixed price, timed auctions (bid, then seller finalizes after end), or listings that accept offers. Incoming offers appear below.</p>
-          <h3 class="mt-0">Incoming offers</h3>
-          <div id="incoming-offers" class="feed-list" style="max-height:220px"></div>
+          <p class="panel-subtitle">Fixed price, timed auctions, or offer-only listings. Offers can include a comment; sellers can counter with another price and message. Buyers accept counters to complete the trade.</p>
+          <h3 class="mt-0">Incoming offers (on your listings)</h3>
+          <div id="incoming-offers" class="feed-list" style="max-height:320px"></div>
+          <h3 class="mt-24">Your outgoing offers</h3>
+          <div id="outgoing-offers" class="feed-list" style="max-height:280px"></div>
           <div class="search-row mt-24">
             <input id="listing-search" class="form-input" type="search" placeholder="Filter listings..." />
             <button type="button" class="btn btn-primary" id="reload-listings">Refresh</button>
@@ -231,6 +249,11 @@
           </div>
         </section>
 
+        <section class="panel cs2-panel" id="panel-casino">
+          <h2 class="panel-title">Casino</h2>
+          <p class="panel-subtitle muted">Poker, blackjack, and other table games will live here — same Grev Coins wallet as case openings.</p>
+        </section>
+
         <section class="panel cs2-panel" id="panel-battles">
           <h2 class="panel-title">Case battles</h2>
           <p class="panel-subtitle muted">Coming soon — shared-pot, head-to-head case openings with spectators and brackets.</p>
@@ -239,7 +262,7 @@
     </main>
 
     <footer class="footer">
-      <div class="footer-inner">Grev.dad — gambling playground · CS2 simulator (simulated currency only)</div>
+      <div class="footer-inner">Grev.dad — gambling hub · CS2 simulator (simulated Grev Coins only)</div>
     </footer>
   </div>
 
@@ -250,7 +273,7 @@
       <div id="drop-modal-body"></div>
       <div class="drop-modal-actions">
         <button type="button" class="btn btn-primary" id="drop-claim">Add to inventory</button>
-        <button type="button" class="btn" id="drop-quick">Quick sell (35%)</button>
+        <button type="button" class="btn" id="drop-quick">Quick sell</button>
         <button type="button" class="btn" id="drop-discard">Discard</button>
         <button type="button" class="btn" id="drop-close">Later</button>
       </div>
@@ -271,7 +294,15 @@
     const tradeSearchResults = document.getElementById("trade-search-results");
     const catalogGrid = document.getElementById("catalog-grid");
     const incomingOffersEl = document.getElementById("incoming-offers");
+    const outgoingOffersEl = document.getElementById("outgoing-offers");
     const showcaseMount = document.getElementById("showcase-mount");
+    const openSelectedBtn = document.getElementById("open-selected-cases");
+    const KEY_PRICE_PENCE = 250;
+
+    /** @type {number} */
+    let keyBalance = 0;
+    /** @type {number} */
+    let quickSellFeePercent = 10;
     const dropModal = document.getElementById("drop-modal");
     const dropModalImg = document.getElementById("drop-modal-img");
     const dropModalBody = document.getElementById("drop-modal-body");
@@ -313,14 +344,25 @@
         .replaceAll("'", "&#39;");
     }
 
-    function formatGbpPence(pence) {
+    function formatGrevCoins(pence) {
       const n = Number(pence || 0) / 100;
-      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      return `${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
     }
 
     function setBalancePills() {
-      balancePill.textContent = `Balance: ${formatGbpPence(balancePence)} Grev Coins`;
-      invValuePill.textContent = `Inventory value: ${formatGbpPence(inventoryValuePence)} (live ref.)`;
+      balancePill.textContent = `Balance: ${formatGrevCoins(balancePence)}`;
+      invValuePill.textContent = `Inventory (ref.): ${formatGrevCoins(inventoryValuePence)}`;
+      const keyPillEl = document.getElementById("key-pill");
+      if (keyPillEl) {
+        keyPillEl.textContent = `${keyBalance} keys · ${formatGrevCoins(KEY_PRICE_PENCE)} each`;
+      }
+    }
+
+    function updateQuickSellButtonLabel() {
+      const pct = Math.max(0, Math.min(99, Number(quickSellFeePercent) || 10));
+      const keep = 100 - pct;
+      const btn = document.getElementById("drop-quick");
+      if (btn) btn.textContent = `Quick sell (~${keep}% of ref., −${pct}% fee)`;
     }
 
     async function fetchMe() {
@@ -341,20 +383,28 @@
         if (!response.ok || !data?.success) {
           balancePence = 0;
           inventoryValuePence = 0;
+          keyBalance = 0;
           setBalancePills();
           return;
         }
         balancePence = Number(data.profile?.balance || 0);
         inventoryValuePence = Number(data.profile?.total_inventory_value || 0);
+        keyBalance = Number(data.profile?.key_balance ?? 0);
+        if (data.profile?.quick_sell_fee_percent != null) {
+          quickSellFeePercent = Number(data.profile.quick_sell_fee_percent);
+        }
         setBalancePills();
+        updateQuickSellButtonLabel();
       } catch {
         balancePence = 0;
         inventoryValuePence = 0;
+        keyBalance = 0;
         setBalancePills();
       }
     }
 
     function openDropModal() {
+      updateQuickSellButtonLabel();
       dropModal.classList.add("open");
       dropModal.setAttribute("aria-hidden", "false");
     }
@@ -458,7 +508,8 @@
           showMessage("error", data?.error || "Quick sell failed.");
           return;
         }
-        showMessage("success", `Quick sold for ${formatGbpPence(data.payout_pence)}.`);
+        if (data.quick_sell_fee_percent != null) quickSellFeePercent = Number(data.quick_sell_fee_percent);
+        showMessage("success", `Quick sold for ${formatGrevCoins(data.payout_pence)} (after fee).`);
         closeDropModal();
         await loadBalance();
         await loadInventoryUi();
@@ -508,6 +559,14 @@
           storeCaseGrid.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Could not load cases")}</div>`;
           return;
         }
+        if (data.quick_sell_fee_percent != null) {
+          quickSellFeePercent = Number(data.quick_sell_fee_percent);
+          updateQuickSellButtonLabel();
+        }
+        const kpl = document.getElementById("store-key-price-label");
+        if (kpl && data.key_price_pence != null) {
+          kpl.textContent = `${formatGrevCoins(data.key_price_pence)} each`;
+        }
         const cases = data.cases || [];
         if (!cases.length) {
           storeCaseGrid.innerHTML = `<div class="muted">No cases available.</div>`;
@@ -517,9 +576,14 @@
           <div class="case-card">
             <h3>${escapeHtml(c.case_name)}</h3>
             <div class="case-meta">
-              ${formatGbpPence(c.store_price_pence)} · Key ${formatGbpPence(c.key_price_pence)}
+              Case ${formatGrevCoins(c.store_price_pence)} · Key ${formatGrevCoins(c.key_price_pence)}
             </div>
-            <button type="button" class="btn btn-primary" data-buy-case="${c.id}">Buy case</button>
+            <div class="inv-actions" style="margin-top:10px">
+              <label class="muted" style="display:flex;align-items:center;gap:6px">Qty
+                <input class="form-input" type="number" min="1" max="100" value="1" data-case-buy-qty="${c.id}" style="max-width:90px" />
+              </label>
+              <button type="button" class="btn btn-primary" data-buy-case="${c.id}">Buy cases</button>
+            </div>
           </div>
         `).join("");
 
@@ -530,6 +594,10 @@
               return;
             }
             const id = Number(btn.getAttribute("data-buy-case"));
+            const qtyEl = storeCaseGrid.querySelector(`[data-case-buy-qty="${id}"]`);
+            let qty = Number(qtyEl?.value || 1);
+            if (!Number.isInteger(qty) || qty < 1) qty = 1;
+            if (qty > 100) qty = 100;
             btn.disabled = true;
             clearMessage();
             try {
@@ -537,7 +605,7 @@
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ case_id: id })
+                body: JSON.stringify({ case_id: id, quantity: qty })
               });
               const data = await response.json().catch(() => null);
               if (!response.ok || !data?.success) {
@@ -625,21 +693,44 @@
           return;
         }
         const items = data.items || [];
+        if (data.key_balance != null) keyBalance = Number(data.key_balance);
+        setBalancePills();
+
         const cases = items.filter((i) => i.item_kind === "case");
         const skins = items.filter((i) => i.item_kind === "skin");
 
+        function syncOpenSelection() {
+          const picks = [...openInventoryList.querySelectorAll("[data-case-pick]:checked")];
+          const n = picks.length;
+          const disabled = n < 1 || n > 10 || keyBalance < n;
+          if (openSelectedBtn) openSelectedBtn.disabled = disabled;
+          const hint = document.getElementById("case-selection-hint");
+          if (hint) {
+            hint.textContent = n
+              ? `${n} selected · needs ${n} keys (you have ${keyBalance})`
+              : "Select cases below — one key per open.";
+          }
+        }
+
         openInventoryList.innerHTML = cases.length ? cases.map((c) => `
           <div class="inv-row">
-            <div></div>
+            <div style="align-self:center">
+              <input type="checkbox" data-case-pick="${c.inventory_id}" aria-label="Select for batch open" />
+            </div>
             <div>
               <strong>${escapeHtml(c.item_name)}</strong>
               <div class="muted">${escapeHtml(c.acquired_at || "")}</div>
             </div>
             <div class="inv-actions">
-              <button type="button" class="btn btn-primary" data-open="${c.inventory_id}">Open (£2.50 key)</button>
+              <button type="button" class="btn btn-primary" data-open="${c.inventory_id}">Open (1 key)</button>
             </div>
           </div>
-        `).join("") : `<div class="muted">No unopened cases. Buy some from the store.</div>`;
+        `).join("") : `<div class="muted">No unopened cases. Buy some from the case market.</div>`;
+
+        openInventoryList.querySelectorAll("[data-case-pick]").forEach((cb) => {
+          cb.addEventListener("change", syncOpenSelection);
+        });
+        syncOpenSelection();
 
         openInventoryList.querySelectorAll("[data-open]").forEach((btn) => {
           btn.addEventListener("click", async () => {
@@ -677,10 +768,10 @@
               <span class="rarity-dot" style="background:${escapeHtml(s.color_hex || "#999")}"></span>
               <strong>${escapeHtml(s.item_name)}</strong>
               <div class="muted">${escapeHtml(s.rarity || "")} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</div>
-              <div class="muted">Live ref: ${formatGbpPence(s.live_price_pence)} · Inv #${s.inventory_id}</div>
+              <div class="muted">Live ref: ${formatGrevCoins(s.live_price_pence)} · Inv #${s.inventory_id}</div>
             </div>
             <div class="inv-actions">
-              <button type="button" class="btn" data-quick="${s.inventory_id}">Quick sell</button>
+              <button type="button" class="btn" data-quick="${s.inventory_id}" title="Live ref minus admin fee">Quick sell</button>
               <select class="form-input" data-list-mode="${s.inventory_id}" style="max-width:130px">
                 <option value="fixed">Fixed price</option>
                 <option value="auction">Auction</option>
@@ -712,7 +803,8 @@
                 showMessage("error", data?.error || "Quick sell failed.");
                 return;
               }
-              showMessage("success", `Sold for ${formatGbpPence(data.payout_pence)} (35% of market ref).`);
+              if (data.quick_sell_fee_percent != null) quickSellFeePercent = Number(data.quick_sell_fee_percent);
+              showMessage("success", `Sold for ${formatGrevCoins(data.payout_pence)} (after quick-sell fee).`);
               await loadBalance();
               await loadInventoryUi();
               await loadFeeds();
@@ -818,8 +910,10 @@
               <div class="muted">${escapeHtml(wearLabel(row.wear_code, row.wear))}</div>
               ${mode === "auction" ? `
                 <div class="muted">Ends: ${escapeHtml(row.auction_end_at || "")}</div>
-                <div class="muted">Current bid: ${formatGbpPence(row.current_bid_pence || 0)} · Start: ${formatGbpPence(row.auction_start_bid_pence || row.asking_price_pence)}</div>
-              ` : `<div class="muted">Ask: ${formatGbpPence(row.asking_price_pence)}</div>`}
+                <div class="muted">Current bid: ${formatGrevCoins(row.current_bid_pence || 0)} · Start: ${formatGrevCoins(row.auction_start_bid_pence || row.asking_price_pence)}</div>
+              ` : mode === "accept_offers" ? `
+                <div class="muted">Top offer: ${formatGrevCoins(row.top_offer_pence || 0)} · Guide price: ${formatGrevCoins(row.asking_price_pence)}</div>
+              ` : `<div class="muted">Ask: ${formatGrevCoins(row.asking_price_pence)}</div>`}
             </div>
             <div class="inv-actions">
               ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy</button>` : ""}
@@ -829,7 +923,8 @@
               ` : ""}
               ${canOffer ? `
                 <input class="form-input" type="number" min="1" step="1" placeholder="Offer (p)" data-offer-amt="${row.id}" style="max-width:100px" />
-                <button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Offer</button>
+                <input class="form-input" type="text" placeholder="Comment" data-offer-comment="${row.id}" style="max-width:140px" maxlength="2000" />
+                <button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Send offer</button>
               ` : ""}
               ${canFinalize ? `<button type="button" class="btn btn-primary" data-finalize="${row.id}">Finalize auction</button>` : ""}
               ${isSeller ? `<button type="button" class="btn" data-cancel-listing="${row.id}">Cancel listing</button>` : ""}
@@ -901,7 +996,9 @@
           btn.addEventListener("click", async () => {
             const id = Number(btn.getAttribute("data-offer-listing"));
             const input = marketListings.querySelector(`[data-offer-amt="${id}"]`);
+            const msgEl = marketListings.querySelector(`[data-offer-comment="${id}"]`);
             const offerPence = Number(input?.value || 0);
+            const comment = (msgEl?.value || "").trim();
             btn.disabled = true;
             clearMessage();
             try {
@@ -909,7 +1006,7 @@
                 method: "POST",
                 credentials: "same-origin",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ listing_id: id, offer_pence: offerPence })
+                body: JSON.stringify({ listing_id: id, offer_pence: offerPence, comment })
               });
               const data = await response.json().catch(() => null);
               if (!response.ok || !data?.success) {
@@ -918,6 +1015,8 @@
               }
               showMessage("success", "Offer submitted.");
               await loadIncomingOffers();
+              await loadOutgoingOffers();
+              await loadListings(filter);
             } catch {
               showMessage("error", "Network error.");
             } finally {
@@ -997,13 +1096,25 @@
           incomingOffersEl.innerHTML = `<div class="muted">No pending offers.</div>`;
           return;
         }
-        incomingOffersEl.innerHTML = offers.map((o) => `
-          <div class="feed-row">
-            <div><strong>${escapeHtml(o.item_name)}</strong> · ${escapeHtml(wearLabel(o.wear_code, o.wear))}</div>
-            <div class="muted">${escapeHtml(o.buyer)} offers ${formatGbpPence(o.offer_pence)}</div>
-            <button type="button" class="btn btn-primary" data-accept-offer="${o.offer_id}">Accept</button>
-          </div>
-        `).join("");
+        incomingOffersEl.innerHTML = offers.map((o) => {
+          const counterP = o.seller_counter_pence != null ? Number(o.seller_counter_pence) : 0;
+          const hasCounter = counterP > 0;
+          return `
+          <div class="feed-row" style="display:block">
+            <div><strong>${escapeHtml(o.item_name)}</strong> · ${escapeHtml(wearLabel(o.wear_code, o.wear))} · ${escapeHtml(o.rarity || "")}</div>
+            <div class="muted">${escapeHtml(o.buyer)} · offer ${formatGrevCoins(o.offer_pence)}</div>
+            ${o.buyer_comment ? `<div class="muted" style="margin-top:6px">Buyer comment: ${escapeHtml(o.buyer_comment)}</div>` : ""}
+            ${hasCounter ? `<div class="muted" style="margin-top:6px">Your counter: ${formatGrevCoins(counterP)}${o.seller_counter_message ? ` — ${escapeHtml(o.seller_counter_message)}` : ""}</div>` : ""}
+            <div class="inv-actions" style="margin-top:10px">
+              ${!hasCounter ? `<button type="button" class="btn btn-primary" data-accept-offer="${o.offer_id}">Accept offer</button>` : `<span class="muted">Waiting for buyer to accept your counter</span>`}
+              <input class="form-input" type="number" min="1" step="1" placeholder="Counter (p)" data-counter-amt="${o.offer_id}" style="max-width:100px" />
+              <input class="form-input" type="text" placeholder="Counter message" data-counter-msg="${o.offer_id}" style="max-width:160px" maxlength="2000" />
+              <button type="button" class="btn" data-send-counter="${o.offer_id}">Send counter</button>
+              <input class="form-input" type="text" placeholder="Thread reply" data-thread-reply="${o.offer_id}" style="max-width:160px" maxlength="2000" />
+              <button type="button" class="btn" data-thread-send="${o.offer_id}">Send reply</button>
+            </div>
+          </div>`;
+        }).join("");
 
         incomingOffersEl.querySelectorAll("[data-accept-offer]").forEach((btn) => {
           btn.addEventListener("click", async () => {
@@ -1026,7 +1137,72 @@
               await loadInventoryUi();
               await loadListings(document.getElementById("listing-search").value.trim());
               await loadIncomingOffers();
+              await loadOutgoingOffers();
               await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        incomingOffersEl.querySelectorAll("[data-send-counter]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-send-counter"));
+            const amtEl = incomingOffersEl.querySelector(`[data-counter-amt="${offerId}"]`);
+            const msgEl = incomingOffersEl.querySelector(`[data-counter-msg="${offerId}"]`);
+            const counterPence = Number(amtEl?.value || 0);
+            const message = (msgEl?.value || "").trim();
+            if (!Number.isInteger(counterPence) || counterPence <= 0) {
+              showMessage("error", "Enter a valid counter price in pence.");
+              return;
+            }
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/counter", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId, counter_pence: counterPence, message })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Counter failed.");
+                return;
+              }
+              showMessage("success", "Counter sent.");
+              await loadIncomingOffers();
+              await loadOutgoingOffers();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        incomingOffersEl.querySelectorAll("[data-thread-send]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-thread-send"));
+            const input = incomingOffersEl.querySelector(`[data-thread-reply="${offerId}"]`);
+            const message = (input?.value || "").trim();
+            if (!message) return;
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/message", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId, message })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not send.");
+                return;
+              }
+              if (input) input.value = "";
+              showMessage("success", "Reply sent.");
             } catch {
               showMessage("error", "Network error.");
             } finally {
@@ -1036,6 +1212,106 @@
         });
       } catch {
         incomingOffersEl.innerHTML = `<div class="alert alert-error">Could not load offers.</div>`;
+      }
+    }
+
+    async function loadOutgoingOffers() {
+      if (!outgoingOffersEl) return;
+      if (!currentUser) {
+        outgoingOffersEl.innerHTML = `<div class="muted">Login to track your offers.</div>`;
+        return;
+      }
+      outgoingOffersEl.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const response = await fetch("/api/cs2/offers/outgoing", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          outgoingOffersEl.innerHTML = `<div class="muted">No outgoing offers.</div>`;
+          return;
+        }
+        const offers = data.offers || [];
+        if (!offers.length) {
+          outgoingOffersEl.innerHTML = `<div class="muted">No pending outgoing offers.</div>`;
+          return;
+        }
+        outgoingOffersEl.innerHTML = offers.map((o) => {
+          const counterP = o.seller_counter_pence != null ? Number(o.seller_counter_pence) : 0;
+          const hasCounter = counterP > 0;
+          return `
+          <div class="feed-row" style="display:block">
+            <div><strong>${escapeHtml(o.item_name)}</strong> · ${escapeHtml(wearLabel(o.wear_code, o.wear))}</div>
+            <div class="muted">Seller: ${escapeHtml(o.seller)} · your offer ${formatGrevCoins(o.offer_pence)}</div>
+            ${o.buyer_comment ? `<div class="muted" style="margin-top:6px">Your comment: ${escapeHtml(o.buyer_comment)}</div>` : ""}
+            ${hasCounter ? `<div class="muted" style="margin-top:6px">Seller counter: ${formatGrevCoins(counterP)}${o.seller_counter_message ? ` — ${escapeHtml(o.seller_counter_message)}` : ""}</div>` : ""}
+            <div class="inv-actions" style="margin-top:10px">
+              ${hasCounter ? `<button type="button" class="btn btn-primary" data-accept-counter="${o.offer_id}">Accept counter</button>` : ""}
+              <input class="form-input" type="text" placeholder="Reply to seller" data-out-reply="${o.offer_id}" style="max-width:180px" maxlength="2000" />
+              <button type="button" class="btn" data-out-send="${o.offer_id}">Send reply</button>
+            </div>
+          </div>`;
+        }).join("");
+
+        outgoingOffersEl.querySelectorAll("[data-accept-counter]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-accept-counter"));
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/accept-counter", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Accept failed.");
+                return;
+              }
+              showMessage("success", "Trade complete.");
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(document.getElementById("listing-search").value.trim());
+              await loadIncomingOffers();
+              await loadOutgoingOffers();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        outgoingOffersEl.querySelectorAll("[data-out-send]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-out-send"));
+            const input = outgoingOffersEl.querySelector(`[data-out-reply="${offerId}"]`);
+            const message = (input?.value || "").trim();
+            if (!message) return;
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/message", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId, message })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not send.");
+                return;
+              }
+              if (input) input.value = "";
+              showMessage("success", "Reply sent.");
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        outgoingOffersEl.innerHTML = `<div class="alert alert-error">Could not load outgoing offers.</div>`;
       }
     }
 
@@ -1060,8 +1336,8 @@
             <h3>${escapeHtml(it.item_name)}</h3>
             <div class="case-meta">
               ${escapeHtml(it.rarity || "")} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}<br/>
-              Live: ${formatGbpPence(it.live_price_pence)}<br/>
-              Fallback: ${formatGbpPence(it.fallback_value_pence)}
+              Live: ${formatGrevCoins(it.live_price_pence)}<br/>
+              Fallback: ${formatGrevCoins(it.fallback_value_pence)}
             </div>
           </div>
         `).join("");
@@ -1095,7 +1371,7 @@
           feedTrades.innerHTML = trades.length ? trades.map((x) => `
             <div class="feed-row">
               <div>${escapeHtml(x.item_name)}</div>
-              <div class="muted">${escapeHtml(x.trade_type)} · ${formatGbpPence(x.price_pence)}</div>
+              <div class="muted">${escapeHtml(x.trade_type)} · ${formatGrevCoins(x.price_pence)}</div>
               <div class="muted">${escapeHtml(x.buyer)} → ${escapeHtml(x.seller)}</div>
               <div class="muted">${escapeHtml(x.created_at || "")}</div>
             </div>
@@ -1119,7 +1395,7 @@
         const trades = data.trades || [];
         tradeSearchResults.innerHTML = trades.length ? trades.map((x) => `
           <div class="feed-row">
-            <div>${escapeHtml(x.item_name)} · ${formatGbpPence(x.price_pence)}</div>
+            <div>${escapeHtml(x.item_name)} · ${formatGrevCoins(x.price_pence)}</div>
             <div class="muted">${escapeHtml(x.trade_type)} · ${escapeHtml(x.buyer)} / ${escapeHtml(x.seller)}</div>
             <div class="muted">${escapeHtml(x.created_at || "")}</div>
           </div>
@@ -1157,6 +1433,73 @@
       window.__catT = setTimeout(loadCatalog, 300);
     });
 
+    document.getElementById("buy-keys-btn")?.addEventListener("click", async () => {
+      if (!currentUser) {
+        window.location.href = "/login.html";
+        return;
+      }
+      let qty = Number(document.getElementById("buy-keys-qty")?.value || 1);
+      if (!Number.isInteger(qty) || qty < 1) qty = 1;
+      if (qty > 100) qty = 100;
+      clearMessage();
+      try {
+        const response = await fetch("/api/cs2/store/buy-keys", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quantity: qty })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Could not buy keys.");
+          return;
+        }
+        keyBalance = Number(data.key_balance ?? keyBalance);
+        showMessage("success", data.message || "Keys purchased.");
+        await loadBalance();
+        await loadInventoryUi();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    openSelectedBtn?.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const picks = [...openInventoryList.querySelectorAll("[data-case-pick]:checked")].map((el) =>
+        Number(el.getAttribute("data-case-pick"))
+      );
+      if (picks.length < 1 || picks.length > 10) return;
+      openSelectedBtn.disabled = true;
+      clearMessage();
+      try {
+        const response = await fetch("/api/cs2/open-batch", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventory_ids: picks })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Batch open failed.");
+          return;
+        }
+        const opens = data.opens || [];
+        const first = opens[0];
+        if (first) showDropModalFromOpen(first);
+        if (opens.length > 1) {
+          showMessage("success", `Opened ${opens.length} cases — finish this drop; the rest stay in your pending queue.`);
+        }
+        await loadBalance();
+        await loadInventoryUi();
+        await loadFeeds();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      } finally {
+        openSelectedBtn.disabled = false;
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", async () => {
       setupTabs();
       currentUser = await fetchMe();
@@ -1172,6 +1515,7 @@
       await loadInventoryUi();
       await loadListings("");
       await loadIncomingOffers();
+      await loadOutgoingOffers();
       await loadCatalog();
       await loadFeeds();
       await runTradeSearch();

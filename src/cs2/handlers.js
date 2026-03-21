@@ -1,8 +1,5 @@
-import {
-  KEY_PRICE_PENCE,
-  QUICK_SELL_FRACTION,
-  STARTING_BALANCE_PENCE
-} from "./constants.js";
+import { KEY_PRICE_PENCE, STARTING_BALANCE_PENCE } from "./constants.js";
+import { getQuickSellFeePercent, quickSellPayoutFromMarket } from "./quick-sell.js";
 import { getOrCreateResolvedSkinItem } from "./skin-resolve.js";
 import { getOrFetchItemPricePence } from "./steam.js";
 import { pickWearTier } from "./wear.js";
@@ -92,6 +89,145 @@ async function getCaseStorePricePence(env, caseRow) {
   return Number(caseRow.fallback_price_pence || caseRow.price || 0);
 }
 
+/**
+ * Opens one unowned case row: consumes one key from key_balance (not balance).
+ * @returns {{ success: true, data: object } | { success: false, error: string, status?: number }}
+ */
+async function executeCaseOpen(env, session, isoNow, inventoryId) {
+  const inv = await env.CASES_DB.prepare(`
+      SELECT i.*, ci.item_kind, ci.case_def_id, cd.id AS case_def_pk, cd.case_name
+      FROM inventory i
+      INNER JOIN case_items ci ON ci.id = i.item_id
+      INNER JOIN case_definitions cd ON cd.id = ci.case_def_id
+      WHERE i.id = ? AND i.user_id = ?
+      LIMIT 1
+    `)
+    .bind(inventoryId, session.id)
+    .first();
+
+  if (!inv || inv.item_kind !== "case") {
+    return { success: false, error: "That inventory item is not an unopened case", status: 400 };
+  }
+
+  const profile = await env.CASES_DB.prepare(`
+      SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
+    `)
+    .bind(session.id)
+    .first();
+
+  const keys = Number(profile?.key_balance || 0);
+  if (keys < 1) {
+    return {
+      success: false,
+      error: "You need case keys to open — buy them in the store (2.50 Grev Coins each)",
+      status: 400
+    };
+  }
+
+  const caseId = Number(inv.case_def_pk);
+  const drops = await env.CASES_DB.prepare(`
+      SELECT
+        cd.item_id,
+        cd.drop_weight,
+        ci.item_kind,
+        ci.item_name,
+        ci.weapon_name,
+        ci.skin_name,
+        ci.rarity,
+        ci.color_hex,
+        ci.image_url,
+        ci.market_value
+      FROM case_drops cd
+      INNER JOIN case_items ci ON ci.id = cd.item_id
+      WHERE cd.case_id = ? AND cd.drop_weight > 0
+        AND ci.item_kind IN ('skin', 'skin_template')
+    `)
+    .bind(caseId)
+    .all();
+
+  const picked = pickWeighted(drops.results || []);
+  if (!picked) {
+    return {
+      success: false,
+      error: "No drops configured for this case — run /api/setup on a fresh CASES_DB",
+      status: 500
+    };
+  }
+
+  const now = isoNow();
+  const stamp = now;
+
+  let resolvedItemId;
+  let droppedRow;
+
+  if (picked.item_kind === "skin_template") {
+    const tier = pickWearTier();
+    resolvedItemId = await getOrCreateResolvedSkinItem(env, picked, tier, now);
+    droppedRow = await env.CASES_DB.prepare(`SELECT * FROM case_items WHERE id = ? LIMIT 1`)
+      .bind(resolvedItemId)
+      .first();
+  } else {
+    resolvedItemId = Number(picked.item_id);
+    droppedRow = await env.CASES_DB.prepare(`SELECT * FROM case_items WHERE id = ? LIMIT 1`)
+      .bind(resolvedItemId)
+      .first();
+  }
+
+  if (!droppedRow) {
+    return { success: false, error: "Could not resolve drop item", status: 500 };
+  }
+
+  const pendingIns = await env.CASES_DB.prepare(`
+      INSERT INTO pending_drops (user_id, case_id, resolved_item_id, key_paid, created_at, status)
+      VALUES (?, ?, ?, ?, ?, 'pending')
+    `)
+    .bind(session.id, caseId, resolvedItemId, KEY_PRICE_PENCE, now)
+    .run();
+
+  const pendingDropId = pendingIns.meta?.last_row_id;
+
+  await env.CASES_DB.batch([
+    env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
+    env.CASES_DB.prepare(`
+        UPDATE case_profiles
+        SET
+          key_balance = key_balance - 1,
+          total_cases_opened = total_cases_opened + 1,
+          updated_at = ?
+        WHERE user_id = ?
+      `)
+      .bind(stamp, session.id)
+  ]);
+
+  await refreshInventoryValue(env, session.id);
+
+  const updated = await env.CASES_DB.prepare(`SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    .bind(session.id)
+    .first();
+
+  return {
+    success: true,
+    data: {
+      message: "Case opened — claim the drop to add it to your inventory",
+      pending_drop_id: pendingDropId,
+      dropped: {
+        item_id: resolvedItemId,
+        item_name: droppedRow.item_name,
+        rarity: droppedRow.rarity,
+        wear: droppedRow.wear || "",
+        wear_code: droppedRow.wear_code || "",
+        color_hex: droppedRow.color_hex || "",
+        image_url: droppedRow.image_url || "",
+        market_hash_name: droppedRow.market_hash_name || ""
+      },
+      case_name: inv.case_name,
+      key_price_pence: KEY_PRICE_PENCE,
+      balance_after_pence: Number(updated?.balance || 0),
+      key_balance: Number(updated?.key_balance || 0)
+    }
+  };
+}
+
 export async function handleCs2Request(request, env, deps) {
   const { json, getApprovedUser, requireAdmin, isoNow, safeJson } = deps;
   const url = new URL(request.url);
@@ -127,7 +263,17 @@ export async function handleCs2Request(request, env, deps) {
       });
     }
 
-    return json({ success: true, cases, key_price_pence: KEY_PRICE_PENCE }, 200, request);
+    const feePct = await getQuickSellFeePercent(env);
+    return json(
+      {
+        success: true,
+        cases,
+        key_price_pence: KEY_PRICE_PENCE,
+        quick_sell_fee_percent: feePct
+      },
+      200,
+      request
+    );
   }
 
   /* ------------------------------ Feeds ----------------------------------- */
@@ -373,9 +519,16 @@ export async function handleCs2Request(request, env, deps) {
         ci.market_hash_name,
         ci.image_url,
         ci.wear,
-        ci.wear_code
+        ci.wear_code,
+        COALESCE(om.top_offer, 0) AS top_offer_pence
       FROM market_listings l
       INNER JOIN case_items ci ON ci.id = l.item_id
+      LEFT JOIN (
+        SELECT listing_id, MAX(offer_pence) AS top_offer
+        FROM market_offers
+        WHERE status = 'pending'
+        GROUP BY listing_id
+      ) om ON om.listing_id = l.id
       WHERE l.status = 'active'
       ORDER BY l.id DESC
       LIMIT 200
@@ -409,6 +562,7 @@ export async function handleCs2Request(request, env, deps) {
         auction_start_bid_pence: r.auction_start_bid_pence != null ? Number(r.auction_start_bid_pence) : null,
         current_bid_pence: Number(r.current_bid_pence || 0),
         current_high_bidder_id: r.current_high_bidder_id || null,
+        top_offer_pence: Number(r.top_offer_pence || 0),
         created_at: r.created_at
       }))
     }, 200, request);
@@ -471,6 +625,35 @@ export async function handleCs2Request(request, env, deps) {
     return json({ success: true, message: "Fallback price updated" }, 200, request);
   }
 
+  if (pathname === "/api/cs2/admin/settings" && request.method === "GET") {
+    const admin = await requireAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const fee = await getQuickSellFeePercent(env);
+    return json({ success: true, quick_sell_fee_percent: fee }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/settings/quick-sell-fee" && request.method === "POST") {
+    const admin = await requireAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const fee = Number(body?.fee_percent);
+
+    if (!Number.isInteger(fee) || fee < 0 || fee >= 100) {
+      return json({ success: false, error: "fee_percent must be an integer from 0 to 99" }, 400, request);
+    }
+
+    await env.CASES_DB.prepare(`
+      INSERT INTO cs2_sim_settings (key, value) VALUES ('quick_sell_fee_percent', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `)
+      .bind(String(fee))
+      .run();
+
+    return json({ success: true, quick_sell_fee_percent: fee }, 200, request);
+  }
+
   /* ------------------------------ Auth routes ----------------------------- */
   const session = await getApprovedUser(request, env);
   if (session instanceof Response) {
@@ -531,13 +714,28 @@ export async function handleCs2Request(request, env, deps) {
       });
     }
 
-    return json({ success: true, items }, 200, request);
+    const keyMeta = await env.CASES_DB.prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+      .bind(session.id)
+      .first();
+
+    return json(
+      {
+        success: true,
+        items,
+        key_balance: Number(keyMeta?.key_balance ?? 0)
+      },
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/cs2/store/buy-case" && request.method === "POST") {
     await ensureCaseProfile(env, session, isoNow);
     const body = await safeJson(request);
     const caseId = Number(body?.case_id);
+    let qty = Number(body?.quantity ?? 1);
+    if (!Number.isInteger(qty) || qty < 1) qty = 1;
+    if (qty > 100) qty = 100;
 
     if (!Number.isInteger(caseId) || caseId <= 0) {
       return json({ success: false, error: "A valid case id is required" }, 400, request);
@@ -551,19 +749,21 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Case is not available" }, 404, request);
     }
 
-    const price = await getCaseStorePricePence(env, caseRow)
+    const unitPrice = await getCaseStorePricePence(env, caseRow)
       || Number(caseRow.fallback_price_pence || caseRow.price || 0);
 
-    if (!price || price <= 0) {
+    if (!unitPrice || unitPrice <= 0) {
       return json({ success: false, error: "Case price is unavailable" }, 400, request);
     }
+
+    const totalCost = unitPrice * qty;
 
     const profile = await env.CASES_DB.prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
     const balance = Number(profile?.balance || 0);
-    if (balance < price) {
+    if (balance < totalCost) {
       return json({ success: false, error: "Not enough Grev Coins" }, 400, request);
     }
 
@@ -580,16 +780,12 @@ export async function handleCs2Request(request, env, deps) {
     const now = isoNow();
     const stamp = now;
 
-    await env.CASES_DB.batch([
+    const batch = [
       env.CASES_DB.prepare(`
         UPDATE case_profiles
         SET balance = balance - ?, total_spent = total_spent + ?, updated_at = ?
         WHERE user_id = ?
-      `).bind(price, price, stamp, session.id),
-      env.CASES_DB.prepare(`
-        INSERT INTO inventory (user_id, item_id, source_case_id, acquired_at, locked)
-        VALUES (?, ?, NULL, ?, 0)
-      `).bind(session.id, sku.id, now),
+      `).bind(totalCost, totalCost, stamp, session.id),
       env.CASES_DB.prepare(`
         INSERT INTO trade_history (
           buyer_user_id,
@@ -601,17 +797,103 @@ export async function handleCs2Request(request, env, deps) {
           created_at
         )
         VALUES (?, NULL, ?, ?, ?, 'store_buy', ?)
-      `).bind(session.id, sku.id, `${caseRow.case_name} (Unopened)`, price, now)
-    ]);
+      `).bind(session.id, sku.id, `${caseRow.case_name} (Unopened) ×${qty}`, totalCost, now)
+    ];
+
+    for (let i = 0; i < qty; i += 1) {
+      batch.push(
+        env.CASES_DB.prepare(`
+          INSERT INTO inventory (user_id, item_id, source_case_id, acquired_at, locked)
+          VALUES (?, ?, NULL, ?, 0)
+        `).bind(session.id, sku.id, now)
+      );
+    }
+
+    await env.CASES_DB.batch(batch);
 
     await refreshInventoryValue(env, session.id);
 
-    return json({
-      success: true,
-      message: "Case purchased",
-      spent_pence: price,
-      balance_after_pence: balance - price
-    }, 200, request);
+    const updated = await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+      .bind(session.id)
+      .first();
+
+    return json(
+      {
+        success: true,
+        message: qty === 1 ? "Case purchased" : `${qty} cases purchased`,
+        quantity: qty,
+        unit_price_pence: unitPrice,
+        spent_pence: totalCost,
+        balance_after_pence: Number(updated?.balance || 0)
+      },
+      200,
+      request
+    );
+  }
+
+  if (pathname === "/api/cs2/store/buy-keys" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    let qty = Number(body?.quantity ?? 1);
+    if (!Number.isInteger(qty) || qty < 1) qty = 1;
+    if (qty > 100) qty = 100;
+
+    const totalCost = KEY_PRICE_PENCE * qty;
+
+    const profile = await env.CASES_DB.prepare(`
+      SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
+    `).bind(session.id).first();
+
+    const balance = Number(profile?.balance || 0);
+    if (balance < totalCost) {
+      return json({ success: false, error: "Not enough Grev Coins for keys" }, 400, request);
+    }
+
+    const now = isoNow();
+    const stamp = now;
+
+    await env.CASES_DB.batch([
+      env.CASES_DB.prepare(`
+        UPDATE case_profiles
+        SET
+          balance = balance - ?,
+          total_spent = total_spent + ?,
+          key_balance = key_balance + ?,
+          updated_at = ?
+        WHERE user_id = ?
+      `).bind(totalCost, totalCost, qty, stamp, session.id),
+      env.CASES_DB.prepare(`
+        INSERT INTO trade_history (
+          buyer_user_id,
+          seller_user_id,
+          item_id,
+          item_name,
+          price_pence,
+          trade_type,
+          created_at
+        )
+        VALUES (?, NULL, NULL, ?, ?, 'key_purchase', ?)
+      `).bind(session.id, `Case keys ×${qty}`, totalCost, now)
+    ]);
+
+    const updated = await env.CASES_DB.prepare(`
+      SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
+    `)
+      .bind(session.id)
+      .first();
+
+    return json(
+      {
+        success: true,
+        message: qty === 1 ? "Key purchased" : `${qty} keys purchased`,
+        quantity: qty,
+        spent_pence: totalCost,
+        balance_after_pence: Number(updated?.balance || 0),
+        key_balance: Number(updated?.key_balance || 0)
+      },
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/cs2/open" && request.method === "POST") {
@@ -623,119 +905,72 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid inventory id is required" }, 400, request);
     }
 
-    const inv = await env.CASES_DB.prepare(`
-      SELECT i.*, ci.item_kind, ci.case_def_id, cd.id AS case_def_pk, cd.case_name
-      FROM inventory i
-      INNER JOIN case_items ci ON ci.id = i.item_id
-      INNER JOIN case_definitions cd ON cd.id = ci.case_def_id
-      WHERE i.id = ? AND i.user_id = ?
-      LIMIT 1
-    `).bind(inventoryId, session.id).first();
-
-    if (!inv || inv.item_kind !== "case") {
-      return json({ success: false, error: "That inventory item is not an unopened case" }, 400, request);
+    const opened = await executeCaseOpen(env, session, isoNow, inventoryId);
+    if (!opened.success) {
+      return json({ success: false, error: opened.error }, opened.status || 400, request);
     }
 
-    const caseId = Number(inv.case_def_pk);
-    const profile = await env.CASES_DB.prepare(`
-      SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
-    `).bind(session.id).first();
+    return json({ success: true, ...opened.data }, 200, request);
+  }
 
-    const balance = Number(profile?.balance || 0);
-    if (balance < KEY_PRICE_PENCE) {
-      return json({ success: false, error: "Not enough Grev Coins for a key (£2.50)" }, 400, request);
+  if (pathname === "/api/cs2/open-batch" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    const raw = body?.inventory_ids;
+    const ids = Array.isArray(raw)
+      ? [...new Set(raw.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
+      : [];
+
+    if (ids.length < 1 || ids.length > 10) {
+      return json({ success: false, error: "Provide between 1 and 10 distinct case inventory ids" }, 400, request);
     }
 
-    const drops = await env.CASES_DB.prepare(`
-      SELECT
-        cd.item_id,
-        cd.drop_weight,
-        ci.item_kind,
-        ci.item_name,
-        ci.weapon_name,
-        ci.skin_name,
-        ci.rarity,
-        ci.color_hex,
-        ci.image_url,
-        ci.market_value
-      FROM case_drops cd
-      INNER JOIN case_items ci ON ci.id = cd.item_id
-      WHERE cd.case_id = ? AND cd.drop_weight > 0
-        AND ci.item_kind IN ('skin', 'skin_template')
-    `).bind(caseId).all();
+    const prof = await env.CASES_DB.prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+      .bind(session.id)
+      .first();
 
-    const picked = pickWeighted(drops.results || []);
-    if (!picked) {
-      return json({ success: false, error: "No drops configured for this case — run /api/setup on a fresh CASES_DB" }, 500, request);
+    if (Number(prof?.key_balance || 0) < ids.length) {
+      return json(
+        {
+          success: false,
+          error: `Not enough keys — you need ${ids.length} keys for this batch`
+        },
+        400,
+        request
+      );
     }
 
-    const now = isoNow();
-    const stamp = now;
-
-    let resolvedItemId;
-    let droppedRow;
-
-    if (picked.item_kind === "skin_template") {
-      const tier = pickWearTier();
-      resolvedItemId = await getOrCreateResolvedSkinItem(env, picked, tier, now);
-      droppedRow = await env.CASES_DB.prepare(`
-        SELECT * FROM case_items WHERE id = ? LIMIT 1
-      `).bind(resolvedItemId).first();
-    } else {
-      resolvedItemId = Number(picked.item_id);
-      droppedRow = await env.CASES_DB.prepare(`
-        SELECT * FROM case_items WHERE id = ? LIMIT 1
-      `).bind(resolvedItemId).first();
+    const opens = [];
+    for (const inventoryId of ids) {
+      const opened = await executeCaseOpen(env, session, isoNow, inventoryId);
+      if (!opened.success) {
+        return json(
+          {
+            success: false,
+            error: opened.error,
+            partial_opens: opens
+          },
+          opened.status || 400,
+          request
+        );
+      }
+      opens.push(opened.data);
     }
 
-    if (!droppedRow) {
-      return json({ success: false, error: "Could not resolve drop item" }, 500, request);
-    }
+    const updated = await env.CASES_DB.prepare(`SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+      .bind(session.id)
+      .first();
 
-    const pendingIns = await env.CASES_DB.prepare(`
-      INSERT INTO pending_drops (user_id, case_id, resolved_item_id, key_paid, created_at, status)
-      VALUES (?, ?, ?, ?, ?, 'pending')
-    `).bind(session.id, caseId, resolvedItemId, KEY_PRICE_PENCE, now).run();
-
-    const pendingDropId = pendingIns.meta?.last_row_id;
-
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
-      env.CASES_DB.prepare(`
-        UPDATE case_profiles
-        SET
-          balance = balance - ?,
-          total_spent = total_spent + ?,
-          total_cases_opened = total_cases_opened + 1,
-          updated_at = ?
-        WHERE user_id = ?
-      `).bind(KEY_PRICE_PENCE, KEY_PRICE_PENCE, stamp, session.id)
-    ]);
-
-    await refreshInventoryValue(env, session.id);
-
-    const updated = await env.CASES_DB.prepare(`
-      SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
-    `).bind(session.id).first();
-
-    return json({
-      success: true,
-      message: "Case opened — claim the drop to add it to your inventory",
-      pending_drop_id: pendingDropId,
-      dropped: {
-        item_id: resolvedItemId,
-        item_name: droppedRow.item_name,
-        rarity: droppedRow.rarity,
-        wear: droppedRow.wear || "",
-        wear_code: droppedRow.wear_code || "",
-        color_hex: droppedRow.color_hex || "",
-        image_url: droppedRow.image_url || "",
-        market_hash_name: droppedRow.market_hash_name || ""
+    return json(
+      {
+        success: true,
+        opens,
+        key_balance: Number(updated?.key_balance || 0),
+        balance_after_pence: Number(updated?.balance || 0)
       },
-      case_name: inv.case_name,
-      key_price_pence: KEY_PRICE_PENCE,
-      balance_after_pence: Number(updated?.balance || 0)
-    }, 200, request);
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/cs2/drop/claim" && request.method === "POST") {
@@ -812,7 +1047,11 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Could not determine market price" }, 400, request);
     }
 
-    const payout = Math.max(1, Math.floor(marketPrice * QUICK_SELL_FRACTION));
+    const feePct = await getQuickSellFeePercent(env);
+    const payout = quickSellPayoutFromMarket(marketPrice, feePct);
+    if (!payout) {
+      return json({ success: false, error: "Could not compute quick sell payout" }, 400, request);
+    }
     const t = isoNow();
 
     await env.CASES_DB.batch([
@@ -835,6 +1074,8 @@ export async function handleCs2Request(request, env, deps) {
     return json({
       success: true,
       message: "Quick sold from drop",
+      market_reference_pence: marketPrice,
+      quick_sell_fee_percent: feePct,
       payout_pence: payout,
       balance_after_pence: Number(updated?.balance || 0)
     }, 200, request);
@@ -923,7 +1164,11 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Could not determine market price for this item" }, 400, request);
     }
 
-    const payout = Math.max(1, Math.floor(marketPrice * QUICK_SELL_FRACTION));
+    const feePct = await getQuickSellFeePercent(env);
+    const payout = quickSellPayoutFromMarket(marketPrice, feePct);
+    if (!payout) {
+      return json({ success: false, error: "Could not compute quick sell payout" }, 400, request);
+    }
     const now = isoNow();
 
     await env.CASES_DB.batch([
@@ -957,6 +1202,7 @@ export async function handleCs2Request(request, env, deps) {
       success: true,
       message: "Quick sold",
       market_reference_pence: marketPrice,
+      quick_sell_fee_percent: feePct,
       payout_pence: payout,
       balance_after_pence: Number(updated?.balance || 0)
     }, 200, request);
@@ -1301,6 +1547,8 @@ export async function handleCs2Request(request, env, deps) {
     const body = await safeJson(request);
     const listingId = Number(body?.listing_id);
     const offerPence = Number(body?.offer_pence);
+    const commentRaw = typeof body?.comment === "string" ? body.comment.trim() : "";
+    const buyerComment = commentRaw.slice(0, 2000) || null;
 
     if (!Number.isInteger(listingId) || listingId <= 0) {
       return json({ success: false, error: "A valid listing id is required" }, 400, request);
@@ -1323,12 +1571,31 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const now = isoNow();
-    await env.CASES_DB.prepare(`
-      INSERT INTO market_offers (listing_id, buyer_user_id, offer_pence, status, created_at)
-      VALUES (?, ?, ?, 'pending', ?)
-    `).bind(listingId, session.id, offerPence, now).run();
+    const ins = await env.CASES_DB.prepare(`
+      INSERT INTO market_offers (
+        listing_id,
+        buyer_user_id,
+        offer_pence,
+        status,
+        created_at,
+        buyer_comment
+      )
+      VALUES (?, ?, ?, 'pending', ?, ?)
+    `)
+      .bind(listingId, session.id, offerPence, now, buyerComment)
+      .run();
 
-    return json({ success: true, message: "Offer submitted" }, 200, request);
+    const offerId = ins.meta?.last_row_id;
+    if (buyerComment && offerId) {
+      await env.CASES_DB.prepare(`
+        INSERT INTO offer_messages (offer_id, author_user_id, body, created_at)
+        VALUES (?, ?, ?, ?)
+      `)
+        .bind(offerId, session.id, buyerComment, now)
+        .run();
+    }
+
+    return json({ success: true, message: "Offer submitted", offer_id: offerId }, 200, request);
   }
 
   if (pathname === "/api/cs2/offers/accept" && request.method === "POST") {
@@ -1354,6 +1621,18 @@ export async function handleCs2Request(request, env, deps) {
 
     if (Number(offer.seller_user_id) !== Number(session.id)) {
       return json({ success: false, error: "Only the seller can accept" }, 403, request);
+    }
+
+    const counter = Number(offer.seller_counter_pence || 0);
+    if (counter > 0) {
+      return json(
+        {
+          success: false,
+          error: "You sent a counter-offer — wait for the buyer to accept it, or post a new counter"
+        },
+        400,
+        request
+      );
     }
 
     const price = Number(offer.offer_pence || 0);
@@ -1405,10 +1684,14 @@ export async function handleCs2Request(request, env, deps) {
         o.buyer_user_id,
         o.offer_pence,
         o.created_at,
+        o.buyer_comment,
+        o.seller_counter_pence,
+        o.seller_counter_message,
         ci.item_name,
         ci.image_url,
         ci.wear,
-        ci.wear_code
+        ci.wear_code,
+        ci.rarity
       FROM market_offers o
       INNER JOIN market_listings l ON l.id = o.listing_id AND l.status = 'active'
       INNER JOIN case_items ci ON ci.id = l.item_id
@@ -1428,13 +1711,304 @@ export async function handleCs2Request(request, env, deps) {
         buyer_user_id: r.buyer_user_id,
         buyer: buyers.get(Number(r.buyer_user_id)) || `user#${r.buyer_user_id}`,
         offer_pence: Number(r.offer_pence || 0),
+        buyer_comment: r.buyer_comment || "",
+        seller_counter_pence: r.seller_counter_pence != null ? Number(r.seller_counter_pence) : null,
+        seller_counter_message: r.seller_counter_message || "",
         created_at: r.created_at,
         item_name: r.item_name,
         image_url: r.image_url || "",
         wear: r.wear || "",
-        wear_code: r.wear_code || ""
+        wear_code: r.wear_code || "",
+        rarity: r.rarity || ""
       }))
     }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/offers/outgoing" && request.method === "GET") {
+    await ensureCaseProfile(env, session, isoNow);
+    const rows = await env.CASES_DB.prepare(`
+      SELECT
+        o.id,
+        o.listing_id,
+        o.offer_pence,
+        o.created_at,
+        o.buyer_comment,
+        o.seller_counter_pence,
+        o.seller_counter_message,
+        l.seller_user_id,
+        ci.item_name,
+        ci.image_url,
+        ci.wear,
+        ci.wear_code,
+        ci.rarity
+      FROM market_offers o
+      INNER JOIN market_listings l ON l.id = o.listing_id AND l.status = 'active'
+      INNER JOIN case_items ci ON ci.id = l.item_id
+      WHERE o.status = 'pending' AND o.buyer_user_id = ?
+      ORDER BY o.id DESC
+      LIMIT 80
+    `).bind(session.id).all();
+
+    const list = rows.results || [];
+    const sellers = await resolveUsernames(env, list.map((r) => Number(r.seller_user_id)));
+
+    return json({
+      success: true,
+      offers: list.map((r) => ({
+        offer_id: r.id,
+        listing_id: r.listing_id,
+        seller_user_id: r.seller_user_id,
+        seller: sellers.get(Number(r.seller_user_id)) || `user#${r.seller_user_id}`,
+        offer_pence: Number(r.offer_pence || 0),
+        buyer_comment: r.buyer_comment || "",
+        seller_counter_pence: r.seller_counter_pence != null ? Number(r.seller_counter_pence) : null,
+        seller_counter_message: r.seller_counter_message || "",
+        created_at: r.created_at,
+        item_name: r.item_name,
+        image_url: r.image_url || "",
+        wear: r.wear || "",
+        wear_code: r.wear_code || "",
+        rarity: r.rarity || ""
+      }))
+    }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/offers/thread" && request.method === "GET") {
+    await ensureCaseProfile(env, session, isoNow);
+    const offerId = Number(url.searchParams.get("offer_id"));
+    if (!Number.isInteger(offerId) || offerId <= 0) {
+      return json({ success: false, error: "offer_id is required" }, 400, request);
+    }
+
+    const offer = await env.CASES_DB.prepare(`
+      SELECT o.*, l.seller_user_id, l.status AS list_status
+      FROM market_offers o
+      INNER JOIN market_listings l ON l.id = o.listing_id
+      WHERE o.id = ?
+      LIMIT 1
+    `)
+      .bind(offerId)
+      .first();
+
+    if (!offer) {
+      return json({ success: false, error: "Offer not found" }, 404, request);
+    }
+
+    const uid = Number(session.id);
+    if (Number(offer.buyer_user_id) !== uid && Number(offer.seller_user_id) !== uid) {
+      return json({ success: false, error: "Forbidden" }, 403, request);
+    }
+
+    const msgs = await env.CASES_DB.prepare(`
+      SELECT id, author_user_id, body, created_at
+      FROM offer_messages
+      WHERE offer_id = ?
+      ORDER BY id ASC
+    `)
+      .bind(offerId)
+      .all();
+
+    const authors = await resolveUsernames(
+      env,
+      (msgs.results || []).map((m) => Number(m.author_user_id))
+    );
+
+    return json(
+      {
+        success: true,
+        offer: {
+          offer_id: offer.id,
+          listing_id: offer.listing_id,
+          buyer_user_id: offer.buyer_user_id,
+          seller_user_id: offer.seller_user_id,
+          offer_pence: Number(offer.offer_pence || 0),
+          buyer_comment: offer.buyer_comment || "",
+          seller_counter_pence:
+            offer.seller_counter_pence != null ? Number(offer.seller_counter_pence) : null,
+          seller_counter_message: offer.seller_counter_message || "",
+          status: offer.status,
+          created_at: offer.created_at
+        },
+        messages: (msgs.results || []).map((m) => ({
+          id: m.id,
+          author_user_id: m.author_user_id,
+          author: authors.get(Number(m.author_user_id)) || `user#${m.author_user_id}`,
+          body: m.body,
+          created_at: m.created_at
+        }))
+      },
+      200,
+      request
+    );
+  }
+
+  if (pathname === "/api/cs2/offers/message" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    const offerId = Number(body?.offer_id);
+    const text = typeof body?.message === "string" ? body.message.trim().slice(0, 2000) : "";
+
+    if (!Number.isInteger(offerId) || offerId <= 0) {
+      return json({ success: false, error: "A valid offer id is required" }, 400, request);
+    }
+    if (!text) {
+      return json({ success: false, error: "message is required" }, 400, request);
+    }
+
+    const offer = await env.CASES_DB.prepare(`
+      SELECT o.id, o.buyer_user_id, o.status, l.seller_user_id, l.status AS list_status
+      FROM market_offers o
+      INNER JOIN market_listings l ON l.id = o.listing_id
+      WHERE o.id = ?
+      LIMIT 1
+    `)
+      .bind(offerId)
+      .first();
+
+    if (!offer || offer.status !== "pending" || offer.list_status !== "active") {
+      return json({ success: false, error: "Offer not open for messages" }, 400, request);
+    }
+
+    const uid = Number(session.id);
+    if (Number(offer.buyer_user_id) !== uid && Number(offer.seller_user_id) !== uid) {
+      return json({ success: false, error: "Forbidden" }, 403, request);
+    }
+
+    const now = isoNow();
+    await env.CASES_DB.prepare(`
+      INSERT INTO offer_messages (offer_id, author_user_id, body, created_at)
+      VALUES (?, ?, ?, ?)
+    `)
+      .bind(offerId, session.id, text, now)
+      .run();
+
+    return json({ success: true, message: "Sent" }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/offers/counter" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    const offerId = Number(body?.offer_id);
+    const counterPence = Number(body?.counter_pence);
+    const msgRaw = typeof body?.message === "string" ? body.message.trim().slice(0, 2000) : "";
+
+    if (!Number.isInteger(offerId) || offerId <= 0) {
+      return json({ success: false, error: "A valid offer id is required" }, 400, request);
+    }
+    if (!Number.isInteger(counterPence) || counterPence <= 0) {
+      return json({ success: false, error: "A valid counter price in pence is required" }, 400, request);
+    }
+
+    const offer = await env.CASES_DB.prepare(`
+      SELECT o.*, l.seller_user_id, l.status AS list_status
+      FROM market_offers o
+      INNER JOIN market_listings l ON l.id = o.listing_id
+      WHERE o.id = ? AND o.status = 'pending'
+      LIMIT 1
+    `)
+      .bind(offerId)
+      .first();
+
+    if (!offer || offer.list_status !== "active") {
+      return json({ success: false, error: "Offer not found" }, 404, request);
+    }
+
+    if (Number(offer.seller_user_id) !== Number(session.id)) {
+      return json({ success: false, error: "Only the seller can counter" }, 403, request);
+    }
+
+    const now = isoNow();
+    await env.CASES_DB.prepare(`
+      UPDATE market_offers
+      SET seller_counter_pence = ?, seller_counter_message = ?
+      WHERE id = ?
+    `)
+      .bind(counterPence, msgRaw || null, offerId)
+      .run();
+
+    const line = msgRaw
+      ? `Counter: ${counterPence} p — ${msgRaw}`
+      : `Counter: ${counterPence} p`;
+    await env.CASES_DB.prepare(`
+      INSERT INTO offer_messages (offer_id, author_user_id, body, created_at)
+      VALUES (?, ?, ?, ?)
+    `)
+      .bind(offerId, session.id, line, now)
+      .run();
+
+    return json({ success: true, message: "Counter sent", seller_counter_pence: counterPence }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/offers/accept-counter" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    const offerId = Number(body?.offer_id);
+
+    if (!Number.isInteger(offerId) || offerId <= 0) {
+      return json({ success: false, error: "A valid offer id is required" }, 400, request);
+    }
+
+    const offer = await env.CASES_DB.prepare(`
+      SELECT o.*, l.seller_user_id, l.inventory_id, l.item_id, l.status AS list_status
+      FROM market_offers o
+      INNER JOIN market_listings l ON l.id = o.listing_id
+      WHERE o.id = ? AND o.status = 'pending'
+      LIMIT 1
+    `)
+      .bind(offerId)
+      .first();
+
+    if (!offer || offer.list_status !== "active") {
+      return json({ success: false, error: "Offer not found" }, 404, request);
+    }
+
+    if (Number(offer.buyer_user_id) !== Number(session.id)) {
+      return json({ success: false, error: "Only the buyer can accept the seller's counter" }, 403, request);
+    }
+
+    const price = Number(offer.seller_counter_pence || 0);
+    if (!price || price <= 0) {
+      return json({ success: false, error: "There is no counter to accept" }, 400, request);
+    }
+
+    const buyerId = Number(offer.buyer_user_id);
+    const sellerId = Number(offer.seller_user_id);
+    const listingId = Number(offer.listing_id);
+
+    const buyerBal = await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+      .bind(buyerId)
+      .first();
+
+    if (Number(buyerBal?.balance || 0) < price) {
+      return json({ success: false, error: "You no longer have enough balance" }, 400, request);
+    }
+
+    const item = await env.CASES_DB.prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
+      .bind(offer.item_id)
+      .first();
+
+    const now = isoNow();
+
+    await env.CASES_DB.batch([
+      env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`)
+        .bind(price, now, buyerId),
+      env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`)
+        .bind(price, now, sellerId),
+      env.CASES_DB.prepare(`UPDATE inventory SET user_id = ? WHERE id = ?`).bind(buyerId, offer.inventory_id),
+      env.CASES_DB.prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
+      env.CASES_DB.prepare(`UPDATE market_offers SET status = 'rejected' WHERE listing_id = ? AND id != ?`)
+        .bind(listingId, offerId),
+      env.CASES_DB.prepare(`UPDATE market_offers SET status = 'accepted' WHERE id = ?`).bind(offerId),
+      env.CASES_DB.prepare(`
+        INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
+        VALUES (?, ?, ?, ?, ?, 'offer_counter_accept', ?)
+      `).bind(buyerId, sellerId, offer.item_id, item?.item_name || "Item", price, now)
+    ]);
+
+    await refreshInventoryValue(env, buyerId);
+    await refreshInventoryValue(env, sellerId);
+
+    return json({ success: true, message: "Counter accepted — trade complete" }, 200, request);
   }
 
   if (pathname === "/api/cs2/showcase" && request.method === "POST") {

@@ -1,4 +1,4 @@
-import { STARTING_BALANCE_PENCE } from "./constants.js";
+import { DEFAULT_QUICK_SELL_FEE_PERCENT, STARTING_BALANCE_PENCE } from "./constants.js";
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
   const result = await db.prepare(`PRAGMA table_info(${tableName})`).all();
@@ -23,6 +23,7 @@ export async function ensureCs2Extensions(db) {
   await ensureColumn(db, "case_items", "wear_code", "TEXT");
 
   await ensureColumn(db, "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
+  await ensureColumn(db, "case_profiles", "key_balance", "INTEGER NOT NULL DEFAULT 0");
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS market_price_cache (
@@ -96,6 +97,34 @@ export async function ensureCs2Extensions(db) {
     )
   `).run();
 
+  await ensureColumn(db, "market_offers", "buyer_comment", "TEXT");
+  await ensureColumn(db, "market_offers", "seller_counter_pence", "INTEGER");
+  await ensureColumn(db, "market_offers", "seller_counter_message", "TEXT");
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS offer_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      offer_id INTEGER NOT NULL,
+      author_user_id INTEGER NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS cs2_sim_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `).run();
+
+  const feeSeed = await db.prepare(`SELECT 1 FROM cs2_sim_settings WHERE key = 'quick_sell_fee_percent' LIMIT 1`).first();
+  if (!feeSeed) {
+    await db.prepare(`
+      INSERT INTO cs2_sim_settings (key, value) VALUES ('quick_sell_fee_percent', ?)
+    `).bind(String(DEFAULT_QUICK_SELL_FEE_PERCENT)).run();
+  }
+
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS profile_showcase (
       user_id INTEGER NOT NULL,
@@ -112,4 +141,5 @@ export async function ensureCs2Extensions(db) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_pending_drops_user ON pending_drops (user_id)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_auction_bids_listing ON auction_bids (listing_id)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_market_offers_listing ON market_offers (listing_id)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_offer_messages_offer ON offer_messages (offer_id)`).run();
 }

@@ -1,6 +1,7 @@
 // src/index.js
 
 import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
+import { getQuickSellFeePercent } from "./cs2/quick-sell.js";
 import { handleCs2Request } from "./cs2/handlers.js";
 import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
 import { ensureCs2Extensions } from "./cs2/schema.js";
@@ -1423,6 +1424,7 @@ async function handleGamblingProfile(request, env) {
       user_id,
       display_name,
       balance,
+      key_balance,
       total_cases_opened,
       total_spent,
       total_inventory_value,
@@ -1433,6 +1435,8 @@ async function handleGamblingProfile(request, env) {
     LIMIT 1
   `).bind(session.id).first();
 
+  const quickSellFee = await getQuickSellFeePercent(env);
+
   return json({
     success: true,
     profile: {
@@ -1440,9 +1444,11 @@ async function handleGamblingProfile(request, env) {
       username: session.username,
       display_name: row.display_name || session.username,
       balance: Number(row.balance || 0),
+      key_balance: Number(row.key_balance ?? 0),
       total_cases_opened: Number(row.total_cases_opened || 0),
       total_spent: Number(row.total_spent || 0),
       total_inventory_value: Number(row.total_inventory_value || 0),
+      quick_sell_fee_percent: quickSellFee,
       created_at: row.created_at || now,
       updated_at: row.updated_at || now
     }
