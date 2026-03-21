@@ -129,12 +129,12 @@ async function autoSyncPrices(env) {
             .bind(price, fullName));
         }
       }
-      // Process in batches
+      // Process in batches of 50
       for (let i = 0; i < stmts.length; i += 50) {
         await env.CASES_DB.batch(stmts.slice(i, i + 50));
       }
       
-      await env.CASES_DB.prepare("UPDATE sync_log SET last_sync = ? WHERE id = 1")
+      await env.CASES_DB.prepare("INSERT OR REPLACE INTO sync_log (id, last_sync) VALUES (1, ?)")
         .bind(new Date().toISOString()).run();
     }
   } catch (e) { console.error("Sync failed:", e.message); }
@@ -229,53 +229,45 @@ export default {
         return json({ skins: results });
       }
 
-      // --- CASE OPENING ---
-      if (path === "/api/cases/open" && request.method === "POST") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
-        const { caseName } = await request.json();
-        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
-        if (!skins || skins.length === 0) return json({ error: "Case not found" }, 404);
-        const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
-        let random = Math.random() * totalWeight;
-        let winner = skins[0];
-        for (const s of skins) { if (random < s.drop_weight) { winner = s; break; } random -= s.drop_weight; }
-        const qual = calculateSkinQuality(winner.base_price);
-        const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
-        await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
-        return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float, weapon: winner.weapon_type, skin: winner.skin_name });
-      }
-
       // --- MEGA SEEDER ---
       if (path === "/api/admin/mega-seed") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
+
         try {
-          const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
-          });
-          const data = await res.json();
+          const res = await fetch("https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json");
+          const allSkins = await res.json();
           const stmts = [];
-          for (const [fullName, details] of Object.entries(data)) {
-            if (!fullName.includes(" | ")) continue;
-            const [weaponType, skinAndWear] = fullName.split(" | ");
-            const skinName = skinAndWear.split(" (")[0];
-            const price = (details.steam?.price || details.price || 0) / 100;
-            if (price > 0) {
-              let rarity = "milspec", weight = 50;
-              if (price > 200 || weaponType.includes("Knife")) { rarity = "rare_special"; weight = 1; }
-              else if (price > 100) { rarity = "covert"; weight = 2; }
-              else if (price > 30) { rarity = "classified"; weight = 10; }
-              else if (price > 10) { rarity = "restricted"; weight = 20; }
-              stmts.push(env.CASES_DB.prepare(`INSERT OR IGNORE INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight) VALUES (?, ?, ?, ?, ?, ?)`).bind("Global Collection", weaponType, skinName, rarity, price, weight));
+
+          for (const skin of allSkins) {
+            let rarity = "milspec", weight = 50;
+            const rName = skin.rarity.name.toLowerCase();
+            if (rName.includes("extraordinary") || skin.type.includes("Gloves") || skin.weapon?.name.includes("Knife")) { 
+              rarity = "rare_special"; weight = 1; 
             }
+            else if (rName.includes("covert")) { rarity = "covert"; weight = 2; }
+            else if (rName.includes("classified")) { rarity = "classified"; weight = 10; }
+            else if (rName.includes("restricted")) { rarity = "restricted"; weight = 20; }
+
+            const weaponType = skin.weapon ? skin.weapon.name : "Other";
+            const skinName = skin.name.replace(weaponType + " | ", "");
+
+            stmts.push(env.CASES_DB.prepare(`
+              INSERT OR IGNORE INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `).bind("Global Collection", weaponType, skinName, rarity, 0.0, weight));
           }
-          for (let i = 0; i < stmts.length; i += 50) { await env.CASES_DB.batch(stmts.slice(i, i + 50)); }
-          return json({ success: true, message: `Seeded Global Collection` });
-        } catch (e) { return json({ error: e.message }, 500); }
+
+          for (let i = 0; i < stmts.length; i += 50) {
+            await env.CASES_DB.batch(stmts.slice(i, i + 50));
+          }
+
+          return json({ success: true, message: `Seeded ${allSkins.length} skins. Running price sync now...` });
+        } catch (e) {
+          return json({ error: e.message }, 500);
+        }
       }
 
-      // --- CUSTOM CASE ---
       if (path === "/api/admin/create-case" && request.method === "POST") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
