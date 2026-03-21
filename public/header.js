@@ -19,25 +19,19 @@ async function loadHeader() {
     const navWelcome = document.getElementById("navWelcome");
 
     // 3. Check authentication with a Cache Buster
-    // This 'nocache' parameter is vital to stop the browser from 
-    // showing you a "logged in" state from its memory.
     const meRes = await fetch(`/api/me?nocache=${Date.now()}`, { 
       credentials: "include" 
     });
 
-    // --- CASE A: USER IS NOT LOGGED IN (OR JUST LOGGED OUT) ---
+    // --- CASE A: USER IS NOT LOGGED IN ---
     if (!meRes.ok) {
-      // Ensure Guest links are VISIBLE
       if (navLogin) navLogin.classList.remove("hidden");
       if (navRegister) navRegister.classList.remove("hidden");
 
-      // FORCE HIDE all Member/Admin links (The "Safety Scrub")
-      if (navCases) navCases.classList.add("hidden");
-      if (navMembers) navMembers.classList.add("hidden");
-      if (navProfile) navProfile.classList.add("hidden");
-      if (navAdmin) navAdmin.classList.add("hidden");
-      if (navLogout) navLogout.classList.add("hidden");
-      if (navWelcome) navWelcome.classList.add("hidden");
+      // Hide all Member/Admin links
+      [navCases, navMembers, navProfile, navAdmin, navLogout, navWelcome].forEach(el => {
+        if (el) el.classList.add("hidden");
+      });
       
       return; 
     }
@@ -55,9 +49,10 @@ async function loadHeader() {
     if (navMembers) navMembers.classList.remove("hidden");
     if (navLogout) navLogout.classList.remove("hidden");
 
+    // UPDATED: Set Profile link to profile.html
     if (navProfile) {
       navProfile.classList.remove("hidden");
-      navProfile.href = `/profile.html?id=${data.user.id}`; 
+      navProfile.setAttribute("href", `/profile.html?id=${data.user.id}`);
     }
 
     // Admin Check
@@ -65,10 +60,14 @@ async function loadHeader() {
       navAdmin.classList.remove("hidden");
     }
 
-    // Welcome Message
+    // Welcome Message - Make it a clickable shortcut to profile
     if (navWelcome) {
       navWelcome.textContent = `Welcome, ${data.user.username}`;
       navWelcome.classList.remove("hidden");
+      // Optional: if your welcome element is an <a> tag, this makes it clickable
+      if (navWelcome.tagName === 'A') {
+        navWelcome.setAttribute("href", `/profile.html?id=${data.user.id}`);
+      }
     }
 
   } catch (err) {
