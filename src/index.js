@@ -179,14 +179,11 @@ export default {
         return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
       }
 
-      // UPDATED LOGOUT LOGIC
       if (path === "/api/logout") {
         const token = getCookieValue(request.headers.get("Cookie"), "session_v3");
         if (token) { 
           await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run(); 
         }
-        
-        // Return JSON so the frontend can handle the redirect manually
         const response = json({ success: true, message: "Logged out" });
         response.headers.append("Set-Cookie", "session_v3=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
         return response;
@@ -214,10 +211,11 @@ export default {
       // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
         const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
+        if (!user) return json({ cases: [], error: "Unauthorized" }, 401);
+        
         ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
-        return json({ cases: results });
+        return json({ cases: results || [] });
       }
 
       if (path === "/api/cases/skins") {
@@ -238,6 +236,18 @@ export default {
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
         await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
+      }
+
+      // GLOBAL FEED ENDPOINT
+      if (path === "/api/inventory/recent-global") {
+        const { results } = await env.DB.prepare(`
+          SELECT i.*, u.username 
+          FROM inventory i 
+          JOIN users u ON i.user_id = u.id 
+          ORDER BY i.unboxed_at DESC 
+          LIMIT 10
+        `).all();
+        return json({ recent: results });
       }
 
       // --- 5. USER PROFILES & INVENTORY ---
