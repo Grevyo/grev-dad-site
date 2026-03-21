@@ -1,9 +1,10 @@
+const SKIN_API_KEY = "395cf104-25ac-4093-8417-d9e58f936d48";
+
+// --- HELPER FUNCTIONS ---
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "content-type": "application/json; charset=utf-8"
-    }
+    headers: { "content-type": "application/json; charset=utf-8" }
   });
 }
 
@@ -11,124 +12,27 @@ function redirect(request, location) {
   return Response.redirect(new URL(location, request.url), 302);
 }
 
-function getCookieValue(cookieHeader, name) {
-  const cookies = String(cookieHeader || "").split(";");
-  for (const part of cookies) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === name) return v.join("=");
-  }
-  return null;
-}
+// ... (Keep your existing Cookie, Base64, and Hash functions here) ...
 
-function buildSessionCookie(token) {
-  const maxAge = 60 * 60 * 24 * 7;
-  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}; Domain=.grev.dad`;
-}
+// --- NEW: SKIN QUALITY & FLOAT CALCULATOR ---
+function calculateSkinQuality(basePrice) {
+  const float = Math.random();
+  let wear = "Factory New";
+  let multiplier = 1.0;
 
-function clearSessionCookie() {
-  return "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Domain=.grev.dad";
-}
+  if (float > 0.07 && float <= 0.15) { wear = "Minimal Wear"; multiplier = 0.85; }
+  else if (float > 0.15 && float <= 0.38) { wear = "Field-Tested"; multiplier = 0.70; }
+  else if (float > 0.38 && float <= 0.45) { wear = "Well-Worn"; multiplier = 0.55; }
+  else if (float > 0.45) { wear = "Battle-Scarred"; multiplier = 0.40; }
 
-function toBase64(bytes) {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function fromBase64(str) {
-  return Uint8Array.from(atob(str), c => c.charCodeAt(0));
-}
-
-async function hashPassword(password, saltBase64, iterations = 100000) {
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: fromBase64(saltBase64),
-      iterations
-    },
-    key,
-    256
-  );
-  return toBase64(new Uint8Array(bits));
-}
-
-function parseStoredHash(stored) {
-  const parts = String(stored || "").split("$");
-  if (parts.length !== 4) return null;
   return {
-    algorithm: parts[0],
-    iterations: Number(parts[1]),
-    saltBase64: parts[2],
-    hashBase64: parts[3]
+    wear,
+    float: float.toFixed(5),
+    price: (basePrice * multiplier).toFixed(2)
   };
 }
 
-async function touchUser(env, userId) {
-  await env.DB.prepare(`
-    UPDATE users
-    SET last_seen_at = ?
-    WHERE id = ?
-  `)
-    .bind(new Date().toISOString(), userId)
-    .run();
-}
-
-async function getCurrentUser(request, env) {
-  const token = getCookieValue(request.headers.get("Cookie"), "session_token");
-  if (!token) return null;
-  const user = await env.DB.prepare(`
-    SELECT users.id, users.username, users.approved, users.is_admin, users.created_at, users.last_seen_at
-    FROM sessions
-    JOIN users ON users.id = sessions.user_id
-    WHERE sessions.session_token = ?
-      AND sessions.expires_at > ?
-    LIMIT 1
-  `)
-    .bind(token, new Date().toISOString())
-    .first();
-  return user || null;
-}
-
-function getStatus(lastSeenAt) {
-  if (!lastSeenAt) return "offline";
-  const now = Date.now();
-  const seen = new Date(lastSeenAt).getTime();
-  const diffMinutes = (now - seen) / 60000;
-  if (diffMinutes <= 5) return "online";
-  if (diffMinutes <= 30) return "away";
-  return "offline";
-}
-
-async function requireApprovedUser(request, env) {
-  const user = await getCurrentUser(request, env);
-  if (!user || !user.approved) return null;
-  await touchUser(env, user.id);
-  return user;
-}
-
-async function requireAdminUser(request, env) {
-  const user = await requireApprovedUser(request, env);
-  if (!user || !user.is_admin) return null;
-  return user;
-}
-
-async function serveAssetOr404(env, request) {
-  if (!env.ASSETS || typeof env.ASSETS.fetch !== "function") {
-    return new Response("ASSETS binding is missing.", { status: 500 });
-  }
-  return env.ASSETS.fetch(request);
-}
+// ... (Keep touchUser, getCurrentUser, getStatus, requireApprovedUser, requireAdminUser) ...
 
 export default {
   async fetch(request, env) {
@@ -136,254 +40,99 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname;
 
-      if (path === "/api/ping") {
-        return json({ ok: true });
+      if (path === "/api/ping") return json({ ok: true });
+
+      // --- 1. ADMIN: SYNC LIVE PRICES ---
+      if (path === "/api/admin/sync-prices") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+
+        // Fetching from PriceEmpire (Steam Source)
+        const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+        const data = await res.json();
+
+        if (data.items) {
+          for (const [fullName, details] of Object.entries(data.items)) {
+            const price = details.steam?.price / 100 || 0; // Convert cents to dollars
+            if (price > 0) {
+              await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
+                .bind(price, fullName)
+                .run();
+            }
+          }
+        }
+        return json({ success: true, message: "Live prices updated from Steam Market." });
       }
 
-      // --- START INVENTORY / CASE API ---
-      if (path === "/api/inventory/add" && request.method === "POST") {
+      // --- 2. CASE LISTING ---
+      if (path === "/api/cases/list") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
-        const { name, rarity, value } = await request.json();
+
+        const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
+        return json({ cases: results });
+      }
+
+      // --- 3. GET CASE SKINS (PREVIEW) ---
+      if (path === "/api/cases/skins") {
+        const caseName = url.searchParams.get("name");
+        if (!caseName) return json({ error: "Missing case name" }, 400);
+
+        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
+          .bind(caseName)
+          .all();
+        return json({ skins: results });
+      }
+
+      // --- 4. THE UNBOXING CORE ---
+      if (path === "/api/cases/open" && request.method === "POST") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        const { caseName } = await request.json();
+        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?")
+          .bind(caseName)
+          .all();
+
+        if (!skins || skins.length === 0) return json({ error: "Case is empty or not found" }, 404);
+
+        // Weighted Random Roll
+        const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
+        let random = Math.random() * totalWeight;
+        let winner = skins[0];
+
+        for (const skin of skins) {
+          if (random < skin.drop_weight) {
+            winner = skin;
+            break;
+          }
+          random -= skin.drop_weight;
+        }
+
+        // Calculate Float/Wear/Price
+        const quality = calculateSkinQuality(winner.base_price);
+        const finalFullName = `${winner.weapon_type} | ${winner.skin_name} (${quality.wear})`;
+
+        // Insert into the User's Inventory (Original DB)
         await env.DB.prepare(`
           INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at)
           VALUES (?, ?, ?, ?, ?)
-        `).bind(user.id, name, rarity, value, new Date().toISOString()).run();
-        return json({ success: true });
-      }
+        `).bind(user.id, finalFullName, winner.rarity, quality.price, new Date().toISOString()).run();
 
-      // NEW: Global feed for cases.html
-      if (path === "/api/inventory/recent-global") {
-        const { results } = await env.DB.prepare(`
-          SELECT i.skin_name, i.skin_rarity, u.username 
-          FROM inventory i
-          JOIN users u ON i.user_id = u.id
-          ORDER BY i.id DESC LIMIT 15
-        `).all();
-        return json({ recent: results });
-      }
-
-      // NEW: Specific user inventory for user.html
-      if (path === "/api/user/inventory") {
-        const userId = url.searchParams.get("id");
-        if (!userId) return json({ error: "Missing ID" }, 400);
-
-        const user = await env.DB.prepare("SELECT username, last_seen_at FROM users WHERE id = ?").bind(userId).first();
-        if (!user) return json({ error: "User not found" }, 404);
-
-        const { results } = await env.DB.prepare(`
-          SELECT skin_name, skin_rarity, estimated_value, unboxed_at 
-          FROM inventory 
-          WHERE user_id = ? 
-          ORDER BY id DESC
-        `).bind(userId).all();
-
-        return json({ 
-          username: user.username, 
-          status: getStatus(user.last_seen_at),
-          items: results 
-        });
-      }
-
-      if (path === "/api/my-inventory" && request.method === "GET") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Unauthorized" }, 401);
-        const { results } = await env.DB.prepare(`
-          SELECT skin_name, skin_rarity, estimated_value, unboxed_at 
-          FROM inventory 
-          WHERE user_id = ? 
-          ORDER BY unboxed_at DESC
-        `).bind(user.id).all();
-        return json({ items: results });
-      }
-      // --- END INVENTORY / CASE API ---
-
-      // Auth routes
-      if (path === "/api/register" && request.method === "POST") {
-        const form = await request.formData();
-        const username = String(form.get("username") || "").trim();
-        const password = String(form.get("password") || "");
-        const password2 = String(form.get("password2") || "");
-        if (!username || !password || !password2) return redirect(request, "/register.html?msg=Please%20fill%20in%20all%20fields.");
-        if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) return redirect(request, "/register.html?msg=Username%20must%20be%203-24%20characters.");
-        if (password !== password2) return redirect(request, "/register.html?msg=Passwords%20do%20not%20match.");
-        if (password.length < 8) return redirect(request, "/register.html?msg=Password%20must%20be%20at%20least%208%20characters.");
-        const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ? LIMIT 1").bind(username).first();
-        if (existing) return redirect(request, "/register.html?msg=That%20username%20is%20already%20taken.");
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const saltBase64 = toBase64(salt);
-        const hashBase64 = await hashPassword(password, saltBase64, 100000);
-        const passwordHash = `pbkdf2_sha256$100000$${saltBase64}$${hashBase64}`;
-        await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at, last_seen_at) VALUES (?, ?, 0, 0, ?, ?)`).bind(username, passwordHash, new Date().toISOString(), null).run();
-        return redirect(request, "/login.html?msg=Account%20created.%20Waiting%20for%20approval.");
-      }
-
-      if (path === "/api/login" && request.method === "POST") {
-        const form = await request.formData();
-        const username = String(form.get("username") || "").trim();
-        const password = String(form.get("password") || "");
-        if (!username || !password) return redirect(request, "/login.html?msg=Please%20enter%20username%20and%20password.");
-        const user = await env.DB.prepare(`SELECT id, username, password_hash, approved, is_admin, created_at, last_seen_at FROM users WHERE username = ? LIMIT 1`).bind(username).first();
-        if (!user) return redirect(request, "/login.html?msg=Invalid%20username%20or%20password.");
-        const parsed = parseStoredHash(user.password_hash);
-        if (!parsed || parsed.algorithm !== "pbkdf2_sha256") return redirect(request, "/login.html?msg=Account%20password%20format%20is%20invalid.");
-        const calc = await hashPassword(password, parsed.saltBase64, parsed.iterations);
-        if (calc !== parsed.hashBase64) return redirect(request, "/login.html?msg=Invalid%20username%20or%20password.");
-        if (!user.approved) return redirect(request, "/login.html?msg=Your%20account%20has%20not%20been%20approved%20yet.");
-        const sessionToken = crypto.randomUUID();
-        const now = new Date();
-        const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(sessionToken, user.id, now.toISOString(), expires.toISOString()).run();
-        await touchUser(env, user.id);
-        return new Response(null, {
-          status: 302,
-          headers: {
-            "Location": new URL("/members.html", request.url).toString(),
-            "Set-Cookie": buildSessionCookie(sessionToken)
-          }
-        });
-      }
-
-      if (path === "/api/logout") {
-        const token = getCookieValue(request.headers.get("Cookie"), "session_token");
-        if (token) await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run();
-        return new Response(null, {
-          status: 302,
-          headers: {
-            "Location": new URL("/login.html?msg=Logged%20out.", request.url).toString(),
-            "Set-Cookie": clearSessionCookie()
-          }
-        });
-      }
-
-      if (path === "/api/me") {
-        const user = await getCurrentUser(request, env);
-        if (!user || !user.approved) return json({ loggedIn: false }, 401);
-        await touchUser(env, user.id);
         return json({
-          loggedIn: true,
-          user: { id: user.id, username: user.username, is_admin: user.is_admin, created_at: user.created_at }
+          success: true,
+          item: finalFullName,
+          rarity: winner.rarity,
+          price: quality.price,
+          float: quality.float,
+          weapon: winner.weapon_type,
+          skin: winner.skin_name
         });
       }
 
-      if (path === "/api/members") {
-        const currentUser = await requireApprovedUser(request, env);
-        if (!currentUser) return json({ error: "Not logged in" }, 401);
+      // ... (Rest of your existing Auth, Chat, Member, and Forum routes) ...
 
-        const members = await env.DB.prepare(`
-          SELECT 
-            u.id, u.username, u.is_admin, u.created_at, u.last_seen_at,
-            COUNT(i.id) AS item_count,
-            COALESCE(SUM(i.estimated_value), 0) AS total_wealth
-          FROM users u
-          LEFT JOIN inventory i ON u.id = i.user_id
-          WHERE u.approved = 1
-          GROUP BY u.id
-          ORDER BY total_wealth DESC
-        `).all();
-
-        const mapped = (members.results || []).map(member => ({
-          id: member.id,
-          username: member.username,
-          is_admin: member.is_admin,
-          created_at: member.created_at,
-          status: getStatus(member.last_seen_at),
-          item_count: member.item_count,
-          total_wealth: member.total_wealth
-        }));
-
-        return json({ members: mapped });
-      }
-
-      // Chat routes
-      if (path === "/api/chat/global/messages") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Not logged in" }, 401);
-        const messages = await env.DB.prepare(`
-          SELECT m.id, m.author_username, m.message, m.created_at, u.is_admin
-          FROM global_chat_messages m
-          LEFT JOIN users u ON u.id = m.author_user_id
-          ORDER BY m.id DESC LIMIT 50
-        `).all();
-        const results = (messages.results || []).reverse().map(msg => ({
-          id: msg.id, author_username: msg.author_username, author_group: msg.is_admin ? "Admin" : "Member", message: msg.message, created_at: msg.created_at
-        }));
-        return json({ messages: results });
-      }
-
-      if (path === "/api/chat/global/send" && request.method === "POST") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Not logged in" }, 401);
-        const body = await request.json();
-        const message = String(body.message || "").trim();
-        if (!message || message.length > 500) return json({ error: "Invalid message" }, 400);
-        await env.DB.prepare(`INSERT INTO global_chat_messages (author_user_id, author_username, message, created_at) VALUES (?, ?, ?, ?)`).bind(user.id, user.username, message, new Date().toISOString()).run();
-        return json({ ok: true });
-      }
-
-      // Admin routes
-      if (path === "/api/admin/pending-users") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        const users = await env.DB.prepare(`SELECT username, created_at FROM users WHERE approved = 0 ORDER BY created_at ASC`).all();
-        return json({ users: users.results || [] });
-      }
-
-      if (path === "/api/admin/approve-user" && request.method === "POST") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        const body = await request.json();
-        await env.DB.prepare(`UPDATE users SET approved = 1 WHERE username = ?`).bind(String(body.username || "").trim()).run();
-        return json({ ok: true });
-      }
-
-      if (path === "/api/admin/reject-user" && request.method === "POST") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        const body = await request.json();
-        await env.DB.prepare(`DELETE FROM users WHERE username = ? AND approved = 0`).bind(String(body.username || "").trim()).run();
-        return json({ ok: true });
-      }
-
-      // Forum routes
-      if (path === "/api/forum/posts") {
-        const posts = await env.DB.prepare(`SELECT id, subject, author_username, created_at FROM forum_posts ORDER BY id DESC`).all();
-        return json({ posts: posts.results || [] });
-      }
-
-      if (path === "/api/forum/create-post" && request.method === "POST") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Not logged in" }, 401);
-        const body = await request.json();
-        await env.DB.prepare(`INSERT INTO forum_posts (subject, description, image_url, author_user_id, author_username, created_at) VALUES (?, ?, ?, ?, ?, ?)`).bind(body.subject, body.description, body.image_url || null, user.id, user.username, new Date().toISOString()).run();
-        return json({ ok: true });
-      }
-
-      if (path === "/api/forum/post") {
-        const post = await env.DB.prepare(`SELECT id, subject, description, image_url, author_username, created_at FROM forum_posts WHERE id = ? LIMIT 1`).bind(url.searchParams.get("id")).first();
-        return json({ post: post || null });
-      }
-
-      if (path === "/api/forum/comments") {
-        const comments = await env.DB.prepare(`SELECT id, author_username, comment, created_at FROM forum_comments WHERE post_id = ? ORDER BY id ASC`).bind(url.searchParams.get("post_id")).all();
-        return json({ comments: comments.results || [] });
-      }
-
-      if (path === "/api/forum/create-comment" && request.method === "POST") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Not logged in" }, 401);
-        const body = await request.json();
-        await env.DB.prepare(`INSERT INTO forum_comments (post_id, author_user_id, author_username, comment, created_at) VALUES (?, ?, ?, ?, ?)`).bind(body.post_id, user.id, user.username, body.comment, new Date().toISOString()).run();
-        return json({ ok: true });
-      }
-
-      // Serve Files
-      if (["/members.html", "/profile.html", "/admin.html", "/new-post.html", "/cases.html", "/user.html"].includes(path)) {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return redirect(request, "/login.html?msg=Please%20log%20in.");
-        if (path === "/admin.html" && !user.is_admin) return redirect(request, "/members.html?msg=Admin%20access%20only.");
-      }
-
+      // --- Ensure assets are served if no API route matches ---
       return serveAssetOr404(env, request);
     } catch (err) {
       return new Response("Worker crash:\n\n" + (err && err.stack ? err.stack : String(err)), {
