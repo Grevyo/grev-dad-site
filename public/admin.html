@@ -6,17 +6,20 @@
   <title>Admin - Grev.dad</title>
   <style>
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       background: #0f1115;
       color: #f5f7fa;
     }
+
     .wrap {
       max-width: 1100px;
       margin: 40px auto;
       padding: 24px;
     }
+
     .box {
       background: #161b22;
       border: 1px solid #222831;
@@ -24,13 +27,28 @@
       padding: 24px;
       margin-bottom: 24px;
     }
-    .user-card {
+
+    .user-card,
+    .post-card {
       background: #0f141a;
       border: 1px solid #222831;
       border-radius: 14px;
       padding: 18px;
       margin-bottom: 14px;
     }
+
+    .user-card h3,
+    .post-card h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+
+    .user-card p,
+    .post-card p {
+      margin: 0 0 10px;
+      color: #b8c0cc;
+    }
+
     .btn {
       display: inline-block;
       padding: 10px 14px;
@@ -40,12 +58,19 @@
       font-weight: 700;
       margin-right: 8px;
     }
+
     .btn-approve {
       background: #22c55e;
       color: #08110b;
     }
+
     .btn-reject {
       background: #ef4444;
+      color: white;
+    }
+
+    .btn-remove {
+      background: #f97316;
       color: white;
     }
   </style>
@@ -56,12 +81,17 @@
   <div class="wrap">
     <div class="box">
       <h1>Admin Panel</h1>
-      <p>Approve or reject pending accounts.</p>
+      <p>Approve or reject pending accounts, and manage forum posts.</p>
     </div>
 
     <div class="box">
       <h2>Pending Accounts</h2>
       <div id="pendingUsers">Loading...</div>
+    </div>
+
+    <div class="box">
+      <h2>Forum Posts</h2>
+      <div id="forumPosts">Loading...</div>
     </div>
   </div>
 
@@ -69,16 +99,17 @@
   <script>
     async function loadPendingUsers() {
       const res = await fetch("/api/admin/pending-users", { credentials: "include" });
+      const wrap = document.getElementById("pendingUsers");
+
       if (!res.ok) {
-        document.getElementById("pendingUsers").innerHTML = "<p>Unable to load pending users.</p>";
+        wrap.innerHTML = "<p>Unable to load pending users.</p>";
         return;
       }
 
       const data = await res.json();
-      const wrap = document.getElementById("pendingUsers");
       wrap.innerHTML = "";
 
-      if (!data.users.length) {
+      if (!data.users || !data.users.length) {
         wrap.innerHTML = "<p>No pending users.</p>";
         return;
       }
@@ -116,7 +147,51 @@
       loadPendingUsers();
     }
 
+    async function loadForumPosts() {
+      const res = await fetch("/api/admin/forum-posts", { credentials: "include" });
+      const wrap = document.getElementById("forumPosts");
+
+      if (!res.ok) {
+        wrap.innerHTML = "<p>Unable to load forum posts.</p>";
+        return;
+      }
+
+      const data = await res.json();
+      wrap.innerHTML = "";
+
+      if (!data.posts || !data.posts.length) {
+        wrap.innerHTML = "<p>No forum posts found.</p>";
+        return;
+      }
+
+      for (const post of data.posts) {
+        const div = document.createElement("div");
+        div.className = "post-card";
+        div.innerHTML = `
+          <h3>${post.subject}</h3>
+          <p>By ${post.author_username} · ${post.created_at}</p>
+          <button class="btn btn-remove" onclick="removePost(${post.id})">Remove Post</button>
+        `;
+        wrap.appendChild(div);
+      }
+    }
+
+    async function removePost(postId) {
+      const ok = confirm("Remove this forum post?");
+      if (!ok) return;
+
+      await fetch("/api/admin/remove-post", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ post_id: postId })
+      });
+
+      loadForumPosts();
+    }
+
     loadPendingUsers();
+    loadForumPosts();
   </script>
 </body>
 </html>
