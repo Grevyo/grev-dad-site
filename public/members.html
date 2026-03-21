@@ -6,170 +6,47 @@
   <title>Members - Grev.dad</title>
   <style>
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0f1115;
-      color: #f5f7fa;
-    }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 24px;
-      background: rgba(17, 21, 27, 0.96);
-      border-bottom: 1px solid #222831;
-    }
-
-    .logo-link {
-      display: inline-flex;
-      align-items: center;
-      text-decoration: none;
-    }
-
-    .logo-img {
-      height: 95px;
-      width: auto;
-      display: block;
-    }
-
-    .nav {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .nav a {
-      color: #f5f7fa;
-      text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 600;
-      opacity: 0.92;
-    }
-
-    .nav a:hover {
-      opacity: 1;
-      text-decoration: underline;
-    }
-
-    .wrap {
-      max-width: 1100px;
-      margin: 40px auto;
-      padding: 24px;
-    }
-
-    .box {
-      background: #161b22;
-      border: 1px solid #222831;
-      border-radius: 18px;
-      padding: 24px;
-      margin-bottom: 24px;
-    }
-
-    .member-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-    }
-
-    .member-card {
-      background: #0f141a;
-      border: 1px solid #222831;
-      border-radius: 14px;
-      padding: 18px;
-    }
-
-    .member-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-
-    .member-card h3 {
-      margin: 0;
-      font-size: 1.05rem;
-    }
-
-    .member-card p {
-      margin: 0;
-      color: #b8c0cc;
-      font-size: 0.95rem;
-    }
-
-    .status-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-block;
-      flex: 0 0 12px;
-    }
-
-    .status-online {
-      background: #22c55e;
-      box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
-    }
-
-    .status-away {
-      background: #f59e0b;
-      box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-    }
-
-    .status-offline {
-      background: #6b7280;
-    }
-
-    a {
-      color: #9ecbff;
-    }
-
-    @media (max-width: 700px) {
-      .topbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-      }
-
-      .logo-img {
-        height: 72px;
-      }
-    }
+    body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
+    .topbar { position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: rgba(17, 21, 27, 0.96); border-bottom: 1px solid #222831; }
+    .logo-link { display: inline-flex; align-items: center; text-decoration: none; }
+    .logo-img { height: 95px; width: auto; display: block; }
+    .nav { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: #f5f7fa; text-decoration: none; font-size: 0.95rem; font-weight: 600; opacity: 0.92; }
+    .nav a:hover { opacity: 1; text-decoration: underline; }
+    .wrap { max-width: 1100px; margin: 40px auto; padding: 24px; }
+    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 24px; margin-bottom: 24px; }
+    .member-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .member-card { background: #0f141a; border: 1px solid #222831; border-radius: 14px; padding: 18px; }
+    .member-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .member-card h3 { margin: 0; font-size: 1.05rem; }
+    .member-card p { margin: 0; color: #b8c0cc; font-size: 0.95rem; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: 0 0 12px; }
+    .status-online { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
+    .status-away { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
+    .status-offline { background: #6b7280; }
+    @media (max-width: 700px) { .topbar { flex-direction: column; align-items: flex-start; gap: 12px; } .logo-img { height: 72px; } }
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <a href="/index.html" class="logo-link">
-      <img src="/grev-dad-logo.png" alt="Grev.dad logo" class="logo-img">
-    </a>
+  <div id="site-header"></div>
 
-    <nav class="nav">
-      <a href="/index.html">Home</a>
-      <a href="/members.html">Members</a>
-      <a href="/profile.html">Profile</a>
-      <a href="/login.html">Log In</a>
-      <a href="/register.html">Create Account</a>
-      <a href="/api/logout">Log Out</a>
-    </nav>
-  </header>
+  <main>
+    <div class="wrap">
+      <div class="box">
+        <h1>Members Area</h1>
+        <p id="welcome">Loading...</p>
+      </div>
 
-  <div class="wrap">
-    <div class="box">
-      <h1>Members Area</h1>
-      <p id="welcome">Loading...</p>
+      <div class="box">
+        <h2>Approved Members</h2>
+        <div id="memberList" class="member-list"></div>
+      </div>
     </div>
+  </main>
 
-    <div class="box">
-      <h2>Approved Members</h2>
-      <div id="memberList" class="member-list"></div>
-    </div>
-  </div>
+  <footer class="footer">© Grev.dad — personal projects, playgrounds, and experiments.</footer>
 
+  <script src="/header.js"></script>
   <script>
     function statusClass(status) {
       if (status === "online") return "status-online";
