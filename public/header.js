@@ -1,3 +1,19 @@
+// New function to handle the logout process
+async function handleLogout(e) {
+  if (e) e.preventDefault(); 
+  
+  try {
+    const res = await fetch("/api/logout");
+    if (res.ok) {
+      // Once the worker clears the cookie, move the user
+      window.location.href = "/login.html?msg=Logged%20Out";
+    }
+  } catch (err) {
+    console.error("Logout failed:", err);
+    window.location.href = "/login.html";
+  }
+}
+
 async function loadHeader() {
   const mount = document.getElementById("site-header");
   if (!mount) return;
@@ -47,7 +63,12 @@ async function loadHeader() {
     // Show Member links
     if (navCases) navCases.classList.remove("hidden");
     if (navMembers) navMembers.classList.remove("hidden");
-    if (navLogout) navLogout.classList.remove("hidden");
+    
+    // UPDATED: Attach the handleLogout function to the click event
+    if (navLogout) {
+      navLogout.classList.remove("hidden");
+      navLogout.onclick = handleLogout;
+    }
 
     // UPDATED: Set Profile link to profile.html
     if (navProfile) {
@@ -64,7 +85,6 @@ async function loadHeader() {
     if (navWelcome) {
       navWelcome.textContent = `Welcome, ${data.user.username}`;
       navWelcome.classList.remove("hidden");
-      // Optional: if your welcome element is an <a> tag, this makes it clickable
       if (navWelcome.tagName === 'A') {
         navWelcome.setAttribute("href", `/profile.html?id=${data.user.id}`);
       }
