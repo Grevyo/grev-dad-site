@@ -5,39 +5,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Members - Grev.dad</title>
   <style>
-  .hidden {
-  display: none !important;
-}
+    .hidden { display: none !important; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
-    .topbar { position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: rgba(17, 21, 27, 0.96); border-bottom: 1px solid #222831; }
-    .logo-link { display: inline-flex; align-items: center; text-decoration: none; }
-    .logo-img { height: 95px; width: auto; display: block; }
-    .nav { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-    .nav a { color: #f5f7fa; text-decoration: none; font-size: 0.95rem; font-weight: 600; opacity: 0.92; }
-    .nav a:hover { opacity: 1; text-decoration: underline; }
+    
     .wrap { max-width: 1100px; margin: 40px auto; padding: 24px; }
     .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 24px; margin-bottom: 24px; }
-    .member-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-    .member-card { background: #0f141a; border: 1px solid #222831; border-radius: 14px; padding: 18px; }
+    
+    .member-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    
+    .member-card { 
+      background: #0f141a; 
+      border: 1px solid #222831; 
+      border-radius: 14px; 
+      padding: 18px; 
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .member-card:hover { border-color: #9ecbff; transform: translateY(-2px); }
+
+    .rank-badge {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #222831;
+      color: #9ecbff;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      border: 1px solid #333b45;
+    }
+
     .member-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .member-card h3 { margin: 0; font-size: 1.05rem; }
-    .member-card p { margin: 0; color: #b8c0cc; font-size: 0.95rem; }
-    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: 0 0 12px; }
+    .member-card h3 { margin: 0; font-size: 1.1rem; }
+    
+    .stats-row { 
+      margin-top: 12px; 
+      padding-top: 12px; 
+      border-top: 1px solid #222831; 
+      display: flex; 
+      justify-content: space-between;
+      font-size: 0.9rem;
+    }
+
+    .wealth-value { color: #9ecbff; font-weight: bold; }
+    .item-count { color: #8f98a3; }
+
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     .status-online { background: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
     .status-away { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
     .status-offline { background: #6b7280; }
-    @media (max-width: 700px) { .topbar { flex-direction: column; align-items: flex-start; gap: 12px; } .logo-img { height: 72px; } }
+
+    .footer { max-width: 1100px; margin: 0 auto; padding: 10px 24px 50px; color: #8f98a3; font-size: 0.92rem; }
+
+    @media (max-width: 700px) { .logo-img { height: 72px; } }
   </style>
 </head>
 <body>
-  <!-- The header will be injected here -->
   <div id="site-header"></div>
 
   <main>
     <div class="wrap">
       <div class="box">
-        <h1>Members Area</h1>
+        <h1>Family Leaderboard</h1>
         <p id="welcome">Loading...</p>
       </div>
 
@@ -65,6 +96,7 @@
     }
 
     async function loadPage() {
+      // 1. Authenticate and get current user
       const meRes = await fetch("/api/me", { credentials: "include" });
       if (!meRes.ok) {
         window.location.href = "/login.html?msg=Please%20log%20in.";
@@ -72,9 +104,9 @@
       }
 
       const meData = await meRes.json();
-      document.getElementById("welcome").textContent =
-        "Welcome, " + meData.user.username + ".";
+      document.getElementById("welcome").textContent = "Welcome back, " + meData.user.username + ". Check the rankings below!";
 
+      // 2. Load Leaderboard Data
       const membersRes = await fetch("/api/members", { credentials: "include" });
       if (!membersRes.ok) return;
 
@@ -82,21 +114,33 @@
       const list = document.getElementById("memberList");
       list.innerHTML = "";
 
-      for (const member of membersData.members) {
+      membersData.members.forEach((member, index) => {
         const div = document.createElement("div");
         div.className = "member-card";
+        
+        // Use rank #1 color for the top player
+        const rankColor = index === 0 ? 'style="color: #ffd700; border-color: #ffd700;"' : '';
+
         div.innerHTML = `
+          <div class="rank-badge" ${rankColor}>#${index + 1}</div>
           <div class="member-row">
             <span class="status-dot ${statusClass(member.status)}"></span>
             <h3>${member.username}</h3>
           </div>
-          <p>${member.is_admin ? "Admin" : "Member"} · ${statusLabel(member.status)}</p>
+          <p style="font-size: 0.85rem; color: #8f98a3;">
+            ${member.is_admin ? '<span style="color:#ff4b4b">Admin</span>' : 'Member'} · ${statusLabel(member.status)}
+          </p>
+          <div class="stats-row">
+            <span class="item-count">${member.item_count} Skins</span>
+            <span class="wealth-value">$${member.total_wealth.toFixed(2)}</span>
+          </div>
         `;
         list.appendChild(div);
-      }
+      });
     }
 
     loadPage();
+    // Refresh every 30 seconds to keep the leaderboard and status dots current
     setInterval(loadPage, 30000);
   </script>
 </body>
