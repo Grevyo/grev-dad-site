@@ -115,29 +115,29 @@ function calculateSkinQuality(basePrice) {
 // --- BACKGROUND SYNC LOGIC ---
 async function autoSyncPrices(env) {
   try {
-    const log = await env.CASES_DB.prepare("SELECT last_sync FROM sync_log WHERE id = 1").first();
-    if (!log) return;
-    const lastSync = new Date(log.last_sync).getTime();
-    const sixHours = 6 * 60 * 60 * 1000;
-    if (Date.now() - lastSync > sixHours) {
-      const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
-      });
-      
-      const data = await res.json();
-      if (data) {
-        for (const [fullName, details] of Object.entries(data)) {
-          const price = (details.steam?.price || details.price || 0) / 100;
-          if (price > 0) {
-            await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
-              .bind(price, fullName).run();
-          }
+    const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
+    });
+    
+    const data = await res.json();
+    if (data) {
+      const stmts = [];
+      for (const [fullName, details] of Object.entries(data)) {
+        const price = (details.steam?.price || details.price || 0) / 100;
+        if (price > 0) {
+          stmts.push(env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
+            .bind(price, fullName));
         }
-        await env.CASES_DB.prepare("UPDATE sync_log SET last_sync = ? WHERE id = 1")
-          .bind(new Date().toISOString()).run();
       }
+      // Process in batches
+      for (let i = 0; i < stmts.length; i += 50) {
+        await env.CASES_DB.batch(stmts.slice(i, i + 50));
+      }
+      
+      await env.CASES_DB.prepare("UPDATE sync_log SET last_sync = ? WHERE id = 1")
+        .bind(new Date().toISOString()).run();
     }
-  } catch (e) { console.error("Background sync failed:", e.message); }
+  } catch (e) { console.error("Sync failed:", e.message); }
 }
 
 export default {
@@ -203,6 +203,7 @@ export default {
         return json({ members: members.results.map(m => ({ ...m, status: getStatus(m.last_seen_at) })) });
       }
 
+      // --- ADMIN ROUTES ---
       if (path === "/api/admin/pending") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
@@ -210,9 +211,15 @@ export default {
         return json({ pending: results });
       }
 
+      if (path === "/api/admin/sync-prices" && request.method === "POST") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+        ctx.waitUntil(autoSyncPrices(env));
+        return json({ success: true });
+      }
+
       if (path === "/api/cases/list") {
         if (!env.CASES_DB) return json({ error: "CASES_DB binding missing" }, 500);
-        ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results || [] });
       }
@@ -222,12 +229,13 @@ export default {
         return json({ skins: results });
       }
 
+      // --- CASE OPENING ---
       if (path === "/api/cases/open" && request.method === "POST") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
         const { caseName } = await request.json();
         const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
-        if (!skins || skins.length === 0) return json({ error: "Case not found or empty" }, 404);
+        if (!skins || skins.length === 0) return json({ error: "Case not found" }, 404);
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
@@ -238,94 +246,45 @@ export default {
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float, weapon: winner.weapon_type, skin: winner.skin_name });
       }
 
-      if (path === "/api/inventory/recent-global") {
-        const { results } = await env.DB.prepare(`SELECT i.*, u.username FROM inventory i JOIN users u ON i.user_id = u.id ORDER BY i.unboxed_at DESC LIMIT 10`).all();
-        return json({ recent: results });
-      }
-
-      // --- 5. ADMIN & MAINTENANCE: MEGA SEEDER ---
+      // --- MEGA SEEDER ---
       if (path === "/api/admin/mega-seed") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
-
         try {
-          const apiUrl = `https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`;
-          const res = await fetch(apiUrl, {
+          const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
           });
-          
           const data = await res.json();
-          const skinEntries = Object.entries(data); 
-          
-          if (skinEntries.length === 0) return json({ error: "API returned no items" }, 500);
-
-          let addedCount = 0;
-          for (const [fullName, details] of skinEntries) {
+          const stmts = [];
+          for (const [fullName, details] of Object.entries(data)) {
             if (!fullName.includes(" | ")) continue;
-            const parts = fullName.split(" | ");
-            const weaponType = parts[0];
-            const skinAndWear = parts[1];
-            const skinName = skinAndWear.split(" (")[0]; 
+            const [weaponType, skinAndWear] = fullName.split(" | ");
+            const skinName = skinAndWear.split(" (")[0];
             const price = (details.steam?.price || details.price || 0) / 100;
-
             if (price > 0) {
-              let rarity = "milspec";
-              let weight = 50;
-              if (price > 200 || weaponType.includes("Knife") || weaponType.includes("Gloves")) { rarity = "rare_special"; weight = 1; }
+              let rarity = "milspec", weight = 50;
+              if (price > 200 || weaponType.includes("Knife")) { rarity = "rare_special"; weight = 1; }
               else if (price > 100) { rarity = "covert"; weight = 2; }
               else if (price > 30) { rarity = "classified"; weight = 10; }
               else if (price > 10) { rarity = "restricted"; weight = 20; }
-
-              await env.CASES_DB.prepare(`
-                INSERT OR IGNORE INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
-                VALUES (?, ?, ?, ?, ?, ?)
-              `).bind("Global Collection", weaponType, skinName, rarity, price, weight).run();
-              addedCount++;
+              stmts.push(env.CASES_DB.prepare(`INSERT OR IGNORE INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight) VALUES (?, ?, ?, ?, ?, ?)`).bind("Global Collection", weaponType, skinName, rarity, price, weight));
             }
           }
-          return json({ success: true, message: `Seeded ${addedCount} skins into 'Global Collection'` });
-        } catch (e) {
-          return json({ error: e.message }, 500);
-        }
+          for (let i = 0; i < stmts.length; i += 50) { await env.CASES_DB.batch(stmts.slice(i, i + 50)); }
+          return json({ success: true, message: `Seeded Global Collection` });
+        } catch (e) { return json({ error: e.message }, 500); }
       }
 
-      // --- NEW: CREATE CUSTOM CASE ---
+      // --- CUSTOM CASE ---
       if (path === "/api/admin/create-case" && request.method === "POST") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
-
         const { name, price, skins } = await request.json();
-
         for (const s of skins) {
-          let weight = 50;
-          if (s.rarity === "rare_special") weight = 1;
-          else if (s.rarity === "covert") weight = 2;
-          else if (s.rarity === "classified") weight = 10;
-          else if (s.rarity === "restricted") weight = 20;
-
-          await env.CASES_DB.prepare(`
-            INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `).bind(name, s.weapon, s.skin, s.rarity, s.price, weight).run();
+          let weight = (s.rarity === "rare_special") ? 1 : (s.rarity === "covert" ? 2 : (s.rarity === "classified" ? 10 : 20));
+          await env.CASES_DB.prepare(`INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight) VALUES (?, ?, ?, ?, ?, ?)`).bind(name, s.weapon, s.skin, s.rarity, s.price, weight).run();
         }
-
-        // Optional: Save case config for the unbox price
-        if (env.DB) {
-          await env.DB.prepare(`
-            INSERT OR REPLACE INTO case_configs (case_name, price) VALUES (?, ?)
-          `).bind(name, parseFloat(price)).run();
-        }
-
         return json({ success: true });
-      }
-
-      if (path === "/api/user/inventory") {
-        const targetUserId = url.searchParams.get("id");
-        if (!targetUserId) return json({ error: "No User ID provided" }, 400);
-        const userBase = await env.DB.prepare(`SELECT id, username, created_at, last_seen_at FROM users WHERE id = ?`).bind(targetUserId).first();
-        if (!userBase) return json({ error: "User not found" }, 404);
-        const { results: items } = await env.DB.prepare(`SELECT * FROM inventory WHERE user_id = ? ORDER BY unboxed_at DESC`).bind(targetUserId).all();
-        return json({ user: { ...userBase, status: getStatus(userBase.last_seen_at) }, inventory: items });
       }
 
       return await serveAssetOr404(env, request);
