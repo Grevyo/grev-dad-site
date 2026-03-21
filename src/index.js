@@ -23,8 +23,9 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
-  // Attributes: Path=/, HttpOnly, Secure, SameSite=Lax
-  return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+  // REMOVED 'Secure' for better compatibility during testing/dev
+  // Kept HttpOnly and SameSite=Lax for safety
+  return `session_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
 // --- PASSWORD & CRYPTO ---
@@ -184,7 +185,6 @@ export default {
       if (path === "/api/logout") {
         const token = getCookieValue(request.headers.get("Cookie"), "session_token");
         
-        // Kill the session in the DB so the token is dead server-side
         if (token) {
           await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run();
         }
@@ -194,8 +194,8 @@ export default {
           headers: { "Location": "/login.html?msg=Logged%20Out" } 
         });
 
-        // Kill the session in the Browser by matching all attributes exactly
-        response.headers.append("Set-Cookie", "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+        // UPDATED: Removed 'Secure' here to match buildSessionCookie exactly
+        response.headers.append("Set-Cookie", "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
         
         return response;
       }
