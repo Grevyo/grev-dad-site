@@ -116,14 +116,13 @@ export default {
       // --- 1. AUTH CHECK ROUTES ---
       if (path === "/api/ping") return json({ ok: true });
 
-      // NEW: Required by members.html to verify login
       if (path === "/api/me") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
         return json({ user });
       }
 
-      // --- 2. AUTH: LOGIN & REGISTER ---
+      // --- 2. AUTH: LOGIN, REGISTER & LOGOUT ---
       if (path === "/api/register" && request.method === "POST") {
         const form = await request.formData();
         const username = String(form.get("username") || "").trim();
@@ -149,6 +148,17 @@ export default {
         const expires = new Date(Date.now() + 7 * 86400000).toISOString();
         await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(token, user.id, now, expires).run();
         return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
+      }
+
+      // --- LOGOUT ROUTE ADDED HERE ---
+      if (path === "/api/logout") {
+        return new Response(null, { 
+          status: 302, 
+          headers: { 
+            "Location": "/login.html?msg=Logged%20Out", 
+            "Set-Cookie": "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" 
+          } 
+        });
       }
 
       // --- 3. MEMBERS & LEADERBOARD ---
@@ -187,6 +197,23 @@ export default {
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
         await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
+      }
+
+      // --- 5. ADMIN PRICE SYNC ---
+      if (path === "/api/admin/sync-prices") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+        const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+        const data = await res.json();
+        if (data.items) {
+          for (const [fullName, details] of Object.entries(data.items)) {
+            const price = (details.steam?.price || 0) / 100;
+            if (price > 0) {
+              await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?").bind(price, fullName).run();
+            }
+          }
+        }
+        return json({ success: true, message: "Prices synced." });
       }
 
       return await serveAssetOr404(env, request);
