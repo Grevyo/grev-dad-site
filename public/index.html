@@ -65,13 +65,6 @@
       display: block;
     }
 
-    .button-card p {
-      margin: 10px 0 0;
-      color: #aeb6c2;
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-
     .right-panel {
       width: 72%;
       padding: 30px;
@@ -232,13 +225,15 @@
       <h2>Playgrounds</h2>
 
       <div class="button-card">
-        <a href="/j-playground/">Spaced Playground</a>
-        <p>A little corner for Spaced bits, ideas, pages and whatever else ends up living there.</p>
+        <a href="/j-playground/index.html">Spaced Playground</a>
       </div>
 
       <div class="button-card">
-        <a href="/dkpg/">DontKnow Playground</a>
-        <p>A home for DontKnow-related pages, experiments, tests and future nonsense.</p>
+        <a href="/dkpg/index.html">DontKnow Playground</a>
+      </div>
+
+      <div class="button-card">
+        <a href="/cpl-playground/index.html">Grev's CPL Playground</a>
       </div>
     </aside>
 
@@ -257,7 +252,7 @@
 
       <div class="chat-box">
         <h3>Global Chat</h3>
-        <p>Site-wide chat for whoever’s around. Drop a message, say hello, post rubbish, cause scenes.</p>
+        <p>Site-wide chat for whoever’s around.</p>
 
         <div id="chatMessages" class="chat-messages">
           <div class="chat-message">
@@ -303,7 +298,9 @@
     async function loadGlobalChat() {
       try {
         const res = await fetch("/api/chat/global/messages", { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          return;
+        }
 
         const data = await res.json();
         const wrap = document.getElementById("chatMessages");
@@ -359,6 +356,8 @@
       if (ok) {
         input.value = "";
         loadGlobalChat();
+      } else {
+        alert("Message failed to send.");
       }
     });
 
