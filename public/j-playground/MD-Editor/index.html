@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pure Markdown Editor</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>Markdown Editor</h1>
+      <div class="actions">
+        <button type="button" data-wrap="**" title="Bold">Bold</button>
+        <button type="button" data-wrap="*" title="Italic">Italic</button>
+        <button type="button" data-prefix="# " title="Heading">H1</button>
+        <button type="button" data-prefix="## " title="Subheading">H2</button>
+        <button type="button" data-prefix="- " title="List">List</button>
+        <button type="button" data-wrap="`" title="Inline Code">Code</button>
+        <button type="button" id="saveBtn">Save</button>
+        <button type="button" id="loadBtn">Load</button>
+        <button type="button" id="clearBtn">Clear</button>
+      </div>
+    </header>
+
+    <main class="editor-layout">
+      <section class="panel">
+        <div class="panel-header">Editor</div>
+        <textarea id="editor" placeholder="Write markdown here...">
+# Welcome
+
+Type some markdown here.
+
+## Examples
+
+- Item one
+- Item two
+
+**Bold text**  
+*Italic text*  
+`inline code`
+
+[Example link](https://example.com)
+        </textarea>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">Preview</div>
+        <div id="preview" class="preview"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
