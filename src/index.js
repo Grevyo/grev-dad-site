@@ -107,8 +107,39 @@ function calculateSkinQuality(basePrice) {
   return { wear, float: float.toFixed(5), price: (basePrice * multiplier).toFixed(2) };
 }
 
+// --- BACKGROUND SYNC LOGIC ---
+async function autoSyncPrices(env) {
+  try {
+    const log = await env.CASES_DB.prepare("SELECT last_sync FROM sync_log WHERE id = 1").first();
+    if (!log) return;
+
+    const lastSync = new Date(log.last_sync).getTime();
+    const sixHours = 6 * 60 * 60 * 1000;
+
+    if (Date.now() - lastSync > sixHours) {
+      const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+      const data = await res.json();
+
+      if (data.items) {
+        for (const [fullName, details] of Object.entries(data.items)) {
+          const price = (details.steam?.price || 0) / 100;
+          if (price > 0) {
+            await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
+              .bind(price, fullName).run();
+          }
+        }
+        await env.CASES_DB.prepare("UPDATE sync_log SET last_sync = ? WHERE id = 1")
+          .bind(new Date().toISOString()).run();
+      }
+    }
+  } catch (e) {
+    console.error("Background sync failed:", e);
+  }
+}
+
 export default {
-  async fetch(request, env) {
+  // Added 'ctx' here to handle background tasks
+  async fetch(request, env, ctx) {
     try {
       const url = new URL(request.url);
       const path = url.pathname;
@@ -150,7 +181,6 @@ export default {
         return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
       }
 
-      // --- LOGOUT ROUTE ADDED HERE ---
       if (path === "/api/logout") {
         return new Response(null, { 
           status: 302, 
@@ -175,6 +205,8 @@ export default {
 
       // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
+        // Trigger background sync when someone views the cases
+        ctx.waitUntil(autoSyncPrices(env));
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
       }
@@ -197,23 +229,6 @@ export default {
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
         await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
-      }
-
-      // --- 5. ADMIN PRICE SYNC ---
-      if (path === "/api/admin/sync-prices") {
-        const admin = await requireAdminUser(request, env);
-        if (!admin) return json({ error: "Forbidden" }, 403);
-        const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
-        const data = await res.json();
-        if (data.items) {
-          for (const [fullName, details] of Object.entries(data.items)) {
-            const price = (details.steam?.price || 0) / 100;
-            if (price > 0) {
-              await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?").bind(price, fullName).run();
-            }
-          }
-        }
-        return json({ success: true, message: "Prices synced." });
       }
 
       return await serveAssetOr404(env, request);
