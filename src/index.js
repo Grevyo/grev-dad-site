@@ -146,10 +146,43 @@ export default {
         if (!user) return json({ error: "Unauthorized" }, 401);
         const { name, rarity, value } = await request.json();
         await env.DB.prepare(`
-          INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value)
-          VALUES (?, ?, ?, ?)
-        `).bind(user.id, name, rarity, value).run();
+          INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(user.id, name, rarity, value, new Date().toISOString()).run();
         return json({ success: true });
+      }
+
+      // NEW: Global feed for cases.html
+      if (path === "/api/inventory/recent-global") {
+        const { results } = await env.DB.prepare(`
+          SELECT i.skin_name, i.skin_rarity, u.username 
+          FROM inventory i
+          JOIN users u ON i.user_id = u.id
+          ORDER BY i.id DESC LIMIT 15
+        `).all();
+        return json({ recent: results });
+      }
+
+      // NEW: Specific user inventory for user.html
+      if (path === "/api/user/inventory") {
+        const userId = url.searchParams.get("id");
+        if (!userId) return json({ error: "Missing ID" }, 400);
+
+        const user = await env.DB.prepare("SELECT username, last_seen_at FROM users WHERE id = ?").bind(userId).first();
+        if (!user) return json({ error: "User not found" }, 404);
+
+        const { results } = await env.DB.prepare(`
+          SELECT skin_name, skin_rarity, estimated_value, unboxed_at 
+          FROM inventory 
+          WHERE user_id = ? 
+          ORDER BY id DESC
+        `).bind(userId).all();
+
+        return json({ 
+          username: user.username, 
+          status: getStatus(user.last_seen_at),
+          items: results 
+        });
       }
 
       if (path === "/api/my-inventory" && request.method === "GET") {
@@ -233,12 +266,10 @@ export default {
         });
       }
 
-      // --- PHASE 5: UPDATED MEMBERS LEADERBOARD ---
       if (path === "/api/members") {
         const currentUser = await requireApprovedUser(request, env);
         if (!currentUser) return json({ error: "Not logged in" }, 401);
 
-        // SQL to sum inventory values and count items for the leaderboard
         const members = await env.DB.prepare(`
           SELECT 
             u.id, u.username, u.is_admin, u.created_at, u.last_seen_at,
@@ -347,7 +378,7 @@ export default {
       }
 
       // Serve Files
-      if (["/members.html", "/profile.html", "/admin.html", "/new-post.html", "/cases.html"].includes(path)) {
+      if (["/members.html", "/profile.html", "/admin.html", "/new-post.html", "/cases.html", "/user.html"].includes(path)) {
         const user = await requireApprovedUser(request, env);
         if (!user) return redirect(request, "/login.html?msg=Please%20log%20in.");
         if (path === "/admin.html" && !user.is_admin) return redirect(request, "/members.html?msg=Admin%20access%20only.");
