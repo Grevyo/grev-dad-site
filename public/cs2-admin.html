@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS2 admin | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .case-admin-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) 120px 140px auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 10px;
+    }
+    @media (max-width: 900px) {
+      .case-admin-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <section class="panel">
+        <h1 class="auth-title">CS2 case admin</h1>
+        <p class="auth-subtitle">Show or hide cases in the store and edit fallback prices (pence). Live Steam prices still apply when available.</p>
+        <div id="page-message" class="hidden"></div>
+      </section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">Cases</h2>
+        <div id="case-admin-list"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — CS2 admin</div>
+    </footer>
+  </div>
+
+  <script>
+    const pageMessage = document.getElementById("page-message");
+    const caseAdminList = document.getElementById("case-admin-list");
+
+    function showMessage(type, text) {
+      pageMessage.className = `alert alert-${type}`;
+      pageMessage.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    async function loadCases() {
+      caseAdminList.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const response = await fetch("/api/cs2/admin/cases", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          caseAdminList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Failed")}</div>`;
+          return;
+        }
+        const cases = data.cases || [];
+        caseAdminList.innerHTML = cases.map((c) => `
+          <div class="case-admin-row" data-case-id="${c.id}">
+            <div>
+              <strong>${escapeHtml(c.case_name)}</strong>
+              <div class="muted">${escapeHtml(c.slug || "")}</div>
+            </div>
+            <label class="muted"><input type="checkbox" data-toggle ${Number(c.is_active) ? "checked" : ""} /> Active</label>
+            <input class="form-input" type="number" min="1" data-fallback value="${Number(c.fallback_price_pence || c.price || 0)}" />
+            <button type="button" class="btn btn-primary" data-save>Save</button>
+          </div>
+        `).join("");
+
+        caseAdminList.querySelectorAll(".case-admin-row").forEach((row) => {
+          const id = Number(row.getAttribute("data-case-id"));
+          const saveBtn = row.querySelector("[data-save]");
+          const toggle = row.querySelector("[data-toggle]");
+          const fallback = row.querySelector("[data-fallback]");
+
+          saveBtn.addEventListener("click", async () => {
+            saveBtn.disabled = true;
+            try {
+              await fetch("/api/cs2/admin/cases/toggle", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ case_id: id, is_active: toggle.checked })
+              });
+              await fetch("/api/cs2/admin/cases/price", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ case_id: id, fallback_price_pence: Number(fallback.value) })
+              });
+              showMessage("success", "Saved.");
+            } catch {
+              showMessage("error", "Save failed.");
+            } finally {
+              saveBtn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        caseAdminList.innerHTML = `<div class="alert alert-error">Could not load cases.</div>`;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadCases);
+  </script>
+</body>
+</html>
