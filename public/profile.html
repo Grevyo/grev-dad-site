@@ -28,20 +28,25 @@
       padding: 15px;
       text-align: center;
       transition: transform 0.2s;
-      border-bottom: 4px solid #4b69ff; /* Default color */
+      border-bottom: 4px solid #4b69ff; 
     }
     .skin-card:hover { transform: translateY(-5px); }
 
     .skin-name { font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #fff; }
     .skin-value { font-size: 0.75rem; color: #9ecbff; font-weight: bold; }
 
-    /* Rarity Borders to match the Case Opener */
-    .rarity-covert { border-bottom-color: #eb4b4b; }
-    .rarity-classified { border-bottom-color: #d32ee6; }
-    .rarity-restricted { border-bottom-color: #8847ff; }
-    .rarity-milspec { border-bottom-color: #4b69ff; }
+    /* Rarity Borders - Updated to match CS2 case logic */
+    .rarity-Covert { border-bottom-color: #eb4b4b; }
+    .rarity-Classified { border-bottom-color: #d32ee6; }
+    .rarity-Restricted { border-bottom-color: #8847ff; }
+    .rarity-Mil-Spec { border-bottom-color: #4b69ff; }
+    .rarity-Industrial { border-bottom-color: #5e98d9; }
+    .rarity-Consumer { border-bottom-color: #b0c3d9; }
 
     #total-worth { font-size: 1.5rem; color: #9ecbff; }
+    .status-badge { font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; margin-left: 10px; }
+    .online { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+    .offline { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
   </style>
 </head>
 <body>
@@ -50,8 +55,8 @@
   <main>
     <div class="wrap">
       <div class="box">
-        <h1>Your Profile</h1>
-        <p>Welcome, <strong id="username">Loading...</strong></p>
+        <h1 id="profile-title">User Profile</h1>
+        <p>Viewing: <strong id="username">Loading...</strong> <span id="user-status"></span></p>
       </div>
 
       <div class="box">
@@ -70,43 +75,62 @@
   <script src="/header.js"></script>
   <script>
     async function loadProfile() {
-      // 1. Load User Info
-      const res = await fetch("/api/me", { credentials: "include" });
-      if (!res.ok) {
-        window.location.href = "/login.html?msg=Please%20log%20in.";
-        return;
+      // 1. Get ID from URL (e.g., profile.html?id=1)
+      const params = new URLSearchParams(window.location.search);
+      let userId = params.get("id");
+
+      // 2. If NO ID is in the URL, try to find the logged-in user's own ID
+      if (!userId) {
+        const meRes = await fetch("/api/me");
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          userId = meData.user.id;
+          // Clean up the URL so refreshing works
+          window.history.replaceState({}, '', `${window.location.pathname}?id=${userId}`);
+        } else {
+          window.location.href = "/login.html?msg=Please%20log%20in.";
+          return;
+        }
       }
-      const data = await res.json();
-      document.getElementById("username").textContent = data.user.username;
 
-      // 2. Load Inventory Info
-      loadInventory();
-    }
-
-    async function loadInventory() {
+      // 3. Fetch the inventory for the specific ID
       const grid = document.getElementById("inventory-grid");
       const worthDisplay = document.getElementById("total-worth");
 
       try {
-        const res = await fetch("/api/my-inventory");
-        const data = await res.json();
+        const res = await fetch(`/api/user/inventory?id=${userId}`);
+        if (!res.ok) throw new Error("Profile not found");
 
-        if (!data.items || data.items.length === 0) {
-          grid.innerHTML = "<p>Your inventory is empty. Go unbox some cases!</p>";
+        const data = await res.json();
+        
+        // Update User Details
+        document.getElementById("username").textContent = data.user.username;
+        document.title = `${data.user.username}'s Profile - Grev.dad`;
+        
+        const statusEl = document.getElementById("user-status");
+        statusEl.textContent = data.user.status.toUpperCase();
+        statusEl.className = `status-badge ${data.user.status}`;
+
+        // Update Inventory Grid
+        if (!data.inventory || data.inventory.length === 0) {
+          grid.innerHTML = "<p style='grid-column: 1/-1;'>This user's inventory is empty.</p>";
           return;
         }
 
-        grid.innerHTML = ""; // Clear the loading text
+        grid.innerHTML = ""; 
         let total = 0;
 
-        data.items.forEach(item => {
-          total += item.estimated_value;
+        data.inventory.forEach(item => {
+          total += Number(item.estimated_value);
 
           const card = document.createElement("div");
-          card.className = `skin-card rarity-${item.skin_rarity}`;
+          // Handle rarity names with spaces for CSS classes
+          const rarityClass = item.skin_rarity.replace(" ", "-");
+          card.className = `skin-card rarity-${rarityClass}`;
+          
           card.innerHTML = `
             <div class="skin-name">${item.skin_name}</div>
-            <div class="skin-value">$${item.estimated_value.toFixed(2)}</div>
+            <div class="skin-value">$${Number(item.estimated_value).toFixed(2)}</div>
           `;
           grid.appendChild(card);
         });
@@ -114,8 +138,8 @@
         worthDisplay.textContent = `$${total.toFixed(2)}`;
 
       } catch (err) {
-        console.error("Error loading inventory:", err);
-        grid.innerHTML = "<p>Error loading items.</p>";
+        console.error("Error loading profile:", err);
+        grid.innerHTML = "<p>Could not load this profile. It may not exist.</p>";
       }
     }
 
