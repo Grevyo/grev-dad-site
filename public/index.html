@@ -7,7 +7,12 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .home-layout {
+    .home-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .top-row {
       display: grid;
       grid-template-columns: 320px minmax(0, 1fr);
       gap: 24px;
@@ -15,7 +20,12 @@
     }
 
     .sidebar-stack,
-    .content-stack {
+    .main-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .lower-stack {
       display: grid;
       gap: 24px;
     }
@@ -230,7 +240,7 @@
     }
 
     @media (max-width: 980px) {
-      .home-layout {
+      .top-row {
         grid-template-columns: 1fr;
       }
 
@@ -259,85 +269,122 @@
     <div id="header-mount"></div>
 
     <main class="page-main">
-      <section class="panel welcome-hero">
-        <h1 class="hero-title">Welcome to Grev.dad</h1>
-        <p class="hero-text">
-          Welcome to Grev.dad — a place to create an account, explore different playgrounds,
-          message people, hang out in global chat, and have fun with the random parts of the site,
-          including things like opening cases and whatever else gets built into the world over time.
-        </p>
+      <div class="home-stack">
+        <section class="panel welcome-hero">
+          <h1 class="hero-title">Welcome to Grev.dad</h1>
+          <p class="hero-text">
+            Welcome to Grev.dad — a place to create an account, explore different playgrounds,
+            message people, hang out in global chat, and have fun with the random parts of the site,
+            including things like opening cases and whatever else gets built into the world over time.
+          </p>
 
-        <div class="hero-actions" id="guest-actions">
-          <a class="btn btn-primary" href="/register.html">Create account</a>
-          <a class="btn" href="/login.html">Login</a>
-        </div>
+          <div class="hero-actions" id="guest-actions">
+            <a class="btn btn-primary" href="/register.html">Create account</a>
+            <a class="btn" href="/login.html">Login</a>
+          </div>
 
-        <div class="hero-actions hidden" id="member-actions">
-          <a class="btn btn-primary" href="/members.html">Browse members</a>
-          <a class="btn" href="/profile.html">Your profile</a>
-          <a class="btn" href="/forum.html">Open forum</a>
-        </div>
-      </section>
+          <div class="hero-actions hidden" id="member-actions">
+            <a class="btn btn-primary" href="/members.html">Browse members</a>
+            <a class="btn" href="/profile.html">Your profile</a>
+            <a class="btn" href="/forum.html">Open forum</a>
+          </div>
+        </section>
 
-      <div class="home-layout mt-24">
-        <aside class="sidebar-stack">
-          <section class="panel">
-            <h2 class="panel-title">Playgrounds</h2>
-            <p class="panel-subtitle">
-              Explore the different corners of Grev.dad. Some are public, some only unlock depending on your account group.
-            </p>
+        <section class="top-row">
+          <aside class="sidebar-stack">
+            <section class="panel">
+              <h2 class="panel-title">Playgrounds</h2>
+              <p class="panel-subtitle">
+                Explore the different corners of Grev.dad. Some are public, some only unlock depending on your account group.
+              </p>
 
-            <a class="playground-link" href="/j-playground/index.html">
-  <span class="playground-name">Spaced Playground</span>
-  <span class="playground-desc">Spaced personal site and its own little corner of the network.</span>
-</a>
+              <div class="playground-list">
+                <a class="playground-link" href="/j-playground/index.html">
+                  <span class="playground-name">Spaced Playground</span>
+                  <span class="playground-desc">Spaced personal site and its own little corner of the network.</span>
+                </a>
 
-<a class="playground-link" href="/dkpg/index.html">
-  <span class="playground-name">DontKnow Playground</span>
-  <span class="playground-desc">Dont Know’s personal site and playground area.</span>
-</a>
+                <a class="playground-link" href="/dkpg/index.html">
+                  <span class="playground-name">DontKnow Playground</span>
+                  <span class="playground-desc">Dont Know’s personal site and playground area.</span>
+                </a>
 
-              <a class="playground-link" href="/grev/index.html">
-                <span class="playground-name">Grev Playground</span>
-                <span class="playground-desc">A personal corner for Grev stuff, experiments, and random site ideas.</span>
-              </a>
+                <a class="playground-link" href="/grev/index.html">
+                  <span class="playground-name">Grev Playground</span>
+                  <span class="playground-desc">A personal corner for Grev stuff, experiments, and random site ideas.</span>
+                </a>
 
-              <div
-                class="playground-link hidden-playground"
-                data-group-only="cpl"
-              >
-                <span class="playground-badge">Group locked</span>
-                <span class="playground-name">CPL Playground</span>
-                <span class="playground-desc">Only visible to users in the CPL group.</span>
+                <div class="playground-link hidden-playground" data-group-only="cpl">
+                  <span class="playground-badge">Group locked</span>
+                  <span class="playground-name">CPL Playground</span>
+                  <span class="playground-desc">Only visible to users in the CPL group.</span>
+                </div>
+
+                <div class="playground-link hidden-playground" data-group-only="admin">
+                  <span class="playground-badge">Group locked</span>
+                  <span class="playground-name">Admin Playground</span>
+                  <span class="playground-desc">Internal tools, tests, and admin-only site areas.</span>
+                </div>
+
+                <div class="playground-link hidden-playground" data-group-only="vip">
+                  <span class="playground-badge">Group locked</span>
+                  <span class="playground-name">VIP Playground</span>
+                  <span class="playground-desc">Extra hidden pages and whatever weirdness gets added later.</span>
+                </div>
+              </div>
+            </section>
+          </aside>
+
+          <section class="main-stack">
+            <section class="panel">
+              <h2 class="panel-title">Global Chat</h2>
+              <p class="panel-subtitle">
+                Everyone on the site can chat here together in one big group.
+              </p>
+
+              <div id="chat-status" class="alert alert-info">
+                Loading chat...
               </div>
 
-              <div
-                class="playground-link hidden-playground"
-                data-group-only="admin"
-              >
-                <span class="playground-badge">Group locked</span>
-                <span class="playground-name">Admin Playground</span>
-                <span class="playground-desc">Internal tools, tests, and admin-only site areas.</span>
-              </div>
+              <div class="chat-shell mt-16">
+                <div id="global-chat-box" class="chat-box">
+                  <div class="chat-empty">No messages yet.</div>
+                </div>
 
-              <div
-                class="playground-link hidden-playground"
-                data-group-only="vip"
-              >
-                <span class="playground-badge">Group locked</span>
-                <span class="playground-name">VIP Playground</span>
-                <span class="playground-desc">Extra hidden pages and whatever weirdness gets added later.</span>
+                <div id="guest-chat-note" class="alert alert-info guest-note hidden">
+                  You need to be logged in to send messages in global chat.
+                </div>
+
+                <form id="global-chat-form" class="chat-form hidden">
+                  <div class="form-group">
+                    <label class="form-label" for="chat-message">Say something</label>
+                    <textarea
+                      id="chat-message"
+                      class="form-input form-textarea chat-textarea"
+                      maxlength="1000"
+                      placeholder="Type a message to the global chat..."
+                    ></textarea>
+                  </div>
+
+                  <div class="button-row">
+                    <button id="send-chat-btn" class="btn btn-primary" type="submit">
+                      Send message
+                    </button>
+                  </div>
+                </form>
               </div>
-            </div>
+            </section>
           </section>
+        </section>
 
+        <section class="lower-stack">
           <section class="panel">
             <h2 class="panel-title">What you can do here</h2>
             <p class="panel-subtitle">
               Grev.dad is meant to feel like a weird little online hub instead of just a plain website.
             </p>
 
-            <div class="info-grid" style="grid-template-columns: 1fr;">
+            <div class="info-grid">
               <div class="mini-card">
                 <h3>Chat with everyone</h3>
                 <p>Jump into the global chat and talk in one big shared group with the rest of the site.</p>
@@ -352,47 +399,6 @@
                 <h3>Open cases and mess about</h3>
                 <p>Use random features, playground pages, and future case systems as the site grows.</p>
               </div>
-            </div>
-          </section>
-        </aside>
-
-        <section class="content-stack">
-          <section class="panel">
-            <h2 class="panel-title">Global Chat</h2>
-            <p class="panel-subtitle">
-              Everyone on the site can chat here together in one big group.
-            </p>
-
-            <div id="chat-status" class="alert alert-info">
-              Loading chat...
-            </div>
-
-            <div class="chat-shell mt-16">
-              <div id="global-chat-box" class="chat-box">
-                <div class="chat-empty">No messages yet.</div>
-              </div>
-
-              <div id="guest-chat-note" class="alert alert-info guest-note hidden">
-                You need to be logged in to send messages in global chat.
-              </div>
-
-              <form id="global-chat-form" class="chat-form hidden">
-                <div class="form-group">
-                  <label class="form-label" for="chat-message">Say something</label>
-                  <textarea
-                    id="chat-message"
-                    class="form-input form-textarea chat-textarea"
-                    maxlength="1000"
-                    placeholder="Type a message to the global chat..."
-                  ></textarea>
-                </div>
-
-                <div class="button-row">
-                  <button id="send-chat-btn" class="btn btn-primary" type="submit">
-                    Send message
-                  </button>
-                </div>
-              </form>
             </div>
           </section>
 
@@ -593,14 +599,8 @@
           return;
         }
 
-        if (data?.note) {
-          chatStatus.className = "alert alert-info";
-          chatStatus.textContent = data.note;
-        } else {
-          chatStatus.className = "alert alert-success";
-          chatStatus.textContent = "Global chat is live.";
-        }
-
+        chatStatus.className = "alert alert-success";
+        chatStatus.textContent = "Global chat is live.";
         renderMessages(data?.messages || []);
       } catch (error) {
         console.error("Failed to load global chat:", error);
@@ -614,9 +614,7 @@
       event.preventDefault();
 
       const message = chatMessageInput.value.trim();
-      if (!message) {
-        return;
-      }
+      if (!message) return;
 
       sendChatBtn.disabled = true;
       sendChatBtn.textContent = "Sending...";

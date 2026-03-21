@@ -286,6 +286,7 @@ async function ensureCoreTables(env) {
       author_group TEXT NOT NULL,
       title TEXT NOT NULL,
       body TEXT NOT NULL,
+      image_url TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
@@ -296,6 +297,7 @@ async function ensureCoreTables(env) {
   await ensureColumn(env.DB, "forum_posts", "author_group", "TEXT");
   await ensureColumn(env.DB, "forum_posts", "title", "TEXT");
   await ensureColumn(env.DB, "forum_posts", "body", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "image_url", "TEXT");
   await ensureColumn(env.DB, "forum_posts", "created_at", "TEXT");
   await ensureColumn(env.DB, "forum_posts", "updated_at", "TEXT");
 
@@ -889,6 +891,7 @@ async function handleForumPosts(request, env) {
       p.author_group,
       p.title,
       p.body,
+      p.image_url,
       p.created_at,
       p.updated_at,
       COALESCE(c.comment_count, 0) AS comment_count,
@@ -955,6 +958,7 @@ async function handleForumPost(request, env) {
       p.author_group,
       p.title,
       p.body,
+      p.image_url,
       p.created_at,
       p.updated_at,
       COALESCE(c.comment_count, 0) AS comment_count,
@@ -1050,6 +1054,7 @@ async function handleForumCreatePost(request, env) {
   const body = await safeJson(request);
   const title = cleanForumTitle(body?.title);
   const postBody = cleanForumBody(body?.body);
+  const imageUrl = cleanUrl(body?.image_url, 1200);
 
   if (!title) {
     return json({ success: false, error: "Post title is required" }, 400, request);
@@ -1073,11 +1078,12 @@ async function handleForumCreatePost(request, env) {
       author_group,
       title,
       body,
+      image_url,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(session.id, session.username, authorGroup, title, postBody, now, now).run();
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(session.id, session.username, authorGroup, title, postBody, imageUrl, now, now).run();
 
   return json({
     success: true,
