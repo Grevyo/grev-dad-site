@@ -21,9 +21,8 @@ function getCookieValue(cookieHeader, name) {
   return null;
 }
 
-// FIX: Relaxed cookie constraints to prevent the login loop
 function buildSessionCookie(token) {
-  const maxAge = 60 * 60 * 24 * 7; // 1 week
+  const maxAge = 60 * 60 * 24 * 7;
   return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -88,6 +87,14 @@ async function serveAssetOr404(env, request) {
   return await env.ASSETS.fetch(request);
 }
 
+function getStatus(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+  const diff = (Date.now() - new Date(lastSeenAt).getTime()) / 60000;
+  if (diff <= 5) return "online";
+  if (diff <= 30) return "away";
+  return "offline";
+}
+
 // --- FLOAT & WEAR ---
 function calculateSkinQuality(basePrice) {
   const float = Math.random();
@@ -106,99 +113,80 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname;
 
-      if (path === "/api/ping") {
+      // --- 1. AUTH CHECK ROUTES ---
+      if (path === "/api/ping") return json({ ok: true });
+
+      // NEW: Required by members.html to verify login
+      if (path === "/api/me") {
         const user = await requireApprovedUser(request, env);
-        return json({ ok: !!user, username: user?.username || null });
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        return json({ user });
       }
 
-      // --- AUTH: REGISTER ---
+      // --- 2. AUTH: LOGIN & REGISTER ---
       if (path === "/api/register" && request.method === "POST") {
         const form = await request.formData();
         const username = String(form.get("username") || "").trim();
         const password = String(form.get("password") || "");
         if (password !== form.get("password2")) return redirect(request, "/register.html?msg=Passwords%20match%20error");
-        
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const saltBase64 = toBase64(salt);
+        const saltBase64 = toBase64(crypto.getRandomValues(new Uint8Array(16)));
         const hash = await hashPassword(password, saltBase64);
         const finalHash = `pbkdf2_sha256$100000$${saltBase64}$${hash}`;
-        const now = new Date().toISOString();
-
-        // Ensure created_at is provided
-        await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at) VALUES (?, ?, 0, 0, ?)`)
-          .bind(username, finalHash, now).run();
-        
+        await env.DB.prepare(`INSERT INTO users (username, password_hash, approved, is_admin, created_at) VALUES (?, ?, 0, 0, ?)`).bind(username, finalHash, new Date().toISOString()).run();
         return redirect(request, "/login.html?msg=Pending%20Approval");
       }
 
-      // --- AUTH: LOGIN ---
       if (path === "/api/login" && request.method === "POST") {
         const form = await request.formData();
         const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(form.get("username")).first();
-        
         if (!user) return redirect(request, "/login.html?msg=Invalid%20Credentials");
-        
         const parsed = parseStoredHash(user.password_hash);
         const calc = await hashPassword(form.get("password"), parsed.saltBase64, parsed.iterations);
-        
         if (calc !== parsed.hashBase64) return redirect(request, "/login.html?msg=Invalid%20Credentials");
         if (!user.approved) return redirect(request, "/login.html?msg=Not%20Approved");
-
         const token = crypto.randomUUID();
         const now = new Date().toISOString();
         const expires = new Date(Date.now() + 7 * 86400000).toISOString();
-
-        // FIX: Satisfying the NOT NULL constraint for created_at
-        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
-          .bind(token, user.id, now, expires).run();
-
-        return new Response(null, { 
-          status: 302, 
-          headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } 
-        });
+        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(token, user.id, now, expires).run();
+        return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
       }
 
-      // --- CASE API ---
+      // --- 3. MEMBERS & LEADERBOARD ---
+      if (path === "/api/members") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const members = await env.DB.prepare(`
+          SELECT u.id, u.username, u.is_admin, u.last_seen_at, COUNT(i.id) as item_count, COALESCE(SUM(i.estimated_value), 0) as total_wealth 
+          FROM users u LEFT JOIN inventory i ON u.id = i.user_id 
+          WHERE u.approved = 1 GROUP BY u.id ORDER BY total_wealth DESC
+        `).all();
+        return json({ members: members.results.map(m => ({ ...m, status: getStatus(m.last_seen_at) })) });
+      }
+
+      // --- 4. CASE SYSTEM ---
       if (path === "/api/cases/list") {
         const { results } = await env.CASES_DB.prepare("SELECT DISTINCT case_name FROM item_definitions").all();
         return json({ cases: results });
       }
 
       if (path === "/api/cases/skins") {
-        const name = url.searchParams.get("name");
-        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(name).all();
+        const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(url.searchParams.get("name")).all();
         return json({ skins: results });
       }
 
       if (path === "/api/cases/open" && request.method === "POST") {
         const user = await requireApprovedUser(request, env);
         if (!user) return json({ error: "Unauthorized" }, 401);
-
         const { caseName } = await request.json();
         const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
-        
         const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
         let random = Math.random() * totalWeight;
         let winner = skins[0];
         for (const s of skins) { if (random < s.drop_weight) { winner = s; break; } random -= s.drop_weight; }
-
         const qual = calculateSkinQuality(winner.base_price);
         const fullName = `${winner.weapon_type} | ${winner.skin_name} (${qual.wear})`;
-
-        await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`)
-          .bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
-
+        await env.DB.prepare(`INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value, unboxed_at) VALUES (?, ?, ?, ?, ?)`).bind(user.id, fullName, winner.rarity, qual.price, new Date().toISOString()).run();
         return json({ success: true, item: fullName, rarity: winner.rarity, price: qual.price, float: qual.float });
-      }
-
-      // --- GLOBAL FEED ---
-      if (path === "/api/inventory/recent-global") {
-        const { results } = await env.DB.prepare(`
-          SELECT i.skin_name, i.skin_rarity, u.username 
-          FROM inventory i JOIN users u ON i.user_id = u.id 
-          ORDER BY i.id DESC LIMIT 15
-        `).all();
-        return json({ recent: results });
       }
 
       return await serveAssetOr404(env, request);
