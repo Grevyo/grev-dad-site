@@ -1,20 +1,20 @@
-name = "grev-dad-worker"
-main = "src/index.js" # Point this to your actual index.js location
+name = "grev-dad-site"
+main = "index.js"
 compatibility_date = "2026-03-21"
 
 # 1. Main Database (Users, Sessions, Inventory)
 [[d1_databases]]
 binding = "DB"
-database_name = "your-main-db-name" # Change to your actual DB name
-database_id = "PASTE-YOUR-MAIN-DB-ID-HERE"
+database_name = "grev-dad-db"
+database_id = "4e1a3548-6316-4a9b-926f-f536b4a6d5a6"
 
 # 2. Case/Skin Database
 [[d1_databases]]
 binding = "CASES_DB"
-database_name = "your-cases-db-name" # Change to your actual DB name
-database_id = "PASTE-YOUR-CASES-DB-ID-HERE"
+database_name = "cases"
+database_id = "1a4c7386-4f09-42ce-a2d7-53c1bcdb9147"
 
-# 3. Static Assets (Fixes the 404 for your HTML files)
+# 3. Static Assets
 [assets]
-directory = "./public" # Change this if your HTML files are in a different folder
+directory = "./" 
 binding = "ASSETS"
