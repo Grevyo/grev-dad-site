@@ -24,6 +24,9 @@
     }
     .member-card:hover { border-color: #9ecbff; transform: translateY(-2px); }
 
+    /* Special style for the #1 player */
+    .top-rank { border: 1px solid #ffd700 !important; box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); }
+
     .rank-badge {
       position: absolute;
       top: 15px;
@@ -40,7 +43,6 @@
     .member-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .member-card h3 { margin: 0; font-size: 1.1rem; }
     
-    /* STYLE FOR THE CLICKABLE USERNAME */
     .member-link {
       color: #f5f7fa;
       text-decoration: none;
@@ -84,7 +86,10 @@
       </div>
 
       <div class="box">
-        <h2>Approved Members</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin:0;">Approved Members</h2>
+            <span style="font-size: 0.8rem; color: #8f98a3;">Updates every 30s</span>
+        </div>
         <div id="memberList" class="member-list"></div>
       </div>
     </div>
@@ -107,53 +112,58 @@
     }
 
     async function loadPage() {
-      // 1. Authenticate and get current user
-      const meRes = await fetch("/api/me", { credentials: "include" });
-      if (!meRes.ok) {
-        window.location.href = "/login.html?msg=Please%20log%20in.";
-        return;
+      try {
+        // 1. Authenticate and get current user
+        const meRes = await fetch("/api/me");
+        if (!meRes.ok) {
+          window.location.href = "/login.html?msg=Please%20log%20in.";
+          return;
+        }
+
+        const meData = await meRes.json();
+        document.getElementById("welcome").innerHTML = `Welcome back, <strong style="color: #9ecbff;">${meData.user.username}</strong>. Check the rankings below!`;
+
+        // 2. Load Leaderboard Data
+        const membersRes = await fetch("/api/members");
+        if (!membersRes.ok) return;
+
+        const membersData = await membersRes.json();
+        const list = document.getElementById("memberList");
+        list.innerHTML = "";
+
+        membersData.members.forEach((member, index) => {
+          const div = document.createElement("div");
+          // Apply top-rank class for #1 player
+          div.className = `member-card ${index === 0 ? 'top-rank' : ''}`;
+          
+          const rankColor = index === 0 ? 'style="color: #ffd700; border-color: #ffd700;"' : '';
+
+          // LINK UPDATED TO profile.html
+          div.innerHTML = `
+            <div class="rank-badge" ${rankColor}>#${index + 1}</div>
+            <div class="member-row">
+              <span class="status-dot ${statusClass(member.status)}"></span>
+              <h3>
+                <a href="/profile.html?id=${member.id}" class="member-link">${member.username}</a>
+              </h3>
+            </div>
+            <p style="font-size: 0.85rem; color: #8f98a3;">
+              ${member.is_admin ? '<span style="color:#ff4b4b; font-weight:bold;">Admin</span>' : 'Member'} · ${statusLabel(member.status)}
+            </p>
+            <div class="stats-row">
+              <span class="item-count">${member.item_count} Skins</span>
+              <span class="wealth-value">$${Number(member.total_wealth).toFixed(2)}</span>
+            </div>
+          `;
+          list.appendChild(div);
+        });
+      } catch (e) {
+        console.error("Leaderboard load failed:", e);
       }
-
-      const meData = await meRes.json();
-      document.getElementById("welcome").textContent = "Welcome back, " + meData.user.username + ". Check the rankings below!";
-
-      // 2. Load Leaderboard Data
-      const membersRes = await fetch("/api/members", { credentials: "include" });
-      if (!membersRes.ok) return;
-
-      const membersData = await membersRes.json();
-      const list = document.getElementById("memberList");
-      list.innerHTML = "";
-
-      membersData.members.forEach((member, index) => {
-        const div = document.createElement("div");
-        div.className = "member-card";
-        
-        // Use rank #1 color for the top player
-        const rankColor = index === 0 ? 'style="color: #ffd700; border-color: #ffd700;"' : '';
-
-        // PHASE 5 UPDATE: Username is now a link to user.html?id=...
-        div.innerHTML = `
-          <div class="rank-badge" ${rankColor}>#${index + 1}</div>
-          <div class="member-row">
-            <span class="status-dot ${statusClass(member.status)}"></span>
-            <h3>
-              <a href="/user.html?id=${member.id}" class="member-link">${member.username}</a>
-            </h3>
-          </div>
-          <p style="font-size: 0.85rem; color: #8f98a3;">
-            ${member.is_admin ? '<span style="color:#ff4b4b">Admin</span>' : 'Member'} · ${statusLabel(member.status)}
-          </p>
-          <div class="stats-row">
-            <span class="item-count">${member.item_count} Skins</span>
-            <span class="wealth-value">$${member.total_wealth.toFixed(2)}</span>
-          </div>
-        `;
-        list.appendChild(div);
-      });
     }
 
     loadPage();
+    // Auto-refresh every 30 seconds to keep statuses and wealth up to date
     setInterval(loadPage, 30000);
   </script>
 </body>
