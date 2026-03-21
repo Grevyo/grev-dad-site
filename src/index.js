@@ -120,18 +120,17 @@ async function autoSyncPrices(env) {
     const lastSync = new Date(log.last_sync).getTime();
     const sixHours = 6 * 60 * 60 * 1000;
     if (Date.now() - lastSync > sixHours) {
-      const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+      const res = await fetch(`https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`, {
+        headers: { "User-Agent": "grev-dad-worker/1.0" }
+      });
       
       const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        console.error("API returned non-JSON response.");
-        return;
-      }
+      if (!contentType || !contentType.includes("application/json")) return;
 
       const data = await res.json();
-      if (data.items) {
-        for (const [fullName, details] of Object.entries(data.items)) {
-          const price = (details.steam?.price || 0) / 100;
+      if (data) {
+        for (const [fullName, details] of Object.entries(data)) {
+          const price = (details.steam?.price || details.price || 0) / 100;
           if (price > 0) {
             await env.CASES_DB.prepare("UPDATE item_definitions SET base_price = ? WHERE (weapon_type || ' | ' || skin_name) = ?")
               .bind(price, fullName).run();
@@ -281,25 +280,33 @@ export default {
         if (!admin) return json({ error: "Forbidden" }, 403);
 
         try {
-          const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
-          const contentType = res.headers.get("content-type");
+          const apiUrl = `https://api.pricempire.com/v1/items/prices?api_key=${SKIN_API_KEY}&sources=steam`;
+          const res = await fetch(apiUrl, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) grev-dad-site/1.0" }
+          });
           
+          const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
-             return json({ error: "API returned HTML instead of JSON. Try again later." }, 500);
+             const errorText = await res.text();
+             return json({ 
+               error: "API returned non-JSON response", 
+               status: res.status,
+               preview: errorText.substring(0, 100) 
+             }, 500);
           }
 
           const data = await res.json();
-          if (!data.items) return json({ error: "No items found in API" }, 500);
+          if (!data || Object.keys(data).length === 0) return json({ error: "No items found in API response" }, 500);
 
           let addedCount = 0;
-          for (const [fullName, details] of Object.entries(data.items)) {
+          for (const [fullName, details] of Object.entries(data)) {
             if (!fullName.includes(" | ")) continue;
 
             const parts = fullName.split(" | ");
             const weaponType = parts[0];
             const skinAndWear = parts[1];
             const skinName = skinAndWear.split(" (")[0];
-            const price = (details.steam?.price || 0) / 100;
+            const price = (details.steam?.price || details.price || 0) / 100;
 
             if (price > 0) {
               let rarity = "milspec";
