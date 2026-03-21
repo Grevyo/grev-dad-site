@@ -27,7 +27,7 @@ function getCookieValue(cookieHeader, name) {
 }
 
 function buildSessionCookie(token) {
-  const maxAge = 60 * 60 * 24 * 7; // 1 Week
+  const maxAge = 60 * 60 * 24 * 7;
   return `session_v3=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Secure`;
 }
 
@@ -63,21 +63,18 @@ async function touchUser(env, userId) {
 }
 
 async function getCurrentUser(request, env) {
-  const cookieHeader = request.headers.get("Cookie") || "";
-  const token = getCookieValue(cookieHeader, "session_v3");
+  const token = getCookieValue(request.headers.get("Cookie"), "session_v3");
   if (!token) return null;
-
   return await env.DB.prepare(`
     SELECT users.id, users.username, users.approved, users.is_admin, users.created_at, users.last_seen_at
-    FROM sessions 
-    JOIN users ON users.id = sessions.user_id
+    FROM sessions JOIN users ON users.id = sessions.user_id
     WHERE sessions.session_token = ? AND sessions.expires_at > ? LIMIT 1
   `).bind(token, new Date().toISOString()).first();
 }
 
 async function requireApprovedUser(request, env) {
   const user = await getCurrentUser(request, env);
-  if (!user || (user.approved !== 1 && user.approved !== true)) return null;
+  if (!user || !user.approved) return null;
   await touchUser(env, user.id);
   return user;
 }
@@ -95,7 +92,15 @@ async function serveAssetOr404(env, request) {
   return await env.ASSETS.fetch(request);
 }
 
-// --- FLOAT & WEAR LOGIC ---
+function getStatus(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+  const diff = (Date.now() - new Date(lastSeenAt).getTime()) / 60000;
+  if (diff <= 5) return "online";
+  if (diff <= 30) return "away";
+  return "offline";
+}
+
+// --- FLOAT & WEAR ---
 function calculateSkinQuality(basePrice) {
   const float = Math.random();
   let wear = "Factory New";
@@ -113,7 +118,6 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname.toLowerCase().replace(/\/$/, "");
 
-      // Quick Redirects
       if (path === "/cases") return redirect(request, "/cases.html");
       if (path === "/api/ping") return json({ ok: true });
 
@@ -128,27 +132,62 @@ export default {
       if (path === "/api/login" && request.method === "POST") {
         const form = await request.formData();
         const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(form.get("username")).first();
-        
         if (!user) return redirect(request, "/login.html?msg=Invalid%20Credentials");
-        
         const parsed = parseStoredHash(user.password_hash);
         const calc = await hashPassword(form.get("password"), parsed.saltBase64, parsed.iterations);
-        
         if (calc !== parsed.hashBase64) return redirect(request, "/login.html?msg=Invalid%20Credentials");
         if (!user.approved) return redirect(request, "/login.html?msg=Not%20Approved");
-        
         const token = crypto.randomUUID();
+        const now = new Date().toISOString();
         const expires = new Date(Date.now() + 7 * 86400000).toISOString();
-        
-        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(token, user.id, new Date().toISOString(), expires).run();
-        
-        return new Response(null, { 
-          status: 302, 
-          headers: { 
-            "Location": "/members.html", 
-            "Set-Cookie": buildSessionCookie(token) 
-          } 
+        await env.DB.prepare(`INSERT INTO sessions (session_token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`).bind(token, user.id, now, expires).run();
+        return new Response(null, { status: 302, headers: { "Location": "/members.html", "Set-Cookie": buildSessionCookie(token) } });
+      }
+
+      // --- PROFILE API (Fixes your /profile?id=4 issue) ---
+      if (path === "/api/profile") {
+        const id = url.searchParams.get("id");
+        if (!id) return json({ error: "No ID" }, 400);
+
+        const user = await env.DB.prepare(`SELECT id, username, last_seen_at, created_at FROM users WHERE id = ?`).bind(id).first();
+        if (!user) return json({ error: "User not found" }, 404);
+
+        const { results: inventory } = await env.CASES_DB.prepare(`SELECT * FROM user_inventory WHERE user_id = ? ORDER BY unboxed_at DESC`).bind(id).all();
+
+        return json({
+          username: user.username,
+          status: getStatus(user.last_seen_at),
+          created_at: user.created_at,
+          inventory: inventory || []
         });
+      }
+
+      // --- CASE OPENING (Saves to Database) ---
+      if (path === "/api/cases/open" && request.method === "POST") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Please log in" }, 401);
+
+        const { caseName } = await request.json();
+        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
+        if (!skins || skins.length === 0) return json({ error: "Case empty" }, 404);
+
+        const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
+        let random = Math.random() * totalWeight;
+        let selected = skins[0];
+        for (const s of skins) {
+          if (random < s.drop_weight) { selected = s; break; }
+          random -= s.drop_weight;
+        }
+
+        const quality = calculateSkinQuality(selected.base_price);
+        
+        // SAVE TO INVENTORY
+        await env.CASES_DB.prepare(`
+          INSERT INTO user_inventory (user_id, skin_name, rarity, wear, price)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(user.id, `${selected.weapon_type} | ${selected.skin_name}`, selected.rarity, quality.wear, quality.price).run();
+
+        return json({ success: true, item: selected, quality });
       }
 
       // --- CASE ROUTES ---
@@ -160,74 +199,29 @@ export default {
       if (path === "/api/cases/skins") {
         const name = url.searchParams.get("name");
         const { results } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(name).all();
-        return json({ skins: results || [] });
-      }
-
-      // --- CASE OPENING (Weighted Logic) ---
-      if (path === "/api/cases/open" && request.method === "POST") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) return json({ error: "Please log in" }, 401);
-
-        const { caseName } = await request.json();
-        const { results: skins } = await env.CASES_DB.prepare("SELECT * FROM item_definitions WHERE case_name = ?").bind(caseName).all();
-
-        if (!skins || skins.length === 0) return json({ error: "Case not found" }, 404);
-
-        // Weighted Selection
-        const totalWeight = skins.reduce((sum, s) => sum + s.drop_weight, 0);
-        let random = Math.random() * totalWeight;
-        let selected = skins[0];
-
-        for (const skin of skins) {
-          if (random < skin.drop_weight) { selected = skin; break; }
-          random -= skin.drop_weight;
-        }
-
-        const quality = calculateSkinQuality(selected.base_price);
-        return json({
-          success: true,
-          item: `${selected.weapon_type} | ${selected.skin_name}`,
-          rarity: selected.rarity,
-          wear: quality.wear,
-          float: quality.float,
-          price: quality.price
-        });
+        return json({ skins: results });
       }
 
       // --- ADMIN: MEGA SEEDER ---
       if (path === "/api/admin/mega-seed") {
         const admin = await requireAdminUser(request, env);
         if (!admin) return json({ error: "Forbidden" }, 403);
-
         await env.CASES_DB.prepare("DELETE FROM item_definitions WHERE case_name = 'Global Collection'").run();
         const res = await fetch("https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json");
         const allSkins = await res.json();
         const stmts = [];
-
         for (const skin of allSkins) {
           let rarity = "milspec", weight = 50;
-          const rName = (skin.rarity?.name || "Consumer Grade").toLowerCase();
-          
-          if (rName.includes("extraordinary") || skin.weapon?.name?.includes("Knife") || skin.type?.includes("Gloves")) { 
-            rarity = "rare_special"; weight = 1; 
-          }
+          const rName = (skin.rarity?.name || "").toLowerCase();
+          if (rName.includes("extraordinary") || skin.weapon?.name?.includes("Knife") || skin.type?.includes("Gloves")) { rarity = "rare_special"; weight = 1; }
           else if (rName.includes("covert")) { rarity = "covert"; weight = 2; }
           else if (rName.includes("classified")) { rarity = "classified"; weight = 10; }
           else if (rName.includes("restricted")) { rarity = "restricted"; weight = 20; }
-
           const weaponType = skin.weapon ? skin.weapon.name : "Other";
           const skinName = skin.name.replace(weaponType + " | ", "");
-
-          stmts.push(env.CASES_DB.prepare(`
-            INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `).bind("Global Collection", weaponType, skinName, rarity, 0.0, weight));
+          stmts.push(env.CASES_DB.prepare(`INSERT INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight) VALUES (?, ?, ?, ?, ?, ?)`).bind("Global Collection", weaponType, skinName, rarity, 0.0, weight));
         }
-
-        for (let i = 0; i < stmts.length; i += 50) {
-          await env.CASES_DB.batch(stmts.slice(i, i + 50));
-        }
-
+        for (let i = 0; i < stmts.length; i += 50) { await env.CASES_DB.batch(stmts.slice(i, i + 50)); }
         return json({ success: true, count: allSkins.length });
       }
 
