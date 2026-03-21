@@ -23,7 +23,7 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
-  // Note the attributes here: Path, HttpOnly, Secure, SameSite
+  // Attributes: Path=/, HttpOnly, Secure, SameSite=Lax
   return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -182,14 +182,22 @@ export default {
       }
 
       if (path === "/api/logout") {
-        return new Response(null, { 
+        const token = getCookieValue(request.headers.get("Cookie"), "session_token");
+        
+        // Kill the session in the DB so the token is dead server-side
+        if (token) {
+          await env.DB.prepare("DELETE FROM sessions WHERE session_token = ?").bind(token).run();
+        }
+
+        const response = new Response(null, { 
           status: 302, 
-          headers: { 
-            "Location": "/login.html?msg=Logged%20Out", 
-            // FIXED: Added 'Secure; SameSite=Lax' to exactly match the login cookie
-            "Set-Cookie": "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT" 
-          } 
+          headers: { "Location": "/login.html?msg=Logged%20Out" } 
         });
+
+        // Kill the session in the Browser by matching all attributes exactly
+        response.headers.append("Set-Cookie", "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+        
+        return response;
       }
 
       // --- 3. MEMBERS & LEADERBOARD ---
