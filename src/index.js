@@ -11,7 +11,8 @@ export default {
           success: false,
           error: error?.message || "Internal server error"
         },
-        500
+        500,
+        request
       );
     }
   }
@@ -48,6 +49,7 @@ async function handleRequest(request, env, ctx) {
     return await handleSetup(env, request);
   }
 
+  // Auth
   if (pathname === "/api/auth/register" && request.method === "POST") {
     return await handleRegister(request, env);
   }
@@ -64,10 +66,25 @@ async function handleRequest(request, env, ctx) {
     return await handleMe(request, env);
   }
 
+  // Profile
+  if (pathname === "/api/profile/me" && request.method === "GET") {
+    return await handleProfileMe(request, env);
+  }
+
+  if (pathname === "/api/profile/update" && request.method === "POST") {
+    return await handleProfileUpdate(request, env);
+  }
+
+  if (pathname === "/api/profile/view" && request.method === "GET") {
+    return await handleProfileView(request, env);
+  }
+
+  // Users
   if (pathname === "/api/users/members" && request.method === "GET") {
     return await handleMembers(request, env);
   }
 
+  // Global chat
   if (pathname === "/api/chat/global" && request.method === "GET") {
     return await handleGetGlobalChat(request, env);
   }
@@ -76,6 +93,7 @@ async function handleRequest(request, env, ctx) {
     return await handlePostGlobalChat(request, env);
   }
 
+  // Forum
   if (pathname === "/api/forum/posts" && request.method === "GET") {
     return await handleForumPosts(request, env);
   }
@@ -104,6 +122,7 @@ async function handleRequest(request, env, ctx) {
     return await handleForumRemovePost(request, env);
   }
 
+  // Admin
   if (pathname === "/api/admin/users" && request.method === "GET") {
     return await handleAdminUsers(request, env);
   }
@@ -120,6 +139,7 @@ async function handleRequest(request, env, ctx) {
     return await handleAdminPendingUsers(request, env);
   }
 
+  // Future routes
   if (pathname === "/api/chat/private" && request.method === "GET") {
     return json(
       {
@@ -234,6 +254,12 @@ async function ensureCoreTables(env) {
 
   await ensureColumn(env.DB, "user_profiles", "bio", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "avatar_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "real_name", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "motto", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "media_1_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "media_2_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "media_3_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "music_url", "TEXT");
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS global_chat_messages (
@@ -375,8 +401,18 @@ async function handleRegister(request, env) {
 
   if (userId) {
     await env.DB.prepare(`
-      INSERT OR IGNORE INTO user_profiles (user_id, bio, avatar_url)
-      VALUES (?, '', '')
+      INSERT OR IGNORE INTO user_profiles (
+        user_id,
+        bio,
+        avatar_url,
+        real_name,
+        motto,
+        media_1_url,
+        media_2_url,
+        media_3_url,
+        music_url
+      )
+      VALUES (?, '', '', '', '', '', '', '', '')
     `).bind(userId).run();
   }
 
@@ -502,6 +538,218 @@ async function handleMe(request, env) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                  PROFILE                                   */
+/* -------------------------------------------------------------------------- */
+
+async function handleProfileMe(request, env) {
+  await ensureCoreTables(env);
+
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.approved,
+      u.is_admin,
+      u.group_name,
+      u.created_at,
+      u.last_seen_at,
+      p.real_name,
+      p.motto,
+      p.bio,
+      p.avatar_url,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    WHERE u.id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  if (!row) {
+    return json({ success: false, error: "Profile not found" }, 404, request);
+  }
+
+  return json({
+    success: true,
+    profile: formatProfileRow(row)
+  }, 200, request);
+}
+
+async function handleProfileView(request, env) {
+  await ensureCoreTables(env);
+
+  const url = new URL(request.url);
+  const userId = Number(url.searchParams.get("id") || "");
+
+  let targetUserId = userId;
+
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    const session = await getSessionUser(request, env);
+    if (!session) {
+      return json({ success: false, error: "A valid user id is required" }, 400, request);
+    }
+    targetUserId = session.id;
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.approved,
+      u.is_admin,
+      u.group_name,
+      u.created_at,
+      u.last_seen_at,
+      p.real_name,
+      p.motto,
+      p.bio,
+      p.avatar_url,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    WHERE u.id = ? AND u.approved = 1
+    LIMIT 1
+  `).bind(targetUserId).first();
+
+  if (!row) {
+    return json({ success: false, error: "Profile not found" }, 404, request);
+  }
+
+  return json({
+    success: true,
+    profile: formatProfileRow(row)
+  }, 200, request);
+}
+
+async function handleProfileUpdate(request, env) {
+  await ensureCoreTables(env);
+
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const body = await safeJson(request);
+
+  const realName = cleanShortText(body?.real_name, 80);
+  const motto = cleanShortText(body?.motto, 140);
+  const bio = cleanLongText(body?.bio, 3000);
+  const avatarUrl = cleanUrl(body?.avatar_url, 1200);
+  const media1 = cleanUrl(body?.media_1_url, 1200);
+  const media2 = cleanUrl(body?.media_2_url, 1200);
+  const media3 = cleanUrl(body?.media_3_url, 1200);
+  const musicUrl = cleanUrl(body?.music_url, 1200);
+
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO user_profiles (
+      user_id,
+      bio,
+      avatar_url,
+      real_name,
+      motto,
+      media_1_url,
+      media_2_url,
+      media_3_url,
+      music_url
+    )
+    VALUES (?, '', '', '', '', '', '', '', '')
+  `).bind(session.id).run();
+
+  await env.DB.prepare(`
+    UPDATE user_profiles
+    SET
+      real_name = ?,
+      motto = ?,
+      bio = ?,
+      avatar_url = ?,
+      media_1_url = ?,
+      media_2_url = ?,
+      media_3_url = ?,
+      music_url = ?
+    WHERE user_id = ?
+  `).bind(
+    realName,
+    motto,
+    bio,
+    avatarUrl,
+    media1,
+    media2,
+    media3,
+    musicUrl,
+    session.id
+  ).run();
+
+  const row = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.approved,
+      u.is_admin,
+      u.group_name,
+      u.created_at,
+      u.last_seen_at,
+      p.real_name,
+      p.motto,
+      p.bio,
+      p.avatar_url,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    WHERE u.id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  return json({
+    success: true,
+    message: "Profile updated",
+    profile: formatProfileRow(row)
+  }, 200, request);
+}
+
+function formatProfileRow(row) {
+  const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
+
+  const media = [
+    row.media_1_url || "",
+    row.media_2_url || "",
+    row.media_3_url || ""
+  ].filter(Boolean);
+
+  return {
+    id: row.id,
+    username: row.username,
+    approved: Boolean(row.approved),
+    is_admin: Boolean(row.is_admin),
+    group,
+    group_display: displayGroupName(group, Boolean(row.is_admin)),
+    created_at: row.created_at || null,
+    last_seen_at: row.last_seen_at || null,
+    real_name: row.real_name || "",
+    motto: row.motto || "",
+    bio: row.bio || "",
+    avatar_url: row.avatar_url || "",
+    media_1_url: row.media_1_url || "",
+    media_2_url: row.media_2_url || "",
+    media_3_url: row.media_3_url || "",
+    music_url: row.music_url || "",
+    media
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /*                                   USERS                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -521,7 +769,9 @@ async function handleMembers(request, env) {
       u.group_name,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.approved = 1
@@ -538,7 +788,9 @@ async function handleMembers(request, env) {
       groups: buildUserGroups(group, Boolean(row.is_admin)),
       last_seen_at: row.last_seen_at || null,
       bio: row.bio || "",
-      avatar_url: row.avatar_url || ""
+      avatar_url: row.avatar_url || "",
+      real_name: row.real_name || "",
+      motto: row.motto || ""
     };
   });
 
@@ -1346,6 +1598,24 @@ function cleanForumBody(value) {
 function cleanForumComment(value) {
   if (typeof value !== "string") return "";
   return value.replace(/\r\n/g, "\n").trim().slice(0, 3000);
+}
+
+function cleanShortText(value, maxLen = 255) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLen);
+}
+
+function cleanLongText(value, maxLen = 3000) {
+  if (typeof value !== "string") return "";
+  return value.replace(/\r\n/g, "\n").trim().slice(0, maxLen);
+}
+
+function cleanUrl(value, maxLen = 1200) {
+  if (typeof value !== "string") return "";
+  const cleaned = value.trim().slice(0, maxLen);
+  if (!cleaned) return "";
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  return "";
 }
 
 function normaliseReactionType(value) {
