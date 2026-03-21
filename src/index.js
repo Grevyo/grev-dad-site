@@ -324,22 +324,36 @@ export default {
       }
 
       // Global chat - get messages
-      if (path === "/api/chat/global/messages") {
-        const user = await requireApprovedUser(request, env);
-        if (!user) {
-          return json({ error: "Not logged in" }, 401);
-        }
+if (path === "/api/chat/global/messages") {
+  const user = await requireApprovedUser(request, env);
+  if (!user) {
+    return json({ error: "Not logged in" }, 401);
+  }
 
-        const messages = await env.DB.prepare(`
-          SELECT id, author_username, message, created_at
-          FROM global_chat_messages
-          ORDER BY id DESC
-          LIMIT 50
-        `).all();
+  const messages = await env.DB.prepare(`
+    SELECT
+      global_chat_messages.id,
+      global_chat_messages.author_username,
+      global_chat_messages.message,
+      global_chat_messages.created_at,
+      users.is_admin
+    FROM global_chat_messages
+    LEFT JOIN users
+      ON users.id = global_chat_messages.author_user_id
+    ORDER BY global_chat_messages.id DESC
+    LIMIT 50
+  `).all();
 
-        const results = (messages.results || []).reverse();
-        return json({ messages: results });
-      }
+  const results = (messages.results || []).reverse().map(msg => ({
+    id: msg.id,
+    author_username: msg.author_username,
+    author_group: msg.is_admin ? "Admin" : "Member",
+    message: msg.message,
+    created_at: msg.created_at
+  }));
+
+  return json({ messages: results });
+}
 
       // Global chat - send message
       if (path === "/api/chat/global/send" && request.method === "POST") {
