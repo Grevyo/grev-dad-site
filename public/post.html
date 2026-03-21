@@ -22,6 +22,16 @@
       margin-bottom: 18px;
     }
 
+    .thread-image {
+      width: 100%;
+      max-height: 460px;
+      object-fit: cover;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+      background: rgba(255,255,255,0.03);
+    }
+
     .thread-body {
       white-space: pre-wrap;
       line-height: 1.65;
@@ -82,6 +92,7 @@
 
         <h1 id="thread-title" class="thread-title">Loading thread...</h1>
         <div id="thread-meta" class="thread-meta"></div>
+        <div id="thread-image-wrap"></div>
         <div id="thread-body" class="thread-body"></div>
 
         <div class="thread-actions">
@@ -137,6 +148,7 @@
     const threadMessage = document.getElementById("thread-message");
     const threadTitle = document.getElementById("thread-title");
     const threadMeta = document.getElementById("thread-meta");
+    const threadImageWrap = document.getElementById("thread-image-wrap");
     const threadBody = document.getElementById("thread-body");
     const likeBtn = document.getElementById("like-btn");
     const dislikeBtn = document.getElementById("dislike-btn");
@@ -207,6 +219,15 @@
         <span>👎 ${Number(post.dislike_count || 0)}</span>
         <span>💬 ${Number(post.comment_count || 0)}</span>
       `;
+
+      if (post.image_url) {
+        threadImageWrap.innerHTML = `
+          <img class="thread-image" src="${escapeHtml(post.image_url)}" alt="Thread image" />
+        `;
+      } else {
+        threadImageWrap.innerHTML = "";
+      }
+
       threadBody.textContent = post.body || "";
 
       likeBtn.textContent = post.user_reaction === "like" ? "👍 Liked" : "👍 Like";
