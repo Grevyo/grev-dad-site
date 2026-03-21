@@ -264,7 +264,48 @@ export default {
         return json({ recent: results });
       }
 
-      // --- 5. USER PROFILES & INVENTORY ---
+      // --- 5. ADMIN & MAINTENANCE: MEGA SEEDER ---
+      if (path === "/api/admin/mega-seed" && request.method === "POST") {
+        const admin = await requireAdminUser(request, env);
+        if (!admin) return json({ error: "Forbidden" }, 403);
+
+        try {
+          const res = await fetch(`https://api.pricempire.com/v1/getPrices?api_key=${SKIN_API_KEY}&sources=steam`);
+          const data = await res.json();
+          if (!data.items) return json({ error: "No items found in API" }, 500);
+
+          let addedCount = 0;
+          for (const [fullName, details] of Object.entries(data.items)) {
+            if (!fullName.includes(" | ")) continue;
+
+            const parts = fullName.split(" | ");
+            const weaponType = parts[0];
+            const skinAndWear = parts[1];
+            const skinName = skinAndWear.split(" (")[0];
+            const price = (details.steam?.price || 0) / 100;
+
+            if (price > 0) {
+              let rarity = "milspec";
+              let weight = 50;
+              if (price > 200 || weaponType.includes("Knife") || weaponType.includes("Gloves")) { rarity = "rare_special"; weight = 1; }
+              else if (price > 100) { rarity = "covert"; weight = 2; }
+              else if (price > 30) { rarity = "classified"; weight = 10; }
+              else if (price > 10) { rarity = "restricted"; weight = 20; }
+
+              await env.CASES_DB.prepare(`
+                INSERT OR IGNORE INTO item_definitions (case_name, weapon_type, skin_name, rarity, base_price, drop_weight)
+                VALUES (?, ?, ?, ?, ?, ?)
+              `).bind("Global Collection", weaponType, skinName, rarity, price, weight).run();
+              addedCount++;
+            }
+          }
+          return json({ success: true, message: `Seeded ${addedCount} skins into 'Global Collection'` });
+        } catch (e) {
+          return json({ error: e.message }, 500);
+        }
+      }
+
+      // --- 6. USER PROFILES & INVENTORY ---
       if (path === "/api/user/inventory") {
         const targetUserId = url.searchParams.get("id");
         if (!targetUserId) return json({ error: "No User ID provided" }, 400);
