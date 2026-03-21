@@ -9,9 +9,60 @@
     body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
     
     .wrap { max-width: 1000px; margin: 40px auto; padding: 24px; text-align: center; }
-    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 40px; }
+    .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 40px; margin-bottom: 20px; }
 
-    /* The Spinner Container */
+    /* --- Step 4: Live Feed Styles --- */
+    .feed-container {
+      background: #11151c;
+      border: 1px solid #222831;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    .feed-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: #8f98a3;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+    #global-feed {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 5px;
+    }
+    /* Custom Scrollbar for the feed */
+    #global-feed::-webkit-scrollbar { height: 4px; }
+    #global-feed::-webkit-scrollbar-thumb { background: #222831; border-radius: 10px; }
+
+    .feed-item {
+      flex: 0 0 auto;
+      background: #1c222d;
+      padding: 8px 12px;
+      border-radius: 6px;
+      min-width: 160px;
+      font-size: 0.8rem;
+      border-left: 3px solid #4b69ff;
+    }
+    .feed-user { font-weight: bold; color: #f5f7fa; margin-bottom: 2px; }
+    .feed-skin { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* --- Spinner Styles --- */
     .spinner-viewport {
       position: relative;
       width: 100%;
@@ -24,8 +75,6 @@
       display: flex;
       align-items: center;
     }
-
-    /* The Red Vertical Line in the middle */
     .center-line {
       position: absolute;
       left: 50%;
@@ -36,8 +85,6 @@
       z-index: 10;
       box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
     }
-
-    /* The moving rail of items */
     .items-rail {
       display: flex;
       position: absolute;
@@ -45,11 +92,9 @@
       transition: transform 5s cubic-bezier(0.1, 0, 0.05, 1);
       will-change: transform;
     }
-
     .skin-card {
-      min-width: 160px; /* Adjusted to match offset math */
+      min-width: 160px;
       height: 140px;
-      margin: 0; /* Removed margin to make offset calculation more precise */
       background: #1c222d;
       border-bottom: 5px solid #4b69ff;
       display: flex;
@@ -89,6 +134,16 @@
   <div id="site-header"></div>
 
   <div class="wrap">
+    <div class="feed-container">
+      <div class="feed-header">
+        <div class="live-dot"></div>
+        Live Family Drops
+      </div>
+      <div id="global-feed">
+        <div style="color: #4b4e52; font-size: 0.8rem;">Loading latest unboxes...</div>
+      </div>
+    </div>
+
     <div class="box">
       <h1>CS2 Case Simulator</h1>
       <p>Test your luck on the Kilowatt Case!</p>
@@ -116,20 +171,43 @@
     const rail = document.getElementById('rail');
     const openBtn = document.getElementById('openBtn');
 
+    // --- STEP 4: LOAD FEED LOGIC ---
+    async function loadGlobalFeed() {
+      try {
+        const res = await fetch("/api/inventory/recent-global");
+        const data = await res.json();
+        const feed = document.getElementById("global-feed");
+
+        if (data.recent && data.recent.length > 0) {
+          feed.innerHTML = "";
+          data.recent.forEach(drop => {
+            const colors = { covert: '#eb4b4b', classified: '#d32ee6', restricted: '#8847ff', milspec: '#4b69ff' };
+            const borderColor = colors[drop.skin_rarity] || '#4b69ff';
+            
+            const div = document.createElement("div");
+            div.className = "feed-item";
+            div.style.borderLeftColor = borderColor;
+            div.innerHTML = `
+              <div class="feed-user">${drop.username}</div>
+              <div class="feed-skin" style="color: ${borderColor}">${drop.skin_name}</div>
+            `;
+            feed.appendChild(div);
+          });
+        }
+      } catch (e) { console.error("Feed error:", e); }
+    }
+
     async function startSpin() {
       openBtn.disabled = true;
       document.getElementById('win-message').innerText = "Opening...";
       
-      // 1. Reset rail position
       rail.style.transition = "none";
       rail.style.transform = "translateX(0px)";
       rail.innerHTML = "";
       
-      // 2. Pick the winning item first so we can place it accurately
       const winningIndex = 50; 
       const winner = caseSkins[Math.floor(Math.random() * caseSkins.length)];
       
-      // 3. Fill the rail
       for(let i=0; i < 60; i++) {
         const skin = (i === winningIndex) ? winner : caseSkins[Math.floor(Math.random() * caseSkins.length)];
         const card = document.createElement('div');
@@ -138,24 +216,19 @@
         rail.appendChild(card);
       }
 
-      // 4. Calculate spin distance (160px width per card)
       const itemWidth = 160;
       const viewportWidth = document.querySelector('.spinner-viewport').offsetWidth;
-      // Offset centers the winning card on the red line
       const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2);
 
-      // 5. Trigger animation
       setTimeout(() => {
         rail.style.transition = "transform 5s cubic-bezier(0.1, 0, 0.05, 1)";
         rail.style.transform = `translateX(-${finalOffset}px)`;
       }, 50);
 
-      // 6. Finalize (Phase 3 Integration)
       setTimeout(async () => {
         document.getElementById('win-message').innerText = `You unboxed: ${winner.type} | ${winner.name}!`;
         openBtn.disabled = false;
 
-        // Save to Database
         try {
           const response = await fetch("/api/inventory/add", {
             method: "POST",
@@ -167,12 +240,21 @@
             })
           });
           
-          if (!response.ok) console.error("Could not save item. Check login status.");
+          if (response.ok) {
+            // Update the feed immediately so your win shows up!
+            loadGlobalFeed();
+          } else {
+            console.error("Could not save item.");
+          }
         } catch (err) {
           console.error("Error saving unboxed item:", err);
         }
       }, 5200);
     }
+
+    // Initialize feed and set refresh interval
+    loadGlobalFeed();
+    setInterval(loadGlobalFeed, 15000); 
   </script>
 </body>
 </html>
