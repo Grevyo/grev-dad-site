@@ -118,10 +118,13 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname.toLowerCase().replace(/\/$/, "");
 
-      // --- CLEAN ROUTING REDIRECTS ---
+      // --- CLEAN ROUTING: FIXED TO PREVENT REDIRECT LOOPS ---
       if (path === "/cases") return redirect(request, "/cases.html");
       if (path === "/members") return redirect(request, "/members.html");
-      if (path === "/profile") return redirect(request, "/profile.html" + url.search);
+      if (path === "/profile" && !url.pathname.endsWith(".html")) {
+        return redirect(request, "/profile.html" + url.search);
+      }
+      
       if (path === "/api/ping") return json({ ok: true });
 
       // --- AUTH: ME ---
