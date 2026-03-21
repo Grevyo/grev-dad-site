@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Log In - Grev.dad</title>
   <style>
-  .hidden {
-  display: none !important;
-}
+    .hidden { display: none !important; }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
@@ -24,16 +22,28 @@
     .form-button { width: 100%; padding: 12px; background: #9ecbff; border: none; border-radius: 8px; color: #0f1115; font-size: 1rem; font-weight: 600; cursor: pointer; }
     .form-button:hover { background: #4a8ab7; }
     .footer { max-width: 1100px; margin: 0 auto; padding: 10px 24px 50px; color: #8f98a3; font-size: 0.92rem; }
+    
+    .msg-box { 
+      padding: 12px; 
+      background: #21262d; 
+      border: 1px solid #30363d; 
+      border-radius: 8px; 
+      margin-bottom: 16px; 
+      color: #9ecbff; 
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <!-- The header will be injected here -->
   <div id="site-header"></div>
 
   <main>
     <div class="wrap">
       <div class="box">
         <h1>Log In</h1>
+        
+        <div id="message" class="msg-box hidden"></div>
+
         <form action="/api/login" method="POST">
           <input class="form-input" type="text" name="username" placeholder="Username" required />
           <input class="form-input" type="password" name="password" placeholder="Password" required />
@@ -46,5 +56,24 @@
   <footer class="footer">© Grev.dad — personal projects, playgrounds, and experiments.</footer>
 
   <script src="/header.js"></script>
+
+  <script>
+    // 1. FORCED LOGOUT: Kill the cookie on the front-end immediately
+    // We match the Path=/ and add an expired date to force the browser to drop it.
+    document.cookie = "session_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    
+    // Clear any local storage/session storage to be safe
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 2. Display messages from the URL (like ?msg=Logged Out)
+    const params = new URLSearchParams(window.location.search);
+    const msg = params.get('msg');
+    if (msg) {
+      const msgDiv = document.getElementById('message');
+      msgDiv.textContent = msg;
+      msgDiv.classList.remove('hidden');
+    }
+  </script>
 </body>
 </html>
