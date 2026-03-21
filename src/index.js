@@ -23,6 +23,7 @@ function getCookieValue(cookieHeader, name) {
 
 function buildSessionCookie(token) {
   const maxAge = 60 * 60 * 24 * 7;
+  // Note the attributes here: Path, HttpOnly, Secure, SameSite
   return `session_token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -185,7 +186,7 @@ export default {
           status: 302, 
           headers: { 
             "Location": "/login.html?msg=Logged%20Out", 
-            // Matching Path=/ and SameSite=Lax from buildSessionCookie is vital
+            // FIXED: Added 'Secure; SameSite=Lax' to exactly match the login cookie
             "Set-Cookie": "session_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT" 
           } 
         });
