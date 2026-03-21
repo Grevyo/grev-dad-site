@@ -6,7 +6,6 @@
     <title>Grev.dad | Cases</title>
     <link rel="stylesheet" href="/style.css">
     <style>
-        /* CSS: Making it look like a real app */
         body {
             background-color: #1a1a1d;
             color: #ffffff;
@@ -17,9 +16,7 @@
             align-items: center;
         }
 
-        /* The Header Hook - Matches your main site's layout */
         #header-container { width: 100%; min-height: 60px; }
-
         .container { width: 90%; max-width: 1100px; margin-top: 40px; text-align: center; }
 
         /* THE SPINNER */
@@ -51,6 +48,7 @@
             height: 100%;
             align-items: center;
             transform: translateX(0);
+            will-change: transform;
         }
 
         /* SKIN CARDS */
@@ -65,11 +63,16 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            font-size: 14px;
+            font-size: 13px;
             text-align: center;
             border-radius: 4px;
             flex-shrink: 0;
+            padding: 5px;
+            box-sizing: border-box;
         }
+
+        .skin-card span { font-weight: bold; display: block; margin-bottom: 4px; }
+        .skin-card small { color: #aaa; }
 
         /* RARITY COLORS */
         .rarity-milspec { border-color: #4b69ff; }
@@ -79,7 +82,7 @@
         .rarity-rare_special { border-color: #ffae00; }
 
         /* CONTROLS */
-        .controls { margin: 20px 0; display: flex; gap: 10px; justify-content: center; }
+        .controls { margin: 20px 0; display: flex; gap: 10px; justify-content: center; align-items: center; }
         select, button {
             padding: 12px 24px;
             font-size: 16px;
@@ -87,10 +90,11 @@
             border: none;
             cursor: pointer;
         }
-        select { background: #333; color: white; border: 1px solid #444; }
-        button { background: #ffae00; color: #111; font-weight: bold; transition: transform 0.1s; }
+        select { background: #333; color: white; border: 1px solid #444; min-width: 200px; }
+        button { background: #ffae00; color: #111; font-weight: bold; transition: all 0.2s; }
+        button:hover { background: #ffc13b; }
         button:active { transform: scale(0.95); }
-        button:disabled { background: #555; cursor: not-allowed; }
+        button:disabled { background: #555; cursor: not-allowed; opacity: 0.6; }
 
         /* GLOBAL FEED */
         #global-feed {
@@ -98,11 +102,12 @@
             position: fixed;
             right: 20px;
             top: 100px;
-            background: rgba(0,0,0,0.4);
+            background: rgba(0,0,0,0.6);
             padding: 15px;
             border-radius: 8px;
             text-align: left;
             z-index: 5;
+            border: 1px solid #333;
         }
         .feed-item {
             padding: 8px;
@@ -110,14 +115,15 @@
             background: #222;
             margin-bottom: 8px;
             font-size: 12px;
+            border-radius: 0 4px 4px 0;
         }
-        .feed-user { font-weight: bold; color: #aaa; margin-bottom: 2px; }
+        .feed-user { font-weight: bold; color: #eee; margin-bottom: 2px; }
 
-        #win-display { min-height: 80px; margin-top: 10px; }
+        #win-display { min-height: 100px; margin-top: 10px; }
         #win-message { font-size: 1.1rem; color: #888; }
         #win-details { font-size: 1.4rem; font-weight: bold; color: #ffae00; margin-top: 5px; }
 
-        @media (max-width: 800px) {
+        @media (max-width: 1200px) {
             #global-feed { position: static; width: 90%; margin: 20px auto; }
         }
     </style>
@@ -134,21 +140,21 @@
         </div>
 
         <div id="win-display">
-            <div id="win-message">Select a case to begin...</div>
+            <div id="win-message">Select a collection to view skins...</div>
             <div id="win-details"></div>
         </div>
 
         <div class="controls">
             <select id="caseSelector" onchange="updateCasePreview()">
-                <option>Loading Cases...</option>
+                <option value="">Loading Collections...</option>
             </select>
             <button id="openBtn" onclick="startSpin()">Open Case ($2.50)</button>
         </div>
     </div>
 
     <div id="global-feed">
-        <h4 style="margin: 0 0 10px 0; color: #ffae00;">Recent Drops</h4>
-        <div id="feed-container">Waiting for data...</div>
+        <h4 style="margin: 0 0 10px 0; color: #ffae00; text-transform: uppercase; letter-spacing: 1px;">Live Drops</h4>
+        <div id="feed-container">Connecting to server...</div>
     </div>
 
     <script src="/header.js"></script>
@@ -156,6 +162,7 @@
         let currentCaseSkins = [];
         const rail = document.getElementById('rail');
         const openBtn = document.getElementById('openBtn');
+        const itemWidth = 170; // 160px + 10px margin
 
         async function initCases() {
             try {
@@ -164,17 +171,14 @@
                 const selector = document.getElementById('caseSelector');
                 
                 if (!data.cases || data.cases.length === 0) {
-                    selector.innerHTML = "<option>No Cases Found</option>";
+                    selector.innerHTML = "<option value=''>No Cases Found</option>";
                     return;
                 }
 
-                selector.innerHTML = "";
-                data.cases.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.case_name;
-                    opt.innerText = c.case_name;
-                    selector.appendChild(opt);
-                });
+                selector.innerHTML = data.cases.map(c => 
+                    `<option value="${c.case_name}">${c.case_name}</option>`
+                ).join('');
+
                 updateCasePreview();
             } catch (err) {
                 console.error("Failed to init cases:", err);
@@ -186,103 +190,136 @@
             const caseName = document.getElementById('caseSelector').value;
             if(!caseName) return;
 
-            const res = await fetch(`/api/cases/skins?name=${encodeURIComponent(caseName)}`);
-            const data = await res.json();
-            currentCaseSkins = data.skins;
-            
-            rail.innerHTML = "";
-            currentCaseSkins.forEach(skin => {
-                const card = document.createElement('div');
-                card.className = `skin-card rarity-${skin.rarity}`;
-                card.innerHTML = `<span>${skin.weapon_type}</span><br><small>${skin.skin_name}</small>`;
-                rail.appendChild(card);
-            });
+            try {
+                const res = await fetch(`/api/cases/skins?name=${encodeURIComponent(caseName)}`);
+                const data = await res.json();
+                currentCaseSkins = data.skins || [];
+                
+                rail.innerHTML = "";
+                // Only show a preview of up to 20 skins to keep the UI fast
+                const previewSkins = currentCaseSkins.slice(0, 20);
+                
+                previewSkins.forEach(skin => {
+                    const card = document.createElement('div');
+                    card.className = `skin-card rarity-${skin.rarity}`;
+                    card.innerHTML = `<span>${skin.weapon_type}</span><small>${skin.skin_name}</small>`;
+                    rail.appendChild(card);
+                });
+
+                document.getElementById('win-message').innerText = `${caseName} selected.`;
+                document.getElementById('win-details').innerText = "";
+            } catch (e) {
+                console.error("Preview error:", e);
+            }
         }
 
         async function loadGlobalFeed() {
-          try {
-            const res = await fetch("/api/inventory/recent-global");
-            const data = await res.json();
-            const feed = document.getElementById("feed-container");
-            if (!data.recent || data.recent.length === 0) return;
+            try {
+                const res = await fetch("/api/inventory/recent-global");
+                const data = await res.json();
+                const feed = document.getElementById("feed-container");
+                if (!data.recent || data.recent.length === 0) {
+                    feed.innerHTML = "<div style='font-size:12px; color:#666;'>No recent unboxings.</div>";
+                    return;
+                }
 
-            feed.innerHTML = "";
-            const colors = { covert: '#eb4b4b', classified: '#d32ee6', restricted: '#8847ff', milspec: '#4b69ff', rare_special: '#ffae00' };
-            
-            data.recent.forEach(drop => {
-              const borderColor = colors[drop.skin_rarity] || '#4b69ff';
-              const div = document.createElement("div");
-              div.className = "feed-item";
-              div.style.borderLeftColor = borderColor;
-              div.innerHTML = `
-                <div class="feed-user">${drop.username}</div>
-                <div class="feed-skin" style="color: ${borderColor}">${drop.skin_name}</div>
-              `;
-              feed.appendChild(div);
-            });
-          } catch (e) { console.error("Feed error:", e); }
+                feed.innerHTML = "";
+                const colors = { 
+                    covert: '#eb4b4b', 
+                    classified: '#d32ee6', 
+                    restricted: '#8847ff', 
+                    milspec: '#4b69ff', 
+                    rare_special: '#ffae00' 
+                };
+                
+                data.recent.forEach(drop => {
+                    const borderColor = colors[drop.skin_rarity] || '#4b69ff';
+                    const div = document.createElement("div");
+                    div.className = "feed-item";
+                    div.style.borderLeftColor = borderColor;
+                    div.innerHTML = `
+                        <div class="feed-user">${drop.username}</div>
+                        <div class="feed-skin" style="color: ${borderColor}">${drop.skin_name}</div>
+                    `;
+                    feed.appendChild(div);
+                });
+            } catch (e) { console.error("Feed error:", e); }
         }
 
         async function startSpin() {
-          const caseName = document.getElementById('caseSelector').value;
-          if (!caseName) return;
+            const caseName = document.getElementById('caseSelector').value;
+            if (!caseName || currentCaseSkins.length === 0) return;
 
-          openBtn.disabled = true;
-          document.getElementById('win-message').innerText = "Rolling...";
-          document.getElementById('win-details').innerText = "";
-          
-          const response = await fetch("/api/cases/open", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ caseName: caseName })
-          });
-          const result = await response.json();
-          
-          if (!result.success) {
-              alert(result.error || "Login required to open cases.");
-              openBtn.disabled = false;
-              return;
-          }
-
-          rail.style.transition = "none";
-          rail.style.transform = "translateX(0px)";
-          rail.innerHTML = "";
-          
-          const winningIndex = 40; 
-          const itemWidth = 170; // 160 width + 10 margin
-
-          for(let i=0; i < 60; i++) {
-            const isWinner = (i === winningIndex);
-            const skin = isWinner ? result : currentCaseSkins[Math.floor(Math.random() * currentCaseSkins.length)];
+            openBtn.disabled = true;
+            document.getElementById('win-message').innerText = "Opening Case...";
+            document.getElementById('win-details').innerText = "";
             
-            const card = document.createElement('div');
-            const rarity = isWinner ? result.rarity : skin.rarity;
-            card.className = `skin-card rarity-${rarity}`;
-            
-            let displayName = isWinner ? `<span>${result.item}</span>` : `<span>${skin.weapon_type}</span><br><small>${skin.skin_name}</small>`;
-            card.innerHTML = displayName;
-            rail.appendChild(card);
-          }
+            try {
+                const response = await fetch("/api/cases/open", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ caseName: caseName })
+                });
+                const result = await response.json();
+                
+                if (!result.success) {
+                    alert(result.error || "Please login to open cases.");
+                    openBtn.disabled = false;
+                    return;
+                }
 
-          const viewportWidth = document.querySelector('.spinner-viewport').offsetWidth;
-          const finalOffset = (winningIndex * itemWidth) - (viewportWidth / 2) + (itemWidth / 2) + (Math.random() * 60 - 30);
+                // Reset Rail
+                rail.style.transition = "none";
+                rail.style.transform = "translateX(0px)";
+                rail.innerHTML = "";
+                
+                const winningIndex = 45; // Further right for a longer spin
+                const totalItems = 60;
 
-          setTimeout(() => {
-            rail.style.transition = "transform 5s cubic-bezier(0.1, 0, 0.05, 1)";
-            rail.style.transform = `translateX(-${finalOffset}px)`;
-          }, 50);
+                for(let i=0; i < totalItems; i++) {
+                    const isWinner = (i === winningIndex);
+                    // Use random skin for filler, or the actual winner at the target index
+                    const skin = isWinner ? result : currentCaseSkins[Math.floor(Math.random() * currentCaseSkins.length)];
+                    
+                    const card = document.createElement('div');
+                    const rarity = isWinner ? result.rarity : skin.rarity;
+                    card.className = `skin-card rarity-${rarity}`;
+                    
+                    if (isWinner) {
+                        card.innerHTML = `<span>${result.weapon}</span><small>${result.skin}</small>`;
+                    } else {
+                        card.innerHTML = `<span>${skin.weapon_type}</span><small>${skin.skin_name}</small>`;
+                    }
+                    rail.appendChild(card);
+                }
 
-          setTimeout(() => {
-            document.getElementById('win-message').innerText = "You Unboxed:";
-            document.getElementById('win-details').innerText = `${result.item} | Value: $${result.price}`;
-            openBtn.disabled = false;
-            loadGlobalFeed();
-          }, 5200);
+                const viewportWidth = document.querySelector('.spinner-viewport').offsetWidth;
+                // Calculate position to center the winner
+                const centerOffset = (viewportWidth / 2) - (itemWidth / 2);
+                const finalOffset = (winningIndex * itemWidth) - centerOffset + (Math.random() * 80 - 40);
+
+                setTimeout(() => {
+                    rail.style.transition = "transform 6s cubic-bezier(0.15, 0, 0.05, 1)";
+                    rail.style.transform = `translateX(-${finalOffset}px)`;
+                }, 50);
+
+                setTimeout(() => {
+                    document.getElementById('win-message').innerText = "Congratulations!";
+                    document.getElementById('win-details').innerText = `${result.item} ($${result.price})`;
+                    openBtn.disabled = false;
+                    loadGlobalFeed();
+                }, 6200);
+
+            } catch (err) {
+                console.error("Spin error:", err);
+                openBtn.disabled = false;
+            }
         }
 
+        // Run
         initCases();
         loadGlobalFeed();
-        setInterval(loadGlobalFeed, 15000); 
+        setInterval(loadGlobalFeed, 10000); 
     </script>
 </body>
 </html>
