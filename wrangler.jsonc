@@ -1,10 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "grev-dad-site",
-  "main": "src/index.js",
+  "main": "index.js",
   "compatibility_date": "2026-03-21",
   "assets": {
-    "directory": "./public",
+    "directory": "./",
     "binding": "ASSETS",
     "run_worker_first": true
   },
