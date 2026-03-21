@@ -15,6 +15,7 @@
     .user-header { display: flex; align-items: center; gap: 15px; }
     .status-indicator { width: 12px; height: 12px; border-radius: 50%; background: #6b7280; }
     .online { background: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.4); }
+    .away { background: #facc15; box-shadow: 0 0 10px rgba(250, 204, 21, 0.4); }
 
     .inventory-grid { 
       display: grid; 
@@ -34,11 +35,13 @@
     }
     .item-card:hover { transform: translateY(-5px); border-color: #9ecbff; }
 
-    /* Rarity Colors */
-    .rarity-covert { border-bottom-color: #eb4b4b; }
-    .rarity-classified { border-bottom-color: #d32ee6; }
-    .rarity-restricted { border-bottom-color: #8847ff; }
-    .rarity-milspec { border-bottom-color: #4b69ff; }
+    /* Rarity Colors - Matching CS2 Standards */
+    .rarity-Covert { border-bottom-color: #eb4b4b; }
+    .rarity-Classified { border-bottom-color: #d32ee6; }
+    .rarity-Restricted { border-bottom-color: #8847ff; }
+    .rarity-Mil-Spec { border-bottom-color: #4b69ff; }
+    .rarity-Industrial { border-bottom-color: #5e98d9; }
+    .rarity-Consumer { border-bottom-color: #b0c3d9; }
 
     .item-val { color: #9ecbff; font-weight: bold; margin-top: 8px; display: block; font-size: 1.1rem; }
     .item-name { font-size: 0.85rem; display: block; margin-bottom: 5px; color: #8f98a3; }
@@ -97,43 +100,54 @@
         if (!res.ok) throw new Error("Private or Missing");
 
         const data = await res.json();
+        const user = data.user;
+        const inventory = data.inventory;
         
-        // Update Page Titles & Status
-        document.title = `${data.username}'s Inventory - Grev.dad`;
-        document.getElementById("user-title").innerText = `${data.username}'s Showcase`;
-        if (data.status === 'online') document.getElementById("status-dot").classList.add('online');
+        // Update Page Titles & Status using correct data mapping
+        document.title = `${user.username}'s Inventory - Grev.dad`;
+        document.getElementById("user-title").innerText = `${user.username}'s Showcase`;
+        
+        const statusDot = document.getElementById("status-dot");
+        statusDot.className = "status-indicator"; // Reset
+        if (user.status === 'online') statusDot.classList.add('online');
+        if (user.status === 'away') statusDot.classList.add('away');
 
         const list = document.getElementById("inventory-list");
         list.innerHTML = "";
 
         let totalVal = 0;
         
-        if (data.items.length === 0) {
-          list.innerHTML = "<p style='color: #4b4e52;'>This user hasn't unboxed any skins yet.</p>";
+        if (inventory.length === 0) {
+          list.innerHTML = "<p style='color: #4b4e52; grid-column: 1/-1; text-align: center; padding: 40px;'>This user hasn't unboxed any skins yet.</p>";
         }
 
-        data.items.forEach(item => {
+        inventory.forEach(item => {
           totalVal += item.estimated_value;
           
-          // Split the name if it contains " | " (e.g. "AK-47 | Inheritance")
-          const nameParts = item.skin_name.split(" | ");
-          const type = nameParts[0] || "Item";
-          const skin = nameParts[1] || "";
+          // Split the name (e.g. "AK-47 | Inheritance (Factory New)")
+          // We split by " | " then handle the skin name and wear
+          const parts = item.skin_name.split(" | ");
+          const weapon = parts[0] || "Item";
+          const skin = parts[1] || "Default";
 
           const div = document.createElement("div");
-          div.className = `item-card rarity-${item.skin_rarity}`;
+          // Re-map rarity name to handle spaces (Mil-Spec -> Mil-Spec)
+          const rarityClass = item.skin_rarity.replace(" ", "-");
+          div.className = `item-card rarity-${rarityClass}`;
+          
           div.innerHTML = `
-            <span class="item-name">${type}</span>
+            <span class="item-name">${weapon}</span>
             <span class="item-type">${skin}</span>
             <span class="item-val">$${item.estimated_value.toFixed(2)}</span>
           `;
           list.appendChild(div);
         });
 
-        document.getElementById("stats-summary").innerText = `Collection Size: ${data.items.length} items`;
+        document.getElementById("stats-summary").innerText = `Collection Size: ${inventory.length} items`;
         document.getElementById("total-val-display").innerText = `$${totalVal.toFixed(2)}`;
 
       } catch (err) {
+        console.error(err);
         document.getElementById("user-title").innerText = "Profile Unavailable";
         document.getElementById("stats-summary").innerText = "Could not load this user's inventory.";
       }
