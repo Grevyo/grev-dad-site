@@ -45,30 +45,59 @@
       cursor: pointer;
       font-weight: 700;
       margin-right: 8px;
-      transition: opacity 0.2s;
     }
-
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-approve { background: #22c55e; color: #08110b; }
     .btn-reject { background: #ef4444; color: white; }
     .btn-remove { background: #f97316; color: white; }
-    
-    /* Style for the Mega Seed button */
-    .btn-seed { 
-      background: #ffae00; 
-      color: #111; 
-      width: 100%; 
-      font-size: 1.1rem;
-      padding: 15px;
+
+    /* Case Editor Styles */
+    .input-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; color: #b8c0cc; font-size: 0.9rem; }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #222831;
+      background: #0f141a;
+      color: white;
+      margin-bottom: 10px;
+    }
+
+    #searchResults {
+      background: #080a0d;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #222831;
+    }
+
+    .search-item {
+      padding: 10px;
+      border-bottom: 1px solid #161b22;
+      cursor: pointer;
+    }
+
+    .search-item:hover { background: #1c2128; }
+
+    .pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
       margin-top: 10px;
     }
 
-    #seed-status {
-      margin-top: 10px;
-      font-size: 0.9rem;
-      color: #ffae00;
+    .skin-pill {
+      background: #222831;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
+
+    .skin-pill span { color: #ef4444; cursor: pointer; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -77,14 +106,32 @@
   <div class="wrap">
     <div class="box">
       <h1>Admin Panel</h1>
-      <p>Approve or reject pending accounts, manage forum posts, and sync case data.</p>
+      <p>Manage users, forum posts, and create custom cases.</p>
     </div>
 
     <div class="box">
-      <h2>Case Management</h2>
-      <p>Fetch latest skin data and prices from Pricempire API. This will populate the "Global Collection" case.</p>
-      <button id="seedBtn" class="btn btn-seed" onclick="runMegaSeed()">🚀 Run Mega Seed (Sync Global Skins)</button>
-      <div id="seed-status"></div>
+      <h2>Case Builder</h2>
+      <div class="input-group">
+        <label>Case Name</label>
+        <input type="text" id="caseName" placeholder="e.g., Cobalt Collection">
+      </div>
+      <div class="input-group">
+        <label>Unbox Price ($)</label>
+        <input type="number" id="casePrice" placeholder="2.50" step="0.01">
+      </div>
+
+      <div class="input-group">
+        <label>Add Skins (Search Global Collection)</label>
+        <input type="text" id="skinSearch" placeholder="Type skin name..." oninput="handleSearch()">
+        <div id="searchResults"></div>
+      </div>
+
+      <div id="selectedSkinsContainer">
+        <label>Skins in this Case:</label>
+        <div class="pill-list" id="selectedSkinsList"></div>
+      </div>
+
+      <button class="btn btn-approve" style="width: 100%; margin-top: 20px;" onclick="saveCustomCase()">💾 Save Custom Case</button>
     </div>
 
     <div class="box">
@@ -100,130 +147,108 @@
 
   <script src="/header.js"></script>
   <script>
-    // --- NEW: MEGA SEED LOGIC ---
-    async function runMegaSeed() {
-      const btn = document.getElementById('seedBtn');
-      const status = document.getElementById('seed-status');
+    let selectedSkins = [];
+
+    // --- CASE EDITOR LOGIC ---
+    async function handleSearch() {
+      const query = document.getElementById('skinSearch').value;
+      const resultsDiv = document.getElementById('searchResults');
       
-      if (!confirm("This will fetch thousands of skins and update prices. It may take up to 30 seconds. Continue?")) return;
+      if (query.length < 3) {
+        resultsDiv.innerHTML = "";
+        return;
+      }
 
-      btn.disabled = true;
-      btn.innerText = "⏳ Syncing Database...";
-      status.innerText = "Requesting data from Pricempire API... please wait.";
+      // Fetch skins from your Global Collection
+      const res = await fetch(`/api/cases/skins?name=Global%20Collection`);
+      const data = await res.json();
+      
+      const filtered = data.skins.filter(s => 
+        s.skin_name.toLowerCase().includes(query.toLowerCase()) || 
+        s.weapon_type.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 8);
 
-      try {
-        const res = await fetch("/api/admin/mega-seed", { credentials: "include" });
-        const data = await res.json();
+      resultsDiv.innerHTML = filtered.map(s => `
+        <div class="search-item" onclick="addSkin('${s.weapon_type}', '${s.skin_name}', ${s.base_price}, '${s.rarity}')">
+          ${s.weapon_type} | ${s.skin_name} ($${s.base_price})
+        </div>
+      `).join('');
+    }
 
-        if (data.success) {
-          status.style.color = "#22c55e";
-          status.innerText = `✅ Success! ${data.message}`;
-        } else {
-          throw new Error(data.error || "Unknown error occurred");
-        }
-      } catch (err) {
-        status.style.color = "#ef4444";
-        status.innerText = `❌ Error: ${err.message}`;
-        console.error(err);
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "🚀 Run Mega Seed (Sync Global Skins)";
+    function addSkin(weapon, skin, price, rarity) {
+      if (selectedSkins.find(s => s.skin === skin && s.weapon === weapon)) return;
+      
+      selectedSkins.push({ weapon, skin, price, rarity });
+      document.getElementById('skinSearch').value = "";
+      document.getElementById('searchResults').innerHTML = "";
+      renderSkins();
+    }
+
+    function removeSkin(index) {
+      selectedSkins.splice(index, 1);
+      renderSkins();
+    }
+
+    function renderSkins() {
+      const list = document.getElementById('selectedSkinsList');
+      list.innerHTML = selectedSkins.map((s, i) => `
+        <div class="skin-pill">
+          ${s.weapon} | ${s.skin} 
+          <span onclick="removeSkin(${i})">×</span>
+        </div>
+      `).join('');
+    }
+
+    async function saveCustomCase() {
+      const name = document.getElementById('caseName').value;
+      const price = document.getElementById('casePrice').value;
+
+      if (!name || !price || selectedSkins.length === 0) {
+        alert("Please fill in all fields and add at least one skin.");
+        return;
+      }
+
+      const res = await fetch("/api/admin/create-case", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, price, skins: selectedSkins })
+      });
+
+      if (res.ok) {
+        alert("Case created successfully!");
+        location.reload();
       }
     }
 
-    // --- EXISTING ADMIN LOGIC ---
+    // --- EXISTING LOGIC ---
     async function loadPendingUsers() {
       const res = await fetch("/api/admin/pending", { credentials: "include" });
       const wrap = document.getElementById("pendingUsers");
-
-      if (!res.ok) {
-        wrap.innerHTML = "<p>Unable to load pending users.</p>";
-        return;
-      }
-
+      if (!res.ok) { wrap.innerHTML = "<p>Error loading.</p>"; return; }
       const data = await res.json();
-      wrap.innerHTML = "";
-
-      if (!data.pending || !data.pending.length) {
-        wrap.innerHTML = "<p>No pending users.</p>";
-        return;
-      }
-
-      for (const user of data.pending) {
+      wrap.innerHTML = data.pending.length ? "" : "<p>No pending users.</p>";
+      data.pending.forEach(user => {
         const div = document.createElement("div");
         div.className = "user-card";
-        div.innerHTML = `
-          <h3>${user.username}</h3>
-          <p>Created: ${user.created_at}</p>
-          <button class="btn btn-approve" onclick="approveUser('${user.id}')">Approve</button>
-          <button class="btn btn-reject" onclick="rejectUser('${user.id}')">Reject</button>
-        `;
+        div.innerHTML = `<h3>${user.username}</h3><p>${user.created_at}</p>
+          <button class="btn btn-approve" onclick="approveUser('${user.id}')">Approve</button>`;
         wrap.appendChild(div);
-      }
-    }
-
-    // Note: I updated the approve/reject to use user.id to match your index.js needs
-    async function approveUser(userId) {
-      await fetch("/api/admin/approve-user", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ user_id: userId })
       });
-      loadPendingUsers();
-    }
-
-    async function rejectUser(userId) {
-      await fetch("/api/admin/reject-user", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ user_id: userId })
-      });
-      loadPendingUsers();
     }
 
     async function loadForumPosts() {
       const res = await fetch("/api/admin/forum-posts", { credentials: "include" });
       const wrap = document.getElementById("forumPosts");
-
-      if (!res.ok) {
-        wrap.innerHTML = "<p>Unable to load forum posts.</p>";
-        return;
-      }
-
+      if (!res.ok) return;
       const data = await res.json();
-      wrap.innerHTML = "";
-
-      if (!data.posts || !data.posts.length) {
-        wrap.innerHTML = "<p>No forum posts found.</p>";
-        return;
-      }
-
-      for (const post of data.posts) {
+      wrap.innerHTML = data.posts.length ? "" : "<p>No posts.</p>";
+      data.posts.forEach(post => {
         const div = document.createElement("div");
         div.className = "post-card";
-        div.innerHTML = `
-          <h3>${post.subject}</h3>
-          <p>By ${post.author_username} · ${post.created_at}</p>
-          <button class="btn btn-remove" onclick="removePost(${post.id})">Remove Post</button>
-        `;
+        div.innerHTML = `<h3>${post.subject}</h3><p>By ${post.author_username}</p>
+          <button class="btn btn-remove" onclick="removePost(${post.id})">Remove</button>`;
         wrap.appendChild(div);
-      }
-    }
-
-    async function removePost(postId) {
-      const ok = confirm("Remove this forum post?");
-      if (!ok) return;
-
-      await fetch("/api/admin/remove-post", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ post_id: postId })
       });
-
-      loadForumPosts();
     }
 
     loadPendingUsers();
