@@ -147,9 +147,15 @@
         .card:hover { transform: translateY(-6px); background: var(--card-hover); border-color: var(--brand-color); }
         .card a { position: absolute; inset: 0; border-radius: 18px; }
 
-        .merch-item { text-align: center; background: #1a1d29; }
-        .merch-visual { font-size: 3rem; background: #0f1117; padding: 20px; border-radius: 12px; margin-bottom: 10px; }
-        .price { display: block; margin-top: 10px; font-weight: 800; color: #00ff88; }
+        /* ================= CS2 OPENER STYLES ================= */
+        .case-wrapper {
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            background: #151824;
+            border: 1px solid #2d3244;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
 
         footer { margin-top: 60px; padding: 30px 0; border-top: 1px solid #202436; color: #8a91a3; font-size: 14px; text-align: center; }
 
@@ -209,22 +215,20 @@
             </div>
         </section>
 
-        <section id="merch">
-            <h2 class="section-title">Interactive Merch</h2>
-            <div class="links-grid">
-                <article class="card merch-item">
-                    <div class="merch-visual">👕</div>
-                    <h3>IDK Hoodie</h3>
-                    <span class="price">$45.00</span>
-                    <a href="#"></a>
-                </article>
-                <article class="card merch-item">
-                    <div class="merch-visual">🎁</div>
-                    <h3>Loot Box</h3>
-                    <p>Surprise item!</p>
-                    <a href="#"></a>
-                </article>
+        <section id="cs2-simulator">
+            <h2 class="section-title">CS2 Case Opener Simulator</h2>
+            <div class="case-wrapper">
+                <iframe 
+                    src="https://case-sim.com/embed" 
+                    width="100%" 
+                    height="500px" 
+                    frameborder="0" 
+                    scrolling="no">
+                </iframe>
             </div>
+            <p style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 15px;">
+                Open cases for fun! (No real skins or money involved)
+            </p>
         </section>
 
         <footer>
