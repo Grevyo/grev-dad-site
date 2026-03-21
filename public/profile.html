@@ -5,24 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Profile - Grev.dad</title>
   <style>
-  .hidden {
-  display: none !important;
-}
+    .hidden { display: none !important; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #0f1115; color: #f5f7fa; }
-    .topbar { position: sticky; top: 0; z-index: 1000; display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: rgba(17, 21, 27, 0.96); border-bottom: 1px solid #222831; }
-    .logo-link { display: inline-flex; align-items: center; text-decoration: none; }
-    .logo-img { height: 95px; width: auto; display: block; }
-    .nav { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-    .nav a { color: #f5f7fa; text-decoration: none; font-size: 0.95rem; font-weight: 600; opacity: 0.92; }
-    .nav a:hover { opacity: 1; text-decoration: underline; }
+    
     .wrap { max-width: 1100px; margin: 40px auto; padding: 24px; }
     .box { background: #161b22; border: 1px solid #222831; border-radius: 18px; padding: 24px; margin-bottom: 24px; }
     .footer { max-width: 1100px; margin: 0 auto; padding: 10px 24px 50px; color: #8f98a3; font-size: 0.92rem; }
+
+    /* Inventory Specific Styling */
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .skin-card {
+      background: #1c222d;
+      border: 1px solid #2d333b;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      transition: transform 0.2s;
+      border-bottom: 4px solid #4b69ff; /* Default color */
+    }
+    .skin-card:hover { transform: translateY(-5px); }
+
+    .skin-name { font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #fff; }
+    .skin-value { font-size: 0.75rem; color: #9ecbff; font-weight: bold; }
+
+    /* Rarity Borders to match the Case Opener */
+    .rarity-covert { border-bottom-color: #eb4b4b; }
+    .rarity-classified { border-bottom-color: #d32ee6; }
+    .rarity-restricted { border-bottom-color: #8847ff; }
+    .rarity-milspec { border-bottom-color: #4b69ff; }
+
+    #total-worth { font-size: 1.5rem; color: #9ecbff; }
   </style>
 </head>
 <body>
-  <!-- The header will be injected here -->
   <div id="site-header"></div>
 
   <main>
@@ -30,6 +52,15 @@
       <div class="box">
         <h1>Your Profile</h1>
         <p>Welcome, <strong id="username">Loading...</strong></p>
+      </div>
+
+      <div class="box">
+        <h2>CS2 Inventory</h2>
+        <p>Total Estimated Value: <strong id="total-worth">$0.00</strong></p>
+        <hr style="border: 0; border-top: 1px solid #222831; margin: 20px 0;">
+        <div id="inventory-grid" class="inventory-grid">
+          <p>Loading items...</p>
+        </div>
       </div>
     </div>
   </main>
@@ -39,14 +70,53 @@
   <script src="/header.js"></script>
   <script>
     async function loadProfile() {
+      // 1. Load User Info
       const res = await fetch("/api/me", { credentials: "include" });
       if (!res.ok) {
         window.location.href = "/login.html?msg=Please%20log%20in.";
         return;
       }
-
       const data = await res.json();
       document.getElementById("username").textContent = data.user.username;
+
+      // 2. Load Inventory Info
+      loadInventory();
+    }
+
+    async function loadInventory() {
+      const grid = document.getElementById("inventory-grid");
+      const worthDisplay = document.getElementById("total-worth");
+
+      try {
+        const res = await fetch("/api/my-inventory");
+        const data = await res.json();
+
+        if (!data.items || data.items.length === 0) {
+          grid.innerHTML = "<p>Your inventory is empty. Go unbox some cases!</p>";
+          return;
+        }
+
+        grid.innerHTML = ""; // Clear the loading text
+        let total = 0;
+
+        data.items.forEach(item => {
+          total += item.estimated_value;
+
+          const card = document.createElement("div");
+          card.className = `skin-card rarity-${item.skin_rarity}`;
+          card.innerHTML = `
+            <div class="skin-name">${item.skin_name}</div>
+            <div class="skin-value">$${item.estimated_value.toFixed(2)}</div>
+          `;
+          grid.appendChild(card);
+        });
+
+        worthDisplay.textContent = `$${total.toFixed(2)}`;
+
+      } catch (err) {
+        console.error("Error loading inventory:", err);
+        grid.innerHTML = "<p>Error loading items.</p>";
+      }
     }
 
     loadProfile();
