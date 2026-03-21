@@ -148,6 +148,40 @@ export default {
         return json({ ok: true });
       }
 
+      // --- START INVENTORY / CASE API ---
+
+      // Save item to DB after unboxing
+      if (path === "/api/inventory/add" && request.method === "POST") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        const { name, rarity, value } = await request.json();
+
+        await env.DB.prepare(`
+          INSERT INTO inventory (user_id, skin_name, skin_rarity, estimated_value)
+          VALUES (?, ?, ?, ?)
+        `).bind(user.id, name, rarity, value).run();
+
+        return json({ success: true });
+      }
+
+      // Fetch user's inventory
+      if (path === "/api/my-inventory" && request.method === "GET") {
+        const user = await requireApprovedUser(request, env);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        const { results } = await env.DB.prepare(`
+          SELECT skin_name, skin_rarity, estimated_value, unboxed_at 
+          FROM inventory 
+          WHERE user_id = ? 
+          ORDER BY unboxed_at DESC
+        `).bind(user.id).all();
+
+        return json({ items: results });
+      }
+
+      // --- END INVENTORY / CASE API ---
+
       // Register
       if (path === "/api/register" && request.method === "POST") {
         const form = await request.formData();
@@ -611,7 +645,8 @@ export default {
         path === "/members.html" ||
         path === "/profile.html" ||
         path === "/admin.html" ||
-        path === "/new-post.html"
+        path === "/new-post.html" ||
+        path === "/cases.html"
       ) {
         const user = await requireApprovedUser(request, env);
         if (!user) {
