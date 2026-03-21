@@ -1,0 +1,26 @@
+<!-- public/header.html -->
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/index.html" aria-label="Go to home page">
+      <img
+        src="/grev-dad-logo.png"
+        alt="Grev.dad"
+        class="brand-logo"
+      />
+    </a>
+
+    <nav class="nav" id="site-nav">
+      <a class="nav-link" href="/index.html">Home</a>
+      <a class="nav-link" href="/login.html" data-guest-only>Login</a>
+      <a class="nav-link" href="/register.html" data-guest-only>Register</a>
+      <a class="nav-link hidden" href="/members.html" data-auth-only>Members</a>
+      <a class="nav-link hidden" href="/forum.html" data-auth-only>Forum</a>
+      <a class="nav-link hidden" href="/profile.html" data-auth-only>Profile</a>
+      <a class="nav-link hidden" href="/admin.html" data-admin-only>Admin</a>
+      <button class="btn hidden" id="header-logout-btn" type="button" data-auth-only>
+        Logout
+      </button>
+    </nav>
+  </div>
+</header>

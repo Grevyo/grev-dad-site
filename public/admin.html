@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .admin-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .panel-title {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+      line-height: 1.15;
+    }
+
+    .panel-subtitle {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.96rem;
+    }
+
+    .user-list {
+      display: grid;
+      gap: 10px;
+      max-height: 540px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .user-row {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .user-row:hover {
+      transform: translateY(-1px);
+      border-color: #3a4a61;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .user-row.active {
+      border-color: var(--accent);
+      background: rgba(142, 197, 255, 0.08);
+    }
+
+    .user-row-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .user-row-name {
+      font-weight: 700;
+    }
+
+    .user-row-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .role-badge,
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 9px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .role-badge {
+      background: rgba(142, 197, 255, 0.12);
+      color: #d9ebff;
+      border: 1px solid rgba(142, 197, 255, 0.2);
+    }
+
+    .status-approved {
+      background: rgba(74, 222, 128, 0.12);
+      color: #dbffe8;
+      border: 1px solid rgba(74, 222, 128, 0.2);
+    }
+
+    .status-pending {
+      background: rgba(251, 191, 36, 0.12);
+      color: #fff1c7;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    .user-row-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .detail-card {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    .detail-card h3 {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+    }
+
+    .detail-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .empty-box {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      .admin-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <section class="panel">
+        <h1 class="auth-title">Admin Panel</h1>
+        <p class="auth-subtitle">
+          Search members, open any account, approve users, and assign roles.
+        </p>
+        <div id="page-message" class="hidden"></div>
+      </section>
+
+      <div class="admin-layout mt-24">
+        <aside class="admin-stack">
+          <section class="panel">
+            <h2 class="panel-title">Search members</h2>
+            <p class="panel-subtitle">
+              Search by username or role. You can also use the full dropdown list below.
+            </p>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="user-search">Search</label>
+                <input
+                  id="user-search"
+                  class="form-input"
+                  type="text"
+                  placeholder="Search username or role..."
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="user-select">All users</label>
+                <select id="user-select" class="form-select">
+                  <option value="">Select a user...</option>
+                </select>
+              </div>
+
+              <div class="button-row">
+                <button id="refresh-users-btn" class="btn" type="button">Refresh users</button>
+                <button id="load-pending-btn" class="btn" type="button">Pending only</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">User list</h2>
+            <p class="panel-subtitle">
+              Click a user to load their account into the editor.
+            </p>
+
+            <div id="user-list" class="user-list">
+              <div class="empty-box">Loading users...</div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="admin-stack">
+          <section class="panel">
+            <h2 class="panel-title">Edit member</h2>
+            <p class="panel-subtitle">
+              Select a user to approve them, make them admin, or assign a role.
+            </p>
+
+            <div id="editor-empty" class="empty-box">
+              No user selected yet.
+            </div>
+
+            <form id="user-editor-form" class="form-grid hidden">
+              <input type="hidden" id="edit-user-id" />
+
+              <div class="detail-grid">
+                <div class="detail-card">
+                  <h3>Username</h3>
+                  <p id="detail-username">-</p>
+                </div>
+
+                <div class="detail-card">
+                  <h3>Current role</h3>
+                  <p id="detail-role">-</p>
+                </div>
+
+                <div class="detail-card">
+                  <h3>Created</h3>
+                  <p id="detail-created">-</p>
+                </div>
+
+                <div class="detail-card">
+                  <h3>Last seen</h3>
+                  <p id="detail-last-seen">-</p>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-group">Assign role</label>
+                <select id="edit-group" class="form-select" required></select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-approved">Approval</label>
+                <select id="edit-approved" class="form-select" required>
+                  <option value="true">Approved</option>
+                  <option value="false">Pending / Unapproved</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-is-admin">Admin access</label>
+                <select id="edit-is-admin" class="form-select" required>
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+                <div class="form-help">
+                  Setting this to Yes gives access to the admin panel regardless of their normal role.
+                </div>
+              </div>
+
+              <div class="button-row">
+                <button id="save-user-btn" class="btn btn-primary" type="submit">Save changes</button>
+              </div>
+            </form>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        Grev.dad — admin user management
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const allowedGroups = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
+
+    let allUsers = [];
+    let selectedUserId = null;
+
+    const pageMessage = document.getElementById("page-message");
+    const userSearch = document.getElementById("user-search");
+    const userSelect = document.getElementById("user-select");
+    const refreshUsersBtn = document.getElementById("refresh-users-btn");
+    const loadPendingBtn = document.getElementById("load-pending-btn");
+    const userList = document.getElementById("user-list");
+
+    const editorEmpty = document.getElementById("editor-empty");
+    const userEditorForm = document.getElementById("user-editor-form");
+
+    const editUserId = document.getElementById("edit-user-id");
+    const detailUsername = document.getElementById("detail-username");
+    const detailRole = document.getElementById("detail-role");
+    const detailCreated = document.getElementById("detail-created");
+    const detailLastSeen = document.getElementById("detail-last-seen");
+    const editGroup = document.getElementById("edit-group");
+    const editApproved = document.getElementById("edit-approved");
+    const editIsAdmin = document.getElementById("edit-is-admin");
+    const saveUserBtn = document.getElementById("save-user-btn");
+
+    function showMessage(type, text) {
+      pageMessage.className = `alert alert-${type}`;
+      pageMessage.textContent = text;
+    }
+
+    function clearMessage() {
+      pageMessage.className = "hidden";
+      pageMessage.textContent = "";
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function toTitleCase(value) {
+      if (!value) return "Standard";
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    async function checkAdminAccess() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.authenticated) {
+          window.location.href = "/login.html";
+          return false;
+        }
+
+        if (!data.user?.is_admin) {
+          showMessage("error", "You do not have access to the admin panel.");
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not verify admin access.");
+        return false;
+      }
+    }
+
+    function renderGroupOptions() {
+      editGroup.innerHTML = allowedGroups
+        .map((group) => `<option value="${group}">${toTitleCase(group)}</option>`)
+        .join("");
+    }
+
+    function renderUserDropdown(users) {
+      userSelect.innerHTML = `<option value="">Select a user...</option>` + users
+        .map((user) => `<option value="${user.id}">${escapeHtml(user.username)} (${toTitleCase(user.group)})</option>`)
+        .join("");
+    }
+
+    function renderUserList(users) {
+      if (!users.length) {
+        userList.innerHTML = `<div class="empty-box">No users found.</div>`;
+        return;
+      }
+
+      userList.innerHTML = users.map((user) => {
+        const isActive = Number(user.id) === Number(selectedUserId);
+        const statusClass = user.approved ? "status-approved" : "status-pending";
+        const statusText = user.approved ? "Approved" : "Pending";
+
+        return `
+          <button class="user-row ${isActive ? "active" : ""}" type="button" data-user-id="${user.id}">
+            <div class="user-row-main">
+              <span class="user-row-name">${escapeHtml(user.username)}</span>
+              <div class="user-row-badges">
+                <span class="role-badge">${escapeHtml(toTitleCase(user.group))}</span>
+                <span class="status-badge ${statusClass}">${statusText}</span>
+              </div>
+            </div>
+            <div class="user-row-meta">
+              ID: ${user.id} · Admin: ${user.is_admin ? "Yes" : "No"}
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      userList.querySelectorAll("[data-user-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const id = Number(button.getAttribute("data-user-id"));
+          selectUserById(id);
+        });
+      });
+    }
+
+    async function loadUsers(search = "") {
+      clearMessage();
+
+      try {
+        const response = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}`, {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load users.");
+          return;
+        }
+
+        allUsers = Array.isArray(data.users) ? data.users : [];
+        renderUserDropdown(allUsers);
+        renderUserList(allUsers);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load users.");
+      }
+    }
+
+    async function loadPendingUsers() {
+      clearMessage();
+
+      try {
+        const response = await fetch("/api/admin/pending-users", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load pending users.");
+          return;
+        }
+
+        allUsers = Array.isArray(data.users) ? data.users : [];
+        renderUserDropdown(allUsers);
+        renderUserList(allUsers);
+
+        if (!allUsers.length) {
+          showMessage("info", "There are no pending users right now.");
+        }
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load pending users.");
+      }
+    }
+
+    async function selectUserById(userId) {
+      clearMessage();
+
+      try {
+        const response = await fetch(`/api/admin/user?id=${encodeURIComponent(userId)}`, {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load user.");
+          return;
+        }
+
+        const user = data.user;
+        selectedUserId = user.id;
+
+        editUserId.value = user.id;
+        detailUsername.textContent = user.username || "—";
+        detailRole.textContent = toTitleCase(user.group);
+        detailCreated.textContent = formatDate(user.created_at);
+        detailLastSeen.textContent = formatDate(user.last_seen_at);
+
+        editGroup.value = user.group || "standard";
+        editApproved.value = String(Boolean(user.approved));
+        editIsAdmin.value = String(Boolean(user.is_admin));
+
+        editorEmpty.classList.add("hidden");
+        userEditorForm.classList.remove("hidden");
+
+        renderUserList(allUsers);
+        userSelect.value = String(user.id);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not open that user.");
+      }
+    }
+
+    async function saveUserChanges(event) {
+      event.preventDefault();
+      clearMessage();
+
+      const payload = {
+        user_id: Number(editUserId.value),
+        group_name: editGroup.value,
+        approved: editApproved.value === "true",
+        is_admin: editIsAdmin.value === "true"
+      };
+
+      saveUserBtn.disabled = true;
+      saveUserBtn.textContent = "Saving...";
+
+      try {
+        const response = await fetch("/api/admin/user/update", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to save user.");
+          return;
+        }
+
+        showMessage("success", "User updated successfully.");
+        await loadUsers(userSearch.value.trim());
+        await selectUserById(payload.user_id);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not save changes.");
+      } finally {
+        saveUserBtn.disabled = false;
+        saveUserBtn.textContent = "Save changes";
+      }
+    }
+
+    userSearch.addEventListener("input", () => {
+      loadUsers(userSearch.value.trim());
+    });
+
+    userSelect.addEventListener("change", () => {
+      const id = Number(userSelect.value);
+      if (id > 0) {
+        selectUserById(id);
+      }
+    });
+
+    refreshUsersBtn.addEventListener("click", () => {
+      loadUsers(userSearch.value.trim());
+    });
+
+    loadPendingBtn.addEventListener("click", () => {
+      loadPendingUsers();
+    });
+
+    userEditorForm.addEventListener("submit", saveUserChanges);
+
+    async function initPage() {
+      renderGroupOptions();
+
+      const isAdmin = await checkAdminAccess();
+      if (!isAdmin) return;
+
+      await loadUsers("");
+    }
+
+    document.addEventListener("DOMContentLoaded", initPage);
+  </script>
+</body>
+</html>

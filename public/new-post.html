@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Forum Post | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <section class="panel" style="max-width: 900px; margin: 0 auto;">
+        <h1 class="auth-title">Create a forum post</h1>
+        <p class="auth-subtitle">
+          Start a new thread for the whole site to see and reply to.
+        </p>
+
+        <div id="post-message" class="hidden"></div>
+
+        <form id="new-post-form" class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="post-title">Title</label>
+            <input
+              id="post-title"
+              class="form-input"
+              type="text"
+              maxlength="140"
+              placeholder="Write a thread title..."
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="post-body">Post body</label>
+            <textarea
+              id="post-body"
+              class="form-input form-textarea"
+              style="min-height: 260px;"
+              maxlength="12000"
+              placeholder="Write your thread..."
+              required
+            ></textarea>
+          </div>
+
+          <div class="button-row">
+            <button id="create-post-btn" class="btn btn-primary" type="submit">Create post</button>
+            <a class="btn" href="/forum.html">Back to forum</a>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — new forum post</div>
+    </footer>
+  </div>
+
+  <script>
+    const form = document.getElementById("new-post-form");
+    const createPostBtn = document.getElementById("create-post-btn");
+    const postMessage = document.getElementById("post-message");
+    const postTitle = document.getElementById("post-title");
+    const postBody = document.getElementById("post-body");
+
+    function showMessage(type, text) {
+      postMessage.className = `alert alert-${type}`;
+      postMessage.textContent = text;
+    }
+
+    async function requireAuth() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.authenticated) {
+          window.location.href = "/login.html";
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not verify login.");
+        return false;
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const title = postTitle.value.trim();
+      const body = postBody.value.trim();
+
+      if (!title || !body) {
+        showMessage("error", "Title and post body are required.");
+        return;
+      }
+
+      createPostBtn.disabled = true;
+      createPostBtn.textContent = "Creating...";
+
+      try {
+        const response = await fetch("/api/forum/create-post", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ title, body })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to create post.");
+          return;
+        }
+
+        window.location.href = `/post.html?id=${encodeURIComponent(data.post_id)}`;
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not create post.");
+      } finally {
+        createPostBtn.disabled = false;
+        createPostBtn.textContent = "Create post";
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", requireAuth);
+  </script>
+</body>
+</html>

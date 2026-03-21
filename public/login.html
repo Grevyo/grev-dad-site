@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="auth-wrap">
+      <section class="auth-card">
+        <h1 class="auth-title">Login</h1>
+        <p class="auth-subtitle">
+          Sign in to Grev.dad to access the members area, forum, and chat.
+        </p>
+
+        <div id="message-box" class="hidden"></div>
+
+        <form id="login-form" class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="username">Username</label>
+            <input
+              class="form-input"
+              id="username"
+              name="username"
+              type="text"
+              maxlength="32"
+              autocomplete="username"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <input
+              class="form-input"
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+
+          <div class="button-row mt-12">
+            <button class="btn btn-primary btn-full" id="login-btn" type="submit">
+              Login
+            </button>
+          </div>
+        </form>
+
+        <p class="small-text center-text mt-20">
+          Need an account?
+          <a href="/register.html">Register here</a>
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        Grev.dad — community login system rebuild phase 1
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const form = document.getElementById("login-form");
+    const button = document.getElementById("login-btn");
+    const messageBox = document.getElementById("message-box");
+
+    function showMessage(type, text) {
+      messageBox.className = `alert alert-${type}`;
+      messageBox.textContent = text;
+    }
+
+    function clearMessage() {
+      messageBox.className = "hidden";
+      messageBox.textContent = "";
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearMessage();
+
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!username || !password) {
+        showMessage("error", "Please enter your username and password.");
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Logging in...";
+
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Login failed.");
+          return;
+        }
+
+        showMessage("success", "Login successful. Redirecting...");
+        window.location.href = "/index.html";
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not connect to the server.");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Login";
+      }
+    });
+
+    (async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+        if (response.ok && data?.authenticated) {
+          window.location.href = "/index.html";
+        }
+      } catch (error) {
+        console.error("Session check failed:", error);
+      }
+    })();
+  </script>
+</body>
+</html>

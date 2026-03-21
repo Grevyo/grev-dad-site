@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .home-layout {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .sidebar-stack,
+    .content-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .panel-title {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+      line-height: 1.15;
+    }
+
+    .panel-subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.96rem;
+    }
+
+    .welcome-hero {
+      padding: 28px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .welcome-hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(142, 197, 255, 0.12), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(142, 197, 255, 0.08), transparent 32%);
+      pointer-events: none;
+    }
+
+    .welcome-hero > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-title {
+      margin: 0 0 12px;
+      font-size: 2.2rem;
+      line-height: 1.05;
+    }
+
+    .hero-text {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 1rem;
+      max-width: 760px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .playground-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .playground-link {
+      display: block;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .playground-link:hover {
+      transform: translateY(-1px);
+      border-color: #3a4a61;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .playground-name {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .playground-desc {
+      display: block;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .playground-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(142, 197, 255, 0.12);
+      color: #d9ebff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .chat-shell {
+      display: grid;
+      gap: 16px;
+    }
+
+    .chat-box {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: #0f141a;
+      min-height: 420px;
+      max-height: 520px;
+      overflow-y: auto;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .chat-empty {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .chat-message {
+      padding: 12px 13px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .chat-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 0.86rem;
+    }
+
+    .chat-user {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .chat-group {
+      color: #d9ebff;
+      background: rgba(142, 197, 255, 0.12);
+      border: 1px solid rgba(142, 197, 255, 0.18);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+
+    .chat-time {
+      color: var(--muted);
+    }
+
+    .chat-text {
+      color: var(--text);
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .chat-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .chat-textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .guest-note {
+      margin-top: 12px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .mini-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 16px;
+    }
+
+    .mini-card h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .mini-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.93rem;
+    }
+
+    .hidden-playground {
+      display: none !important;
+    }
+
+    @media (max-width: 980px) {
+      .home-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero-title {
+        font-size: 1.8rem;
+      }
+
+      .welcome-hero {
+        padding: 22px;
+      }
+
+      .chat-box {
+        min-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <section class="panel welcome-hero">
+        <h1 class="hero-title">Welcome to Grev.dad</h1>
+        <p class="hero-text">
+          Welcome to Grev.dad — a place to create an account, explore different playgrounds,
+          message people, hang out in global chat, and have fun with the random parts of the site,
+          including things like opening cases and whatever else gets built into the world over time.
+        </p>
+
+        <div class="hero-actions" id="guest-actions">
+          <a class="btn btn-primary" href="/register.html">Create account</a>
+          <a class="btn" href="/login.html">Login</a>
+        </div>
+
+        <div class="hero-actions hidden" id="member-actions">
+          <a class="btn btn-primary" href="/members.html">Browse members</a>
+          <a class="btn" href="/profile.html">Your profile</a>
+          <a class="btn" href="/forum.html">Open forum</a>
+        </div>
+      </section>
+
+      <div class="home-layout mt-24">
+        <aside class="sidebar-stack">
+          <section class="panel">
+            <h2 class="panel-title">Playgrounds</h2>
+            <p class="panel-subtitle">
+              Explore the different corners of Grev.dad. Some are public, some only unlock depending on your account group.
+            </p>
+
+            <div class="playground-list">
+              <a class="playground-link" href="/spaced/index.html">
+                <span class="playground-name">Spaced Playground</span>
+                <span class="playground-desc">Spaced personal site and its own little corner of the network.</span>
+              </a>
+
+              <a class="playground-link" href="/dontknow/index.html">
+                <span class="playground-name">DontKnow Playground</span>
+                <span class="playground-desc">Dont Know’s personal site and playground area.</span>
+              </a>
+
+              <a class="playground-link" href="/grev/index.html">
+                <span class="playground-name">Grev Playground</span>
+                <span class="playground-desc">A personal corner for Grev stuff, experiments, and random site ideas.</span>
+              </a>
+
+              <div
+                class="playground-link hidden-playground"
+                data-group-only="cpl"
+              >
+                <span class="playground-badge">Group locked</span>
+                <span class="playground-name">CPL Playground</span>
+                <span class="playground-desc">Only visible to users in the CPL group.</span>
+              </div>
+
+              <div
+                class="playground-link hidden-playground"
+                data-group-only="admin"
+              >
+                <span class="playground-badge">Group locked</span>
+                <span class="playground-name">Admin Playground</span>
+                <span class="playground-desc">Internal tools, tests, and admin-only site areas.</span>
+              </div>
+
+              <div
+                class="playground-link hidden-playground"
+                data-group-only="vip"
+              >
+                <span class="playground-badge">Group locked</span>
+                <span class="playground-name">VIP Playground</span>
+                <span class="playground-desc">Extra hidden pages and whatever weirdness gets added later.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">What you can do here</h2>
+            <p class="panel-subtitle">
+              Grev.dad is meant to feel like a weird little online hub instead of just a plain website.
+            </p>
+
+            <div class="info-grid" style="grid-template-columns: 1fr;">
+              <div class="mini-card">
+                <h3>Chat with everyone</h3>
+                <p>Jump into the global chat and talk in one big shared group with the rest of the site.</p>
+              </div>
+
+              <div class="mini-card">
+                <h3>Message people</h3>
+                <p>Browse members and send private messages once the member chat side is enabled.</p>
+              </div>
+
+              <div class="mini-card">
+                <h3>Open cases and mess about</h3>
+                <p>Use random features, playground pages, and future case systems as the site grows.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="content-stack">
+          <section class="panel">
+            <h2 class="panel-title">Global Chat</h2>
+            <p class="panel-subtitle">
+              Everyone on the site can chat here together in one big group.
+            </p>
+
+            <div id="chat-status" class="alert alert-info">
+              Loading chat...
+            </div>
+
+            <div class="chat-shell mt-16">
+              <div id="global-chat-box" class="chat-box">
+                <div class="chat-empty">No messages yet.</div>
+              </div>
+
+              <div id="guest-chat-note" class="alert alert-info guest-note hidden">
+                You need to be logged in to send messages in global chat.
+              </div>
+
+              <form id="global-chat-form" class="chat-form hidden">
+                <div class="form-group">
+                  <label class="form-label" for="chat-message">Say something</label>
+                  <textarea
+                    id="chat-message"
+                    class="form-input form-textarea chat-textarea"
+                    maxlength="1000"
+                    placeholder="Type a message to the global chat..."
+                  ></textarea>
+                </div>
+
+                <div class="button-row">
+                  <button id="send-chat-btn" class="btn btn-primary" type="submit">
+                    Send message
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2 class="panel-title">Site Overview</h2>
+            <p class="panel-subtitle">
+              A quick look at what this place is meant to become.
+            </p>
+
+            <div class="info-grid">
+              <div class="mini-card">
+                <h3>Community first</h3>
+                <p>Accounts, chats, profiles, and shared spaces that make the site feel alive.</p>
+              </div>
+
+              <div class="mini-card">
+                <h3>Playground-driven</h3>
+                <p>Different site sections can branch off into their own personal themes and ideas.</p>
+              </div>
+
+              <div class="mini-card">
+                <h3>Expandable chaos</h3>
+                <p>Cases, experiments, random tools, and strange little features can all live here later.</p>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        Grev.dad — welcome page, global chat, and playground hub
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let chatPollInterval = null;
+
+    const guestActions = document.getElementById("guest-actions");
+    const memberActions = document.getElementById("member-actions");
+    const guestChatNote = document.getElementById("guest-chat-note");
+    const globalChatForm = document.getElementById("global-chat-form");
+    const globalChatBox = document.getElementById("global-chat-box");
+    const chatStatus = document.getElementById("chat-status");
+    const sendChatBtn = document.getElementById("send-chat-btn");
+    const chatMessageInput = document.getElementById("chat-message");
+
+    async function fetchCurrentUser() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) {
+          return null;
+        }
+
+        return data.user || null;
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+        return null;
+      }
+    }
+
+    function setAuthView(user) {
+      if (user) {
+        guestActions.classList.add("hidden");
+        memberActions.classList.remove("hidden");
+        guestChatNote.classList.add("hidden");
+        globalChatForm.classList.remove("hidden");
+      } else {
+        guestActions.classList.remove("hidden");
+        memberActions.classList.add("hidden");
+        guestChatNote.classList.remove("hidden");
+        globalChatForm.classList.add("hidden");
+      }
+    }
+
+    function normaliseUserGroups(user) {
+      const groups = [];
+
+      if (!user) return groups;
+
+      if (user.is_admin) {
+        groups.push("admin");
+      }
+
+      if (Array.isArray(user.groups)) {
+        for (const group of user.groups) {
+          if (typeof group === "string") {
+            groups.push(group.toLowerCase());
+          }
+        }
+      }
+
+      if (typeof user.group === "string" && user.group.trim()) {
+        groups.push(user.group.trim().toLowerCase());
+      }
+
+      return [...new Set(groups)];
+    }
+
+    function applyGroupVisibility(user) {
+      const groups = normaliseUserGroups(user);
+      const lockedItems = document.querySelectorAll("[data-group-only]");
+
+      lockedItems.forEach((item) => {
+        const neededGroup = (item.getAttribute("data-group-only") || "").toLowerCase();
+        const allowed = groups.includes(neededGroup);
+
+        if (allowed) {
+          item.classList.remove("hidden-playground");
+          if (item.tagName === "DIV") {
+            const hrefMap = {
+              cpl: "/cpl/index.html",
+              admin: "/admin/index.html",
+              vip: "/vip/index.html"
+            };
+
+            const link = document.createElement("a");
+            link.className = "playground-link";
+            link.href = hrefMap[neededGroup] || "#";
+            link.innerHTML = item.innerHTML;
+            item.replaceWith(link);
+          }
+        }
+      });
+    }
+
+    function formatTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderMessages(messages) {
+      if (!Array.isArray(messages) || messages.length === 0) {
+        globalChatBox.innerHTML = `<div class="chat-empty">No messages yet. Be the first one in.</div>`;
+        return;
+      }
+
+      globalChatBox.innerHTML = messages.map((message) => {
+        const username = escapeHtml(message.author_username || message.username || "Unknown");
+        const group = escapeHtml(message.author_group || message.group || "Member");
+        const text = escapeHtml(message.message || "");
+        const time = formatTime(message.created_at);
+
+        return `
+          <article class="chat-message">
+            <div class="chat-meta">
+              <span class="chat-user">${username}</span>
+              <span class="chat-group">${group}</span>
+              <span class="chat-time">${escapeHtml(time)}</span>
+            </div>
+            <div class="chat-text">${text}</div>
+          </article>
+        `;
+      }).join("");
+
+      globalChatBox.scrollTop = globalChatBox.scrollHeight;
+    }
+
+    async function loadGlobalChat() {
+      try {
+        const response = await fetch("/api/chat/global", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          chatStatus.className = "alert alert-error";
+          chatStatus.textContent = data?.error || "Failed to load global chat.";
+          renderMessages([]);
+          return;
+        }
+
+        if (data?.note) {
+          chatStatus.className = "alert alert-info";
+          chatStatus.textContent = data.note;
+        } else {
+          chatStatus.className = "alert alert-success";
+          chatStatus.textContent = "Global chat is live.";
+        }
+
+        renderMessages(data?.messages || []);
+      } catch (error) {
+        console.error("Failed to load global chat:", error);
+        chatStatus.className = "alert alert-error";
+        chatStatus.textContent = "Could not connect to the chat service.";
+        renderMessages([]);
+      }
+    }
+
+    async function sendGlobalMessage(event) {
+      event.preventDefault();
+
+      const message = chatMessageInput.value.trim();
+      if (!message) {
+        return;
+      }
+
+      sendChatBtn.disabled = true;
+      sendChatBtn.textContent = "Sending...";
+
+      try {
+        const response = await fetch("/api/chat/global", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          chatStatus.className = "alert alert-error";
+          chatStatus.textContent = data?.error || "Failed to send message.";
+          return;
+        }
+
+        chatMessageInput.value = "";
+        chatStatus.className = "alert alert-success";
+        chatStatus.textContent = "Message sent.";
+        await loadGlobalChat();
+      } catch (error) {
+        console.error("Failed to send message:", error);
+        chatStatus.className = "alert alert-error";
+        chatStatus.textContent = "Could not send your message.";
+      } finally {
+        sendChatBtn.disabled = false;
+        sendChatBtn.textContent = "Send message";
+      }
+    }
+
+    async function initPage() {
+      currentUser = await fetchCurrentUser();
+      setAuthView(currentUser);
+      applyGroupVisibility(currentUser);
+      await loadGlobalChat();
+
+      if (currentUser) {
+        globalChatForm.addEventListener("submit", sendGlobalMessage);
+
+        if (!chatPollInterval) {
+          chatPollInterval = setInterval(loadGlobalChat, 5000);
+        }
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", initPage);
+  </script>
+</body>
+</html>
