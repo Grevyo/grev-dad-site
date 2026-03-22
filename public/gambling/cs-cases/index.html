@@ -196,11 +196,6 @@
             </div>
           </div>
           <h3 class="mt-0">Cases</h3>
-          <div class="search-row" style="margin-top:12px">
-            <input id="store-case-search" class="form-input" type="search" placeholder="Search case name..." />
-            <button type="button" class="btn" id="clear-store-case-search">Clear</button>
-          </div>
-          <p class="panel-subtitle">You can browse the full case catalog here. Hidden cases stay visible but cannot be bought until a gambling admin makes them active.</p>
           <div id="store-case-grid" class="case-grid"></div>
         </section>
 
@@ -295,7 +290,6 @@
     const feedOpens = document.getElementById("feed-opens");
     const feedTrades = document.getElementById("feed-trades");
     const tradeSearchResults = document.getElementById("trade-search-results");
-    const storeCaseSearch = document.getElementById("store-case-search");
     const catalogGrid = document.getElementById("catalog-grid");
     const incomingOffersEl = document.getElementById("incoming-offers");
     const outgoingOffersEl = document.getElementById("outgoing-offers");
@@ -552,11 +546,9 @@
     });
 
     async function loadCasesStore() {
-      const q = storeCaseSearch?.value.trim() || "";
       storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
       try {
-        const query = q ? `?q=${encodeURIComponent(q)}` : "";
-        const response = await fetch(`/api/cs2/cases${query}`, { credentials: "same-origin" });
+        const response = await fetch("/api/cs2/cases", { credentials: "same-origin" });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) {
           storeCaseGrid.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Could not load cases")}</div>`;
@@ -572,32 +564,25 @@
         }
         const cases = data.cases || [];
         if (!cases.length) {
-          storeCaseGrid.innerHTML = `<div class="muted">${q ? "No cases match that search." : "No cases are in the catalog yet."}</div>`;
+          storeCaseGrid.innerHTML = `<div class="muted">No cases available.</div>`;
           return;
         }
-
-        const activeCases = cases.filter((c) => c.is_active);
-        const inactiveCases = cases.filter((c) => !c.is_active);
-        const orderedCases = [...activeCases, ...inactiveCases];
-
-        storeCaseGrid.innerHTML = orderedCases.map((c) => `
-          <div class="case-card" style="opacity:${c.is_active ? "1" : "0.72"}">
+        storeCaseGrid.innerHTML = cases.map((c) => `
+          <div class="case-card">
             <h3>${escapeHtml(c.case_name)}</h3>
             <div class="case-meta">
               Case ${formatGrevCoins(c.store_price_pence)} · Key ${formatGrevCoins(c.key_price_pence)}
             </div>
-            <div class="muted" style="margin-top:8px">${escapeHtml(c.description || (c.is_active ? "Available now." : "Visible in the catalog, but not currently for sale."))}</div>
             <div class="inv-actions" style="margin-top:10px">
               <label class="muted" style="display:flex;align-items:center;gap:6px">Qty
-                <input class="form-input" type="number" min="1" max="100" value="1" data-case-buy-qty="${c.id}" style="max-width:90px" ${c.is_active ? "" : "disabled"} />
+                <input class="form-input" type="number" min="1" max="100" value="1" data-case-buy-qty="${c.id}" style="max-width:90px" />
               </label>
-              <button type="button" class="btn ${c.is_active ? "btn-primary" : ""}" data-buy-case="${c.id}" ${c.is_active ? "" : "disabled"}>${c.is_active ? "Buy cases" : "Not for sale"}</button>
+              <button type="button" class="btn btn-primary" data-buy-case="${c.id}">Buy cases</button>
             </div>
           </div>
         `).join("");
 
         storeCaseGrid.querySelectorAll("[data-buy-case]").forEach((btn) => {
-          if (btn.disabled) return;
           btn.addEventListener("click", async () => {
             if (!currentUser) {
               window.location.href = "/login.html";
@@ -625,8 +610,7 @@
               showMessage("success", "Case added to inventory.");
               await loadBalance();
               await loadInventoryUi();
-              await loadCasesStore();
-            } catch {
+            } catch (e) {
               showMessage("error", "Network error.");
             } finally {
               btn.disabled = false;
@@ -634,8 +618,55 @@
           });
         });
       } catch {
-        storeCaseGrid.innerHTML = `<div class="alert alert-error">Could not load cases.</div>`;
+        storeCaseGrid.innerHTML = `<div class="alert alert-error">Could not load store.</div>`;
       }
+    }
+
+    function renderShowcase(skins) {
+      if (!currentUser) {
+        showcaseMount.innerHTML = `<div class="muted">Login to set showcase slots.</div>`;
+        return;
+      }
+      const opts = skins.map((s) =>
+        `<option value="${s.inventory_id}">${escapeHtml(s.item_name)} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</option>`
+      ).join("");
+      showcaseMount.innerHTML = [0, 1, 2, 3, 4].map((slot) => `
+        <div class="showcase-slot">
+          <div class="muted" style="font-size:0.8rem;margin-bottom:6px">Slot ${slot + 1}</div>
+          <select class="form-input" data-showcase-slot="${slot}" style="width:100%;margin-bottom:8px">
+            <option value="">— empty —</option>
+            ${opts}
+          </select>
+          <button type="button" class="btn btn-primary" data-showcase-save="${slot}" style="width:100%">Save</button>
+        </div>
+      `).join("");
+
+      showcaseMount.querySelectorAll("[data-showcase-save]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const slot = Number(btn.getAttribute("data-showcase-save"));
+          const sel = showcaseMount.querySelector(`[data-showcase-slot="${slot}"]`);
+          const inventoryId = Number(sel?.value || 0);
+          btn.disabled = true;
+          try {
+            const response = await fetch("/api/cs2/showcase", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ slot, inventory_id: inventoryId || 0 })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+              showMessage("error", data?.error || "Could not update showcase.");
+              return;
+            }
+            showMessage("success", "Showcase updated.");
+          } catch {
+            showMessage("error", "Network error.");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
     }
 
     async function loadInventoryUi() {
@@ -1395,17 +1426,6 @@
     document.getElementById("catalog-search").addEventListener("input", () => {
       clearTimeout(window.__catT);
       window.__catT = setTimeout(loadCatalog, 300);
-    });
-
-    storeCaseSearch?.addEventListener("input", () => {
-      loadCasesStore();
-    });
-
-    document.getElementById("clear-store-case-search")?.addEventListener("click", () => {
-      if (storeCaseSearch) {
-        storeCaseSearch.value = "";
-      }
-      loadCasesStore();
     });
 
     document.getElementById("buy-keys-btn")?.addEventListener("click", async () => {
