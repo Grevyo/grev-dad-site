@@ -86,6 +86,64 @@ async function ensureCaseProfile(env, session, isoNowFn) {
   await ensureUserCaseProfileById(env, session.id, session.username, isoNowFn);
 }
 
+async function createSkinInstance(env, { resolvedItemId, marketHashName, ownerUserId, caseId, pendingDropId, createdAt }) {
+  const now = createdAt || new Date().toISOString();
+  const result = await env.CASES_DB.prepare(`
+    INSERT INTO skin_instances (
+      resolved_item_id,
+      market_hash_name,
+      original_owner_user_id,
+      current_owner_user_id,
+      source_case_id,
+      source_pending_drop_id,
+      status,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+  `).bind(resolvedItemId, marketHashName, ownerUserId, ownerUserId, caseId, pendingDropId || null, now, now).run();
+  return Number(result.meta?.last_row_id || 0);
+}
+
+async function pushToGraveyard(env, payload) {
+  await env.CASES_DB.prepare(`
+    INSERT INTO quick_sell_graveyard (
+      skin_instance_id,
+      user_id,
+      resolved_item_id,
+      source_type,
+      source_pending_drop_id,
+      source_inventory_id,
+      payout_pence,
+      market_reference_pence,
+      fee_percent,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    payload.skinInstanceId,
+    payload.userId,
+    payload.resolvedItemId,
+    payload.sourceType,
+    payload.sourcePendingDropId || null,
+    payload.sourceInventoryId || null,
+    payload.payoutPence,
+    payload.marketReferencePence,
+    payload.feePercent,
+    payload.createdAt
+  ).run();
+}
+
+function caseRefundPayout(pence) {
+  const n = Number(pence || 0);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+function keyRefundPayout(quantity, unitPricePence = KEY_PRICE_PENCE) {
+  const qty = Number(quantity || 0);
+  return Number.isInteger(qty) && qty > 0 ? qty * unitPricePence : 0;
+}
+
 
 
 async function ensureCaseImageUrl(env, caseRow, options = {}) {
@@ -235,7 +293,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
   if (keys < 1) {
     return {
       success: false,
-      error: "You need case keys to open — buy them in the store (1.00 Grev Coin each)",
+      error: "You do not have enough keys! Buy more in the store before opening this case.",
       status: 400
     };
   }
@@ -293,16 +351,41 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
     return { success: false, error: "Could not resolve drop item", status: 500 };
   }
 
+  let marketPrice = await getOrFetchItemPricePence(env, droppedRow.market_hash_name || droppedRow.item_name);
+  if (marketPrice == null || marketPrice <= 0) {
+    marketPrice = Number(droppedRow.market_value || 0);
+  }
+  const feePct = await getQuickSellFeePercent(env);
+  const quickSellPayout = quickSellPayoutFromMarket(marketPrice, feePct);
+
   const pendingIns = await env.CASES_DB.prepare(`
-      INSERT INTO pending_drops (user_id, case_id, resolved_item_id, key_paid, created_at, status)
-      VALUES (?, ?, ?, ?, ?, 'pending')
+      INSERT INTO pending_drops (
+        user_id,
+        case_id,
+        resolved_item_id,
+        key_paid,
+        created_at,
+        status,
+        quick_sell_payout_pence,
+        market_reference_pence
+      )
+      VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
     `)
-    .bind(session.id, caseId, resolvedItemId, KEY_PRICE_PENCE, now)
+    .bind(session.id, caseId, resolvedItemId, KEY_PRICE_PENCE, now, quickSellPayout, marketPrice)
     .run();
 
-  const pendingDropId = pendingIns.meta?.last_row_id;
+  const pendingDropId = Number(pendingIns.meta?.last_row_id || 0);
+  const skinInstanceId = await createSkinInstance(env, {
+    resolvedItemId,
+    marketHashName: droppedRow.market_hash_name || droppedRow.item_name || "",
+    ownerUserId: session.id,
+    caseId,
+    pendingDropId,
+    createdAt: now
+  });
 
   await env.CASES_DB.batch([
+    env.CASES_DB.prepare(`UPDATE pending_drops SET skin_instance_id = ? WHERE id = ?`).bind(skinInstanceId, pendingDropId),
     env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
     env.CASES_DB.prepare(`
         UPDATE case_profiles
@@ -334,10 +417,14 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
         wear_code: droppedRow.wear_code || "",
         color_hex: droppedRow.color_hex || "",
         image_url: await ensureItemImageUrl(env, droppedRow),
-        market_hash_name: droppedRow.market_hash_name || ""
+        market_hash_name: droppedRow.market_hash_name || "",
+        live_price_pence: marketPrice,
+        quick_sell_payout_pence: quickSellPayout,
+        skin_instance_id: skinInstanceId
       },
       case_name: inv.case_name,
       key_price_pence: KEY_PRICE_PENCE,
+      quick_sell_fee_percent: feePct,
       balance_after_pence: Number(updated?.balance || 0),
       key_balance: Number(updated?.key_balance || 0)
     }
@@ -494,6 +581,10 @@ export async function handleCs2Request(request, env, deps) {
     const limit = Math.min(Number(url.searchParams.get("limit") || 100), 400);
     const offset = Math.max(Number(url.searchParams.get("offset") || 0), 0);
     const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+    const rarity = (url.searchParams.get("rarity") || "").trim().toLowerCase();
+    const wearCode = (url.searchParams.get("wear_code") || "").trim().toUpperCase();
+    const minPrice = Number(url.searchParams.get("min_price_pence") || 0);
+    const maxPrice = Number(url.searchParams.get("max_price_pence") || 0);
 
     const rows = await env.CASES_DB.prepare(`
       SELECT
@@ -518,11 +609,23 @@ export async function handleCs2Request(request, env, deps) {
     if (q) {
       list = list.filter((r) => String(r.item_name || "").toLowerCase().includes(q));
     }
+    if (rarity) {
+      list = list.filter((r) => String(r.rarity || "").toLowerCase().includes(rarity));
+    }
+    if (wearCode) {
+      list = list.filter((r) => String(r.wear_code || "").toUpperCase() === wearCode);
+    }
 
     const items = [];
     for (const r of list) {
       let live = await getOrFetchItemPricePence(env, r.market_hash_name);
       if (live == null || live <= 0) live = Number(r.market_value || 0);
+      if (Number.isFinite(minPrice) && minPrice > 0 && live < minPrice) continue;
+      if (Number.isFinite(maxPrice) && maxPrice > 0 && live > maxPrice) continue;
+      const ownerCountRow = await env.CASES_DB.prepare(`
+        SELECT COUNT(*) AS c FROM skin_instances
+        WHERE resolved_item_id = ? AND status = 'inventory'
+      `).bind(r.id).first();
       items.push({
         id: r.id,
         item_name: r.item_name,
@@ -535,11 +638,65 @@ export async function handleCs2Request(request, env, deps) {
         image_url: await ensureItemImageUrl(env, r),
         color_hex: r.color_hex || "",
         fallback_value_pence: Number(r.market_value || 0),
-        live_price_pence: live
+        live_price_pence: live,
+        owner_count: Number(ownerCountRow?.c || 0)
       });
     }
 
     return json({ success: true, items }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/catalog/detail" && request.method === "GET") {
+    const itemId = Number(url.searchParams.get("item_id") || 0);
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      return json({ success: false, error: "A valid item_id is required" }, 400, request);
+    }
+    const row = await env.CASES_DB.prepare(`
+      SELECT id, item_name, rarity, wear, wear_code, market_hash_name, market_value, image_url, color_hex
+      FROM case_items
+      WHERE id = ? AND item_kind = 'skin'
+      LIMIT 1
+    `).bind(itemId).first();
+    if (!row) return json({ success: false, error: "Skin not found" }, 404, request);
+
+    let live = await getOrFetchItemPricePence(env, row.market_hash_name);
+    if (live == null || live <= 0) live = Number(row.market_value || 0);
+    const owners = await env.CASES_DB.prepare(`
+      SELECT DISTINCT si.current_owner_user_id AS user_id
+      FROM skin_instances si
+      WHERE si.resolved_item_id = ? AND si.status = 'inventory' AND si.current_owner_user_id IS NOT NULL
+      ORDER BY si.id DESC
+      LIMIT 20
+    `).bind(itemId).all();
+    const ownerIds = (owners.results || []).map((r) => Number(r.user_id));
+    const names = await resolveUsernames(env, ownerIds);
+    const history = await env.CASES_DB.prepare(`
+      SELECT price_pence, bucket_started_at
+      FROM market_price_history
+      WHERE market_hash_name = ?
+      ORDER BY bucket_started_at DESC
+      LIMIT 14
+    `).bind(row.market_hash_name).all();
+    return json({
+      success: true,
+      item: {
+        id: row.id,
+        item_name: row.item_name,
+        rarity: row.rarity,
+        wear: row.wear,
+        wear_code: row.wear_code || "",
+        market_hash_name: row.market_hash_name,
+        image_url: await ensureItemImageUrl(env, row),
+        color_hex: row.color_hex || "",
+        fallback_value_pence: Number(row.market_value || 0),
+        live_price_pence: live
+      },
+      owners: ownerIds.map((id) => ({ user_id: id, username: names.get(id) || `user#${id}` })),
+      price_history: (history.results || []).reverse().map((r) => ({
+        price_pence: Number(r.price_pence || 0),
+        bucket_started_at: r.bucket_started_at
+      }))
+    }, 200, request);
   }
 
   if (pathname === "/api/cs2/profile/public" && request.method === "GET") {
@@ -809,6 +966,86 @@ export async function handleCs2Request(request, env, deps) {
     return json({ success: true, quick_sell_fee_percent: fee }, 200, request);
   }
 
+  if (pathname === "/api/cs2/admin/graveyard" && request.method === "GET") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const rows = await env.CASES_DB.prepare(`
+      SELECT
+        g.id,
+        g.skin_instance_id,
+        g.user_id,
+        g.resolved_item_id,
+        g.source_type,
+        g.payout_pence,
+        g.market_reference_pence,
+        g.fee_percent,
+        g.refunded_at,
+        g.created_at,
+        ci.item_name,
+        ci.rarity,
+        ci.wear,
+        ci.wear_code,
+        ci.color_hex,
+        ci.image_url
+      FROM quick_sell_graveyard g
+      INNER JOIN case_items ci ON ci.id = g.resolved_item_id
+      ORDER BY g.id DESC
+      LIMIT 250
+    `).all();
+    const userIds = (rows.results || []).map((row) => Number(row.user_id));
+    const names = await resolveUsernames(env, userIds);
+    const entries = await Promise.all((rows.results || []).map(async (row) => ({
+      ...row,
+      username: names.get(Number(row.user_id)) || `user#${row.user_id}`,
+      image_url: await ensureItemImageUrl(env, row)
+    })));
+    return json({ success: true, entries }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/graveyard/refund" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    const body = await safeJson(request);
+    const graveyardId = Number(body?.graveyard_id);
+    if (!Number.isInteger(graveyardId) || graveyardId <= 0) {
+      return json({ success: false, error: "A valid graveyard_id is required" }, 400, request);
+    }
+    const entry = await env.CASES_DB.prepare(`
+      SELECT * FROM quick_sell_graveyard WHERE id = ? LIMIT 1
+    `).bind(graveyardId).first();
+    if (!entry) return json({ success: false, error: "Graveyard entry not found" }, 404, request);
+    if (entry.refunded_at) return json({ success: false, error: "That item has already been refunded" }, 400, request);
+
+    const now = isoNow();
+    await env.CASES_DB.batch([
+      env.CASES_DB.prepare(`
+        INSERT INTO inventory (user_id, item_id, skin_instance_id, source_case_id, acquired_at, locked)
+        VALUES (?, ?, ?, NULL, ?, 0)
+      `).bind(entry.user_id, entry.resolved_item_id, entry.skin_instance_id, now),
+      env.CASES_DB.prepare(`
+        UPDATE quick_sell_graveyard
+        SET refunded_at = ?, refunded_by_user_id = ?
+        WHERE id = ?
+      `).bind(now, admin.id, graveyardId),
+      env.CASES_DB.prepare(`
+        UPDATE skin_instances
+        SET current_owner_user_id = ?, status = 'inventory', updated_at = ?
+        WHERE id = ?
+      `).bind(entry.user_id, now, entry.skin_instance_id)
+    ]);
+    const inserted = await env.CASES_DB.prepare(`
+      SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND acquired_at = ? ORDER BY id DESC LIMIT 1
+    `).bind(entry.user_id, entry.resolved_item_id, now).first();
+    if (inserted?.id) {
+      await env.CASES_DB.prepare(`
+        UPDATE skin_instances SET source_inventory_id = ?, updated_at = ? WHERE id = ?
+      `).bind(inserted.id, now, entry.skin_instance_id).run();
+    }
+    await refreshInventoryValue(env, Number(entry.user_id));
+    return json({ success: true, message: "Skin refunded from graveyard" }, 200, request);
+  }
+
 
   if (pathname === "/api/cs2/admin/users" && request.method === "GET") {
     const admin = await requireGamblingAdmin(request, env);
@@ -934,6 +1171,7 @@ export async function handleCs2Request(request, env, deps) {
       SELECT
         i.id,
         i.item_id,
+        i.skin_instance_id,
         i.source_case_id,
         i.acquired_at,
         i.locked,
@@ -961,6 +1199,7 @@ export async function handleCs2Request(request, env, deps) {
       items.push({
         inventory_id: r.id,
         item_id: r.item_id,
+        skin_instance_id: Number(r.skin_instance_id || 0),
         item_kind: r.item_kind || "skin",
         item_name: r.item_name,
         rarity: r.rarity,
@@ -1159,6 +1398,100 @@ export async function handleCs2Request(request, env, deps) {
     );
   }
 
+  if (pathname === "/api/cs2/store/refund-keys" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    let qty = Number(body?.quantity ?? 1);
+    if (!Number.isInteger(qty) || qty < 1) qty = 1;
+    if (qty > 100) qty = 100;
+
+    const profile = await env.CASES_DB.prepare(`
+      SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
+    `).bind(session.id).first();
+
+    if (Number(profile?.key_balance || 0) < qty) {
+      return json({ success: false, error: "You do not have enough keys to refund." }, 400, request);
+    }
+
+    const payout = keyRefundPayout(qty);
+    const now = isoNow();
+    await env.CASES_DB.batch([
+      env.CASES_DB.prepare(`
+        UPDATE case_profiles
+        SET key_balance = key_balance - ?, balance = balance + ?, updated_at = ?
+        WHERE user_id = ?
+      `).bind(qty, payout, now, session.id),
+      env.CASES_DB.prepare(`
+        INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
+        VALUES (?, NULL, NULL, ?, ?, 'key_refund', ?)
+      `).bind(session.id, `Key refund ×${qty}`, payout, now)
+    ]);
+
+    const updated = await env.CASES_DB.prepare(`
+      SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
+    `).bind(session.id).first();
+
+    return json({
+      success: true,
+      message: qty === 1 ? "Key refunded" : `${qty} keys refunded`,
+      quantity: qty,
+      payout_pence: payout,
+      balance_after_pence: Number(updated?.balance || 0),
+      key_balance: Number(updated?.key_balance || 0)
+    }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/store/refund-case" && request.method === "POST") {
+    await ensureCaseProfile(env, session, isoNow);
+    const body = await safeJson(request);
+    const inventoryId = Number(body?.inventory_id);
+    if (!Number.isInteger(inventoryId) || inventoryId <= 0) {
+      return json({ success: false, error: "A valid inventory id is required" }, 400, request);
+    }
+
+    const row = await env.CASES_DB.prepare(`
+      SELECT i.id, ci.item_kind, ci.case_def_id, cd.case_name, cd.fallback_price_pence, cd.price
+      FROM inventory i
+      INNER JOIN case_items ci ON ci.id = i.item_id
+      INNER JOIN case_definitions cd ON cd.id = ci.case_def_id
+      WHERE i.id = ? AND i.user_id = ?
+      LIMIT 1
+    `).bind(inventoryId, session.id).first();
+
+    if (!row || row.item_kind !== "case") {
+      return json({ success: false, error: "Only unopened cases can be refunded." }, 400, request);
+    }
+
+    const payout = caseRefundPayout(Number(row.fallback_price_pence || row.price || 0));
+    if (!payout) {
+      return json({ success: false, error: "That case does not have a valid refund price." }, 400, request);
+    }
+    const now = isoNow();
+    await env.CASES_DB.batch([
+      env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
+      env.CASES_DB.prepare(`
+        UPDATE case_profiles
+        SET balance = balance + ?, updated_at = ?
+        WHERE user_id = ?
+      `).bind(payout, now, session.id),
+      env.CASES_DB.prepare(`
+        INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
+        VALUES (?, NULL, NULL, ?, ?, 'case_refund', ?)
+      `).bind(session.id, `${row.case_name} refund`, payout, now)
+    ]);
+
+    const updated = await env.CASES_DB.prepare(`
+      SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
+    `).bind(session.id).first();
+
+    return json({
+      success: true,
+      message: "Case refunded",
+      payout_pence: payout,
+      balance_after_pence: Number(updated?.balance || 0)
+    }, 200, request);
+  }
+
   if (pathname === "/api/cs2/open" && request.method === "POST") {
     await ensureCaseProfile(env, session, isoNow);
     const body = await safeJson(request);
@@ -1196,7 +1529,7 @@ export async function handleCs2Request(request, env, deps) {
       return json(
         {
           success: false,
-          error: `Not enough keys — you need ${ids.length} keys for this batch`
+          error: `You do not have enough keys! You need ${ids.length} keys for this batch open.`
         },
         400,
         request
@@ -1258,15 +1591,34 @@ export async function handleCs2Request(request, env, deps) {
     const t = isoNow();
     await env.CASES_DB.batch([
       env.CASES_DB.prepare(`
-        INSERT INTO inventory (user_id, item_id, source_case_id, acquired_at, locked)
-        VALUES (?, ?, ?, ?, 0)
-      `).bind(session.id, pend.resolved_item_id, pend.case_id, t),
+        INSERT INTO inventory (user_id, item_id, skin_instance_id, source_case_id, acquired_at, locked)
+        VALUES (?, ?, ?, ?, ?, 0)
+      `).bind(session.id, pend.resolved_item_id, pend.skin_instance_id || null, pend.case_id, t),
       env.CASES_DB.prepare(`
         INSERT INTO case_open_history (user_id, case_id, item_id, price_paid, opened_at)
         VALUES (?, ?, ?, ?, ?)
       `).bind(session.id, pend.case_id, pend.resolved_item_id, pend.key_paid, t),
-      env.CASES_DB.prepare(`UPDATE pending_drops SET status = 'claimed' WHERE id = ?`).bind(pendingDropId)
+      env.CASES_DB.prepare(`UPDATE pending_drops SET status = 'claimed' WHERE id = ?`).bind(pendingDropId),
+      env.CASES_DB.prepare(`
+        UPDATE skin_instances
+        SET current_owner_user_id = ?, status = 'inventory', updated_at = ?
+        WHERE id = ?
+      `).bind(session.id, t, pend.skin_instance_id || 0)
     ]);
+
+    const inserted = await env.CASES_DB.prepare(`
+      SELECT id FROM inventory
+      WHERE user_id = ? AND item_id = ? AND acquired_at = ?
+      ORDER BY id DESC
+      LIMIT 1
+    `).bind(session.id, pend.resolved_item_id, t).first();
+    if (pend.skin_instance_id && inserted?.id) {
+      await env.CASES_DB.prepare(`
+        UPDATE skin_instances
+        SET source_inventory_id = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(inserted.id, t, pend.skin_instance_id).run();
+    }
 
     await refreshInventoryValue(env, session.id);
 
@@ -1323,10 +1675,28 @@ export async function handleCs2Request(request, env, deps) {
         UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?
       `).bind(payout, t, session.id),
       env.CASES_DB.prepare(`
+        UPDATE skin_instances
+        SET current_owner_user_id = NULL, graveyard_ref = 'quick_sell_graveyard', status = 'graveyard', updated_at = ?
+        WHERE id = ?
+      `).bind(t, pend.skin_instance_id || 0),
+      env.CASES_DB.prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (NULL, ?, ?, ?, ?, 'quick_sell', ?)
       `).bind(session.id, row.id, row.item_name, payout, t)
     ]);
+    if (pend.skin_instance_id) {
+      await pushToGraveyard(env, {
+        skinInstanceId: pend.skin_instance_id,
+        userId: session.id,
+        resolvedItemId: row.id,
+        sourceType: "pending_drop",
+        sourcePendingDropId: pendingDropId,
+        payoutPence: payout,
+        marketReferencePence: marketPrice,
+        feePercent: feePct,
+        createdAt: t
+      });
+    }
 
     await refreshInventoryValue(env, session.id);
 
@@ -1376,7 +1746,10 @@ export async function handleCs2Request(request, env, deps) {
         p.id,
         p.case_id,
         p.resolved_item_id,
+        p.skin_instance_id,
         p.key_paid,
+        p.quick_sell_payout_pence,
+        p.market_reference_pence,
         p.created_at,
         c.case_name,
         i.item_name,
@@ -1448,6 +1821,11 @@ export async function handleCs2Request(request, env, deps) {
         WHERE user_id = ?
       `).bind(payout, now, session.id),
       env.CASES_DB.prepare(`
+        UPDATE skin_instances
+        SET current_owner_user_id = NULL, graveyard_ref = 'quick_sell_graveyard', status = 'graveyard', updated_at = ?
+        WHERE id = ?
+      `).bind(now, row.skin_instance_id || 0),
+      env.CASES_DB.prepare(`
         INSERT INTO trade_history (
           buyer_user_id,
           seller_user_id,
@@ -1460,6 +1838,19 @@ export async function handleCs2Request(request, env, deps) {
         VALUES (NULL, ?, ?, ?, ?, 'quick_sell', ?)
       `).bind(session.id, row.item_id, row.item_name, payout, now)
     ]);
+    if (row.skin_instance_id) {
+      await pushToGraveyard(env, {
+        skinInstanceId: row.skin_instance_id,
+        userId: session.id,
+        resolvedItemId: row.item_id,
+        sourceType: "inventory",
+        sourceInventoryId: inventoryId,
+        payoutPence: payout,
+        marketReferencePence: marketPrice,
+        feePercent: feePct,
+        createdAt: now
+      });
+    }
 
     await refreshInventoryValue(env, session.id);
 

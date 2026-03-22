@@ -91,14 +91,17 @@
     .key-card { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
     .key-visual { width: 74px; height: 74px; border-radius: 16px; display: grid; place-items: center; background: radial-gradient(circle at top, rgba(250,204,21,0.35), rgba(15,23,42,0.95)); border: 1px solid rgba(250,204,21,0.35); font-size: 2rem; }
     .drop-preview { position: absolute; left: 14px; right: 14px; top: 14px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: 180ms ease; }
+    .drop-preview.scrollable-preview { position: static; opacity: 1; pointer-events: auto; transform: none; margin: 12px 0; }
     .case-card:hover .drop-preview, .case-card:focus-within .drop-preview { opacity: 1; transform: translateY(0); }
     .drop-preview-inner { max-height: 250px; overflow: auto; border-radius: 14px; padding: 12px; background: rgba(2,6,23,0.96); border: 1px solid rgba(255,255,255,0.09); }
     .drop-preview-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.86rem; }
     .drop-preview-row:last-child { border-bottom: none; }
     .case-actions-bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
-    .reel-overlay { position: fixed; inset: 0; display:none; align-items:center; justify-content:center; padding:20px; background: rgba(2,6,23,0.82); z-index: 2050; }
+    .reel-overlay { position: fixed; inset: 0; display:none; align-items:center; justify-content:center; padding:20px; background: #000; z-index: 2050; }
     .reel-overlay.open { display:flex; }
-    .reel-modal { width:min(960px, 100%); border-radius: 20px; border: 1px solid var(--border); background:#020617; padding:20px; box-shadow:0 24px 70px rgba(0,0,0,0.55); }
+    .reel-modal { width:min(1280px, 100%); border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); background:#000; padding:20px; box-shadow:0 24px 70px rgba(0,0,0,0.55); }
+    .reel-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .reel-card { border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:14px; background:rgba(15,23,42,0.42); }
     .reel-window { position: relative; overflow:hidden; border-radius: 18px; border:1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(15,23,42,0.86)); padding:16px 0; }
     .reel-window::before, .reel-window::after { content:""; position:absolute; top:0; bottom:0; width:120px; z-index:2; pointer-events:none; }
     .reel-window::before { left:0; background:linear-gradient(90deg, #020617, transparent); }
@@ -171,6 +174,15 @@
     .toast { border-radius: 12px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.96); padding: 12px 14px; box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
     .toast.success { border-color: rgba(74, 222, 128, 0.45); }
     .toast.error { border-color: rgba(248, 113, 113, 0.45); }
+    .filter-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+    .filter-row > * { flex: 1 1 160px; }
+    .mini-stat { font-size:0.86rem; color:var(--muted); }
+    .catalog-detail-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.82); display:none; align-items:center; justify-content:center; z-index:2150; padding:20px; }
+    .catalog-detail-overlay.open { display:flex; }
+    .catalog-detail-modal { width:min(860px, 100%); max-height:90vh; overflow:auto; background:#020617; border:1px solid var(--border); border-radius:18px; padding:22px; }
+    .graph { width:100%; height:180px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); }
+    .pending-tray { position:fixed; right:16px; bottom:16px; z-index:2090; display:grid; gap:10px; width:min(340px, calc(100vw - 32px)); }
+    .pending-card { border:1px solid var(--border); border-radius:12px; background:rgba(2,6,23,0.96); padding:12px; box-shadow:0 18px 40px rgba(0,0,0,0.35); }
     @media (max-width: 720px) {
       .inv-row, .list-row { grid-template-columns: 1fr; }
     }
@@ -214,7 +226,7 @@
 
         <section class="panel cs2-panel active" id="panel-cases">
           <h2 class="panel-title">Case openings</h2>
-          <p class="panel-subtitle">Each open uses one key from your key balance (not your coin balance). Select up to 10 cases and speed-open in one go, or open one at a time. Claim each drop before it is added to inventory.</p>
+          <p class="panel-subtitle">Each open uses one key from your key balance (not your coin balance). Select up to 10 cases and speed-open in one go, or open one at a time. Pending drops stay in the bottom-right queue until you deal with them.</p>
           <div class="case-actions-bar">
             <button type="button" class="btn" id="select-all-cases">Select all shown</button>
             <button type="button" class="btn" id="clear-selected-cases">Clear selection</button>
@@ -237,6 +249,7 @@
                 <input class="form-input" type="number" id="buy-keys-qty" min="1" max="100" value="1" style="max-width:100px" />
               </label>
               <button type="button" class="btn btn-primary" id="buy-keys-btn">Buy keys</button>
+              <button type="button" class="btn" id="refund-keys-btn">Refund keys</button>
             </div>
           </div>
           </div>
@@ -251,6 +264,12 @@
           <p class="panel-subtitle">Pick skins to display on your public profile.</p>
           <div id="showcase-mount" class="showcase-grid"></div>
           <h3 class="mt-24">Skins</h3>
+          <div class="filter-row">
+            <input id="inventory-search" class="form-input" type="search" placeholder="Search skins..." />
+            <select id="inventory-rarity" class="form-input"><option value="">All rarities</option><option>Consumer Grade</option><option>Industrial Grade</option><option>Mil-Spec Grade</option><option>Restricted</option><option>Classified</option><option>Covert</option><option>Special Item</option><option>Contraband</option></select>
+            <input id="inventory-min-price" class="form-input" type="number" min="0" step="0.01" placeholder="Min GV" />
+            <input id="inventory-max-price" class="form-input" type="number" min="0" step="0.01" placeholder="Max GV" />
+          </div>
           <div id="skin-inventory-list"></div>
         </section>
 
@@ -277,8 +296,10 @@
         <section class="panel cs2-panel" id="panel-catalog">
           <h2 class="panel-title">Skin catalog</h2>
           <p class="panel-subtitle">Resolved skins in the database with live Steam reference prices by wear.</p>
-          <div class="search-row">
-            <input id="catalog-search" class="form-input" type="search" placeholder="Filter by name..." />
+          <div class="filter-row">
+            <input id="catalog-search" class="form-input" type="search" placeholder="Search any skin..." />
+            <select id="catalog-rarity" class="form-input"><option value="">All rarities</option><option>Consumer Grade</option><option>Industrial Grade</option><option>Mil-Spec Grade</option><option>Restricted</option><option>Classified</option><option>Covert</option><option>Special Item</option><option>Contraband</option></select>
+            <select id="catalog-wear" class="form-input"><option value="">All wears</option><option value="FN">Factory New</option><option value="MW">Minimal Wear</option><option value="FT">Field-Tested</option><option value="WW">Well-Worn</option><option value="BS">Battle-Scarred</option></select>
             <button type="button" class="btn btn-primary" id="reload-catalog">Refresh</button>
           </div>
           <div id="catalog-grid" class="case-grid"></div>
@@ -314,14 +335,12 @@
     <div class="reel-modal" role="dialog" aria-labelledby="opening-reel-title">
       <h3 id="opening-reel-title" style="margin-top:0">Case opening simulation</h3>
       <div class="muted" id="opening-reel-subtitle" style="margin-bottom:12px">Rolling your item…</div>
-      <div class="reel-window">
-        <div class="reel-center-line"></div>
-        <div class="reel-track" id="opening-reel-track"></div>
-      </div>
+      <div class="reel-grid" id="opening-reel-grid"></div>
     </div>
   </div>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <div class="pending-tray" id="pending-tray"></div>
 
   <div class="drop-modal-overlay" id="drop-modal" aria-hidden="true">
     <div class="drop-modal" role="dialog" aria-labelledby="drop-modal-title">
@@ -334,6 +353,16 @@
         <button type="button" class="btn" id="drop-discard">Discard</button>
         <button type="button" class="btn" id="drop-close">Later</button>
       </div>
+    </div>
+  </div>
+
+  <div class="catalog-detail-overlay" id="catalog-detail-overlay" aria-hidden="true">
+    <div class="catalog-detail-modal">
+      <div class="inv-actions" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">Skin profile</h3>
+        <button type="button" class="btn" id="catalog-detail-close">Close</button>
+      </div>
+      <div id="catalog-detail-body"></div>
     </div>
   </div>
 
@@ -362,10 +391,13 @@
     /** @type {number} */
     let quickSellFeePercent = 10;
     const toastStack = document.getElementById("toast-stack");
+    const pendingTray = document.getElementById("pending-tray");
     const openingReel = document.getElementById("opening-reel");
-    const openingReelTrack = document.getElementById("opening-reel-track");
+    const openingReelGrid = document.getElementById("opening-reel-grid");
     const openingReelSubtitle = document.getElementById("opening-reel-subtitle");
     const dropModal = document.getElementById("drop-modal");
+    const catalogDetailOverlay = document.getElementById("catalog-detail-overlay");
+    const catalogDetailBody = document.getElementById("catalog-detail-body");
     const dropModalImg = document.getElementById("drop-modal-img");
     const dropModalBody = document.getElementById("drop-modal-body");
 
@@ -429,9 +461,8 @@
 
     function updateQuickSellButtonLabel() {
       const pct = Math.max(0, Math.min(99, Number(quickSellFeePercent) || 10));
-      const keep = 100 - pct;
       const btn = document.getElementById("drop-quick");
-      if (btn) btn.textContent = `Quick sell (~${keep}% of ref., −${pct}% fee)`;
+      if (btn) btn.textContent = `Quick sell (${pct}% fee)`;
     }
 
     async function fetchMe() {
@@ -500,6 +531,7 @@
         <strong>${escapeHtml(p.item_name || "")}</strong></div>
         <div class="muted">${escapeHtml(p.rarity || "")} · ${escapeHtml(wearLabel(p.wear_code, p.wear))}</div>
         <div class="muted">${escapeHtml(p.case_name || "")}</div>
+        <div class="mini-stat">Market price: ${formatGrevCoins(p.market_reference_pence)} · Quick sell return: ${formatGrevCoins(p.quick_sell_payout_pence)}</div>
       `;
       openDropModal();
     }
@@ -521,6 +553,7 @@
         <strong>${escapeHtml(d.item_name || "")}</strong></div>
         <div class="muted">${escapeHtml(d.rarity || "")} · ${escapeHtml(wearLabel(d.wear_code, d.wear))}</div>
         <div class="muted">Case: ${escapeHtml(data.case_name || "")}</div>
+        <div class="mini-stat">Skin price after roll: ${formatGrevCoins(d.live_price_pence)} · Quick sell return: ${formatGrevCoins(d.quick_sell_payout_pence)}</div>
       `;
       openDropModal();
     }
@@ -532,8 +565,12 @@
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) return;
         const pending = data.pending || [];
-        if (pending.length && !dropModal.classList.contains("open")) {
-          showDropModalFromPending(pending[0]);
+        if (pendingTray) {
+          pendingTray.innerHTML = pending.slice(0, 3).map((p) => `<div class="pending-card"><strong>Pending drop</strong><div style="margin-top:6px">${escapeHtml(p.item_name || "")}</div><div class="mini-stat">${formatGrevCoins(p.quick_sell_payout_pence)} quick sell · ${escapeHtml(wearLabel(p.wear_code, p.wear))}</div><div class="inv-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="btn btn-primary" data-pending-open="${p.id}">Inspect</button></div></div>`).join("");
+          pendingTray.querySelectorAll("[data-pending-open]").forEach((btn) => btn.addEventListener("click", () => {
+            const match = pending.find((entry) => Number(entry.id) === Number(btn.getAttribute("data-pending-open")));
+            if (match) showDropModalFromPending(match);
+          }));
         }
       } catch { /* ignore */ }
     }
@@ -646,8 +683,7 @@
       return `<div class="reel-item">${media}<div><span class="rarity-dot" style="background:${escapeHtml(item.color_hex || "#999")}"></span>${escapeHtml(item.item_name || "Item")}</div><div class="muted">${escapeHtml(item.rarity || "")}</div></div>`;
     }
 
-    async function playOpeningSimulation(result) {
-      if (!openingReel || !openingReelTrack) return;
+    function buildReelCard(result) {
       const caseData = findCaseDataByName(result?.case_name || "");
       const source = (caseData?.preview_drops || []).slice(0, 12);
       const winner = {
@@ -657,33 +693,48 @@
         image_url: result?.dropped?.image_url || ""
       };
       const pool = [];
-      for (let i = 0; i < 24; i += 1) {
+      for (let i = 0; i < 28; i += 1) {
         const pick = source.length ? source[i % source.length] : winner;
         pool.push(pick);
       }
-      const winnerIndex = 18;
+      const winnerIndex = 21;
       pool[winnerIndex] = winner;
-      openingReelTrack.innerHTML = pool.map(reelTileMarkup).join("");
+      return `<div class="reel-card"><div class="muted" style="margin-bottom:10px">${escapeHtml(result?.case_name || "Case")} · rolling for ${escapeHtml(winner.item_name)}</div><div class="reel-window"><div class="reel-center-line"></div><div class="reel-track">${pool.map(reelTileMarkup).join("")}</div></div></div>`;
+    }
+
+    async function playOpeningSimulation(results) {
+      if (!openingReel || !openingReelGrid) return;
+      const list = Array.isArray(results) ? results.slice(0, 10) : [results].filter(Boolean);
+      if (!list.length) return;
+      openingReelGrid.innerHTML = list.map(buildReelCard).join("");
       openingReel.classList.add("open");
       openingReel.setAttribute("aria-hidden", "false");
-      openingReelSubtitle.textContent = `${result?.case_name || "Case"} · rolling for ${winner.item_name}`;
-      openingReelTrack.style.transition = 'none';
-      openingReelTrack.style.transform = 'translateX(0px)';
+      openingReelSubtitle.textContent = `${list.length} case${list.length === 1 ? "" : "s"} opening now`;
       await new Promise((resolve) => requestAnimationFrame(resolve));
-      const tiles = [...openingReelTrack.children];
-      const tile = tiles[winnerIndex];
-      const distance = tile.offsetLeft - ((openingReelTrack.parentElement.clientWidth / 2) - (tile.clientWidth / 2)) + 24;
-      openingReelTrack.style.transition = 'transform 4.6s cubic-bezier(0.08, 0.7, 0.12, 1)';
-      openingReelTrack.style.transform = `translateX(${-distance}px)`;
-      await new Promise((resolve) => window.setTimeout(resolve, 4800));
+      openingReelGrid.querySelectorAll('.reel-track').forEach((track) => {
+        const tiles = [...track.children];
+        const winnerIndex = Math.min(21, tiles.length - 1);
+        const tile = tiles[winnerIndex];
+        const distance = tile.offsetLeft - ((track.parentElement.clientWidth / 2) - (tile.clientWidth / 2)) + 24;
+        track.style.transition = 'transform 2.2s cubic-bezier(0.08, 0.7, 0.12, 1)';
+        track.style.transform = `translateX(${-distance}px)`;
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 2400));
       openingReel.classList.remove("open");
       openingReel.setAttribute("aria-hidden", "true");
     }
 
-    async function revealOpenResult(result) {
-      await playOpeningSimulation(result);
-      showDropModalFromOpen(result);
-      showToast(`${result?.dropped?.item_name || "Item"} · ${wearLabel(result?.dropped?.wear_code, result?.dropped?.wear)}`, "success");
+    async function revealOpenResult(results) {
+      const list = Array.isArray(results) ? results : [results].filter(Boolean);
+      await playOpeningSimulation(list);
+      if (list[0]) {
+        showDropModalFromOpen(list[0]);
+      }
+      if (list.length > 1) {
+        showToast(`Opened ${list.length} cases. ${list.length - 1} more drops are waiting in your pending box.`, "success");
+      } else if (list[0]) {
+        showToast(`${list[0]?.dropped?.item_name || "Item"} · ${wearLabel(list[0]?.dropped?.wear_code, list[0]?.dropped?.wear)}`, "success");
+      }
     }
 
     async function loadCasesStore() {
@@ -840,6 +891,18 @@
 
         const cases = items.filter((i) => i.item_kind === "case");
         const skins = items.filter((i) => i.item_kind === "skin");
+        const search = (document.getElementById("inventory-search")?.value || "").trim().toLowerCase();
+        const rarityFilter = (document.getElementById("inventory-rarity")?.value || "").trim().toLowerCase();
+        const minPrice = Number(document.getElementById("inventory-min-price")?.value || 0) * 100;
+        const maxPrice = Number(document.getElementById("inventory-max-price")?.value || 0) * 100;
+        const filteredSkins = skins.filter((s) => {
+          if (search && !String(s.item_name || "").toLowerCase().includes(search)) return false;
+          if (rarityFilter && String(s.rarity || "").toLowerCase() !== rarityFilter) return false;
+          const price = Number(s.live_price_pence || 0);
+          if (minPrice > 0 && price < minPrice) return false;
+          if (maxPrice > 0 && price > maxPrice) return false;
+          return true;
+        });
 
         function syncOpenSelection() {
           const picks = [...openInventoryList.querySelectorAll("[data-case-pick]:checked")];
@@ -868,7 +931,9 @@
             </div>
             <div class="inv-actions">
               <button type="button" class="btn btn-primary" data-open="${c.inventory_id}">Open (1 key)</button>
+              <button type="button" class="btn" data-refund-case="${c.inventory_id}">Refund case</button>
             </div>
+            <div class="drop-preview scrollable-preview">${renderDropPreviewList(findCaseDataByName(caseNameFromInventoryItem(c.item_name)))}</div>
           </div>
         `).join("") : `<div class="muted">No unopened cases. Buy some from the case market.</div>`;
 
@@ -915,14 +980,14 @@
           });
         });
 
-        skinInventoryList.innerHTML = skins.length ? skins.map((s) => `
+        skinInventoryList.innerHTML = filteredSkins.length ? filteredSkins.map((s) => `
           <div class="inv-row">
             ${s.image_url ? `<img class="inv-thumb" src="${escapeHtml(s.image_url)}" alt="" />` : `<div></div>`}
             <div>
               <span class="rarity-dot" style="background:${escapeHtml(s.color_hex || "#999")}"></span>
               <strong>${escapeHtml(s.item_name)}</strong>
               <div class="muted">${escapeHtml(s.rarity || "")} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</div>
-              <div class="muted">Live ref: ${formatGrevCoins(s.live_price_pence)} · Inv #${s.inventory_id}</div>
+              <div class="muted">Live ref: ${formatGrevCoins(s.live_price_pence)} · Quick sell: ${formatGrevCoins(Math.max(1, Math.floor((Number(s.live_price_pence || 0) * (100 - quickSellFeePercent)) / 100)))} · Track ID #${s.skin_instance_id || s.inventory_id}</div>
             </div>
             <div class="inv-actions">
               <button type="button" class="btn" data-quick="${s.inventory_id}" title="Live ref minus admin fee">Quick sell</button>
@@ -967,6 +1032,23 @@
             } finally {
               btn.disabled = false;
             }
+          });
+        });
+
+        openInventoryList.querySelectorAll("[data-refund-case]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-refund-case"));
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/store/refund-case", {
+                method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inventory_id: inventoryId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) { showMessage("error", data?.error || "Case refund failed."); return; }
+              showMessage("success", `${data.message} · ${formatGrevCoins(data.payout_pence)} returned.`);
+              await loadBalance(); await loadInventoryUi();
+            } catch { showMessage("error", "Network error."); } finally { btn.disabled = false; }
           });
         });
 
@@ -1469,11 +1551,61 @@
       }
     }
 
+    function renderPriceGraph(points) {
+      if (!points.length) return `<div class="muted">No scheduled price snapshots yet. Prices refresh at 00:00 and 12:00 UTC.</div>`;
+      const width = 760;
+      const height = 180;
+      const vals = points.map((p) => Number(p.price_pence || 0));
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      const range = Math.max(1, max - min);
+      const stepX = points.length === 1 ? width / 2 : width / (points.length - 1);
+      const path = points.map((p, i) => {
+        const x = i * stepX;
+        const y = height - (((Number(p.price_pence || 0) - min) / range) * (height - 20)) - 10;
+        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      }).join(' ');
+      return `<svg class="graph" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="#eb4b4b" stroke-width="4" stroke-linecap="round" /></svg>`;
+    }
+
+    async function openCatalogDetail(itemId) {
+      if (!catalogDetailOverlay || !catalogDetailBody) return;
+      catalogDetailOverlay.classList.add('open');
+      catalogDetailBody.innerHTML = '<div class="muted">Loading skin profile…</div>';
+      try {
+        const response = await fetch(`/api/cs2/catalog/detail?item_id=${encodeURIComponent(itemId)}`, { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          catalogDetailBody.innerHTML = '<div class="alert alert-error">Could not load skin profile.</div>';
+          return;
+        }
+        const it = data.item || {};
+        catalogDetailBody.innerHTML = `
+          ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" class="drop-modal-img" />` : ''}
+          <h3>${escapeHtml(it.item_name || '')}</h3>
+          <div class="case-meta">${escapeHtml(it.rarity || '')} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}</div>
+          <div class="price-row"><span class="price-badge">Live ${formatGrevCoins(it.live_price_pence)}</span><span class="price-badge">Fallback ${formatGrevCoins(it.fallback_value_pence)}</span></div>
+          <h4>Price history</h4>
+          ${renderPriceGraph(data.price_history || [])}
+          <div class="mini-stat" style="margin-top:8px">12-hour snapshot schedule: 00:00 UTC and 12:00 UTC, up to the last week.</div>
+          <h4 style="margin-top:16px">Current owners</h4>
+          ${(data.owners || []).length ? `<div class="feed-list">${data.owners.map((owner) => `<div class="feed-row"><strong>${escapeHtml(owner.username)}</strong><div class="mini-stat">Profile user id: ${owner.user_id}</div></div>`).join('')}</div>` : '<div class="muted">No current owner found.</div>'}
+        `;
+      } catch {
+        catalogDetailBody.innerHTML = '<div class="alert alert-error">Catalog detail failed.</div>';
+      }
+    }
+
     async function loadCatalog() {
       const q = document.getElementById("catalog-search").value.trim();
+      const rarity = document.getElementById("catalog-rarity").value.trim();
+      const wearCode = document.getElementById("catalog-wear").value.trim();
       catalogGrid.innerHTML = `<div class="muted">Loading…</div>`;
       try {
-        const response = await fetch(`/api/cs2/catalog?limit=120&q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
+        const params = new URLSearchParams({ limit: '120', q });
+        if (rarity) params.set('rarity', rarity);
+        if (wearCode) params.set('wear_code', wearCode);
+        const response = await fetch(`/api/cs2/catalog?${params.toString()}`, { credentials: "same-origin" });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) {
           catalogGrid.innerHTML = `<div class="alert alert-error">Could not load catalog.</div>`;
@@ -1485,16 +1617,17 @@
           return;
         }
         catalogGrid.innerHTML = items.map((it) => `
-          <div class="case-card">
+          <button type="button" class="case-card" data-catalog-open="${it.id}" style="text-align:left;color:inherit">
             ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" style="width:100%;max-height:120px;object-fit:contain;margin-bottom:8px;border-radius:8px;background:rgba(0,0,0,0.35)" />` : ""}
             <h3>${escapeHtml(it.item_name)}</h3>
             <div class="case-meta">
               ${escapeHtml(it.rarity || "")} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}<br/>
               Live: ${formatGrevCoins(it.live_price_pence)}<br/>
-              Fallback: ${formatGrevCoins(it.fallback_value_pence)}
+              Owners now: ${Number(it.owner_count || 0)}
             </div>
-          </div>
+          </button>
         `).join("");
+        catalogGrid.querySelectorAll('[data-catalog-open]').forEach((btn) => btn.addEventListener('click', () => openCatalogDetail(btn.getAttribute('data-catalog-open'))));
       } catch {
         catalogGrid.innerHTML = `<div class="alert alert-error">Catalog failed.</div>`;
       }
@@ -1582,9 +1715,34 @@
     document.getElementById("run-trade-search").addEventListener("click", runTradeSearch);
 
     document.getElementById("reload-catalog").addEventListener("click", loadCatalog);
-    document.getElementById("catalog-search").addEventListener("input", () => {
-      clearTimeout(window.__catT);
-      window.__catT = setTimeout(loadCatalog, 300);
+    ["catalog-search", "catalog-rarity", "catalog-wear", "inventory-search", "inventory-rarity", "inventory-min-price", "inventory-max-price"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", () => {
+        clearTimeout(window.__catT);
+        window.__catT = setTimeout(() => {
+          if (id.startsWith("catalog-")) loadCatalog();
+          else loadInventoryUi();
+        }, 200);
+      });
+      document.getElementById(id)?.addEventListener("change", () => {
+        if (id.startsWith("catalog-")) loadCatalog();
+        else loadInventoryUi();
+      });
+    });
+    document.getElementById("catalog-detail-close")?.addEventListener("click", () => catalogDetailOverlay?.classList.remove("open"));
+    catalogDetailOverlay?.addEventListener("click", (e) => { if (e.target === catalogDetailOverlay) catalogDetailOverlay.classList.remove("open"); });
+
+    document.getElementById("refund-keys-btn")?.addEventListener("click", async () => {
+      if (!currentUser) { window.location.href = "/login.html"; return; }
+      let qty = Number(document.getElementById("buy-keys-qty")?.value || 1);
+      if (!Number.isInteger(qty) || qty < 1) qty = 1;
+      if (qty > 100) qty = 100;
+      try {
+        const response = await fetch("/api/cs2/store/refund-keys", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quantity: qty }) });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage("error", data?.error || "Could not refund keys."); return; }
+        showMessage("success", `${data.message} · ${formatGrevCoins(data.payout_pence)} returned.`);
+        await loadBalance(); await loadInventoryUi();
+      } catch { showMessage("error", "Network error."); }
     });
 
     document.getElementById("buy-keys-btn")?.addEventListener("click", async () => {
@@ -1639,13 +1797,11 @@
           return;
         }
         const opens = data.opens || [];
-        const first = opens[0];
-        if (first) {
-          await revealOpenResult(first);
+        if (opens.length) {
+          await revealOpenResult(opens);
         }
         if (opens.length > 1) {
-          showToast(`Opened ${opens.length} cases`, "success");
-          showMessage("success", `Opened ${opens.length} cases — finish this drop; the rest stay in your pending queue.`);
+          showMessage("success", `Opened ${opens.length} cases — the first result is shown now and the rest stay queued in the bottom-right pending box.`);
         }
         await loadBalance();
         await loadInventoryUi();

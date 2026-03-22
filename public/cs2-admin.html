@@ -60,6 +60,12 @@
       </section>
 
       <section class="panel mt-24">
+        <h2 class="panel-title">Quick-sell graveyard</h2>
+        <p class="panel-subtitle">Admins can see quick-sold tracked skins and refund them back to players if a sell was accidental.</p>
+        <div id="graveyard-list"></div>
+      </section>
+
+      <section class="panel mt-24">
         <h2 class="panel-title">Cases</h2>
         <div id="case-admin-list"></div>
       </section>
@@ -75,6 +81,7 @@
     const caseAdminList = document.getElementById("case-admin-list");
     const userBalanceList = document.getElementById("user-balance-list");
     const userSearch = document.getElementById("user-search");
+    const graveyardList = document.getElementById("graveyard-list");
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -155,6 +162,45 @@
         });
       } catch {
         userBalanceList.innerHTML = `<div class="alert alert-error">Could not load users.</div>`;
+      }
+    }
+
+
+    async function loadGraveyard() {
+      graveyardList.innerHTML = `<div class="muted">Loading graveyard…</div>`;
+      try {
+        const response = await fetch("/api/cs2/admin/graveyard", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          graveyardList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Failed to load graveyard")}</div>`;
+          return;
+        }
+        const entries = data.entries || [];
+        if (!entries.length) { graveyardList.innerHTML = `<div class="muted">No quick-sold skins in the graveyard.</div>`; return; }
+        graveyardList.innerHTML = entries.map((entry) => `
+          <div class="case-admin-row" data-graveyard-id="${entry.id}" style="grid-template-columns:minmax(0,1.4fr) 120px 160px auto">
+            <div>
+              <strong>${escapeHtml(entry.item_name)}</strong>
+              <div class="muted">${escapeHtml(entry.username)} · ${escapeHtml(entry.rarity || '')} · ${escapeHtml(entry.wear || '')}</div>
+            </div>
+            <div class="muted">Paid back ${formatGrevCoins(entry.payout_pence)}</div>
+            <div class="muted">${entry.refunded_at ? `Refunded ${escapeHtml(entry.refunded_at)}` : 'Awaiting action'}</div>
+            ${entry.refunded_at ? '<span class="muted">Done</span>' : '<button type="button" class="btn btn-primary" data-refund-graveyard>Refund skin</button>'}
+          </div>`).join('');
+        graveyardList.querySelectorAll('[data-refund-graveyard]').forEach((btn) => btn.addEventListener('click', async () => {
+          const row = btn.closest('[data-graveyard-id]');
+          const graveyardId = Number(row?.getAttribute('data-graveyard-id'));
+          btn.disabled = true;
+          try {
+            const response = await fetch('/api/cs2/admin/graveyard/refund', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ graveyard_id: graveyardId }) });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Refund failed.'); return; }
+            showMessage('success', data.message || 'Skin refunded.');
+            await loadGraveyard();
+          } catch { showMessage('error', 'Refund failed.'); } finally { btn.disabled = false; }
+        }));
+      } catch {
+        graveyardList.innerHTML = `<div class="alert alert-error">Could not load graveyard.</div>`;
       }
     }
 
