@@ -146,7 +146,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname === "/api/gambling/event" && request.method === "GET") {
-    await ensureCasesCatalogReady(env);
+    await ensureCs2CatalogReady(env);
     const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await env.CASES_DB.prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
     return json({ success: true, event }, 200, request);
   }
@@ -171,7 +171,7 @@ async function handleRequest(request, env, ctx) {
   if (pathname === "/api/gambling/admin/event" && request.method === "POST") {
     const adminUser = await requireGamblingAdmin(request, env);
     if (adminUser instanceof Response) return adminUser;
-    await ensureCasesCatalogReady(env);
+    await ensureCs2CatalogReady(env);
     const body = await safeJson(request);
     const now = isoNow();
     const event = { id: 1, title: String(body?.title || '').trim(), message: String(body?.message || '').trim(), is_active: Boolean(body?.is_active), cs2_discount_percent: Math.max(0, Math.min(100, Number(body?.cs2_discount_percent || 0))), ygo_discount_percent: Math.max(0, Math.min(100, Number(body?.ygo_discount_percent || 0))), blackjack_bonus_percent: Math.max(0, Math.min(500, Number(body?.blackjack_bonus_percent || 0))), updated_at: now };
@@ -204,7 +204,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname.startsWith("/api/cs2") || cs2Request !== request) {
-    await ensureCasesCatalogReady(env);
+    await ensureCs2CatalogReady(env);
     const cs2Response = await handleCs2Request(cs2Request, env, {
       json,
       getApprovedUser,
@@ -217,7 +217,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname.startsWith("/api/ygo")) {
-    await ensureCasesCatalogReady(env);
+    await ensureYgoReady(env);
     const ygoResponse = await handleYgoRequest(request, env, {
       json,
       getApprovedUser,
@@ -229,7 +229,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname.startsWith("/api/blackjack")) {
-    await ensureCasesCatalogReady(env);
+    await ensureBlackjackReady(env);
     const blackjackResponse = await handleBlackjackRequest(request, env, {
       json,
       getApprovedUser,
@@ -335,9 +335,39 @@ async function handleSetup(env, request) {
   );
 }
 
-async function ensureCasesCatalogReady(env) {
+async function ensureCs2CatalogReady(env) {
   await ensureCasesTables(env);
+  await ensureCs2Extensions(env.CASES_DB);
   return await seedCs2CatalogIfEmpty(env);
+}
+
+async function ensureYgoReady(env) {
+  if (!env.CASES_DB && !env.YGO_DB) {
+    return { seeded: false, reason: 'no_ygo_db' };
+  }
+
+  if (env.CASES_DB) {
+    await ensureCasesTables(env);
+  }
+
+  const ygoDb = env.YGO_DB || env.CASES_DB;
+  return await ensureYgoTables(ygoDb, env.CASES_DB || ygoDb);
+}
+
+async function ensureBlackjackReady(env) {
+  if (!env.CASES_DB && !env.BLACKJACK_DB) {
+    return { seeded: false, reason: 'no_blackjack_db' };
+  }
+
+  if (env.CASES_DB) {
+    await ensureCasesTables(env);
+  }
+
+  return await ensureBlackjackTables(env);
+}
+
+async function ensureCasesCatalogReady(env) {
+  return await ensureCs2CatalogReady(env);
 }
 
 async function ensureCoreTables(env) {
@@ -617,10 +647,6 @@ async function ensureCasesTables(env) {
   await env.CASES_DB.prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
   await env.CASES_DB.prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
 
-  const ygoDb = env.YGO_DB || env.CASES_DB;
-  await ensureCs2Extensions(env.CASES_DB);
-  await ensureYgoTables(ygoDb, env.CASES_DB);
-  await ensureBlackjackTables(env);
 }
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
