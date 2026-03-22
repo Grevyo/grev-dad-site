@@ -5,6 +5,8 @@ import { getQuickSellFeePercent } from "./cs2/quick-sell.js";
 import { handleCs2Request } from "./cs2/handlers.js";
 import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
 import { ensureCs2Extensions } from "./cs2/schema.js";
+import { ensureYgoTables } from "./ygo/schema.js";
+import { handleYgoRequest } from "./ygo/handlers.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -164,6 +166,17 @@ async function handleRequest(request, env, ctx) {
       safeJson
     });
     if (cs2Response) return cs2Response;
+  }
+
+  if (pathname.startsWith("/api/ygo")) {
+    await ensureCasesCatalogReady(env);
+    const ygoResponse = await handleYgoRequest(request, env, {
+      json,
+      getApprovedUser,
+      isoNow,
+      safeJson
+    });
+    if (ygoResponse) return ygoResponse;
   }
 
   // Admin
@@ -501,6 +514,7 @@ async function ensureCasesTables(env) {
   await env.CASES_DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
 
   await ensureCs2Extensions(env.CASES_DB);
+  await ensureYgoTables(env.CASES_DB);
 }
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
