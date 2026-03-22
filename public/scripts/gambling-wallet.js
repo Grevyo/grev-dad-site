@@ -5,14 +5,14 @@
 (function () {
   function formatGrevCoins(pence) {
     const n = Number(pence || 0) / 100;
-    return `${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GV`;
   }
 
   async function refreshGamblingWallet() {
     const mount = document.getElementById("gambling-wallet-mount");
     if (!mount) return;
 
-    mount.innerHTML = `<span class="balance-pill">Balance: —</span><span class="balance-pill">Keys: —</span><span class="balance-pill">Inventory (ref.): —</span>`;
+    mount.innerHTML = `<span class="balance-pill">Grev Coins: —</span><span class="balance-pill">🔑 Keys: —</span><span class="balance-pill">Inventory (ref.): —</span>`;
 
     try {
       const response = await fetch("/api/gambling/profile", { credentials: "same-origin" });
@@ -27,8 +27,8 @@
       const keys = Number(p.key_balance ?? 0);
       const inv = formatGrevCoins(p.total_inventory_value);
       mount.innerHTML = `
-        <span class="balance-pill">Balance: ${bal}</span>
-        <span class="balance-pill">${keys} keys</span>
+        <span class="balance-pill">Grev Coins: ${bal}</span>
+        <span class="balance-pill">🔑 ${keys} keys</span>
         <span class="balance-pill">Inventory (ref.): ${inv}</span>
       `;
     } catch {

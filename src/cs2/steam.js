@@ -1,5 +1,21 @@
 import { MARKET_CACHE_TTL_MS, STEAM_APPID_CS2, STEAM_CURRENCY_GBP } from "./constants.js";
 
+function normalizeMarketName(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function pickBestSteamResult(results, marketHashName) {
+  const target = normalizeMarketName(marketHashName);
+  return (results || []).find((entry) => {
+    const desc = entry?.asset_description || {};
+    return [entry?.hash_name, entry?.name, desc?.market_hash_name, desc?.name]
+      .some((value) => normalizeMarketName(value) === target);
+  }) || (results || [])[0] || null;
+}
+
 /**
  * Fetches median/last Steam Community Market price for CS2 (appid 730), GBP.
  * Returns price in pence or null if unavailable.
@@ -95,7 +111,7 @@ export async function fetchSteamIconUrl(marketHashName) {
   if (!marketHashName || typeof marketHashName !== "string") return null;
 
   const encoded = encodeURIComponent(marketHashName);
-  const url = `https://steamcommunity.com/market/search/render/?query=${encoded}&start=0&count=1&appid=${STEAM_APPID_CS2}&norender=1&currency=${STEAM_CURRENCY_GBP}`;
+  const url = `https://steamcommunity.com/market/search/render/?query=${encoded}&start=0&count=10&appid=${STEAM_APPID_CS2}&norender=1&currency=${STEAM_CURRENCY_GBP}`;
 
   const response = await fetch(url, {
     headers: {
@@ -114,8 +130,8 @@ export async function fetchSteamIconUrl(marketHashName) {
   }
 
   const results = data.results || [];
-  const first = results[0];
-  const icon = first?.asset_description?.icon_url || first?.asset_description?.icon_url_large;
+  const match = pickBestSteamResult(results, marketHashName);
+  const icon = match?.asset_description?.icon_url_large || match?.asset_description?.icon_url;
   if (!icon) return null;
 
   return `https://community.cloudflare.steamstatic.com/economy/image/${icon}`;

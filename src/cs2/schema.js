@@ -125,6 +125,20 @@ export async function ensureCs2Extensions(db) {
     `).bind(String(DEFAULT_QUICK_SELL_FEE_PERCENT)).run();
   }
 
+
+  const startingBalanceMigrationKey = 'starting_balance_5000_gc_applied';
+  const startingBalanceSeed = await db.prepare(`SELECT 1 FROM cs2_sim_settings WHERE key = ? LIMIT 1`)
+    .bind(startingBalanceMigrationKey)
+    .first();
+  if (!startingBalanceSeed) {
+    await db.prepare(`UPDATE case_profiles SET balance = ?, updated_at = ?`)
+      .bind(STARTING_BALANCE_PENCE, new Date().toISOString())
+      .run();
+    await db.prepare(`INSERT INTO cs2_sim_settings (key, value) VALUES (?, ?)`)
+      .bind(startingBalanceMigrationKey, String(STARTING_BALANCE_PENCE))
+      .run();
+  }
+
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS profile_showcase (
       user_id INTEGER NOT NULL,
