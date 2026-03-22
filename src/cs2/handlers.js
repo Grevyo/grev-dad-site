@@ -8,6 +8,18 @@ import { importPriceEmpireCatalog } from "./pricempire.js";
 import { importMasterCatalog } from "./master-import.js";
 import { getCachedValue, invalidateCachedPrefix } from "../lib/runtime-cache.js";
 
+
+async function ensureStructuredCaseCatalog(env) {
+  if (!env?.CASES_DB) return null;
+  return getCachedValue('casesdb:cs2:catalog:structured-sync', 300000, async () => {
+    try {
+      return await importMasterCatalog(env);
+    } catch {
+      return null;
+    }
+  });
+}
+
 function pickWeighted(rows) {
   const list = (rows || []).filter((r) => Number(r.drop_weight) > 0);
   if (!list.length) return null;
@@ -614,6 +626,7 @@ async function getCs2StoreVersionInfo(env) {
 }
 
 async function buildCs2StoreBootstrap(env) {
+  await ensureStructuredCaseCatalog(env);
   const [{ store_version, updated_at }, cases, catalog_items, listings, quickSellFeePercent, eventConfig] = await Promise.all([
     getCs2StoreVersionInfo(env),
     getCachedValue('casesdb:cs2:cases', 60000, async () => {
@@ -675,6 +688,7 @@ async function getCaseStorePricePence(env, caseRow, options = {}) {
  * @returns {{ success: true, data: object } | { success: false, error: string, status?: number }}
  */
 async function executeCaseOpen(env, session, isoNow, inventoryId) {
+  await ensureStructuredCaseCatalog(env);
   const inv = await env.CASES_DB.prepare(`
       SELECT i.*, ci.item_kind, ci.case_def_id, cd.id AS case_def_pk, cd.case_name
       FROM inventory i
