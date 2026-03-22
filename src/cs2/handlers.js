@@ -310,6 +310,135 @@ async function buildAdminCasePayload(env, caseRow, options = {}) {
   };
 }
 
+function slugifyCaseName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+}
+
+function parseSkinUploadText(rawText) {
+  const lines = String(rawText || "").split(/\r?\n/);
+  let currentCaseName = "";
+  const rows = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+
+    const heading = line.match(/^(?:case|case name|crate|collection)\s*[:\-]\s*(.+)$/i);
+    if (heading) {
+      currentCaseName = heading[1].trim();
+      continue;
+    }
+
+    const tokens = line.includes("\t")
+      ? line.split("\t").map((token) => token.trim()).filter(Boolean)
+      : line.split("|").map((token) => token.trim()).filter(Boolean);
+
+    let row = null;
+    if (tokens.length >= 4) {
+      row = {
+        case_name: tokens[0],
+        weapon_name: tokens[1],
+        skin_name: tokens[2],
+        rarity: tokens[3],
+        wear: tokens[4] || "",
+        market_hash_name: tokens[5] || ""
+      };
+    } else if (tokens.length === 3 && currentCaseName) {
+      row = {
+        case_name: currentCaseName,
+        weapon_name: tokens[0],
+        skin_name: tokens[1],
+        rarity: tokens[2],
+        wear: tokens[3] || "",
+        market_hash_name: tokens[4] || ""
+      };
+    } else if (line.includes(",") && currentCaseName) {
+      const csv = line.split(",").map((token) => token.trim()).filter(Boolean);
+      if (csv.length >= 3) {
+        row = {
+          case_name: currentCaseName,
+          weapon_name: csv[0],
+          skin_name: csv[1],
+          rarity: csv[2],
+          wear: csv[3] || "",
+          market_hash_name: csv[4] || ""
+        };
+      }
+    }
+
+    if (!row?.case_name || !row.weapon_name || !row.skin_name) continue;
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+async function ensureAdminCaseDefinition(env, caseName, isoNow) {
+  const trimmedName = String(caseName || "").trim();
+  if (!trimmedName) return null;
+  const slug = slugifyCaseName(trimmedName);
+  let row = await env.CASES_DB.prepare(`SELECT * FROM case_definitions WHERE case_name = ? OR slug = ? LIMIT 1`)
+    .bind(trimmedName, slug)
+    .first();
+  if (row) return { row, created: false };
+
+  const now = isoNow();
+  const insert = await env.CASES_DB.prepare(`
+    INSERT INTO case_definitions (
+      case_name, slug, image_url, price, description, is_active, created_at, steam_market_hash_name, fallback_price_pence
+    ) VALUES (?, ?, '', 100, ?, 1, ?, ?, 100)
+  `).bind(trimmedName, slug, `Imported ${trimmedName} case.`, now, trimmedName).run();
+  const caseId = Number(insert.meta?.last_row_id || 0);
+  if (!caseId) return null;
+
+  await env.CASES_DB.prepare(`
+    INSERT INTO case_items (
+      item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
+    ) VALUES (?, '', '', 'container', '', '', 0, '#9ea3b5', ?, 'case', ?, ?)
+  `).bind(`${trimmedName} (Unopened)`, now, caseId, trimmedName).run();
+
+  row = await env.CASES_DB.prepare(`SELECT * FROM case_definitions WHERE id = ? LIMIT 1`).bind(caseId).first();
+  return { row, created: true };
+}
+
+async function ensureAdminSkinItem(env, row, isoNow) {
+  const weaponName = String(row.weapon_name || "").trim();
+  const skinName = String(row.skin_name || "").trim();
+  const itemName = `${weaponName} | ${skinName}`;
+  const marketHashName = String(row.market_hash_name || itemName).trim();
+  const rarity = String(row.rarity || "Mil-Spec Grade").trim();
+  const wear = String(row.wear || "").trim();
+  const now = isoNow();
+
+  let existing = await env.CASES_DB.prepare(`
+    SELECT * FROM case_items
+    WHERE item_kind = 'skin' AND weapon_name = ? AND skin_name = ?
+    LIMIT 1
+  `).bind(weaponName, skinName).first();
+
+  if (existing) {
+    await env.CASES_DB.prepare(`
+      UPDATE case_items
+      SET item_name = ?, rarity = ?, wear = COALESCE(NULLIF(?, ''), wear), market_hash_name = COALESCE(NULLIF(?, ''), market_hash_name)
+      WHERE id = ?
+    `).bind(itemName, rarity, wear, marketHashName, existing.id).run();
+    return Number(existing.id);
+  }
+
+  const inserted = await env.CASES_DB.prepare(`
+    INSERT INTO case_items (
+      item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
+    ) VALUES (?, ?, ?, ?, ?, '', 0, '#4b69ff', ?, 'skin', NULL, ?)
+  `).bind(itemName, weaponName, skinName, rarity, wear, now, marketHashName).run();
+
+  return Number(inserted.meta?.last_row_id || 0);
+}
+
 async function getCs2DiscountPercent(env) {
   const row = await getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`SELECT is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, title, message, updated_at FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
   return row && Number(row.is_active) ? Math.max(0, Math.min(100, Number(row.cs2_discount_percent || 0))) : 0;
@@ -1138,6 +1267,140 @@ export async function handleCs2Request(request, env, deps) {
 
     invalidateCachedPrefix('casesdb:cs2:cases');
     return json({ success: true, message: "Fallback price updated" }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/cases/delete" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const caseId = Number(body?.case_id);
+    if (!Number.isInteger(caseId) || caseId <= 0) {
+      return json({ success: false, error: "A valid case id is required" }, 400, request);
+    }
+
+    await env.CASES_DB.batch([
+      env.CASES_DB.prepare(`DELETE FROM case_drops WHERE case_id = ?`).bind(caseId),
+      env.CASES_DB.prepare(`DELETE FROM case_items WHERE item_kind = 'case' AND case_def_id = ?`).bind(caseId),
+      env.CASES_DB.prepare(`DELETE FROM case_definitions WHERE id = ?`).bind(caseId)
+    ]);
+
+    invalidateCachedPrefix('casesdb:cs2:cases');
+    return json({ success: true, message: "Case deleted" }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/skins/search" && request.method === "GET") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const search = (url.searchParams.get("q") || "").trim().toLowerCase();
+    const rows = await env.CASES_DB.prepare(`
+      SELECT id, item_name, weapon_name, skin_name, rarity, wear, market_hash_name
+      FROM case_items
+      WHERE item_kind = 'skin'
+      ORDER BY item_name ASC
+      LIMIT 250
+    `).all();
+
+    const items = (rows.results || []).filter((row) => {
+      if (!search) return true;
+      const haystack = `${row.item_name || ""} ${row.weapon_name || ""} ${row.skin_name || ""} ${row.rarity || ""}`.toLowerCase();
+      return haystack.includes(search);
+    });
+    return json({ success: true, items }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/cases/assign-skin" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const caseId = Number(body?.case_id);
+    const itemId = Number(body?.item_id);
+    const dropWeight = Math.max(1, Math.round(Number(body?.drop_weight || 1)));
+    if (!Number.isInteger(caseId) || caseId <= 0) return json({ success: false, error: "A valid case id is required" }, 400, request);
+    if (!Number.isInteger(itemId) || itemId <= 0) return json({ success: false, error: "A valid skin item id is required" }, 400, request);
+
+    const caseRow = await env.CASES_DB.prepare(`SELECT id FROM case_definitions WHERE id = ? LIMIT 1`).bind(caseId).first();
+    const itemRow = await env.CASES_DB.prepare(`SELECT id FROM case_items WHERE id = ? AND item_kind = 'skin' LIMIT 1`).bind(itemId).first();
+    if (!caseRow) return json({ success: false, error: "Case not found" }, 404, request);
+    if (!itemRow) return json({ success: false, error: "Skin not found" }, 404, request);
+
+    const existingDrop = await env.CASES_DB.prepare(`SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1`).bind(caseId, itemId).first();
+    if (existingDrop) {
+      await env.CASES_DB.prepare(`UPDATE case_drops SET drop_weight = ? WHERE case_id = ? AND item_id = ?`).bind(dropWeight, caseId, itemId).run();
+    } else {
+      await env.CASES_DB.prepare(`INSERT INTO case_drops (case_id, item_id, drop_weight) VALUES (?, ?, ?)`).bind(caseId, itemId, dropWeight).run();
+    }
+
+    invalidateCachedPrefix('casesdb:cs2:cases');
+    return json({ success: true, message: "Skin assigned to case" }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/cases/remove-skin" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const caseId = Number(body?.case_id);
+    const itemId = Number(body?.item_id);
+    if (!Number.isInteger(caseId) || caseId <= 0) return json({ success: false, error: "A valid case id is required" }, 400, request);
+    if (!Number.isInteger(itemId) || itemId <= 0) return json({ success: false, error: "A valid skin item id is required" }, 400, request);
+
+    await env.CASES_DB.prepare(`DELETE FROM case_drops WHERE case_id = ? AND item_id = ?`).bind(caseId, itemId).run();
+    invalidateCachedPrefix('casesdb:cs2:cases');
+    return json({ success: true, message: "Skin removed from case" }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/catalog/upload" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const text = typeof body?.text === "string" ? body.text : "";
+    const parsedRows = parseSkinUploadText(text);
+    if (!parsedRows.length) {
+      return json({ success: false, error: "No valid case/skin rows were found in the uploaded text." }, 400, request);
+    }
+
+    let casesCreated = 0;
+    let skinsUpserted = 0;
+    let assignmentsCreated = 0;
+    const seenCases = new Set();
+    const seenAssignments = new Set();
+
+    for (const row of parsedRows) {
+      const caseResult = await ensureAdminCaseDefinition(env, row.case_name, isoNow);
+      const caseRow = caseResult?.row;
+      if (!caseRow) continue;
+      if (!seenCases.has(caseRow.id)) {
+        seenCases.add(caseRow.id);
+        if (caseResult?.created) casesCreated += 1;
+      }
+
+      const itemId = await ensureAdminSkinItem(env, row, isoNow);
+      if (!itemId) continue;
+      skinsUpserted += 1;
+
+      const assignmentKey = `${caseRow.id}:${itemId}`;
+      if (seenAssignments.has(assignmentKey)) continue;
+      seenAssignments.add(assignmentKey);
+
+      const existingDrop = await env.CASES_DB.prepare(`SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1`).bind(caseRow.id, itemId).first();
+      if (!existingDrop) {
+        await env.CASES_DB.prepare(`INSERT INTO case_drops (case_id, item_id, drop_weight) VALUES (?, ?, ?)` )
+          .bind(caseRow.id, itemId, 1)
+          .run();
+        assignmentsCreated += 1;
+      }
+    }
+
+    invalidateCachedPrefix('casesdb:cs2:cases');
+    return json({
+      success: true,
+      message: `Imported ${parsedRows.length} rows from upload.`,
+      stats: { parsed_rows: parsedRows.length, cases_created: casesCreated, skins_upserted: skinsUpserted, assignments_created: assignmentsCreated }
+    }, 200, request);
   }
 
   if (pathname === "/api/cs2/admin/catalog/import" && request.method === "POST") {
