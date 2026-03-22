@@ -423,8 +423,10 @@
     let activePendingId = null;
     let availableCases = [];
     let cachedStoreBootstrap = null;
+    let cachedCasesPayload = null;
 
     const STORE_CACHE_KEY = "grevdad:cs2:store-bootstrap:v1";
+    const STORE_CASES_CACHE_KEY = "grevdad:cs2:store-cases:v1";
     const STORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
     const WEAR_LABEL = {
@@ -497,6 +499,18 @@
       }
     }
 
+    function readCasesCache() {
+      try {
+        const raw = window.localStorage.getItem(STORE_CASES_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
     function writeStoreCache(payload) {
       if (!payload || typeof payload !== "object") return;
       try {
@@ -510,10 +524,36 @@
 
     function clearStoreCache() {
       cachedStoreBootstrap = null;
+      cachedCasesPayload = null;
       try {
         window.localStorage.removeItem(STORE_CACHE_KEY);
+        window.localStorage.removeItem(STORE_CASES_CACHE_KEY);
       } catch {
         // ignore storage failures
+      }
+    }
+
+    function writeCasesCache(payload) {
+      if (!payload || typeof payload !== "object") return;
+      try {
+        const record = { ...payload, cached_at_ms: Date.now() };
+        window.localStorage.setItem(STORE_CASES_CACHE_KEY, JSON.stringify(record));
+        cachedCasesPayload = record;
+      } catch {
+        cachedCasesPayload = payload;
+      }
+    }
+
+    function applyCasesPayload(payload) {
+      cachedCasesPayload = payload || null;
+      availableCases = Array.isArray(payload?.cases) ? payload.cases : [];
+      if (payload?.quick_sell_fee_percent != null) {
+        quickSellFeePercent = Number(payload.quick_sell_fee_percent);
+        updateQuickSellButtonLabel();
+      }
+      const kpl = document.getElementById("store-key-price-label");
+      if (kpl && payload?.key_price_pence != null) {
+        kpl.textContent = `${formatGrevCoins(payload.key_price_pence)} each`;
       }
     }
 
@@ -546,6 +586,15 @@
       return data;
     }
 
+    async function fetchCasesPayload() {
+      const response = await fetch("/api/cs2/cases", { credentials: "same-origin" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Could not load cases.");
+      writeCasesCache(data);
+      applyCasesPayload(data);
+      return data;
+    }
+
     async function revalidateStoreBootstrap(cached) {
       if (!cached?.store_version) return cached;
       const ageMs = Math.max(0, Date.now() - Number(cached.cached_at_ms || 0));
@@ -570,6 +619,15 @@
         return cached;
       }
       return await fetchStoreBootstrap();
+    }
+
+    async function ensureCasesPayload(forceRefresh = false) {
+      const cached = cachedCasesPayload || readCasesCache();
+      if (!forceRefresh && cached?.cases?.length) {
+        applyCasesPayload(cached);
+        return cached;
+      }
+      return await fetchCasesPayload();
     }
 
     async function refreshStoreBootstrap() {
@@ -961,7 +1019,7 @@
     async function loadCasesStore() {
       storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
       try {
-        const data = await ensureStoreBootstrap();
+        const data = await ensureCasesPayload();
         renderCasesStore(data?.cases || []);
       } catch {
         storeCaseGrid.innerHTML = `<div class="alert alert-error">Could not load store.</div>`;
@@ -2049,16 +2107,18 @@
 
       cs2AdminEntry?.classList.toggle("hidden", !currentUser?.can_manage_gambling);
 
-      await loadBalance();
-      await loadCasesStore();
-      await loadInventoryUi();
-      await loadListings("");
-      await loadIncomingOffers();
-      await loadOutgoingOffers();
-      await loadCatalog();
-      await loadFeeds();
-      await runTradeSearch();
-      await loadPendingDrops();
+      await Promise.allSettled([
+        loadBalance(),
+        loadCasesStore(),
+        loadInventoryUi(),
+        loadListings(""),
+        loadIncomingOffers(),
+        loadOutgoingOffers(),
+        loadCatalog(),
+        loadFeeds(),
+        runTradeSearch(),
+        loadPendingDrops()
+      ]);
 
       setInterval(() => {
         if (document.visibilityState === "visible") {
