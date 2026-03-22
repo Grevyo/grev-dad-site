@@ -1,5 +1,8 @@
 // public/scripts/header.js
 
+const AUTH_CACHE_KEY = "grevdad_auth_user";
+const AUTH_CACHE_EVENT = "grevdad-auth-changed";
+
 async function loadSharedHeader() {
   const mount = document.getElementById("header-mount");
   if (!mount) return;
@@ -9,8 +12,15 @@ async function loadSharedHeader() {
     const html = await response.text();
     mount.innerHTML = html;
 
-    const auth = await fetchCurrentUser();
+    const cachedUser = readCachedAuthUser();
+    applyHeaderAuthState(cachedUser);
+
+    const auth = await fetchCurrentUser({ preferCache: !cachedUser });
     applyHeaderAuthState(auth);
+
+    window.addEventListener(AUTH_CACHE_EVENT, () => {
+      applyHeaderAuthState(readCachedAuthUser());
+    });
 
     const logoutBtn = document.getElementById("header-logout-btn");
     if (logoutBtn) {
@@ -29,6 +39,7 @@ async function loadSharedHeader() {
           console.error("Logout failed:", error);
         }
 
+        clearCachedAuthUser();
         window.location.href = "/login.html";
       });
     }
@@ -37,7 +48,12 @@ async function loadSharedHeader() {
   }
 }
 
-async function fetchCurrentUser() {
+async function fetchCurrentUser({ preferCache = false } = {}) {
+  const cachedUser = readCachedAuthUser();
+  if (preferCache && cachedUser) {
+    return cachedUser;
+  }
+
   try {
     const response = await fetch("/api/auth/me", {
       method: "GET",
@@ -46,14 +62,45 @@ async function fetchCurrentUser() {
 
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.authenticated) {
+      clearCachedAuthUser();
       return null;
     }
 
-    return data.user || null;
+    const user = data.user || null;
+    writeCachedAuthUser(user);
+    return user;
   } catch (error) {
     console.error("Failed to fetch current user:", error);
+    return cachedUser;
+  }
+}
+
+function readCachedAuthUser() {
+  try {
+    const raw = window.sessionStorage.getItem(AUTH_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.error("Failed to read cached auth user:", error);
     return null;
   }
+}
+
+function writeCachedAuthUser(user) {
+  try {
+    if (!user) {
+      window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+    } else {
+      window.sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(user));
+    }
+  } catch (error) {
+    console.error("Failed to cache auth user:", error);
+  }
+
+  window.dispatchEvent(new Event(AUTH_CACHE_EVENT));
+}
+
+function clearCachedAuthUser() {
+  writeCachedAuthUser(null);
 }
 
 function applyHeaderAuthState(user) {

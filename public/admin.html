@@ -278,6 +278,17 @@
                 </div>
               </div>
 
+              <div class="form-group">
+                <label class="form-label" for="edit-gambling-admin">Gambling admin access</label>
+                <select id="edit-gambling-admin" class="form-select" required>
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+                <div class="form-help">
+                  Lets this user manage CS2 gambling admin tools without giving them full main-site admin access.
+                </div>
+              </div>
+
               <div class="button-row">
                 <button id="save-user-btn" class="btn btn-primary" type="submit">Save changes</button>
               </div>
@@ -318,6 +329,7 @@
     const editGroup = document.getElementById("edit-group");
     const editApproved = document.getElementById("edit-approved");
     const editIsAdmin = document.getElementById("edit-is-admin");
+    const editGamblingAdmin = document.getElementById("edit-gambling-admin");
     const saveUserBtn = document.getElementById("save-user-btn");
 
     function showMessage(type, text) {
@@ -418,7 +430,7 @@
               </div>
             </div>
             <div class="user-row-meta">
-              ID: ${user.id} · Admin: ${user.is_admin ? "Yes" : "No"}
+              ID: ${user.id} · Admin: ${user.is_admin ? "Yes" : "No"} · Gambling admin: ${user.gambling_admin ? "Yes" : "No"}
             </div>
           </button>
         `;
@@ -514,6 +526,7 @@
         editGroup.value = user.group || "standard";
         editApproved.value = String(Boolean(user.approved));
         editIsAdmin.value = String(Boolean(user.is_admin));
+        editGamblingAdmin.value = String(Boolean(user.gambling_admin));
 
         editorEmpty.classList.add("hidden");
         userEditorForm.classList.remove("hidden");
@@ -534,7 +547,8 @@
         user_id: Number(editUserId.value),
         group_name: editGroup.value,
         approved: editApproved.value === "true",
-        is_admin: editIsAdmin.value === "true"
+        is_admin: editIsAdmin.value === "true",
+        gambling_admin: editGamblingAdmin.value === "true"
       };
 
       saveUserBtn.disabled = true;
