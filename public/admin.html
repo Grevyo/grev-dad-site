@@ -278,9 +278,60 @@
                 </div>
               </div>
 
-              <div class="button-row">
-                <button id="save-user-btn" class="btn btn-primary" type="submit">Save changes</button>
+	              <div class="form-group">
+	                <label class="form-label" for="edit-gambling-admin">Gambling admin access</label>
+                <select id="edit-gambling-admin" class="form-select" required>
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+                <div class="form-help">
+	                  Lets this user manage CS2 gambling admin tools without giving them full main-site admin access.
+	                </div>
+	              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-real-name">Real name</label>
+                <input id="edit-real-name" class="form-input" type="text" maxlength="80" />
               </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-motto">Motto</label>
+                <input id="edit-motto" class="form-input" type="text" maxlength="140" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-avatar-url">Avatar URL</label>
+                <input id="edit-avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-bio">Bio</label>
+                <textarea id="edit-bio" class="form-input form-textarea" maxlength="3000" style="min-height:140px;"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-media-1">Media 1 URL</label>
+                <input id="edit-media-1" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-media-2">Media 2 URL</label>
+                <input id="edit-media-2" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-media-3">Media 3 URL</label>
+                <input id="edit-media-3" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="edit-music-url">Music URL</label>
+                <input id="edit-music-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              </div>
+
+	              <div class="button-row">
+	                <button id="save-user-btn" class="btn btn-primary" type="submit">Save changes</button>
+	              </div>
             </form>
           </section>
         </section>
@@ -315,10 +366,19 @@
     const detailRole = document.getElementById("detail-role");
     const detailCreated = document.getElementById("detail-created");
     const detailLastSeen = document.getElementById("detail-last-seen");
-    const editGroup = document.getElementById("edit-group");
-    const editApproved = document.getElementById("edit-approved");
-    const editIsAdmin = document.getElementById("edit-is-admin");
-    const saveUserBtn = document.getElementById("save-user-btn");
+	    const editGroup = document.getElementById("edit-group");
+	    const editApproved = document.getElementById("edit-approved");
+	    const editIsAdmin = document.getElementById("edit-is-admin");
+	    const editGamblingAdmin = document.getElementById("edit-gambling-admin");
+      const editRealName = document.getElementById("edit-real-name");
+      const editMotto = document.getElementById("edit-motto");
+      const editAvatarUrl = document.getElementById("edit-avatar-url");
+      const editBio = document.getElementById("edit-bio");
+      const editMedia1 = document.getElementById("edit-media-1");
+      const editMedia2 = document.getElementById("edit-media-2");
+      const editMedia3 = document.getElementById("edit-media-3");
+      const editMusicUrl = document.getElementById("edit-music-url");
+	    const saveUserBtn = document.getElementById("save-user-btn");
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -418,7 +478,7 @@
               </div>
             </div>
             <div class="user-row-meta">
-              ID: ${user.id} · Admin: ${user.is_admin ? "Yes" : "No"}
+              ID: ${user.id} · Admin: ${user.is_admin ? "Yes" : "No"} · Gambling admin: ${user.gambling_admin ? "Yes" : "No"}
             </div>
           </button>
         `;
@@ -511,9 +571,18 @@
         detailCreated.textContent = formatDate(user.created_at);
         detailLastSeen.textContent = formatDate(user.last_seen_at);
 
-        editGroup.value = user.group || "standard";
-        editApproved.value = String(Boolean(user.approved));
-        editIsAdmin.value = String(Boolean(user.is_admin));
+	        editGroup.value = user.group || "standard";
+	        editApproved.value = String(Boolean(user.approved));
+	        editIsAdmin.value = String(Boolean(user.is_admin));
+	        editGamblingAdmin.value = String(Boolean(user.gambling_admin));
+          editRealName.value = user.real_name || "";
+          editMotto.value = user.motto || "";
+          editAvatarUrl.value = user.avatar_url || "";
+          editBio.value = user.bio || "";
+          editMedia1.value = user.media_1_url || "";
+          editMedia2.value = user.media_2_url || "";
+          editMedia3.value = user.media_3_url || "";
+          editMusicUrl.value = user.music_url || "";
 
         editorEmpty.classList.add("hidden");
         userEditorForm.classList.remove("hidden");
@@ -530,12 +599,21 @@
       event.preventDefault();
       clearMessage();
 
-      const payload = {
-        user_id: Number(editUserId.value),
-        group_name: editGroup.value,
-        approved: editApproved.value === "true",
-        is_admin: editIsAdmin.value === "true"
-      };
+	      const payload = {
+	        user_id: Number(editUserId.value),
+	        group_name: editGroup.value,
+	        approved: editApproved.value === "true",
+	        is_admin: editIsAdmin.value === "true",
+	        gambling_admin: editGamblingAdmin.value === "true",
+          real_name: editRealName.value,
+          motto: editMotto.value,
+          avatar_url: editAvatarUrl.value,
+          bio: editBio.value,
+          media_1_url: editMedia1.value,
+          media_2_url: editMedia2.value,
+          media_3_url: editMedia3.value,
+          music_url: editMusicUrl.value
+	      };
 
       saveUserBtn.disabled = true;
       saveUserBtn.textContent = "Saving...";

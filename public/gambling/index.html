@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gambling hub | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/gambling-wallet.js" defer></script>
+  <style>
+    .gambling-hub-hero {
+      padding: 28px 26px;
+      border-radius: var(--radius-md);
+      background:
+        linear-gradient(135deg, rgba(235, 75, 75, 0.14), rgba(30, 41, 59, 0.94)),
+        radial-gradient(ellipse at 20% 0%, rgba(235, 75, 75, 0.15), transparent 50%);
+      border: 1px solid var(--border);
+    }
+    .gambling-hub-hero h1 { margin: 0 0 12px; font-size: 2rem; }
+    .gambling-hub-hero p { margin: 0; color: #e2e8f0; line-height: 1.65; max-width: 720px; }
+    .gambling-wallet-mount {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .balance-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.35);
+      font-weight: 800;
+    }
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .game-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    a.game-tile:hover {
+      border-color: #eb4b4b;
+      background: rgba(235, 75, 75, 0.08);
+    }
+    .game-tile.disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .game-tile h2 {
+      margin: 0 0 8px;
+      font-size: 1.15rem;
+      letter-spacing: 0.04em;
+    }
+    .game-tile p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+      flex: 1;
+    }
+    .game-tile .tile-cta {
+      margin-top: 14px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: #fecaca;
+    }
+    a.game-tile .tile-cta { color: #fecaca; }
+    .hub-back-note { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <section class="panel gambling-hub-hero">
+        <h1>Gambling hub</h1>
+        <p>
+          One <strong>Grev Coins</strong> wallet for every mode below — cases, live blackjack, Yu-Gi-Oh packs, the new casino game hub, and anything else we add.
+          Prices follow the same rules site-wide; sign in to play.
+        </p>
+        <div id="gambling-wallet-mount" class="gambling-wallet-mount" aria-live="polite"></div>
+        <div id="gambling-event-banner" class="hub-back-note"></div><p class="hub-back-note">Your balance, keys, and inventory value stay in sync on every gambling page.</p>
+      </section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">Choose a mode</h2>
+        <p class="panel-subtitle">Every mode below uses the same wallet, event boosts, and account session.</p>
+        <div class="game-grid">
+          <a class="game-tile" href="/gambling/cs-cases/index.html">
+            <h2>CS CASES</h2>
+            <p>Buy CS2 cases and keys, open singles or batches, inventory, skin market, auctions, and offers.</p>
+            <span class="tile-cta">Enter →</span>
+          </a>
+          <a class="game-tile" href="/gambling/blackjack/index.html">
+            <h2>BLACKJACK</h2>
+            <p>Create 4, 6, or 8-seat rooms, click into seats, add funny bots, show live room rosters, and spectate blackjack tables against the dealer.</p>
+            <span class="tile-cta">Enter →</span>
+          </a>
+          <a class="game-tile" href="/gambling/casino/index.html">
+            <h2>CASINO GAME HUB</h2>
+            <p>Inspired by the referenced slot/casino repository: slot sections, arcade rooms, fishing game modes, and custom game experiments — all tuned in Grev Coins.</p>
+            <span class="tile-cta">Enter →</span>
+          </a>
+          <a class="game-tile" href="/gambling/yugioh/index.html">
+            <h2>YU-GI-OH PACKS</h2>
+            <p>Custom pack opener, Grev Coin economy, rarity odds, collection pages, sell-back values, and achievements.</p>
+            <span class="tile-cta">Enter →</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — gambling hub · one Grev Coins wallet across all modes</div>
+    </footer>
+  </div>
+<script>
+(async function(){
+ const banner=document.getElementById("gambling-event-banner"); if(!banner) return;
+ try{ const res=await fetch("/api/gambling/event",{credentials:"same-origin"}); const data=await res.json().catch(()=>null); const event=data?.event; if(!event?.is_active) { banner.textContent="No special gambling event live right now."; return; } banner.innerHTML=`🔥 <strong>${event.title || "Special event"}</strong> — ${event.message || "Boosted gambling mode pricing is live."} · CS2 discount ${Number(event.cs2_discount_percent||0)}% · YGO discount ${Number(event.ygo_discount_percent||0)}% · Blackjack payout boost ${Number(event.blackjack_bonus_percent||0)}%`; }catch{ banner.textContent="Could not load the current gambling event."; if(window.showPageLoadError) window.showPageLoadError("Could not load the gambling event banner."); }
+})();
+</script></body>
+</html>

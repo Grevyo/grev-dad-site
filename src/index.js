@@ -1,5 +1,18 @@
 // src/index.js
 
+import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
+import { getQuickSellFeePercent } from "./cs2/quick-sell.js";
+import { handleCs2Request } from "./cs2/handlers.js";
+import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
+import { ensureCs2Extensions } from "./cs2/schema.js";
+import { ensureYgoTables } from "./ygo/schema.js";
+import { handleYgoRequest } from "./ygo/handlers.js";
+import { ensureBlackjackTables } from "./blackjack/schema.js";
+import { handleBlackjackRequest } from "./blackjack/handlers.js";
+import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
+import { getStartingBalancePence } from "./lib/gambling.js";
+import { handleCasinoRequest } from "./casino/handlers.js";
+
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -9,9 +22,10 @@ export default {
       return json(
         {
           success: false,
-          error: "Internal server error"
+          error: error?.message || "Internal server error"
         },
-        500
+        500,
+        request
       );
     }
   }
@@ -24,24 +38,29 @@ const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
 const ALLOWED_GROUPS = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
 const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
+let coreTablesReadyPromise = null;
 
 async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const { pathname } = url;
 
   if (request.method === "OPTIONS") {
-    return handleOptions();
+    return handleOptions(request);
   }
 
   if (pathname === "/api/health" && request.method === "GET") {
-    return json({
-      success: true,
-      message: "grev.dad worker is running"
-    });
+    return json(
+      {
+        success: true,
+        message: "grev.dad worker is running"
+      },
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/setup" && request.method === "POST") {
-    return await handleSetup(env);
+    return await handleSetup(env, request);
   }
 
   // Auth
@@ -61,14 +80,31 @@ async function handleRequest(request, env, ctx) {
     return await handleMe(request, env);
   }
 
-  // Users
+  // Profile
+  if (pathname === "/api/profile/me" && request.method === "GET") {
+    return await handleProfileMe(request, env);
+  }
+
+  if (pathname === "/api/profile/update" && request.method === "POST") {
+    return await handleProfileUpdate(request, env);
+  }
+
+  if (pathname === "/api/profile/view" && request.method === "GET") {
+    return await handleProfileView(request, env);
+  }
+
+  // Members
   if (pathname === "/api/users/members" && request.method === "GET") {
     return await handleMembers(request, env);
   }
 
+  if (pathname === "/api/presence" && request.method === "POST") {
+    return await handlePresenceUpdate(request, env);
+  }
+
   // Global chat
   if (pathname === "/api/chat/global" && request.method === "GET") {
-    return await handleGetGlobalChat(env);
+    return await handleGetGlobalChat(request, env);
   }
 
   if (pathname === "/api/chat/global" && request.method === "POST") {
@@ -104,6 +140,116 @@ async function handleRequest(request, env, ctx) {
     return await handleForumRemovePost(request, env);
   }
 
+  // Gambling / Cases
+  if (pathname === "/api/gambling/profile" && request.method === "GET") {
+    return await handleGamblingProfile(request, env);
+  }
+
+  if (pathname === "/api/gambling/event" && request.method === "GET") {
+    await ensureCasesCatalogReady(env);
+    const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await env.CASES_DB.prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
+    return json({ success: true, event }, 200, request);
+  }
+
+  if (pathname === "/api/gambling/admin/settings" && request.method === "GET") {
+    const adminUser = await requireGamblingAdmin(request, env);
+    if (adminUser instanceof Response) return adminUser;
+    await ensureCoreTables(env);
+    return json({ success: true, settings: { starting_balance_pence: await getStartingBalancePence(env) } }, 200, request);
+  }
+
+  if (pathname === "/api/gambling/admin/settings" && request.method === "POST") {
+    const adminUser = await requireGamblingAdmin(request, env);
+    if (adminUser instanceof Response) return adminUser;
+    await ensureCoreTables(env);
+    const body = await safeJson(request);
+    const startingBalancePence = Math.max(0, Math.round(Number(body?.starting_balance_pence || 0)));
+    await env.DB.prepare(`INSERT INTO gambling_settings (key, value, updated_at) VALUES ('starting_balance_pence', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`).bind(String(startingBalancePence), isoNow()).run();
+    return json({ success: true, message: "Starting balance updated", settings: { starting_balance_pence: startingBalancePence } }, 200, request);
+  }
+
+  if (pathname === "/api/gambling/admin/event" && request.method === "POST") {
+    const adminUser = await requireGamblingAdmin(request, env);
+    if (adminUser instanceof Response) return adminUser;
+    await ensureCasesCatalogReady(env);
+    const body = await safeJson(request);
+    const now = isoNow();
+    const event = { id: 1, title: String(body?.title || '').trim(), message: String(body?.message || '').trim(), is_active: Boolean(body?.is_active), cs2_discount_percent: Math.max(0, Math.min(100, Number(body?.cs2_discount_percent || 0))), ygo_discount_percent: Math.max(0, Math.min(100, Number(body?.ygo_discount_percent || 0))), blackjack_bonus_percent: Math.max(0, Math.min(500, Number(body?.blackjack_bonus_percent || 0))), updated_at: now };
+    await env.CASES_DB.prepare(`INSERT INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, message = excluded.message, is_active = excluded.is_active, cs2_discount_percent = excluded.cs2_discount_percent, ygo_discount_percent = excluded.ygo_discount_percent, blackjack_bonus_percent = excluded.blackjack_bonus_percent, updated_at = excluded.updated_at`).bind(event.title, event.message, event.is_active ? 1 : 0, event.cs2_discount_percent, event.ygo_discount_percent, event.blackjack_bonus_percent, now).run();
+    setCachedValue("casesdb:event-config", event, 30000);
+    invalidateCachedPrefix("casesdb:cs2:cases");
+    invalidateCachedPrefix("casesdb:ygo:packs");
+    invalidateCachedPrefix("casesdb:ygo:single-price");
+    return json({ success: true, message: 'Gambling event saved' }, 200, request);
+  }
+
+
+  let cs2Request = request;
+  if (pathname === "/api/cases" && request.method === "GET") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/cases";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  } else if (pathname === "/api/cases/catalog" && request.method === "GET") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/catalog";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  } else if (pathname === "/api/admin/cases" && request.method === "GET") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/admin/cases";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  } else if (pathname === "/api/admin/cases/create" && request.method === "POST") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/admin/cases/create";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  }
+
+  if (pathname.startsWith("/api/cs2") || cs2Request !== request) {
+    await ensureCasesCatalogReady(env);
+    const cs2Response = await handleCs2Request(cs2Request, env, {
+      json,
+      getApprovedUser,
+      requireAdmin,
+      requireGamblingAdmin,
+      isoNow,
+      safeJson
+    });
+    if (cs2Response) return cs2Response;
+  }
+
+  if (pathname.startsWith("/api/ygo")) {
+    await ensureCasesCatalogReady(env);
+    const ygoResponse = await handleYgoRequest(request, env, {
+      json,
+      getApprovedUser,
+      requireGamblingAdmin,
+      isoNow,
+      safeJson
+    });
+    if (ygoResponse) return ygoResponse;
+  }
+
+  if (pathname.startsWith("/api/blackjack")) {
+    await ensureCasesCatalogReady(env);
+    const blackjackResponse = await handleBlackjackRequest(request, env, {
+      json,
+      getApprovedUser,
+      isoNow,
+      safeJson
+    });
+    if (blackjackResponse) return blackjackResponse;
+  }
+
+  if (pathname.startsWith("/api/casino")) {
+    await ensureCasesCatalogReady(env);
+    const casinoResponse = await handleCasinoRequest(request, env, {
+      json,
+      requireGamblingAdmin,
+      isoNow,
+      safeJson
+    });
+    if (casinoResponse) return casinoResponse;
+  }
+
   // Admin
   if (pathname === "/api/admin/users" && request.method === "GET") {
     return await handleAdminUsers(request, env);
@@ -118,16 +264,20 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname === "/api/admin/pending-users" && request.method === "GET") {
-    return await handleAdminPendingUsers(env, request);
+    return await handleAdminPendingUsers(request, env);
   }
 
   // Future routes
   if (pathname === "/api/chat/private" && request.method === "GET") {
-    return json({
-      success: true,
-      messages: [],
-      note: "Private chat route is ready for a later phase"
-    });
+    return json(
+      {
+        success: true,
+        messages: [],
+        note: "Private chat route is ready for a later phase"
+      },
+      200,
+      request
+    );
   }
 
   if (pathname === "/api/chat/private" && request.method === "POST") {
@@ -136,7 +286,8 @@ async function handleRequest(request, env, ctx) {
         success: false,
         error: "Private chat sending will be added in a later phase"
       },
-      501
+      501,
+      request
     );
   }
 
@@ -144,9 +295,10 @@ async function handleRequest(request, env, ctx) {
     return json(
       {
         success: false,
-        error: "Cases routes will be added in a later phase"
+        error: "Unknown legacy cases route. Supported aliases: GET /api/cases and GET /api/cases/catalog."
       },
-      501
+      404,
+      request
     );
   }
 
@@ -159,7 +311,8 @@ async function handleRequest(request, env, ctx) {
       success: false,
       error: "Not found"
     },
-    404
+    404,
+    request
   );
 }
 
@@ -167,13 +320,24 @@ async function handleRequest(request, env, ctx) {
 /*                               SETUP / SCHEMA                               */
 /* -------------------------------------------------------------------------- */
 
-async function handleSetup(env) {
+async function handleSetup(env, request) {
   await ensureCoreTables(env);
+  const cs2Seed = await ensureCasesCatalogReady(env);
 
-  return json({
-    success: true,
-    message: "Core database tables created or already exist"
-  });
+  return json(
+    {
+      success: true,
+      message: "Core database tables and gambling tables applied",
+      cs2_seed: cs2Seed
+    },
+    200,
+    request
+  );
+}
+
+async function ensureCasesCatalogReady(env) {
+  await ensureCasesTables(env);
+  return await seedCs2CatalogIfEmpty(env);
 }
 
 async function ensureCoreTables(env) {
@@ -181,8 +345,18 @@ async function ensureCoreTables(env) {
     throw new Error("Missing DB binding");
   }
 
-  const statements = [
-    `
+  if (!coreTablesReadyPromise) {
+    coreTablesReadyPromise = ensureCoreTablesOnce(env).catch((error) => {
+      coreTablesReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await coreTablesReadyPromise;
+}
+
+async function ensureCoreTablesOnce(env) {
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
@@ -193,37 +367,95 @@ async function ensureCoreTables(env) {
       created_at TEXT NOT NULL,
       last_seen_at TEXT
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "users", "approved", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.DB, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.DB, "users", "group_name", "TEXT NOT NULL DEFAULT 'standard'");
+  await ensureColumn(env.DB, "users", "gambling_admin", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.DB, "users", "created_at", "TEXT");
+  await ensureColumn(env.DB, "users", "last_seen_at", "TEXT");
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS user_presence (
+      user_id INTEGER PRIMARY KEY,
+      area TEXT,
+      detail TEXT,
+      room_id INTEGER,
+      room_name TEXT,
+      page_path TEXT,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(env.DB, "user_presence", "area", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "detail", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "room_id", "INTEGER");
+  await ensureColumn(env.DB, "user_presence", "room_name", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "page_path", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "updated_at", "TEXT");
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS gambling_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+  await ensureColumn(env.DB, "gambling_settings", "value", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(env.DB, "gambling_settings", "updated_at", "TEXT NOT NULL DEFAULT ''");
+  await env.DB.prepare(`INSERT OR IGNORE INTO gambling_settings (key, value, updated_at) VALUES ('starting_balance_pence', ?, ?)` ).bind(String(STARTING_BALANCE_PENCE), new Date().toISOString()).run();
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_token TEXT NOT NULL UNIQUE,
       user_id INTEGER NOT NULL,
       created_at TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      expires_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "sessions", "session_token", "TEXT");
+  await ensureColumn(env.DB, "sessions", "user_id", "INTEGER");
+  await ensureColumn(env.DB, "sessions", "created_at", "TEXT");
+  await ensureColumn(env.DB, "sessions", "expires_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_profiles (
       user_id INTEGER PRIMARY KEY,
       bio TEXT,
-      avatar_url TEXT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      avatar_url TEXT
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "user_profiles", "bio", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "avatar_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "real_name", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "motto", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "media_1_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "media_2_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "media_3_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "music_url", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS global_chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       author_user_id INTEGER NOT NULL,
       author_username TEXT NOT NULL,
       author_group TEXT NOT NULL,
       message TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "global_chat_messages", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "global_chat_messages", "author_username", "TEXT");
+  await ensureColumn(env.DB, "global_chat_messages", "author_group", "TEXT");
+  await ensureColumn(env.DB, "global_chat_messages", "message", "TEXT");
+  await ensureColumn(env.DB, "global_chat_messages", "created_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       author_user_id INTEGER NOT NULL,
@@ -231,12 +463,22 @@ async function ensureCoreTables(env) {
       author_group TEXT NOT NULL,
       title TEXT NOT NULL,
       body TEXT NOT NULL,
+      image_url TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+      updated_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "forum_posts", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_posts", "author_username", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "author_group", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "title", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "body", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "image_url", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "created_at", "TEXT");
+  await ensureColumn(env.DB, "forum_posts", "updated_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       post_id INTEGER NOT NULL,
@@ -244,59 +486,150 @@ async function ensureCoreTables(env) {
       author_username TEXT NOT NULL,
       author_group TEXT NOT NULL,
       comment TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE,
-      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     )
-    `,
-    `
+  `).run();
+
+  await ensureColumn(env.DB, "forum_comments", "post_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_comments", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_comments", "author_username", "TEXT");
+  await ensureColumn(env.DB, "forum_comments", "author_group", "TEXT");
+  await ensureColumn(env.DB, "forum_comments", "comment", "TEXT");
+  await ensureColumn(env.DB, "forum_comments", "created_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_reactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       post_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
       reaction_type TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      UNIQUE(post_id, user_id),
-      FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     )
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_users_username
-    ON users (username)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_users_group_name
-    ON users (group_name)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_users_approved
-    ON users (approved)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_sessions_token
-    ON sessions (session_token)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_global_chat_created_at
-    ON global_chat_messages (created_at)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at
-    ON forum_posts (created_at)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id
-    ON forum_comments (post_id)
-    `,
-    `
-    CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id
-    ON forum_reactions (post_id)
-    `
-  ];
+  `).run();
 
-  for (const sqlText of statements) {
-    await env.DB.prepare(sqlText).run();
+  await ensureColumn(env.DB, "forum_reactions", "post_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_reactions", "user_id", "INTEGER");
+  await ensureColumn(env.DB, "forum_reactions", "reaction_type", "TEXT");
+  await ensureColumn(env.DB, "forum_reactions", "created_at", "TEXT");
+
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_token ON sessions (session_token)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_users_group_name ON users (group_name)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_users_approved ON users (approved)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_global_chat_created_at ON global_chat_messages (created_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts (created_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id ON forum_comments (post_id)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id ON forum_reactions (post_id)`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_forum_reactions_post_user ON forum_reactions (post_id, user_id)`).run();
+}
+
+async function ensureCasesTables(env) {
+  if (!env.CASES_DB) {
+    return;
+  }
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_profiles (
+      user_id INTEGER PRIMARY KEY,
+      display_name TEXT,
+      balance INTEGER NOT NULL DEFAULT 500000,
+      total_cases_opened INTEGER NOT NULL DEFAULT 0,
+      total_spent INTEGER NOT NULL DEFAULT 0,
+      total_inventory_value INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(env.CASES_DB, "case_profiles", "display_name", "TEXT");
+  await ensureColumn(env.CASES_DB, "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
+  await ensureColumn(env.CASES_DB, "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.CASES_DB, "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.CASES_DB, "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(env.CASES_DB, "case_profiles", "created_at", "TEXT");
+  await ensureColumn(env.CASES_DB, "case_profiles", "updated_at", "TEXT");
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_name TEXT NOT NULL,
+      weapon_name TEXT,
+      skin_name TEXT,
+      rarity TEXT NOT NULL,
+      wear TEXT,
+      image_url TEXT,
+      market_value INTEGER NOT NULL DEFAULT 0,
+      color_hex TEXT,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_definitions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      image_url TEXT,
+      price INTEGER NOT NULL DEFAULT 100,
+      description TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_drops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      drop_weight INTEGER NOT NULL DEFAULT 1
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS inventory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      source_case_id INTEGER,
+      acquired_at TEXT NOT NULL,
+      locked INTEGER NOT NULL DEFAULT 0
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`
+    CREATE TABLE IF NOT EXISTS case_open_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      case_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      price_paid INTEGER NOT NULL,
+      opened_at TEXT NOT NULL
+    )
+  `).run();
+
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_profiles_user_id ON case_profiles (user_id)`).run();
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory (user_id)`).run();
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
+  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
+  await env.CASES_DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
+
+  await env.CASES_DB.prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
+  await env.CASES_DB.prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
+
+  const ygoDb = env.YGO_DB || env.CASES_DB;
+  await ensureCs2Extensions(env.CASES_DB);
+  await ensureYgoTables(ygoDb, env.CASES_DB);
+  await ensureBlackjackTables(env);
+}
+
+async function ensureColumn(db, tableName, columnName, columnDefinition) {
+  const result = await db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const cols = result.results || [];
+  const exists = cols.some((col) => String(col.name).toLowerCase() === String(columnName).toLowerCase());
+
+  if (!exists) {
+    await db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`).run();
   }
 }
 
@@ -312,11 +645,11 @@ async function handleRegister(request, env) {
   const password = typeof body?.password === "string" ? body.password : "";
 
   if (!username || username.length < 3) {
-    return json({ success: false, error: "Username must be at least 3 characters" }, 400);
+    return json({ success: false, error: "Username must be at least 3 characters" }, 400, request);
   }
 
   if (password.length < 6) {
-    return json({ success: false, error: "Password must be at least 6 characters" }, 400);
+    return json({ success: false, error: "Password must be at least 6 characters" }, 400, request);
   }
 
   const existingUser = await env.DB.prepare(
@@ -324,42 +657,49 @@ async function handleRegister(request, env) {
   ).bind(username).first();
 
   if (existingUser) {
-    return json({ success: false, error: "Username already exists" }, 409);
+    return json({ success: false, error: "Username already exists" }, 409, request);
   }
 
   const passwordHash = await hashPassword(password);
   const now = isoNow();
 
-  const result = await env.DB.prepare(
-    `
+  const result = await env.DB.prepare(`
     INSERT INTO users (
       username,
       password_hash,
       approved,
       is_admin,
       group_name,
+      gambling_admin,
       created_at,
       last_seen_at
     )
-    VALUES (?, ?, 0, 0, ?, ?, ?)
-    `
-  ).bind(username, passwordHash, DEFAULT_USER_GROUP, now, now).run();
+    VALUES (?, ?, 0, 0, ?, 0, ?, ?)
+  `).bind(username, passwordHash, DEFAULT_USER_GROUP, now, now).run();
 
   const userId = result.meta?.last_row_id ?? null;
 
   if (userId) {
-    await env.DB.prepare(
-      `
-      INSERT OR IGNORE INTO user_profiles (user_id, bio, avatar_url)
-      VALUES (?, '', '')
-      `
-    ).bind(userId).run();
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO user_profiles (
+        user_id,
+        bio,
+        avatar_url,
+        real_name,
+        motto,
+        media_1_url,
+        media_2_url,
+        media_3_url,
+        music_url
+      )
+      VALUES (?, '', '', '', '', '', '', '', '')
+    `).bind(userId).run();
   }
 
   return json({
     success: true,
     message: "Registration submitted. Your account is awaiting approval."
-  });
+  }, 200, request);
 }
 
 async function handleLogin(request, env) {
@@ -370,49 +710,43 @@ async function handleLogin(request, env) {
   const password = typeof body?.password === "string" ? body.password : "";
 
   if (!username || !password) {
-    return json({ success: false, error: "Username and password are required" }, 400);
+    return json({ success: false, error: "Username and password are required" }, 400, request);
   }
 
-  const user = await env.DB.prepare(
-    `
-    SELECT id, username, password_hash, approved, is_admin, group_name
+  const user = await env.DB.prepare(`
+    SELECT id, username, password_hash, approved, is_admin, group_name, gambling_admin
     FROM users
     WHERE LOWER(username) = LOWER(?)
     LIMIT 1
-    `
-  ).bind(username).first();
+  `).bind(username).first();
 
   if (!user) {
-    return json({ success: false, error: "Invalid username or password" }, 401);
+    return json({ success: false, error: "Invalid username or password" }, 401, request);
   }
 
   const passwordOk = await verifyPassword(password, user.password_hash);
   if (!passwordOk) {
-    return json({ success: false, error: "Invalid username or password" }, 401);
+    return json({ success: false, error: "Invalid username or password" }, 401, request);
   }
 
   if (!Number(user.approved)) {
-    return json({ success: false, error: "Your account is still awaiting approval" }, 403);
+    return json({ success: false, error: "Your account is still awaiting approval" }, 403, request);
   }
 
   const sessionToken = crypto.randomUUID();
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     INSERT INTO sessions (session_token, user_id, created_at, expires_at)
     VALUES (?, ?, ?, ?)
-    `
-  ).bind(sessionToken, user.id, now.toISOString(), expires.toISOString()).run();
+  `).bind(sessionToken, user.id, now.toISOString(), expires.toISOString()).run();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE users
     SET last_seen_at = ?
     WHERE id = ?
-    `
-  ).bind(now.toISOString(), user.id).run();
+  `).bind(now.toISOString(), user.id).run();
 
   const group = normaliseGroupName(user.group_name, Boolean(user.is_admin));
 
@@ -424,10 +758,12 @@ async function handleLogin(request, env) {
       username: user.username,
       approved: Boolean(user.approved),
       is_admin: Boolean(user.is_admin),
+      gambling_admin: Boolean(user.gambling_admin),
+      can_manage_gambling: Boolean(user.gambling_admin),
       group,
       groups: buildUserGroups(group, Boolean(user.is_admin))
     }
-  });
+  }, 200, request);
 
   response.headers.append("Set-Cookie", buildSessionCookie(sessionToken, expires));
   return response;
@@ -448,7 +784,7 @@ async function handleLogout(request, env) {
   const response = json({
     success: true,
     message: "Logged out"
-  });
+  }, 200, request);
 
   response.headers.append("Set-Cookie", clearSessionCookie());
   return response;
@@ -460,7 +796,7 @@ async function handleMe(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!session) {
-    return json({ success: false, authenticated: false }, 401);
+    return json({ success: false, authenticated: false }, 401, request);
   }
 
   const group = normaliseGroupName(session.group_name, Boolean(session.is_admin));
@@ -473,6 +809,8 @@ async function handleMe(request, env) {
       username: session.username,
       approved: Boolean(session.approved),
       is_admin: Boolean(session.is_admin),
+      gambling_admin: Boolean(session.gambling_admin),
+      can_manage_gambling: Boolean(session.gambling_admin),
       group,
       groups: buildUserGroups(group, Boolean(session.is_admin)),
       can_moderate_forum: canModerateForum(group, Boolean(session.is_admin)),
@@ -480,7 +818,251 @@ async function handleMe(request, env) {
       avatar_url: session.avatar_url || "",
       last_seen_at: session.last_seen_at || null
     }
-  });
+  }, 200, request);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  PROFILE                                   */
+/* -------------------------------------------------------------------------- */
+
+async function handleProfileMe(request, env) {
+  await ensureCoreTables(env);
+
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.approved,
+      u.is_admin,
+      u.group_name,
+      u.gambling_admin,
+      u.created_at,
+      u.last_seen_at,
+      p.real_name,
+      p.motto,
+      p.bio,
+      p.avatar_url,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url,
+      up.area AS presence_area,
+      up.detail AS presence_detail,
+      up.room_id AS presence_room_id,
+      up.room_name AS presence_room_name,
+      up.page_path AS presence_page_path,
+      up.updated_at AS presence_updated_at
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN user_presence up ON up.user_id = u.id
+    WHERE u.id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  if (!row) {
+    return json({ success: false, error: "Profile not found" }, 404, request);
+  }
+
+  return json({
+    success: true,
+    profile: formatProfileRow(row)
+  }, 200, request);
+}
+
+async function handleProfileView(request, env) {
+  await ensureCoreTables(env);
+
+  const url = new URL(request.url);
+  const userId = Number(url.searchParams.get("id") || "");
+
+  let targetUserId = userId;
+
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    const session = await getSessionUser(request, env);
+    if (!session) {
+      return json({ success: false, error: "A valid user id is required" }, 400, request);
+    }
+    targetUserId = session.id;
+  }
+
+  const row = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.approved,
+      u.is_admin,
+      u.group_name,
+      u.gambling_admin,
+      u.created_at,
+      u.last_seen_at,
+      p.real_name,
+      p.motto,
+      p.bio,
+      p.avatar_url,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url,
+      up.area AS presence_area,
+      up.detail AS presence_detail,
+      up.room_id AS presence_room_id,
+      up.room_name AS presence_room_name,
+      up.page_path AS presence_page_path,
+      up.updated_at AS presence_updated_at
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN user_presence up ON up.user_id = u.id
+    WHERE u.id = ? AND u.approved = 1
+    LIMIT 1
+  `).bind(targetUserId).first();
+
+  if (!row) {
+    return json({ success: false, error: "Profile not found" }, 404, request);
+  }
+
+  return json({
+    success: true,
+    profile: formatProfileRow(row)
+  }, 200, request);
+}
+
+async function handleProfileUpdate(request, env) {
+  await ensureCoreTables(env);
+
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const body = await safeJson(request);
+
+  const realName = cleanShortText(body?.real_name, 80);
+  const motto = cleanShortText(body?.motto, 140);
+  const bio = cleanLongText(body?.bio, 3000);
+  const avatarUrl = cleanUrl(body?.avatar_url, 1200);
+  const media1 = cleanUrl(body?.media_1_url, 1200);
+  const media2 = cleanUrl(body?.media_2_url, 1200);
+  const media3 = cleanUrl(body?.media_3_url, 1200);
+  const musicUrl = cleanUrl(body?.music_url, 1200);
+
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO user_profiles (
+      user_id,
+      bio,
+      avatar_url,
+      real_name,
+      motto,
+      media_1_url,
+      media_2_url,
+      media_3_url,
+      music_url
+    )
+    VALUES (?, '', '', '', '', '', '', '', '')
+  `).bind(session.id).run();
+
+  await env.DB.prepare(`
+    UPDATE user_profiles
+    SET
+      real_name = ?,
+      motto = ?,
+      bio = ?,
+      avatar_url = ?,
+      media_1_url = ?,
+      media_2_url = ?,
+      media_3_url = ?,
+      music_url = ?
+    WHERE user_id = ?
+  `).bind(
+    realName,
+    motto,
+    bio,
+    avatarUrl,
+    media1,
+    media2,
+    media3,
+    musicUrl,
+    session.id
+  ).run();
+
+  const row = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      u.approved,
+      u.is_admin,
+      u.group_name,
+      u.gambling_admin,
+      u.created_at,
+      u.last_seen_at,
+      p.real_name,
+      p.motto,
+      p.bio,
+      p.avatar_url,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    WHERE u.id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  return json({
+    success: true,
+    message: "Profile updated",
+    profile: formatProfileRow(row)
+  }, 200, request);
+}
+
+function formatProfileRow(row) {
+  const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
+
+  const media = [
+    row.media_1_url || "",
+    row.media_2_url || "",
+    row.media_3_url || ""
+  ].filter(Boolean);
+
+  return {
+    id: row.id,
+    username: row.username,
+    approved: Boolean(row.approved),
+    is_admin: Boolean(row.is_admin),
+    gambling_admin: Boolean(row.gambling_admin),
+    can_manage_gambling: Boolean(row.gambling_admin),
+    group,
+    group_display: displayGroupName(group, Boolean(row.is_admin)),
+    created_at: row.created_at || null,
+    last_seen_at: row.last_seen_at || null,
+    real_name: row.real_name || "",
+    motto: row.motto || "",
+    bio: row.bio || "",
+    avatar_url: row.avatar_url || "",
+    media_1_url: row.media_1_url || "",
+    media_2_url: row.media_2_url || "",
+    media_3_url: row.media_3_url || "",
+    music_url: row.music_url || "",
+    media,
+    current_activity: formatPresenceRow(row)
+  };
+}
+
+function formatPresenceRow(row) {
+  if (!row?.presence_updated_at) return null;
+  return {
+    area: row.presence_area || '',
+    detail: row.presence_detail || '',
+    room_id: row.presence_room_id ? Number(row.presence_room_id) : null,
+    room_name: row.presence_room_name || '',
+    page_path: row.presence_page_path || '',
+    updated_at: row.presence_updated_at || null
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -492,29 +1074,60 @@ async function handleMembers(request, env) {
 
   const session = await getSessionUser(request, env);
   if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401);
+    return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      up.area AS presence_area,
+      up.detail AS presence_detail,
+      up.room_id AS presence_room_id,
+      up.room_name AS presence_room_name,
+      up.page_path AS presence_page_path,
+      up.updated_at AS presence_updated_at
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.approved = 1
     ORDER BY LOWER(u.username) ASC
-    `
-  ).all();
+  `).all();
 
-  const members = (rows.results || []).map((row) => {
+  const members = [];
+
+  for (const row of rows.results || []) {
     const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
-    return {
+
+    let caseSummary = {
+      case_money: 0,
+      case_rarest_item_name: "",
+      case_rarest_score: 0,
+      case_most_expensive_item_name: "",
+      case_inventory_value: 0
+    };
+
+    if (env.CASES_DB) {
+      const profile = await env.CASES_DB.prepare(`
+        SELECT balance, total_inventory_value
+        FROM case_profiles
+        WHERE user_id = ?
+        LIMIT 1
+      `).bind(row.id).first();
+
+      caseSummary.case_money = Number(profile?.balance || 0);
+      caseSummary.case_inventory_value = Number(profile?.total_inventory_value || 0);
+    }
+
+    members.push({
       id: row.id,
       username: row.username,
       is_admin: Boolean(row.is_admin),
@@ -522,33 +1135,62 @@ async function handleMembers(request, env) {
       groups: buildUserGroups(group, Boolean(row.is_admin)),
       last_seen_at: row.last_seen_at || null,
       bio: row.bio || "",
-      avatar_url: row.avatar_url || ""
-    };
-  });
+      avatar_url: row.avatar_url || "",
+      real_name: row.real_name || "",
+      motto: row.motto || "",
+      current_activity: formatPresenceRow(row),
+      ...caseSummary
+    });
+  }
 
-  return json({ success: true, members });
+  return json({ success: true, members }, 200, request);
+}
+
+
+async function handlePresenceUpdate(request, env) {
+  await ensureCoreTables(env);
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const body = await safeJson(request);
+  const area = cleanShortText(body?.area, 80);
+  const detail = cleanShortText(body?.detail, 140);
+  const roomId = Number(body?.room_id || 0) || null;
+  const roomName = cleanShortText(body?.room_name, 120);
+  const pagePath = cleanShortText(body?.page_path, 240);
+  const now = isoNow();
+  await env.DB.prepare(`
+    INSERT INTO user_presence (user_id, area, detail, room_id, room_name, page_path, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      area = excluded.area,
+      detail = excluded.detail,
+      room_id = excluded.room_id,
+      room_name = excluded.room_name,
+      page_path = excluded.page_path,
+      updated_at = excluded.updated_at
+  `).bind(session.id, area, detail, roomId, roomName, pagePath, now).run();
+  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE id = ?`).bind(now, session.id).run();
+  return json({ success: true, updated_at: now }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
 /*                                GLOBAL CHAT                                 */
 /* -------------------------------------------------------------------------- */
 
-async function handleGetGlobalChat(env) {
+async function handleGetGlobalChat(request, env) {
   await ensureCoreTables(env);
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT id, author_user_id, author_username, author_group, message, created_at
     FROM global_chat_messages
     ORDER BY id DESC
     LIMIT ?
-    `
-  ).bind(GLOBAL_CHAT_MESSAGE_LIMIT).all();
+  `).bind(GLOBAL_CHAT_MESSAGE_LIMIT).all();
 
   return json({
     success: true,
     messages: (rows.results || []).reverse()
-  });
+  }, 200, request);
 }
 
 async function handlePostGlobalChat(request, env) {
@@ -556,14 +1198,14 @@ async function handlePostGlobalChat(request, env) {
 
   const session = await getSessionUser(request, env);
   if (!session) {
-    return json({ success: false, error: "You must be logged in to send messages" }, 401);
+    return json({ success: false, error: "You must be logged in to send messages" }, 401, request);
   }
 
   const body = await safeJson(request);
   const message = cleanMessage(body?.message);
 
   if (!message) {
-    return json({ success: false, error: "Message cannot be empty" }, 400);
+    return json({ success: false, error: "Message cannot be empty" }, 400, request);
   }
 
   const authorGroup = displayGroupName(
@@ -573,8 +1215,7 @@ async function handlePostGlobalChat(request, env) {
 
   const now = isoNow();
 
-  const result = await env.DB.prepare(
-    `
+  const result = await env.DB.prepare(`
     INSERT INTO global_chat_messages (
       author_user_id,
       author_username,
@@ -583,16 +1224,13 @@ async function handlePostGlobalChat(request, env) {
       created_at
     )
     VALUES (?, ?, ?, ?, ?)
-    `
-  ).bind(session.id, session.username, authorGroup, message, now).run();
+  `).bind(session.id, session.username, authorGroup, message, now).run();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE users
     SET last_seen_at = ?
     WHERE id = ?
-    `
-  ).bind(now, session.id).run();
+  `).bind(now, session.id).run();
 
   return json({
     success: true,
@@ -605,7 +1243,7 @@ async function handlePostGlobalChat(request, env) {
       message,
       created_at: now
     }
-  });
+  }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -619,8 +1257,7 @@ async function handleForumPosts(request, env) {
   const search = (url.searchParams.get("search") || "").trim().toLowerCase();
   const session = await getSessionUser(request, env);
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       p.id,
       p.author_user_id,
@@ -628,6 +1265,7 @@ async function handleForumPosts(request, env) {
       p.author_group,
       p.title,
       p.body,
+      p.image_url,
       p.created_at,
       p.updated_at,
       COALESCE(c.comment_count, 0) AS comment_count,
@@ -649,8 +1287,7 @@ async function handleForumPosts(request, env) {
     ) r ON r.post_id = p.id
     ORDER BY p.id DESC
     LIMIT ?
-    `
-  ).bind(FORUM_POST_LIMIT).all();
+  `).bind(FORUM_POST_LIMIT).all();
 
   let posts = rows.results || [];
 
@@ -673,7 +1310,7 @@ async function handleForumPosts(request, env) {
           )
         : false
     }))
-  });
+  }, 200, request);
 }
 
 async function handleForumPost(request, env) {
@@ -684,11 +1321,10 @@ async function handleForumPost(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
-  const post = await env.DB.prepare(
-    `
+  const post = await env.DB.prepare(`
     SELECT
       p.id,
       p.author_user_id,
@@ -696,6 +1332,7 @@ async function handleForumPost(request, env) {
       p.author_group,
       p.title,
       p.body,
+      p.image_url,
       p.created_at,
       p.updated_at,
       COALESCE(c.comment_count, 0) AS comment_count,
@@ -717,25 +1354,22 @@ async function handleForumPost(request, env) {
     ) r ON r.post_id = p.id
     WHERE p.id = ?
     LIMIT 1
-    `
-  ).bind(postId).first();
+  `).bind(postId).first();
 
   if (!post) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
   let userReaction = null;
   let canRemove = false;
 
   if (session) {
-    const reaction = await env.DB.prepare(
-      `
+    const reaction = await env.DB.prepare(`
       SELECT reaction_type
       FROM forum_reactions
       WHERE post_id = ? AND user_id = ?
       LIMIT 1
-      `
-    ).bind(postId, session.id).first();
+    `).bind(postId, session.id).first();
 
     userReaction = reaction?.reaction_type || null;
 
@@ -752,7 +1386,7 @@ async function handleForumPost(request, env) {
       user_reaction: userReaction,
       can_remove: canRemove
     }
-  });
+  }, 200, request);
 }
 
 async function handleForumComments(request, env) {
@@ -762,11 +1396,10 @@ async function handleForumComments(request, env) {
   const postId = Number(url.searchParams.get("post_id") || "");
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       id,
       post_id,
@@ -778,13 +1411,12 @@ async function handleForumComments(request, env) {
     FROM forum_comments
     WHERE post_id = ?
     ORDER BY id ASC
-    `
-  ).bind(postId).all();
+  `).bind(postId).all();
 
   return json({
     success: true,
     comments: rows.results || []
-  });
+  }, 200, request);
 }
 
 async function handleForumCreatePost(request, env) {
@@ -796,13 +1428,14 @@ async function handleForumCreatePost(request, env) {
   const body = await safeJson(request);
   const title = cleanForumTitle(body?.title);
   const postBody = cleanForumBody(body?.body);
+  const imageUrl = cleanUrl(body?.image_url, 1200);
 
   if (!title) {
-    return json({ success: false, error: "Post title is required" }, 400);
+    return json({ success: false, error: "Post title is required" }, 400, request);
   }
 
   if (!postBody) {
-    return json({ success: false, error: "Post body is required" }, 400);
+    return json({ success: false, error: "Post body is required" }, 400, request);
   }
 
   const authorGroup = displayGroupName(
@@ -812,34 +1445,25 @@ async function handleForumCreatePost(request, env) {
 
   const now = isoNow();
 
-  const result = await env.DB.prepare(
-    `
+  const result = await env.DB.prepare(`
     INSERT INTO forum_posts (
       author_user_id,
       author_username,
       author_group,
       title,
       body,
+      image_url,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    `
-  ).bind(
-    session.id,
-    session.username,
-    authorGroup,
-    title,
-    postBody,
-    now,
-    now
-  ).run();
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(session.id, session.username, authorGroup, title, postBody, imageUrl, now, now).run();
 
   return json({
     success: true,
     message: "Post created",
     post_id: result.meta?.last_row_id ?? null
-  });
+  }, 200, request);
 }
 
 async function handleForumCreateComment(request, env) {
@@ -853,19 +1477,19 @@ async function handleForumCreateComment(request, env) {
   const comment = cleanForumComment(body?.comment);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
   if (!comment) {
-    return json({ success: false, error: "Comment cannot be empty" }, 400);
+    return json({ success: false, error: "Comment cannot be empty" }, 400, request);
   }
 
-  const post = await env.DB.prepare(
-    `SELECT id FROM forum_posts WHERE id = ? LIMIT 1`
-  ).bind(postId).first();
+  const post = await env.DB.prepare(`SELECT id FROM forum_posts WHERE id = ? LIMIT 1`)
+    .bind(postId)
+    .first();
 
   if (!post) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
   const authorGroup = displayGroupName(
@@ -875,8 +1499,7 @@ async function handleForumCreateComment(request, env) {
 
   const now = isoNow();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     INSERT INTO forum_comments (
       post_id,
       author_user_id,
@@ -886,28 +1509,18 @@ async function handleForumCreateComment(request, env) {
       created_at
     )
     VALUES (?, ?, ?, ?, ?, ?)
-    `
-  ).bind(
-    postId,
-    session.id,
-    session.username,
-    authorGroup,
-    comment,
-    now
-  ).run();
+  `).bind(postId, session.id, session.username, authorGroup, comment, now).run();
 
-  await env.DB.prepare(
-    `
+  await env.DB.prepare(`
     UPDATE forum_posts
     SET updated_at = ?
     WHERE id = ?
-    `
-  ).bind(now, postId).run();
+  `).bind(now, postId).run();
 
   return json({
     success: true,
     message: "Comment added"
-  });
+  }, 200, request);
 }
 
 async function handleForumReact(request, env) {
@@ -921,57 +1534,51 @@ async function handleForumReact(request, env) {
   const reactionType = normaliseReactionType(body?.reaction_type);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
   if (!reactionType) {
-    return json({ success: false, error: "Reaction must be like or dislike" }, 400);
+    return json({ success: false, error: "Reaction must be like or dislike" }, 400, request);
   }
 
-  const post = await env.DB.prepare(
-    `SELECT id FROM forum_posts WHERE id = ? LIMIT 1`
-  ).bind(postId).first();
+  const post = await env.DB.prepare(`SELECT id FROM forum_posts WHERE id = ? LIMIT 1`)
+    .bind(postId)
+    .first();
 
   if (!post) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
-  const existing = await env.DB.prepare(
-    `
+  const existing = await env.DB.prepare(`
     SELECT id, reaction_type
     FROM forum_reactions
     WHERE post_id = ? AND user_id = ?
     LIMIT 1
-    `
-  ).bind(postId, session.id).first();
+  `).bind(postId, session.id).first();
 
   const now = isoNow();
 
   if (!existing) {
-    await env.DB.prepare(
-      `
+    await env.DB.prepare(`
       INSERT INTO forum_reactions (post_id, user_id, reaction_type, created_at)
       VALUES (?, ?, ?, ?)
-      `
-    ).bind(postId, session.id, reactionType, now).run();
+    `).bind(postId, session.id, reactionType, now).run();
   } else if (existing.reaction_type === reactionType) {
-    await env.DB.prepare(
-      `DELETE FROM forum_reactions WHERE id = ?`
-    ).bind(existing.id).run();
+    await env.DB.prepare(`DELETE FROM forum_reactions WHERE id = ?`)
+      .bind(existing.id)
+      .run();
   } else {
-    await env.DB.prepare(
-      `
+    await env.DB.prepare(`
       UPDATE forum_reactions
       SET reaction_type = ?, created_at = ?
       WHERE id = ?
-      `
-    ).bind(reactionType, now, existing.id).run();
+    `).bind(reactionType, now, existing.id).run();
   }
 
   return json({
     success: true,
     message: "Reaction updated"
-  });
+  }, 200, request);
 }
 
 async function handleForumRemovePost(request, env) {
@@ -982,22 +1589,22 @@ async function handleForumRemovePost(request, env) {
 
   const group = normaliseGroupName(session.group_name, Boolean(session.is_admin));
   if (!canModerateForum(group, Boolean(session.is_admin))) {
-    return json({ success: false, error: "You do not have permission to remove posts" }, 403);
+    return json({ success: false, error: "You do not have permission to remove posts" }, 403, request);
   }
 
   const body = await safeJson(request);
   const postId = Number(body?.post_id);
 
   if (!Number.isInteger(postId) || postId <= 0) {
-    return json({ success: false, error: "A valid post id is required" }, 400);
+    return json({ success: false, error: "A valid post id is required" }, 400, request);
   }
 
-  const existing = await env.DB.prepare(
-    `SELECT id FROM forum_posts WHERE id = ? LIMIT 1`
-  ).bind(postId).first();
+  const existing = await env.DB.prepare(`SELECT id FROM forum_posts WHERE id = ? LIMIT 1`)
+    .bind(postId)
+    .first();
 
   if (!existing) {
-    return json({ success: false, error: "Post not found" }, 404);
+    return json({ success: false, error: "Post not found" }, 404, request);
   }
 
   await env.DB.prepare(`DELETE FROM forum_comments WHERE post_id = ?`).bind(postId).run();
@@ -1007,7 +1614,135 @@ async function handleForumRemovePost(request, env) {
   return json({
     success: true,
     message: "Post removed"
-  });
+  }, 200, request);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              GAMBLING / CASES                              */
+/* -------------------------------------------------------------------------- */
+
+async function handleGamblingProfile(request, env) {
+  await ensureCoreTables(env);
+  await ensureCasesCatalogReady(env);
+
+  if (!env.CASES_DB) {
+    return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+  }
+
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const now = isoNow();
+
+  await env.CASES_DB.prepare(`
+    INSERT OR IGNORE INTO case_profiles (
+      user_id,
+      display_name,
+      balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+  `).bind(session.id, session.username, await getStartingBalancePence(env), now, now).run();
+
+  const row = await env.CASES_DB.prepare(`
+    SELECT
+      user_id,
+      display_name,
+      balance,
+      key_balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    FROM case_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  const quickSellFee = await getQuickSellFeePercent(env);
+
+  return json({
+    success: true,
+    profile: {
+      user_id: row.user_id,
+      username: session.username,
+      display_name: row.display_name || session.username,
+      balance: Number(row.balance || 0),
+      key_balance: Number(row.key_balance ?? 0),
+      total_cases_opened: Number(row.total_cases_opened || 0),
+      total_spent: Number(row.total_spent || 0),
+      total_inventory_value: Number(row.total_inventory_value || 0),
+      quick_sell_fee_percent: quickSellFee,
+      created_at: row.created_at || now,
+      updated_at: row.updated_at || now
+    }
+  }, 200, request);
+}
+
+
+async function attachCaseAdminStats(env, users) {
+  const list = Array.isArray(users) ? users : [];
+  if (!env.CASES_DB || !list.length) return list;
+
+  const ids = [...new Set(list.map((user) => Number(user.id)).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!ids.length) return list;
+
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = await env.CASES_DB.prepare(`
+    SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
+    FROM case_profiles
+    WHERE user_id IN (${placeholders})
+  `).bind(...ids).all();
+
+  const statsByUserId = new Map();
+  for (const row of rows.results || []) {
+    statsByUserId.set(Number(row.user_id), {
+      case_balance: Number(row.balance || 0),
+      key_balance: Number(row.key_balance || 0),
+      total_cases_opened: Number(row.total_cases_opened || 0),
+      case_inventory_value: Number(row.total_inventory_value || 0)
+    });
+  }
+
+  return list.map((user) => ({
+    ...user,
+    case_balance: statsByUserId.get(Number(user.id))?.case_balance ?? 0,
+    key_balance: statsByUserId.get(Number(user.id))?.key_balance ?? 0,
+    total_cases_opened: statsByUserId.get(Number(user.id))?.total_cases_opened ?? 0,
+    case_inventory_value: statsByUserId.get(Number(user.id))?.case_inventory_value ?? 0
+  }));
+}
+
+async function ensureAdminCaseProfile(env, userId, username) {
+  if (!env.CASES_DB) return null;
+  const now = isoNow();
+  await env.CASES_DB.prepare(`
+    INSERT OR IGNORE INTO case_profiles (
+      user_id,
+      display_name,
+      balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+  `).bind(userId, username, await getStartingBalancePence(env), now, now).run();
+
+  return env.CASES_DB.prepare(`
+    SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
+    FROM case_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(userId).first();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1023,25 +1758,31 @@ async function handleAdminUsers(request, env) {
   const url = new URL(request.url);
   const search = (url.searchParams.get("search") || "").trim().toLowerCase();
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     ORDER BY LOWER(u.username) ASC
-    `
-  ).all();
+  `).all();
 
   let users = (rows.results || []).map(formatAdminUserRow);
+  users = await attachCaseAdminStats(env, users);
 
   if (search) {
     users = users.filter((user) =>
@@ -1054,7 +1795,7 @@ async function handleAdminUsers(request, env) {
     success: true,
     users,
     available_groups: ALLOWED_GROUPS
-  });
+  }, 200, request);
 }
 
 async function handleAdminUser(request, env) {
@@ -1067,65 +1808,71 @@ async function handleAdminUser(request, env) {
   const userId = Number(url.searchParams.get("id") || "");
 
   if (!Number.isInteger(userId) || userId <= 0) {
-    return json({ success: false, error: "A valid user id is required" }, 400);
+    return json({ success: false, error: "A valid user id is required" }, 400, request);
   }
 
-  const row = await env.DB.prepare(
-    `
+  const row = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
-    `
-  ).bind(userId).first();
+  `).bind(userId).first();
 
   if (!row) {
-    return json({ success: false, error: "User not found" }, 404);
+    return json({ success: false, error: "User not found" }, 404, request);
   }
+
+  const [userWithStats] = await attachCaseAdminStats(env, [formatAdminUserRow(row)]);
 
   return json({
     success: true,
-    user: formatAdminUserRow(row),
+    user: userWithStats,
     available_groups: ALLOWED_GROUPS
-  });
+  }, 200, request);
 }
 
-async function handleAdminPendingUsers(env, request) {
+async function handleAdminPendingUsers(request, env) {
   await ensureCoreTables(env);
 
   const adminUser = await requireAdmin(request, env);
   if (adminUser instanceof Response) return adminUser;
 
-  const rows = await env.DB.prepare(
-    `
+  const rows = await env.DB.prepare(`
     SELECT
       id,
       username,
       approved,
       is_admin,
       group_name,
+      gambling_admin,
       created_at,
       last_seen_at
     FROM users
     WHERE approved = 0
     ORDER BY created_at ASC
-    `
-  ).all();
+  `).all();
 
   return json({
     success: true,
-    users: (rows.results || []).map(formatAdminUserRow)
-  });
+    users: await attachCaseAdminStats(env, (rows.results || []).map(formatAdminUserRow))
+  }, 200, request);
 }
 
 async function handleAdminUpdateUser(request, env) {
@@ -1139,80 +1886,163 @@ async function handleAdminUpdateUser(request, env) {
   const userId = Number(body?.user_id);
   const approved = body?.approved;
   const isAdmin = body?.is_admin;
+  const gamblingAdmin = body?.gambling_admin;
   const requestedGroup = sanitiseGroupName(body?.group_name);
+  const gamblingBalanceDelta = Number(body?.gambling_balance_delta ?? body?.case_balance_delta ?? 0);
+  const profileFields = {
+    real_name: typeof body?.real_name === "string" ? body.real_name.trim().slice(0, 80) : "",
+    motto: typeof body?.motto === "string" ? body.motto.trim().slice(0, 140) : "",
+    bio: typeof body?.bio === "string" ? body.bio.trim().slice(0, 3000) : "",
+    avatar_url: cleanUrl(body?.avatar_url, 1200),
+    media_1_url: cleanUrl(body?.media_1_url, 1200),
+    media_2_url: cleanUrl(body?.media_2_url, 1200),
+    media_3_url: cleanUrl(body?.media_3_url, 1200),
+    music_url: cleanUrl(body?.music_url, 1200)
+  };
 
   if (!Number.isInteger(userId) || userId <= 0) {
-    return json({ success: false, error: "A valid user id is required" }, 400);
+    return json({ success: false, error: "A valid user id is required" }, 400, request);
   }
 
   if (!requestedGroup) {
-    return json({ success: false, error: "A valid group is required" }, 400);
+    return json({ success: false, error: "A valid group is required" }, 400, request);
   }
 
-  const existingUser = await env.DB.prepare(
-    `
-    SELECT id, username, is_admin, group_name
+  const existingUser = await env.DB.prepare(`
+    SELECT id, username, is_admin, group_name, gambling_admin
     FROM users
     WHERE id = ?
     LIMIT 1
-    `
-  ).bind(userId).first();
+  `).bind(userId).first();
+
+  if (!Number.isFinite(gamblingBalanceDelta) || !Number.isInteger(gamblingBalanceDelta)) {
+    return json({ success: false, error: "gambling_balance_delta must be an integer amount in pence" }, 400, request);
+  }
 
   if (!existingUser) {
-    return json({ success: false, error: "User not found" }, 404);
+    return json({ success: false, error: "User not found" }, 404, request);
   }
 
   if (existingUser.id === adminUser.id && approved === false) {
-    return json({ success: false, error: "You cannot unapprove your own account" }, 400);
+    return json({ success: false, error: "You cannot unapprove your own account" }, 400, request);
   }
 
   const nextIsAdmin = Boolean(isAdmin) || requestedGroup === "admin";
   const nextApproved = approved === undefined ? true : Boolean(approved);
   const nextGroup = requestedGroup === "admin" ? "admin" : requestedGroup;
 
-  await env.DB.prepare(
-    `
-    UPDATE users
-    SET approved = ?, is_admin = ?, group_name = ?
-    WHERE id = ?
-    `
-  ).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, userId).run();
+  let nextBalance = null;
+  if (gamblingBalanceDelta !== 0) {
+    if (!env.CASES_DB) {
+      return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+    }
 
-  const updatedRow = await env.DB.prepare(
-    `
+    const profile = await ensureAdminCaseProfile(env, userId, existingUser.username);
+    const currentBalance = Number(profile?.balance || 0);
+    nextBalance = currentBalance + gamblingBalanceDelta;
+
+    if (nextBalance < 0) {
+      return json({ success: false, error: "Balance update would make the gambling balance negative" }, 400, request);
+    }
+  }
+
+  await env.DB.prepare(`
+    UPDATE users
+    SET approved = ?, is_admin = ?, group_name = ?, gambling_admin = ?
+    WHERE id = ?
+  `).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, Boolean(gamblingAdmin) ? 1 : 0, userId).run();
+
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO user_profiles (
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url
+    ) VALUES (?, '', '', '', '', '', '', '', '')
+  `).bind(userId).run();
+
+  await env.DB.prepare(`
+    UPDATE user_profiles
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = ?, media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?
+    WHERE user_id = ?
+  `).bind(
+    profileFields.real_name,
+    profileFields.motto,
+    profileFields.bio,
+    profileFields.avatar_url,
+    profileFields.media_1_url,
+    profileFields.media_2_url,
+    profileFields.media_3_url,
+    profileFields.music_url,
+    userId
+  ).run();
+
+  let updatedBalance = null;
+  if (nextBalance != null) {
+    await env.CASES_DB.prepare(`
+      UPDATE case_profiles
+      SET balance = ?, updated_at = ?
+      WHERE user_id = ?
+    `).bind(nextBalance, isoNow(), userId).run();
+
+    updatedBalance = nextBalance;
+  }
+
+  const updatedRow = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
-    `
-  ).bind(userId).first();
+  `).bind(userId).first();
+
+  const [userWithStats] = await attachCaseAdminStats(env, [formatAdminUserRow(updatedRow)]);
 
   return json({
     success: true,
-    message: "User updated successfully",
-    user: formatAdminUserRow(updatedRow)
-  });
+    message: updatedBalance == null ? "User updated successfully" : "User and gambling balance updated successfully",
+    user: userWithStats,
+    gambling_balance_delta: gamblingBalanceDelta,
+    balance_after: updatedBalance
+  }, 200, request);
 }
 
 async function requireAdmin(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401);
+    return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
   if (!Boolean(session.is_admin)) {
-    return json({ success: false, error: "Admin access required" }, 403);
+    return json({ success: false, error: "Admin access required" }, 403, request);
+  }
+
+  return session;
+}
+
+async function requireGamblingAdmin(request, env) {
+  const session = await getSessionUser(request, env);
+
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  if (!Boolean(session.gambling_admin)) {
+    return json({ success: false, error: "Gambling admin access required" }, 403, request);
   }
 
   return session;
@@ -1230,14 +2060,14 @@ async function getSessionUser(request, env) {
     return null;
   }
 
-  const row = await env.DB.prepare(
-    `
+  const row = await env.DB.prepare(`
     SELECT
       u.id,
       u.username,
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.last_seen_at,
       p.bio,
       p.avatar_url,
@@ -1248,8 +2078,7 @@ async function getSessionUser(request, env) {
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE s.session_token = ?
     LIMIT 1
-    `
-  ).bind(sessionToken).first();
+  `).bind(sessionToken).first();
 
   if (!row) {
     return null;
@@ -1270,11 +2099,11 @@ async function getApprovedUser(request, env) {
   const session = await getSessionUser(request, env);
 
   if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401);
+    return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
   if (!Boolean(session.approved)) {
-    return json({ success: false, error: "Account is not approved" }, 403);
+    return json({ success: false, error: "Account is not approved" }, 403, request);
   }
 
   return session;
@@ -1284,30 +2113,31 @@ async function getApprovedUser(request, env) {
 /*                                  HELPERS                                   */
 /* -------------------------------------------------------------------------- */
 
-function json(data, status = 200) {
+function json(data, status = 200, request = null) {
   return new Response(JSON.stringify(data, null, 2), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...corsHeaders()
+      ...corsHeaders(request)
     }
   });
 }
 
-function handleOptions() {
+function handleOptions(request) {
   return new Response(null, {
     status: 204,
     headers: {
-      ...corsHeaders(),
+      ...corsHeaders(request),
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     }
   });
 }
 
-function corsHeaders() {
+function corsHeaders(request) {
+  const origin = request?.headers?.get("Origin");
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Credentials": "true"
   };
 }
@@ -1386,6 +2216,24 @@ function cleanForumComment(value) {
   return value.replace(/\r\n/g, "\n").trim().slice(0, 3000);
 }
 
+function cleanShortText(value, maxLen = 255) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLen);
+}
+
+function cleanLongText(value, maxLen = 3000) {
+  if (typeof value !== "string") return "";
+  return value.replace(/\r\n/g, "\n").trim().slice(0, maxLen);
+}
+
+function cleanUrl(value, maxLen = 1200) {
+  if (typeof value !== "string") return "";
+  const cleaned = value.trim().slice(0, maxLen);
+  if (!cleaned) return "";
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  return "";
+}
+
 function normaliseReactionType(value) {
   if (typeof value !== "string") return "";
   const cleaned = value.trim().toLowerCase();
@@ -1434,12 +2282,20 @@ function formatAdminUserRow(row) {
     username: row.username,
     approved: Boolean(row.approved),
     is_admin: Boolean(row.is_admin),
+    gambling_admin: Boolean(row.gambling_admin),
+    can_manage_gambling: Boolean(row.gambling_admin),
     group,
     groups: buildUserGroups(group, Boolean(row.is_admin)),
     created_at: row.created_at || null,
     last_seen_at: row.last_seen_at || null,
     bio: row.bio || "",
-    avatar_url: row.avatar_url || ""
+    avatar_url: row.avatar_url || "",
+    real_name: row.real_name || "",
+    motto: row.motto || "",
+    media_1_url: row.media_1_url || "",
+    media_2_url: row.media_2_url || "",
+    media_3_url: row.media_3_url || "",
+    music_url: row.music_url || ""
   };
 }
 

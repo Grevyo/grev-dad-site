@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS CASES · CS2 | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/gambling-wallet.js" defer></script>
+  <style>
+    .cs2-page { display: grid; gap: 20px; }
+    .gambling-hero {
+      padding: 28px 26px;
+      border-radius: var(--radius-md);
+      background:
+        linear-gradient(120deg, rgba(235, 75, 75, 0.12), rgba(30, 41, 59, 0.92)),
+        url("/dust2bg.webp") center center / cover no-repeat;
+      border: 1px solid var(--border);
+    }
+    .gambling-breadcrumb { margin: 0 0 12px; font-size: 0.95rem; }
+    .gambling-breadcrumb a { color: #fecaca; font-weight: 600; text-decoration: none; }
+    .gambling-breadcrumb a:hover { text-decoration: underline; }
+    .gambling-hero h1 { margin: 0 0 10px; font-size: 2rem; }
+    .gambling-hero p { margin: 0; color: #e2e8f0; line-height: 1.6; max-width: 860px; }
+    .cs2-balance {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .balance-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.35);
+      font-weight: 800;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .tab-btn.active {
+      border-color: #eb4b4b;
+      background: rgba(235, 75, 75, 0.12);
+    }
+    .cs2-panel { display: none; }
+    .cs2-panel.active { display: block; }
+    .case-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .case-card {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(15,23,42,0.92));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      overflow: hidden;
+    }
+    .case-card h3 { margin: 0 0 8px; font-size: 1rem; }
+    .case-visual {
+      display: grid; place-items: center; min-height: 160px; margin-bottom: 12px;
+      border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);
+      background: radial-gradient(circle at top, rgba(248,113,113,0.24), rgba(15,23,42,0.95));
+    }
+    .case-visual img, .case-visual .case-fallback { max-width: 100%; max-height: 140px; object-fit: contain; }
+    .case-fallback {
+      width: 120px; height: 140px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(180deg, #7f1d1d, #1e293b); color: #fff; display: grid; place-items: center;
+      text-align: center; padding: 12px; font-weight: 800;
+    }
+    .price-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); font-weight: 800; }
+    .price-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .key-card { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+    .key-visual { width: 74px; height: 74px; border-radius: 16px; display: grid; place-items: center; background: radial-gradient(circle at top, rgba(250,204,21,0.35), rgba(15,23,42,0.95)); border: 1px solid rgba(250,204,21,0.35); font-size: 2rem; }
+    .drop-preview { position: absolute; left: 14px; right: 14px; top: 14px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: 180ms ease; }
+    .drop-preview.scrollable-preview { position: static; opacity: 1; pointer-events: auto; transform: none; margin: 12px 0; }
+    .case-card:hover .drop-preview, .case-card:focus-within .drop-preview { opacity: 1; transform: translateY(0); }
+    .drop-preview-inner { max-height: 250px; overflow: auto; border-radius: 14px; padding: 12px; background: rgba(2,6,23,0.96); border: 1px solid rgba(255,255,255,0.09); }
+    .drop-preview-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.86rem; }
+    .drop-preview-row:last-child { border-bottom: none; }
+    .case-actions-bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    .reel-overlay { position: fixed; inset: 0; display:none; align-items:center; justify-content:center; padding:20px; background: #000; z-index: 2050; }
+    .reel-overlay.open { display:flex; }
+    .reel-modal { width:min(1280px, 100%); border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); background:#000; padding:20px; box-shadow:0 24px 70px rgba(0,0,0,0.55); }
+    .reel-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .reel-card { border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:14px; background:rgba(15,23,42,0.42); }
+    .reel-window { position: relative; overflow:hidden; border-radius: 18px; border:1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(15,23,42,0.86)); padding:16px 0; }
+    .reel-window::before, .reel-window::after { content:""; position:absolute; top:0; bottom:0; width:120px; z-index:2; pointer-events:none; }
+    .reel-window::before { left:0; background:linear-gradient(90deg, #020617, transparent); }
+    .reel-window::after { right:0; background:linear-gradient(270deg, #020617, transparent); }
+    .reel-center-line { position:absolute; top:10px; bottom:10px; left:50%; width:4px; transform:translateX(-50%); background:#f8fafc; border-radius:999px; z-index:3; box-shadow:0 0 16px rgba(255,255,255,0.5); }
+    .reel-track { display:flex; gap:14px; padding:0 24px; will-change: transform; }
+    .reel-item { width:150px; flex:0 0 150px; border-radius:16px; padding:12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); text-align:center; }
+    .reel-item img, .reel-item .reel-fallback { width:100%; height:90px; object-fit:contain; margin-bottom:8px; }
+    .reel-fallback { display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,0.04); }
+    .case-meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; line-height: 1.45; }
+    .feed-list { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
+    .feed-row {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+      font-size: 0.92rem;
+    }
+    .rarity-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+    .inv-row, .list-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1.2fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+    .inv-thumb {
+      width: 56px; height: 56px; object-fit: contain;
+      border-radius: 8px; background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+    }
+    .inv-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+    .search-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .search-row input { flex: 1; min-width: 200px; }
+    .drop-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+      padding: 20px;
+    }
+    .drop-modal-overlay.open { display: flex; }
+    .drop-modal {
+      max-width: 480px; width: 100%;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      padding: 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .drop-modal h3 { margin: 0 0 12px; }
+    .drop-modal-img {
+      width: 100%; max-height: 200px; object-fit: contain;
+      border-radius: 12px; background: rgba(0,0,0,0.4); margin-bottom: 12px;
+    }
+    .drop-modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .mode-badge {
+      font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
+      padding: 4px 8px; border-radius: 6px; background: rgba(235,75,75,0.2); color: #fecaca;
+    }
+    .showcase-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+    }
+    .showcase-slot {
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+    .toast-stack { position: fixed; right: 16px; bottom: 16px; z-index: 2100; display: grid; gap: 10px; max-width: min(360px, calc(100vw - 32px)); }
+    .toast { border-radius: 12px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.96); padding: 12px 14px; box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
+    .toast.success { border-color: rgba(74, 222, 128, 0.45); }
+    .toast.error { border-color: rgba(248, 113, 113, 0.45); }
+    .filter-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+    .filter-row > * { flex: 1 1 160px; }
+    .mini-stat { font-size:0.86rem; color:var(--muted); }
+    .catalog-detail-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.82); display:none; align-items:center; justify-content:center; z-index:2150; padding:20px; }
+    .catalog-detail-overlay.open { display:flex; }
+    .catalog-detail-modal { width:min(860px, 100%); max-height:90vh; overflow:auto; background:#020617; border:1px solid var(--border); border-radius:18px; padding:22px; }
+    .graph { width:100%; height:180px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); }
+    .pending-tray { position:fixed; right:16px; bottom:16px; z-index:2090; display:grid; gap:10px; width:min(340px, calc(100vw - 32px)); }
+    .pending-card { border:1px solid var(--border); border-radius:12px; background:rgba(2,6,23,0.96); padding:12px; box-shadow:0 18px 40px rgba(0,0,0,0.35); }
+    .multi-drop-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px; }
+    .multi-drop-card { border:1px solid var(--border); border-radius:14px; padding:12px; background:rgba(255,255,255,0.03); }
+    .multi-drop-card img { width:100%; height:120px; object-fit:contain; border-radius:10px; background:rgba(0,0,0,0.35); margin-bottom:10px; }
+    @media (max-width: 720px) {
+      .inv-row, .list-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <div id="cs2-message" class="hidden"></div>
+
+      <div class="cs2-page">
+        <section class="gambling-hero panel">
+          <p class="gambling-breadcrumb"><a href="/gambling/index.html">← Gambling hub</a></p>
+          <h1>CS CASES · CS2</h1>
+          <p>
+            Everything for Counter-Strike cases lives on this page — buy cases and keys, open singles or batches, manage inventory, and trade.
+            <strong>Grev Coins</strong> use the same wallet as the rest of the gambling hub. All prices below are shown as <strong>£00.00GC</strong> so the GC side is much clearer.
+            Quick sell pays live market reference minus the admin fee (default 10%).
+          </p>
+          <div id="gambling-wallet-mount" class="cs2-balance"></div>
+          <p class="muted" id="auth-note" style="margin-top:10px"></p>
+          <div id="cs2-admin-entry" class="inv-actions hidden" style="margin-top:14px">
+            <a class="btn btn-primary" href="/cs2-admin.html">Open CS2 admin</a>
+            <span class="muted">Visible only to gambling hub admins.</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="tabs" id="cs2-tabs">
+            <button type="button" class="tab-btn active" data-tab="cases">Case openings</button>
+            <button type="button" class="tab-btn" data-tab="store">Case market &amp; keys</button>
+            <button type="button" class="tab-btn" data-tab="inventory">Inventory</button>
+            <button type="button" class="tab-btn" data-tab="trading">Trading</button>
+            <button type="button" class="tab-btn" data-tab="catalog">Skin catalog</button>
+            <button type="button" class="tab-btn" data-tab="feed">Live feed</button>
+            <button type="button" class="tab-btn" data-tab="battles">Case battles</button>
+          </div>
+        </section>
+
+        <section class="panel cs2-panel active" id="panel-cases">
+          <h2 class="panel-title">Case openings</h2>
+          <p class="panel-subtitle">Each open uses one key from your key balance (not your coin balance). Select up to 10 cases and speed-open in one go, or open one at a time. Pending drops stay in the bottom-right queue until you deal with them.</p>
+          <div class="case-actions-bar">
+            <button type="button" class="btn" id="select-all-cases">Select all shown</button>
+            <button type="button" class="btn" id="clear-selected-cases">Clear selection</button>
+            <button type="button" class="btn btn-primary" id="open-selected-cases" disabled>Open selected (1–10)</button>
+            <span class="muted" id="case-selection-hint">Select cases below — requires one key per case.</span>
+          </div>
+          <div id="open-inventory-list"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-store">
+          <h2 class="panel-title">Case market &amp; keys</h2>
+          <p class="panel-subtitle">Case prices use the clearer <strong>£00.00GC</strong> format. Hover a case to inspect every possible drop and its percentage chance. Keys are always <span id="store-key-price-label">£1.00GC</span> each.</p>
+          <div class="case-card key-card" style="max-width:520px;margin-bottom:18px">
+            <div class="key-visual" aria-hidden="true">🔑</div>
+            <div>
+            <h3 class="mt-0">Buy keys</h3>
+            <div class="case-meta">Keys are stored on your profile and spent when you open a case. Every case open costs exactly <strong>£1.00GC</strong>.</div>
+            <div class="inv-actions" style="margin-top:10px">
+              <label class="muted" style="display:flex;align-items:center;gap:8px">Qty
+                <input class="form-input" type="number" id="buy-keys-qty" min="1" max="100" value="1" style="max-width:100px" />
+              </label>
+              <button type="button" class="btn btn-primary" id="buy-keys-btn">Buy keys</button>
+              <button type="button" class="btn" id="refund-keys-btn">Refund keys</button>
+            </div>
+          </div>
+          </div>
+          <h3 class="mt-0">Cases</h3>
+          <div id="store-case-grid" class="case-grid"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-inventory">
+          <h2 class="panel-title">Inventory</h2>
+          <p class="panel-subtitle">Skins show live reference value. Quick sell pays market reference minus the admin fee (see hero — default 10%). List on the trading tab for player sales.</p>
+          <h3 class="mt-24">Profile showcase (5 slots)</h3>
+          <p class="panel-subtitle">Pick skins to display on your public profile.</p>
+          <div id="showcase-mount" class="showcase-grid"></div>
+          <h3 class="mt-24">Skins</h3>
+          <div class="filter-row">
+            <input id="inventory-search" class="form-input" type="search" placeholder="Search skins..." />
+            <select id="inventory-rarity" class="form-input"><option value="">All rarities</option><option>Consumer Grade</option><option>Industrial Grade</option><option>Mil-Spec Grade</option><option>Restricted</option><option>Classified</option><option>Covert</option><option>Special Item</option><option>Contraband</option></select>
+            <input id="inventory-min-price" class="form-input" type="number" min="0" step="0.01" placeholder="Min GC" />
+            <input id="inventory-max-price" class="form-input" type="number" min="0" step="0.01" placeholder="Max GC" />
+          </div>
+          <div id="skin-inventory-list"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-trading">
+          <h2 class="panel-title">Trading</h2>
+          <p class="panel-subtitle">Fixed price, timed auctions, or offer-only listings. Offers can include a comment; sellers can counter with another price and message. Buyers accept counters to complete the trade.</p>
+          <h3 class="mt-0">Incoming offers (on your listings)</h3>
+          <div id="incoming-offers" class="feed-list" style="max-height:320px"></div>
+          <h3 class="mt-24">Your outgoing offers</h3>
+          <div id="outgoing-offers" class="feed-list" style="max-height:280px"></div>
+          <div class="search-row mt-24">
+            <input id="listing-search" class="form-input" type="search" placeholder="Filter listings..." />
+            <button type="button" class="btn btn-primary" id="reload-listings">Refresh</button>
+          </div>
+          <div id="market-listings"></div>
+          <h3 class="mt-24">Search all-time trades</h3>
+          <div class="search-row">
+            <input id="trade-search" class="form-input" type="search" placeholder="Search item name..." />
+            <button type="button" class="btn" id="run-trade-search">Search</button>
+          </div>
+          <div id="trade-search-results" class="feed-list"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-catalog">
+          <h2 class="panel-title">Skin catalog</h2>
+          <p class="panel-subtitle">Resolved skins in the database with live Steam reference prices by wear.</p>
+          <div class="filter-row">
+            <input id="catalog-search" class="form-input" type="search" placeholder="Search any skin..." />
+            <input id="catalog-weapon" class="form-input" type="search" placeholder="Filter by weapon (AK-47, AWP, Glock...)" />
+            <select id="catalog-rarity" class="form-input"><option value="">All rarities</option><option>Consumer Grade</option><option>Industrial Grade</option><option>Mil-Spec Grade</option><option>Restricted</option><option>Classified</option><option>Covert</option><option>Special Item</option><option>Contraband</option></select>
+            <select id="catalog-wear" class="form-input"><option value="">All wears</option><option value="FN">Factory New</option><option value="MW">Minimal Wear</option><option value="FT">Field-Tested</option><option value="WW">Well-Worn</option><option value="BS">Battle-Scarred</option></select>
+            <button type="button" class="btn btn-primary" id="reload-catalog">Refresh</button>
+          </div>
+          <div id="catalog-grid" class="case-grid"></div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-feed">
+          <h2 class="panel-title">Live feed</h2>
+          <div class="case-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start;">
+            <div>
+              <h3 class="mt-0">Recent site opens</h3>
+              <div id="feed-opens" class="feed-list"></div>
+            </div>
+            <div>
+              <h3 class="mt-0">Recent trades</h3>
+              <div id="feed-trades" class="feed-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel cs2-panel" id="panel-battles">
+          <h2 class="panel-title">Case battles</h2>
+          <p class="panel-subtitle muted">Coming soon — shared-pot, head-to-head case openings with spectators and brackets.</p>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">Grev.dad — CS CASES · simulated Grev Coins only · <a href="/gambling/index.html">Gambling hub</a></div>
+    </footer>
+  </div>
+
+  <div class="reel-overlay" id="opening-reel" aria-hidden="true">
+    <div class="reel-modal" role="dialog" aria-labelledby="opening-reel-title">
+      <h3 id="opening-reel-title" style="margin-top:0">Case opening simulation</h3>
+      <div class="muted" id="opening-reel-subtitle" style="margin-bottom:12px">Rolling your item…</div>
+      <div class="reel-grid" id="opening-reel-grid"></div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <div class="pending-tray" id="pending-tray"></div>
+
+  <div class="drop-modal-overlay" id="drop-modal" aria-hidden="true">
+    <div class="drop-modal" role="dialog" aria-labelledby="drop-modal-title">
+      <h3 id="drop-modal-title">You unboxed an item</h3>
+      <img class="drop-modal-img" id="drop-modal-img" alt="" hidden />
+      <div id="drop-modal-body"></div>
+      <div class="drop-modal-actions">
+        <button type="button" class="btn btn-primary" id="drop-claim">Add to inventory</button>
+        <button type="button" class="btn" id="drop-quick">Quick sell</button>
+        <button type="button" class="btn" id="drop-discard">Discard</button>
+        <button type="button" class="btn" id="drop-close">Later</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="catalog-detail-overlay" id="multi-drop-overlay" aria-hidden="true">
+    <div class="catalog-detail-modal">
+      <div class="inv-actions" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">Batch opening results</h3>
+        <button type="button" class="btn" id="multi-drop-close">Close</button>
+      </div>
+      <div id="multi-drop-body"></div>
+    </div>
+  </div>
+
+  <div class="catalog-detail-overlay" id="catalog-detail-overlay" aria-hidden="true">
+    <div class="catalog-detail-modal">
+      <div class="inv-actions" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">Skin profile</h3>
+        <button type="button" class="btn" id="catalog-detail-close">Close</button>
+      </div>
+      <div id="catalog-detail-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const cs2Message = document.getElementById("cs2-message");
+    const authNote = document.getElementById("auth-note");
+    const cs2AdminEntry = document.getElementById("cs2-admin-entry");
+    const openInventoryList = document.getElementById("open-inventory-list");
+    const storeCaseGrid = document.getElementById("store-case-grid");
+    const skinInventoryList = document.getElementById("skin-inventory-list");
+    const marketListings = document.getElementById("market-listings");
+    const feedOpens = document.getElementById("feed-opens");
+    const feedTrades = document.getElementById("feed-trades");
+    const tradeSearchResults = document.getElementById("trade-search-results");
+    const catalogGrid = document.getElementById("catalog-grid");
+    const incomingOffersEl = document.getElementById("incoming-offers");
+    const outgoingOffersEl = document.getElementById("outgoing-offers");
+    const showcaseMount = document.getElementById("showcase-mount");
+    const openSelectedBtn = document.getElementById("open-selected-cases");
+    const selectAllCasesBtn = document.getElementById("select-all-cases");
+    const clearSelectedCasesBtn = document.getElementById("clear-selected-cases");
+    const KEY_PRICE_PENCE = 100;
+
+    /** @type {number} */
+    let keyBalance = 0;
+    /** @type {number} */
+    let quickSellFeePercent = 10;
+    const toastStack = document.getElementById("toast-stack");
+    const pendingTray = document.getElementById("pending-tray");
+    const openingReel = document.getElementById("opening-reel");
+    const openingReelGrid = document.getElementById("opening-reel-grid");
+    const openingReelSubtitle = document.getElementById("opening-reel-subtitle");
+    const dropModal = document.getElementById("drop-modal");
+    const catalogDetailOverlay = document.getElementById("catalog-detail-overlay");
+    const catalogDetailBody = document.getElementById("catalog-detail-body");
+    const multiDropOverlay = document.getElementById("multi-drop-overlay");
+    const multiDropBody = document.getElementById("multi-drop-body");
+    const dropModalImg = document.getElementById("drop-modal-img");
+    const dropModalBody = document.getElementById("drop-modal-body");
+
+    let currentUser = null;
+    let balancePence = 0;
+    let inventoryValuePence = 0;
+    let activePendingId = null;
+    let availableCases = [];
+    let cachedStoreBootstrap = null;
+
+    const STORE_CACHE_KEY = "grevdad:cs2:store-bootstrap:v1";
+    const STORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+    const WEAR_LABEL = {
+      FN: "Factory New",
+      MW: "Minimal Wear",
+      FT: "Field-Tested",
+      WW: "Well-Worn",
+      BS: "Battle-Scarred"
+    };
+
+    function wearLabel(code, wear) {
+      if (code && WEAR_LABEL[code]) return `${WEAR_LABEL[code]} (${code})`;
+      return wear || "—";
+    }
+
+    function showMessage(type, text) {
+      cs2Message.className = `alert alert-${type}`;
+      cs2Message.textContent = text;
+    }
+
+    function clearMessage() {
+      cs2Message.className = "hidden";
+      cs2Message.textContent = "";
+    }
+
+    function showToast(text, type = "success") {
+      if (!toastStack) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<strong>${type === "error" ? "Error" : "Success"}</strong><div>${escapeHtml(text)}</div>`;
+      toastStack.appendChild(toast);
+      window.setTimeout(() => { toast.remove(); }, 3200);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatGrevCoins(pence) {
+      const n = Number(pence || 0) / 100;
+      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GC`;
+    }
+
+    function setBalancePills() {
+      if (typeof window.refreshGamblingWallet === "function") {
+        window.refreshGamblingWallet();
+      }
+    }
+
+    function updateQuickSellButtonLabel() {
+      const pct = Math.max(0, Math.min(99, Number(quickSellFeePercent) || 10));
+      const btn = document.getElementById("drop-quick");
+      if (btn) btn.textContent = `Quick sell (${pct}% fee)`;
+    }
+
+    function readStoreCache() {
+      try {
+        const raw = window.localStorage.getItem(STORE_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeStoreCache(payload) {
+      if (!payload || typeof payload !== "object") return;
+      try {
+        const record = { ...payload, cached_at_ms: Date.now() };
+        window.localStorage.setItem(STORE_CACHE_KEY, JSON.stringify(record));
+        cachedStoreBootstrap = record;
+      } catch {
+        cachedStoreBootstrap = payload;
+      }
+    }
+
+    function clearStoreCache() {
+      cachedStoreBootstrap = null;
+      try {
+        window.localStorage.removeItem(STORE_CACHE_KEY);
+      } catch {
+        // ignore storage failures
+      }
+    }
+
+    function applyStoreBootstrap(payload) {
+      cachedStoreBootstrap = payload || null;
+      availableCases = Array.isArray(payload?.cases) ? payload.cases : [];
+      if (payload?.quick_sell_fee_percent != null) {
+        quickSellFeePercent = Number(payload.quick_sell_fee_percent);
+        updateQuickSellButtonLabel();
+      }
+      const kpl = document.getElementById("store-key-price-label");
+      if (kpl && payload?.key_price_pence != null) {
+        kpl.textContent = `${formatGrevCoins(payload.key_price_pence)} each`;
+      }
+    }
+
+    async function fetchStoreVersion() {
+      const response = await fetch("/api/cs2/store/version", { credentials: "same-origin" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Could not validate cached store data.");
+      return data;
+    }
+
+    async function fetchStoreBootstrap() {
+      const response = await fetch("/api/cs2/store/bootstrap", { credentials: "same-origin" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Could not load store bootstrap.");
+      writeStoreCache(data);
+      applyStoreBootstrap(data);
+      return data;
+    }
+
+    async function ensureStoreBootstrap(forceRefresh = false) {
+      const cached = cachedStoreBootstrap || readStoreCache();
+      if (!forceRefresh && cached?.store_version) {
+        const ageMs = Math.max(0, Date.now() - Number(cached.cached_at_ms || 0));
+        try {
+          const version = await fetchStoreVersion();
+          if (version?.store_version && version.store_version === cached.store_version && ageMs <= STORE_CACHE_TTL_MS) {
+            applyStoreBootstrap(cached);
+            return cached;
+          }
+        } catch {
+          if (ageMs <= STORE_CACHE_TTL_MS) {
+            applyStoreBootstrap(cached);
+            return cached;
+          }
+        }
+      }
+      return await fetchStoreBootstrap();
+    }
+
+    async function refreshStoreBootstrap() {
+      clearStoreCache();
+      return await ensureStoreBootstrap(true);
+    }
+
+    async function fetchMe() {
+      try {
+        const response = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) return null;
+        return data.user || null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function loadBalance() {
+      try {
+        const response = await fetch("/api/cs2/me/summary", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          balancePence = 0;
+          inventoryValuePence = 0;
+          keyBalance = 0;
+          setBalancePills();
+          return;
+        }
+        balancePence = Number(data.summary?.balance || 0);
+        inventoryValuePence = Number(data.summary?.total_inventory_value || 0);
+        keyBalance = Number(data.summary?.key_balance ?? 0);
+        if (data.summary?.quick_sell_fee_percent != null) {
+          quickSellFeePercent = Number(data.summary.quick_sell_fee_percent);
+        }
+        setBalancePills();
+        updateQuickSellButtonLabel();
+      } catch {
+        balancePence = 0;
+        inventoryValuePence = 0;
+        keyBalance = 0;
+        setBalancePills();
+      }
+    }
+
+    function openDropModal() {
+      updateQuickSellButtonLabel();
+      dropModal.classList.add("open");
+      dropModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeDropModal() {
+      dropModal.classList.remove("open");
+      dropModal.setAttribute("aria-hidden", "true");
+      activePendingId = null;
+    }
+
+    function showDropModalFromPending(p) {
+      activePendingId = p.id;
+      const img = p.image_url;
+      if (img) {
+        dropModalImg.src = img;
+        dropModalImg.hidden = false;
+        dropModalImg.alt = p.item_name || "drop";
+      } else {
+        dropModalImg.hidden = true;
+        dropModalImg.removeAttribute("src");
+      }
+      dropModalBody.innerHTML = `
+        <div><span class="rarity-dot" style="background:${escapeHtml(p.color_hex || "#999")}"></span>
+        <strong>${escapeHtml(p.item_name || "")}</strong></div>
+        <div class="muted">${escapeHtml(p.rarity || "")} · ${escapeHtml(wearLabel(p.wear_code, p.wear))}</div>
+        <div class="muted">${escapeHtml(p.case_name || "")}</div>
+        <div class="mini-stat">Market price: ${formatGrevCoins(p.market_reference_pence)} · Quick sell return: ${formatGrevCoins(p.quick_sell_payout_pence)}</div>
+        <div class="price-row" style="margin-top:10px"><span class="price-badge">💷 ${formatGrevCoins(p.market_reference_pence)}</span><span class="price-badge">⚡ ${formatGrevCoins(p.quick_sell_payout_pence)}</span></div>
+      `;
+      openDropModal();
+    }
+
+    function showDropModalFromOpen(data) {
+      const d = data.dropped || {};
+      activePendingId = data.pending_drop_id;
+      const img = d.image_url;
+      if (img) {
+        dropModalImg.src = img;
+        dropModalImg.hidden = false;
+        dropModalImg.alt = d.item_name || "drop";
+      } else {
+        dropModalImg.hidden = true;
+        dropModalImg.removeAttribute("src");
+      }
+      dropModalBody.innerHTML = `
+        <div><span class="rarity-dot" style="background:${escapeHtml(d.color_hex || "#999")}"></span>
+        <strong>${escapeHtml(d.item_name || "")}</strong></div>
+        <div class="muted">${escapeHtml(d.rarity || "")} · ${escapeHtml(wearLabel(d.wear_code, d.wear))}</div>
+        <div class="muted">Case: ${escapeHtml(data.case_name || "")}</div>
+        <div class="mini-stat">Skin price after roll: ${formatGrevCoins(d.live_price_pence)} · Quick sell return: ${formatGrevCoins(d.quick_sell_payout_pence)}</div>
+        <div class="price-row" style="margin-top:10px"><span class="price-badge">💷 ${formatGrevCoins(d.live_price_pence)}</span><span class="price-badge">⚡ ${formatGrevCoins(d.quick_sell_payout_pence)}</span></div>
+      `;
+      openDropModal();
+    }
+
+    async function loadPendingDrops() {
+      if (!currentUser) return;
+      try {
+        const response = await fetch("/api/cs2/pending", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) return;
+        const pending = data.pending || [];
+        if (pendingTray) {
+          pendingTray.innerHTML = pending.slice(0, 3).map((p) => `<div class="pending-card"><strong>Pending drop</strong><div style="margin-top:6px">${escapeHtml(p.item_name || "")}</div><div class="mini-stat">${formatGrevCoins(p.quick_sell_payout_pence)} quick sell · ${escapeHtml(wearLabel(p.wear_code, p.wear))}</div><div class="inv-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="btn btn-primary" data-pending-open="${p.id}">Inspect</button></div></div>`).join("");
+          pendingTray.querySelectorAll("[data-pending-open]").forEach((btn) => btn.addEventListener("click", () => {
+            const match = pending.find((entry) => Number(entry.id) === Number(btn.getAttribute("data-pending-open")));
+            if (match) showDropModalFromPending(match);
+          }));
+        }
+      } catch { /* ignore */ }
+    }
+
+    document.getElementById("drop-claim").addEventListener("click", async () => {
+      if (!activePendingId) return;
+      try {
+        const response = await fetch("/api/cs2/drop/claim", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_drop_id: activePendingId })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Claim failed.");
+          return;
+        }
+        showToast("Added to inventory", "success");
+        showMessage("success", "Added to inventory.");
+        closeDropModal();
+        await loadBalance();
+        await loadInventoryUi();
+        await loadFeeds();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    document.getElementById("drop-quick").addEventListener("click", async () => {
+      if (!activePendingId) return;
+      try {
+        const response = await fetch("/api/cs2/drop/quick-sell", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_drop_id: activePendingId })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Quick sell failed.");
+          return;
+        }
+        if (data.quick_sell_fee_percent != null) quickSellFeePercent = Number(data.quick_sell_fee_percent);
+        showToast(`Quick sold for ${formatGrevCoins(data.payout_pence)}`, "success");
+        showMessage("success", `Quick sold for ${formatGrevCoins(data.payout_pence)} (after fee).`);
+        closeDropModal();
+        await loadBalance();
+        await loadInventoryUi();
+        await loadFeeds();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    document.getElementById("drop-discard").addEventListener("click", async () => {
+      if (!activePendingId) return;
+      try {
+        const response = await fetch("/api/cs2/drop/discard", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_drop_id: activePendingId })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Discard failed.");
+          return;
+        }
+        showMessage("success", "Drop discarded.");
+        closeDropModal();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    document.getElementById("drop-close").addEventListener("click", () => {
+      closeDropModal();
+    });
+
+    dropModal.addEventListener("click", (e) => {
+      if (e.target === dropModal) closeDropModal();
+    });
+
+    function caseNameFromInventoryItem(itemName) {
+      return String(itemName || "").replace(/\s*\(Unopened\)\s*$/, "").trim();
+    }
+
+    function findCaseDataByName(caseName) {
+      return availableCases.find((entry) => entry.case_name === caseName) || null;
+    }
+
+    function renderDropPreviewList(caseData) {
+      const drops = caseData?.preview_drops || [];
+      if (!drops.length) return '<div class="muted">Drop table unavailable.</div>';
+      return `<div class="drop-preview-inner"><strong style="display:block;margin-bottom:8px">Possible drops</strong>${drops.map((drop) => `
+        <div class="drop-preview-row">
+          <span><span class="rarity-dot" style="background:${escapeHtml(drop.color_hex || "#999")}"></span>${escapeHtml(drop.item_name)}</span>
+          <strong>${Number(drop.chance_percent || 0).toFixed(3)}%</strong>
+        </div>`).join("")}</div>`;
+    }
+
+    function reelTileMarkup(item) {
+      const media = item?.image_url
+        ? `<img src="${escapeHtml(item.image_url)}" alt="" />`
+        : `<div class="reel-fallback">${escapeHtml(item.item_name || "Item")}</div>`;
+      return `<div class="reel-item">${media}<div><span class="rarity-dot" style="background:${escapeHtml(item.color_hex || "#999")}"></span>${escapeHtml(item.item_name || "Item")}</div><div class="muted">${escapeHtml(item.rarity || "")}</div></div>`;
+    }
+
+    function buildReelCard(result) {
+      const caseData = findCaseDataByName(result?.case_name || "");
+      const source = (caseData?.preview_drops || []).slice(0, 12);
+      const winner = {
+        item_name: result?.dropped?.item_name || "Item",
+        rarity: result?.dropped?.rarity || "",
+        color_hex: result?.dropped?.color_hex || "#999",
+        image_url: result?.dropped?.image_url || ""
+      };
+      const pool = [];
+      for (let i = 0; i < 28; i += 1) {
+        const pick = source.length ? source[i % source.length] : winner;
+        pool.push(pick);
+      }
+      const winnerIndex = 21;
+      pool[winnerIndex] = winner;
+      return `<div class="reel-card"><div class="muted" style="margin-bottom:10px">${escapeHtml(result?.case_name || "Case")} · rolling for ${escapeHtml(winner.item_name)}</div><div class="reel-window"><div class="reel-center-line"></div><div class="reel-track">${pool.map(reelTileMarkup).join("")}</div></div></div>`;
+    }
+
+    async function playOpeningSimulation(results) {
+      if (!openingReel || !openingReelGrid) return;
+      const list = Array.isArray(results) ? results.slice(0, 10) : [results].filter(Boolean);
+      if (!list.length) return;
+      openingReelGrid.innerHTML = list.map(buildReelCard).join("");
+      openingReel.classList.add("open");
+      openingReel.setAttribute("aria-hidden", "false");
+      openingReelSubtitle.textContent = `${list.length} case${list.length === 1 ? "" : "s"} opening now`;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      openingReelGrid.querySelectorAll('.reel-track').forEach((track) => {
+        const tiles = [...track.children];
+        const winnerIndex = Math.min(21, tiles.length - 1);
+        const tile = tiles[winnerIndex];
+        const distance = tile.offsetLeft - ((track.parentElement.clientWidth / 2) - (tile.clientWidth / 2)) + 24;
+        track.style.transition = 'transform 2.2s cubic-bezier(0.08, 0.7, 0.12, 1)';
+        track.style.transform = `translateX(${-distance}px)`;
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 2400));
+      openingReel.classList.remove("open");
+      openingReel.setAttribute("aria-hidden", "true");
+    }
+
+    async function actOnPendingDrop(action, pendingDropId) {
+      const endpoint = action === 'claim' ? '/api/cs2/drop/claim' : action === 'quick' ? '/api/cs2/drop/quick-sell' : '/api/cs2/drop/discard';
+      const response = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pending_drop_id: pendingDropId }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Action failed.');
+      return data;
+    }
+
+    function closeMultiDropOverlay() {
+      multiDropOverlay?.classList.remove('open');
+      multiDropOverlay?.setAttribute('aria-hidden', 'true');
+      if (multiDropBody) multiDropBody.innerHTML = '';
+    }
+
+    function bindMultiDropActions(results) {
+      multiDropBody?.querySelectorAll('[data-batch-action]').forEach((btn) => btn.addEventListener('click', async () => {
+        const card = btn.closest('[data-pending-drop-id]');
+        const pendingDropId = Number(card?.getAttribute('data-pending-drop-id') || 0);
+        if (!pendingDropId) return;
+        btn.disabled = true;
+        try {
+          await actOnPendingDrop(btn.getAttribute('data-batch-action'), pendingDropId);
+          card?.remove();
+          await loadBalance();
+          await loadInventoryUi();
+          await loadFeeds();
+          await loadPendingDrops();
+          if (!multiDropBody?.querySelector('[data-pending-drop-id]')) closeMultiDropOverlay();
+        } catch (error) {
+          showMessage('error', error?.message || 'Action failed.');
+          btn.disabled = false;
+        }
+      }));
+    }
+
+    function showMultiDropOverlay(list) {
+      if (!multiDropOverlay || !multiDropBody) return;
+      multiDropBody.innerHTML = `<div class="muted">All ${list.length} results are ready. Claim, quick sell, discard, or leave them pending.</div><div class="multi-drop-grid">${list.map((entry) => { const d = entry?.dropped || {}; return `<div class="multi-drop-card" data-pending-drop-id="${Number(entry.pending_drop_id || 0)}">${d.image_url ? `<img src="${escapeHtml(d.image_url)}" alt="${escapeHtml(d.item_name || '')}" />` : ''}<strong>${escapeHtml(d.item_name || '')}</strong><div class="case-meta">${escapeHtml(entry.case_name || '')}<br>${escapeHtml(d.rarity || '')} · ${escapeHtml(wearLabel(d.wear_code, d.wear))}</div><div class="price-row"><span class="price-badge">💷 ${formatGrevCoins(d.live_price_pence)}</span><span class="price-badge">⚡ ${formatGrevCoins(d.quick_sell_payout_pence)}</span></div><div class="inv-actions" style="justify-content:flex-start"><button type="button" class="btn btn-primary" data-batch-action="claim">Claim</button><button type="button" class="btn" data-batch-action="quick">Quick sell</button><button type="button" class="btn" data-batch-action="discard">Discard</button></div></div>`; }).join('')}</div>`;
+      multiDropOverlay.classList.add('open');
+      multiDropOverlay.setAttribute('aria-hidden', 'false');
+      bindMultiDropActions(list);
+    }
+
+    async function revealOpenResult(results) {
+      const list = Array.isArray(results) ? results : [results].filter(Boolean);
+      await playOpeningSimulation(list);
+      if (list.length > 1) {
+        showMultiDropOverlay(list);
+        showToast(`Opened ${list.length} cases. All results are ready for quick actions.`, 'success');
+      } else if (list[0]) {
+        showDropModalFromOpen(list[0]);
+        showToast(`${list[0]?.dropped?.item_name || "Item"} · ${wearLabel(list[0]?.dropped?.wear_code, list[0]?.dropped?.wear)}`, "success");
+      }
+    }
+
+    function renderCasesStore(cases) {
+      if (!cases.length) {
+        storeCaseGrid.innerHTML = `<div class="muted">No cases are available right now. Please check back later.</div>`;
+        return;
+      }
+      storeCaseGrid.innerHTML = cases.map((c) => `
+          <div class="case-card" tabindex="0">
+            <div class="drop-preview">${renderDropPreviewList(c)}</div>
+            <div class="case-visual">${c.image_url ? `<img src="${escapeHtml(c.image_url)}" alt="${escapeHtml(c.case_name)}" />` : `<div class="case-fallback">${escapeHtml(c.case_name)}</div>`}</div>
+            <h3>${escapeHtml(c.case_name)}</h3>
+            <div class="price-row">
+              <span class="price-badge">📦 ${formatGrevCoins(c.store_price_pence)}</span>
+              <span class="price-badge">🔑 ${formatGrevCoins(c.key_price_pence)}</span>
+            </div>
+            <div class="case-meta">Hover to view every skin, knife, and percentage chance in this case.</div>
+            <div class="mini-stat">${(c.preview_drops || []).length} possible drops loaded.</div>
+            <div class="inv-actions" style="margin-top:10px">
+              <label class="muted" style="display:flex;align-items:center;gap:6px">Qty
+                <input class="form-input" type="number" min="1" max="100" value="1" data-case-buy-qty="${c.id}" style="max-width:90px" />
+              </label>
+              <button type="button" class="btn btn-primary" data-buy-case="${c.id}">Buy cases</button>
+              <button type="button" class="btn" data-report-image="${c.id}" data-report-type="case">Report image</button>
+            </div>
+          </div>
+        `).join("");
+      storeCaseGrid.querySelectorAll("[data-report-image]").forEach((btn) => btn.addEventListener("click", () => submitImageReport(btn.getAttribute("data-report-type"), btn.getAttribute("data-report-image"))));
+
+      storeCaseGrid.querySelectorAll("[data-buy-case]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!currentUser) {
+            window.location.href = "/login.html";
+            return;
+          }
+          const id = Number(btn.getAttribute("data-buy-case"));
+          const qtyEl = storeCaseGrid.querySelector(`[data-case-buy-qty="${id}"]`);
+          let qty = Number(qtyEl?.value || 1);
+          if (!Number.isInteger(qty) || qty < 1) qty = 1;
+          if (qty > 100) qty = 100;
+          btn.disabled = true;
+          clearMessage();
+          try {
+            const response = await fetch("/api/cs2/store/buy-case", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ case_id: id, quantity: qty })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+              showMessage("error", data?.error || "Could not buy case.");
+              return;
+            }
+            showToast(data?.message || "Case purchased", "success");
+            showMessage("success", data?.message || "Case added to inventory.");
+            await loadBalance();
+            await loadInventoryUi();
+          } catch {
+            showMessage("error", "Network error.");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    async function loadCasesStore() {
+      storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
+      try {
+        const data = await ensureStoreBootstrap();
+        renderCasesStore(data?.cases || []);
+      } catch {
+        storeCaseGrid.innerHTML = `<div class="alert alert-error">Could not load store.</div>`;
+      }
+    }
+
+    function renderShowcase(skins, showcase = []) {
+      if (!currentUser) {
+        showcaseMount.innerHTML = `<div class="muted">Login to set showcase slots.</div>`;
+        return;
+      }
+      const showcaseMap = new Map((showcase || []).map((entry) => [Number(entry.slot), Number(entry.inventory_id)]));
+      const opts = skins.map((s) =>
+        `<option value="${s.inventory_id}">${escapeHtml(s.item_name)} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</option>`
+      ).join("");
+      showcaseMount.innerHTML = [0, 1, 2, 3, 4].map((slot) => `
+        <div class="showcase-slot">
+          <div class="muted" style="font-size:0.8rem;margin-bottom:6px">Slot ${slot + 1}</div>
+          <select class="form-input" data-showcase-slot="${slot}" style="width:100%;margin-bottom:8px">
+            <option value="">— empty —</option>
+            ${opts}
+          </select>
+          <button type="button" class="btn btn-primary" data-showcase-save="${slot}" style="width:100%">Save</button>
+        </div>
+      `).join("");
+      showcaseMount.querySelectorAll("[data-showcase-slot]").forEach((sel) => {
+        const slot = Number(sel.getAttribute("data-showcase-slot"));
+        const active = showcaseMap.get(slot);
+        if (active) sel.value = String(active);
+      });
+
+      showcaseMount.querySelectorAll("[data-showcase-save]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const slot = Number(btn.getAttribute("data-showcase-save"));
+          const sel = showcaseMount.querySelector(`[data-showcase-slot="${slot}"]`);
+          const inventoryId = Number(sel?.value || 0);
+          btn.disabled = true;
+          try {
+            const response = await fetch("/api/cs2/showcase", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ slot, inventory_id: inventoryId || 0 })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+              showMessage("error", data?.error || "Could not update showcase.");
+              return;
+            }
+            showMessage("success", "Showcase updated.");
+          } catch {
+            showMessage("error", "Network error.");
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    async function loadInventoryUi() {
+      openInventoryList.innerHTML = `<div class="muted">Loading…</div>`;
+      skinInventoryList.innerHTML = `<div class="muted">Loading…</div>`;
+
+      if (!currentUser) {
+        openInventoryList.innerHTML = `<div class="alert alert-info">Login to manage inventory.</div>`;
+        skinInventoryList.innerHTML = `<div class="alert alert-info">Login to see skins.</div>`;
+        showcaseMount.innerHTML = "";
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/cs2/inventory", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          openInventoryList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Failed")}</div>`;
+          return;
+        }
+        const items = data.items || [];
+        const showcase = data.showcase || [];
+        if (data.key_balance != null) keyBalance = Number(data.key_balance);
+        setBalancePills();
+
+        const cases = items.filter((i) => i.item_kind === "case");
+        const skins = items.filter((i) => i.item_kind === "skin");
+        const search = (document.getElementById("inventory-search")?.value || "").trim().toLowerCase();
+        const rarityFilter = (document.getElementById("inventory-rarity")?.value || "").trim().toLowerCase();
+        const minPrice = Number(document.getElementById("inventory-min-price")?.value || 0) * 100;
+        const maxPrice = Number(document.getElementById("inventory-max-price")?.value || 0) * 100;
+        const filteredSkins = skins.filter((s) => {
+          if (search && !String(s.item_name || "").toLowerCase().includes(search)) return false;
+          if (rarityFilter && String(s.rarity || "").toLowerCase() !== rarityFilter) return false;
+          const price = Number(s.live_price_pence || 0);
+          if (minPrice > 0 && price < minPrice) return false;
+          if (maxPrice > 0 && price > maxPrice) return false;
+          return true;
+        });
+
+        function syncOpenSelection() {
+          const picks = [...openInventoryList.querySelectorAll("[data-case-pick]:checked")];
+          const n = picks.length;
+          const disabled = n < 1 || n > 10 || keyBalance < n;
+          if (openSelectedBtn) openSelectedBtn.disabled = disabled;
+          const hint = document.getElementById("case-selection-hint");
+          if (hint) {
+            hint.textContent = n
+              ? `${n} selected · needs ${n} keys (you have ${keyBalance})`
+              : "Select cases below — one key per open.";
+          }
+        }
+
+        openInventoryList.innerHTML = cases.length ? cases.map((c) => `
+          <div class="inv-row">
+            <div style="align-self:center">
+              <input type="checkbox" data-case-pick="${c.inventory_id}" aria-label="Select for batch open" />
+            </div>
+            <div style="display:flex;gap:12px;align-items:center">
+              ${c.image_url ? `<img class="inv-thumb" src="${escapeHtml(c.image_url)}" alt="" />` : `<div class="inv-thumb case-fallback">CASE</div>`}
+              <div>
+                <strong>${escapeHtml(c.item_name)}</strong>
+                <div class="muted">${escapeHtml(c.acquired_at || "")}</div>
+              </div>
+            </div>
+            <div class="inv-actions">
+              <button type="button" class="btn btn-primary" data-open="${c.inventory_id}">Open (1 key)</button>
+              <button type="button" class="btn" data-refund-case="${c.inventory_id}">Refund case</button>
+            </div>
+            <div class="drop-preview scrollable-preview">${renderDropPreviewList(findCaseDataByName(caseNameFromInventoryItem(c.item_name)))}</div>
+          </div>
+        `).join("") : `<div class="muted">No unopened cases. Buy some from the case market.</div>`;
+
+        openInventoryList.querySelectorAll("[data-case-pick]").forEach((cb) => {
+          cb.addEventListener("change", syncOpenSelection);
+        });
+        selectAllCasesBtn?.addEventListener("click", () => {
+          const boxes = [...openInventoryList.querySelectorAll("[data-case-pick]")].slice(0, 10);
+          boxes.forEach((cb) => { cb.checked = true; });
+          syncOpenSelection();
+        }, { once: true });
+        clearSelectedCasesBtn?.addEventListener("click", () => {
+          openInventoryList.querySelectorAll("[data-case-pick]").forEach((cb) => { cb.checked = false; });
+          syncOpenSelection();
+        }, { once: true });
+        syncOpenSelection();
+
+        openInventoryList.querySelectorAll("[data-open]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-open"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/open", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inventory_id: inventoryId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Open failed.");
+                return;
+              }
+              await revealOpenResult(data);
+              await loadBalance();
+              await loadInventoryUi();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        const showcaseByInventory = new Map((showcase || []).map((entry) => [Number(entry.inventory_id), Number(entry.slot)]));
+        skinInventoryList.innerHTML = filteredSkins.length ? filteredSkins.map((s) => {
+          const favoriteSlot = showcaseByInventory.get(Number(s.inventory_id));
+          return `
+          <div class="inv-row">
+            ${s.image_url ? `<img class="inv-thumb" src="${escapeHtml(s.image_url)}" alt="" />` : `<div></div>`}
+            <div>
+              <span class="rarity-dot" style="background:${escapeHtml(s.color_hex || "#999")}"></span>
+              <strong>${escapeHtml(s.item_name)}</strong>
+              <div class="muted">${escapeHtml(s.rarity || "")} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</div>
+              <div class="muted">Live ref: ${formatGrevCoins(s.live_price_pence)} · Quick sell: ${formatGrevCoins(Math.max(1, Math.floor((Number(s.live_price_pence || 0) * (100 - quickSellFeePercent)) / 100)))} · Track ID #${s.skin_instance_id || s.inventory_id}</div>
+            </div>
+            <div class="inv-actions">
+              <label class="mini-pill" title="Save this skin into one of your 5 profile favorite slots." style="display:flex;align-items:center;gap:8px">🖤
+                <select class="form-input" data-favorite-slot="${s.inventory_id}" style="max-width:90px">
+                  <option value="">Slot</option>
+                  <option value="0" ${favoriteSlot === 0 ? "selected" : ""}>1</option>
+                  <option value="1" ${favoriteSlot === 1 ? "selected" : ""}>2</option>
+                  <option value="2" ${favoriteSlot === 2 ? "selected" : ""}>3</option>
+                  <option value="3" ${favoriteSlot === 3 ? "selected" : ""}>4</option>
+                  <option value="4" ${favoriteSlot === 4 ? "selected" : ""}>5</option>
+                </select>
+              </label>
+              <button type="button" class="btn" data-quick="${s.inventory_id}" title="Live ref minus admin fee">Quick sell</button>
+              <select class="form-input" data-list-mode="${s.inventory_id}" style="max-width:130px">
+                <option value="fixed">Fixed price</option>
+                <option value="auction">Auction</option>
+                <option value="accept_offers">Offers only</option>
+              </select>
+              <input class="form-input" type="number" min="1" step="1" placeholder="Price (£GC)" data-ask="${s.inventory_id}" style="max-width:100px" title="Ask in GC pricing units (stored internally as pence)" />
+              <input class="form-input" type="datetime-local" data-auct-end="${s.inventory_id}" style="max-width:180px" title="Auction end (local time)" />
+              <button type="button" class="btn btn-primary" data-list="${s.inventory_id}">List</button>
+            </div>
+          </div>
+        `; }).join("") : `<div class="muted">No skins yet.</div>`;
+
+        renderShowcase(skins, showcase);
+
+        skinInventoryList.querySelectorAll("[data-favorite-slot]").forEach((sel) => {
+          sel.addEventListener("change", async () => {
+            if (sel.value === "") return;
+            sel.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/showcase", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slot: Number(sel.value), inventory_id: Number(sel.getAttribute("data-favorite-slot")) })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not update showcase.");
+                return;
+              }
+              showMessage("success", "Favorite slot updated.");
+              await loadInventoryUi();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              sel.disabled = false;
+            }
+          });
+        });
+
+        skinInventoryList.querySelectorAll("[data-quick]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-quick"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/quick-sell", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inventory_id: inventoryId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Quick sell failed.");
+                return;
+              }
+              if (data.quick_sell_fee_percent != null) quickSellFeePercent = Number(data.quick_sell_fee_percent);
+              showMessage("success", `Sold for ${formatGrevCoins(data.payout_pence)} (after quick-sell fee).`);
+              await loadBalance();
+              await loadInventoryUi();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        openInventoryList.querySelectorAll("[data-refund-case]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-refund-case"));
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/store/refund-case", {
+                method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inventory_id: inventoryId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) { showMessage("error", data?.error || "Case refund failed."); return; }
+              showMessage("success", `${data.message} · ${formatGrevCoins(data.payout_pence)} returned.`);
+              await loadBalance(); await loadInventoryUi();
+            } catch { showMessage("error", "Network error."); } finally { btn.disabled = false; }
+          });
+        });
+
+        skinInventoryList.querySelectorAll("[data-list]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const inventoryId = Number(btn.getAttribute("data-list"));
+            const modeEl = skinInventoryList.querySelector(`[data-list-mode="${inventoryId}"]`);
+            const input = skinInventoryList.querySelector(`[data-ask="${inventoryId}"]`);
+            const endEl = skinInventoryList.querySelector(`[data-auct-end="${inventoryId}"]`);
+            const asking = Number(input?.value || 0);
+            const listMode = (modeEl?.value || "fixed").toLowerCase();
+            let auctionEndAt = "";
+            if (listMode === "auction" && endEl?.value) {
+              const d = new Date(endEl.value);
+              if (!Number.isNaN(d.getTime())) auctionEndAt = d.toISOString();
+            }
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const body = {
+                inventory_id: inventoryId,
+                asking_price_pence: asking,
+                list_mode: listMode
+              };
+              if (listMode === "auction") {
+                body.auction_end_at = auctionEndAt;
+                body.auction_start_bid_pence = asking;
+              }
+              const response = await fetch("/api/cs2/listings", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not list.");
+                return;
+              }
+              showMessage("success", `Listed (${data.list_mode || listMode}).`);
+              await refreshStoreBootstrap();
+              await loadInventoryUi();
+              await loadListings(document.getElementById("listing-search").value.trim());
+              await loadIncomingOffers();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        openInventoryList.innerHTML = `<div class="alert alert-error">Could not load inventory.</div>`;
+      }
+    }
+
+    function auctionEnded(auctionEndAt) {
+      if (!auctionEndAt) return false;
+      const t = Date.parse(auctionEndAt);
+      return Number.isFinite(t) && t <= Date.now();
+    }
+
+    async function loadListings(filter) {
+      marketListings.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const data = await ensureStoreBootstrap();
+        const search = String(filter || "").trim().toLowerCase();
+        let rows = Array.isArray(data?.listings) ? [...data.listings] : [];
+        if (search) {
+          rows = rows.filter((row) => String(row.item_name || "").toLowerCase().includes(search));
+        }
+        if (!rows.length) {
+          marketListings.innerHTML = `<div class="muted">No active listings.</div>`;
+          return;
+        }
+        marketListings.innerHTML = rows.map((row) => {
+          const mode = row.list_mode || "fixed";
+          const ended = mode === "auction" && auctionEnded(row.auction_end_at);
+          const isSeller = currentUser && Number(row.seller_user_id) === Number(currentUser.id);
+          const canBuy = currentUser && !isSeller && mode === "fixed";
+          const canBid = currentUser && !isSeller && mode === "auction" && !ended;
+          const canOffer = currentUser && !isSeller && mode === "accept_offers";
+          const canFinalize = currentUser && isSeller && mode === "auction" && ended;
+          const img = row.image_url
+            ? `<img class="inv-thumb" src="${escapeHtml(row.image_url)}" alt="" />`
+            : `<div></div>`;
+          return `
+          <div class="list-row">
+            ${img}
+            <div>
+              <span class="mode-badge">${escapeHtml(mode)}</span>
+              <strong>${escapeHtml(row.item_name)}</strong>
+              <div class="muted">Seller: ${escapeHtml(row.seller)} · ${escapeHtml(row.rarity || "")}</div>
+              <div class="muted">${escapeHtml(wearLabel(row.wear_code, row.wear))}</div>
+              ${mode === "auction" ? `
+                <div class="muted">Ends: ${escapeHtml(row.auction_end_at || "")}</div>
+                <div class="muted">Current bid: ${formatGrevCoins(row.current_bid_pence || 0)} · Start: ${formatGrevCoins(row.auction_start_bid_pence || row.asking_price_pence)}</div>
+              ` : mode === "accept_offers" ? `
+                <div class="muted">Top offer: ${formatGrevCoins(row.top_offer_pence || 0)} · Guide price: ${formatGrevCoins(row.asking_price_pence)}</div>
+              ` : `<div class="muted">Ask: ${formatGrevCoins(row.asking_price_pence)}</div>`}
+            </div>
+            <div class="inv-actions" style="justify-content:flex-end">
+              ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy now</button>` : ""}
+              ${canBid ? `<input class="form-input" style="max-width:120px" type="number" min="1" step="1" placeholder="Bid (£GC)" data-bid-amt="${row.id}" /><button type="button" class="btn btn-primary" data-bid-listing="${row.id}">Bid</button>` : ""}
+              ${canOffer ? `<input class="form-input" style="max-width:120px" type="number" min="1" step="1" placeholder="Offer (£GC)" data-offer-amt="${row.id}" /><input class="form-input" style="max-width:160px" type="text" maxlength="2000" placeholder="Comment" data-offer-comment="${row.id}" /><button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Send offer</button>` : ""}
+              ${canFinalize ? `<button type="button" class="btn btn-primary" data-finalize="${row.id}">Finalize auction</button>` : ""}
+              ${isSeller ? `<button type="button" class="btn" data-cancel-listing="${row.id}">Cancel</button>` : ""}
+            </div>
+          </div>`;
+        }).join("");
+
+        marketListings.querySelectorAll("[data-buy-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-buy-listing"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/listings/buy", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Purchase failed.");
+                return;
+              }
+              showMessage("success", "Purchase complete.");
+              await refreshStoreBootstrap();
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(filter);
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-bid-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-bid-listing"));
+            const input = marketListings.querySelector(`[data-bid-amt="${id}"]`);
+            const amount = Number(input?.value || 0);
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/auctions/bid", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id, amount_pence: amount })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Bid failed.");
+                return;
+              }
+              showMessage("success", "Bid placed.");
+              await refreshStoreBootstrap();
+              await loadListings(filter);
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-offer-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-offer-listing"));
+            const input = marketListings.querySelector(`[data-offer-amt="${id}"]`);
+            const msgEl = marketListings.querySelector(`[data-offer-comment="${id}"]`);
+            const offerPence = Number(input?.value || 0);
+            const comment = (msgEl?.value || "").trim();
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/offers", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id, offer_pence: offerPence, comment })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Offer failed.");
+                return;
+              }
+              showMessage("success", "Offer submitted.");
+              await refreshStoreBootstrap();
+              await loadIncomingOffers();
+              await loadOutgoingOffers();
+              await loadListings(filter);
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-finalize]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-finalize"));
+            btn.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/auctions/finalize", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Finalize failed.");
+                return;
+              }
+              showMessage("success", data.message || "Auction finalized.");
+              await refreshStoreBootstrap();
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(filter);
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        marketListings.querySelectorAll("[data-cancel-listing]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = Number(btn.getAttribute("data-cancel-listing"));
+            btn.disabled = true;
+            try {
+              await fetch("/api/cs2/listings/cancel", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ listing_id: id })
+              });
+              await refreshStoreBootstrap();
+              await loadListings(filter);
+              await loadInventoryUi();
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        marketListings.innerHTML = `<div class="alert alert-error">Could not load listings.</div>`;
+      }
+    }
+
+    async function loadIncomingOffers() {
+      if (!currentUser) {
+        incomingOffersEl.innerHTML = `<div class="muted">Login to see offers on your listings.</div>`;
+        return;
+      }
+      incomingOffersEl.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const response = await fetch("/api/cs2/offers/incoming", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          incomingOffersEl.innerHTML = `<div class="muted">No incoming offers.</div>`;
+          return;
+        }
+        const offers = data.offers || [];
+        if (!offers.length) {
+          incomingOffersEl.innerHTML = `<div class="muted">No pending offers.</div>`;
+          return;
+        }
+        incomingOffersEl.innerHTML = offers.map((o) => {
+          const counterP = o.seller_counter_pence != null ? Number(o.seller_counter_pence) : 0;
+          const hasCounter = counterP > 0;
+          return `
+          <div class="feed-row" style="display:block">
+            <div><strong>${escapeHtml(o.item_name)}</strong> · ${escapeHtml(wearLabel(o.wear_code, o.wear))} · ${escapeHtml(o.rarity || "")}</div>
+            <div class="muted">${escapeHtml(o.buyer)} · offer ${formatGrevCoins(o.offer_pence)}</div>
+            ${o.buyer_comment ? `<div class="muted" style="margin-top:6px">Buyer comment: ${escapeHtml(o.buyer_comment)}</div>` : ""}
+            ${hasCounter ? `<div class="muted" style="margin-top:6px">Your counter: ${formatGrevCoins(counterP)}${o.seller_counter_message ? ` — ${escapeHtml(o.seller_counter_message)}` : ""}</div>` : ""}
+            <div class="inv-actions" style="margin-top:10px">
+              ${!hasCounter ? `<button type="button" class="btn btn-primary" data-accept-offer="${o.offer_id}">Accept offer</button>` : `<span class="muted">Waiting for buyer to accept your counter</span>`}
+              <input class="form-input" type="number" min="1" step="1" placeholder="Counter (£GC)" data-counter-amt="${o.offer_id}" style="max-width:100px" />
+              <input class="form-input" type="text" placeholder="Counter message" data-counter-msg="${o.offer_id}" style="max-width:160px" maxlength="2000" />
+              <button type="button" class="btn" data-send-counter="${o.offer_id}">Send counter</button>
+              <input class="form-input" type="text" placeholder="Thread reply" data-thread-reply="${o.offer_id}" style="max-width:160px" maxlength="2000" />
+              <button type="button" class="btn" data-thread-send="${o.offer_id}">Send reply</button>
+            </div>
+          </div>`;
+        }).join("");
+
+        incomingOffersEl.querySelectorAll("[data-accept-offer]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-accept-offer"));
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/accept", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Accept failed.");
+                return;
+              }
+              showMessage("success", "Offer accepted.");
+              await refreshStoreBootstrap();
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(document.getElementById("listing-search").value.trim());
+              await loadIncomingOffers();
+              await loadOutgoingOffers();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        incomingOffersEl.querySelectorAll("[data-send-counter]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-send-counter"));
+            const amtEl = incomingOffersEl.querySelector(`[data-counter-amt="${offerId}"]`);
+            const msgEl = incomingOffersEl.querySelector(`[data-counter-msg="${offerId}"]`);
+            const counterPence = Number(amtEl?.value || 0);
+            const message = (msgEl?.value || "").trim();
+            if (!Number.isInteger(counterPence) || counterPence <= 0) {
+              showMessage("error", "Enter a valid counter price.");
+              return;
+            }
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/counter", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId, counter_pence: counterPence, message })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Counter failed.");
+                return;
+              }
+              showMessage("success", "Counter sent.");
+              await loadIncomingOffers();
+              await loadOutgoingOffers();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        incomingOffersEl.querySelectorAll("[data-thread-send]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-thread-send"));
+            const input = incomingOffersEl.querySelector(`[data-thread-reply="${offerId}"]`);
+            const message = (input?.value || "").trim();
+            if (!message) return;
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/message", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId, message })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not send.");
+                return;
+              }
+              if (input) input.value = "";
+              showMessage("success", "Reply sent.");
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        incomingOffersEl.innerHTML = `<div class="alert alert-error">Could not load offers.</div>`;
+      }
+    }
+
+    async function loadOutgoingOffers() {
+      if (!outgoingOffersEl) return;
+      if (!currentUser) {
+        outgoingOffersEl.innerHTML = `<div class="muted">Login to track your offers.</div>`;
+        return;
+      }
+      outgoingOffersEl.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const response = await fetch("/api/cs2/offers/outgoing", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          outgoingOffersEl.innerHTML = `<div class="muted">No outgoing offers.</div>`;
+          return;
+        }
+        const offers = data.offers || [];
+        if (!offers.length) {
+          outgoingOffersEl.innerHTML = `<div class="muted">No pending outgoing offers.</div>`;
+          return;
+        }
+        outgoingOffersEl.innerHTML = offers.map((o) => {
+          const counterP = o.seller_counter_pence != null ? Number(o.seller_counter_pence) : 0;
+          const hasCounter = counterP > 0;
+          return `
+          <div class="feed-row" style="display:block">
+            <div><strong>${escapeHtml(o.item_name)}</strong> · ${escapeHtml(wearLabel(o.wear_code, o.wear))}</div>
+            <div class="muted">Seller: ${escapeHtml(o.seller)} · your offer ${formatGrevCoins(o.offer_pence)}</div>
+            ${o.buyer_comment ? `<div class="muted" style="margin-top:6px">Your comment: ${escapeHtml(o.buyer_comment)}</div>` : ""}
+            ${hasCounter ? `<div class="muted" style="margin-top:6px">Seller counter: ${formatGrevCoins(counterP)}${o.seller_counter_message ? ` — ${escapeHtml(o.seller_counter_message)}` : ""}</div>` : ""}
+            <div class="inv-actions" style="margin-top:10px">
+              ${hasCounter ? `<button type="button" class="btn btn-primary" data-accept-counter="${o.offer_id}">Accept counter</button>` : ""}
+              <input class="form-input" type="text" placeholder="Reply to seller" data-out-reply="${o.offer_id}" style="max-width:180px" maxlength="2000" />
+              <button type="button" class="btn" data-out-send="${o.offer_id}">Send reply</button>
+            </div>
+          </div>`;
+        }).join("");
+
+        outgoingOffersEl.querySelectorAll("[data-accept-counter]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-accept-counter"));
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/accept-counter", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Accept failed.");
+                return;
+              }
+              showMessage("success", "Trade complete.");
+              await refreshStoreBootstrap();
+              await loadBalance();
+              await loadInventoryUi();
+              await loadListings(document.getElementById("listing-search").value.trim());
+              await loadIncomingOffers();
+              await loadOutgoingOffers();
+              await loadFeeds();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+
+        outgoingOffersEl.querySelectorAll("[data-out-send]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const offerId = Number(btn.getAttribute("data-out-send"));
+            const input = outgoingOffersEl.querySelector(`[data-out-reply="${offerId}"]`);
+            const message = (input?.value || "").trim();
+            if (!message) return;
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/offers/message", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ offer_id: offerId, message })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not send.");
+                return;
+              }
+              if (input) input.value = "";
+              showMessage("success", "Reply sent.");
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      } catch {
+        outgoingOffersEl.innerHTML = `<div class="alert alert-error">Could not load outgoing offers.</div>`;
+      }
+    }
+
+    function renderPriceGraph(points) {
+      if (!points.length) return `<div class="muted">No scheduled price snapshots yet. Prices refresh at 00:00 and 12:00 UTC.</div>`;
+      const width = 760;
+      const height = 180;
+      const vals = points.map((p) => Number(p.price_pence || 0));
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      const range = Math.max(1, max - min);
+      const stepX = points.length === 1 ? width / 2 : width / (points.length - 1);
+      const path = points.map((p, i) => {
+        const x = i * stepX;
+        const y = height - (((Number(p.price_pence || 0) - min) / range) * (height - 20)) - 10;
+        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      }).join(' ');
+      return `<svg class="graph" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="#eb4b4b" stroke-width="4" stroke-linecap="round" /></svg>`;
+    }
+
+    async function submitImageReport(itemType, targetId) {
+      if (!currentUser) { window.location.href = "/login.html"; return; }
+      const reason = window.prompt(`What needs updating for this ${itemType} image?`, "Wrong artwork / outdated image");
+      if (reason == null) return;
+      try {
+        const response = await fetch('/api/cs2/report-image', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_type: itemType, target_id: Number(targetId), reason })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Could not submit image report.'); return; }
+        showToast(data.message || 'Image report submitted.', 'success');
+      } catch {
+        showMessage('error', 'Could not submit image report.');
+      }
+    }
+
+    async function openCatalogDetail(itemId) {
+      if (!catalogDetailOverlay || !catalogDetailBody) return;
+      catalogDetailOverlay.classList.add('open');
+      catalogDetailBody.innerHTML = '<div class="muted">Loading skin profile…</div>';
+      try {
+        const response = await fetch(`/api/cs2/catalog/detail?item_id=${encodeURIComponent(itemId)}`, { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          catalogDetailBody.innerHTML = '<div class="alert alert-error">Could not load skin profile.</div>';
+          return;
+        }
+        const it = data.item || {};
+        catalogDetailBody.innerHTML = `
+          ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" class="drop-modal-img" />` : ''}
+          <h3>${escapeHtml(it.item_name || '')}</h3>
+          <div class="case-meta">${escapeHtml(it.rarity || '')} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}</div>
+          <div class="price-row"><span class="price-badge">Live ${formatGrevCoins(it.live_price_pence)}</span><span class="price-badge">Fallback ${formatGrevCoins(it.fallback_value_pence)}</span></div>
+          <h4>Price history</h4>
+          ${renderPriceGraph(data.price_history || [])}
+          <div class="mini-stat" style="margin-top:8px">12-hour snapshot schedule: 00:00 UTC and 12:00 UTC, up to the last week.</div>
+          <h4 style="margin-top:16px">Current owners</h4>
+          ${(data.owners || []).length ? `<div class="feed-list">${data.owners.map((owner) => `<div class="feed-row"><strong>${escapeHtml(owner.username)}</strong><div class="mini-stat">Profile user id: ${owner.user_id}</div></div>`).join('')}</div>` : '<div class="muted">No current owner found.</div>'}
+        `;
+      } catch {
+        catalogDetailBody.innerHTML = '<div class="alert alert-error">Catalog detail failed.</div>';
+      }
+    }
+
+    async function loadCatalog() {
+      const q = document.getElementById("catalog-search").value.trim().toLowerCase();
+      const rarity = document.getElementById("catalog-rarity").value.trim().toLowerCase();
+      const weapon = document.getElementById("catalog-weapon").value.trim().toLowerCase();
+      const wearCode = document.getElementById("catalog-wear").value.trim().toUpperCase();
+      catalogGrid.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const data = await ensureStoreBootstrap();
+        let items = Array.isArray(data?.catalog_items) ? [...data.catalog_items] : [];
+        if (q) {
+          items = items.filter((it) => `${it.item_name || ''} ${it.weapon_name || ''} ${it.skin_name || ''}`.toLowerCase().includes(q));
+        }
+        if (weapon) {
+          items = items.filter((it) => String(it.weapon_name || '').toLowerCase().includes(weapon));
+        }
+        if (rarity) {
+          items = items.filter((it) => String(it.rarity || '').toLowerCase().includes(rarity));
+        }
+        if (wearCode) {
+          items = items.filter((it) => String(it.wear_code || '').toUpperCase() === wearCode);
+        }
+        items = items.slice(0, 120);
+        if (!items.length) {
+          catalogGrid.innerHTML = `<div class="muted">No skins match.</div>`;
+          return;
+        }
+        catalogGrid.innerHTML = items.map((it) => `
+          <div class="case-card" style="text-align:left;color:inherit">
+            ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" style="width:100%;max-height:120px;object-fit:contain;margin-bottom:8px;border-radius:8px;background:rgba(0,0,0,0.35)" />` : ""}
+            <h3>${escapeHtml(it.item_name)}</h3>
+            <div class="case-meta">
+              ${escapeHtml(it.rarity || "")} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}<br/>
+              Live: ${formatGrevCoins(it.live_price_pence)}<br/>
+              Owners now: ${Number(it.owner_count || 0)}
+            </div>
+            <div class="inv-actions" style="margin-top:10px;justify-content:space-between">
+              <button type="button" class="btn btn-primary" data-catalog-open="${it.id}">Open profile</button>
+              <button type="button" class="btn" data-report-image="${it.id}" data-report-type="skin">Report image</button>
+            </div>
+          </div>
+        `).join("");
+        catalogGrid.querySelectorAll('[data-catalog-open]').forEach((btn) => btn.addEventListener('click', () => openCatalogDetail(btn.getAttribute('data-catalog-open'))));
+        catalogGrid.querySelectorAll('[data-report-image]').forEach((btn) => btn.addEventListener('click', () => submitImageReport(btn.getAttribute('data-report-type'), btn.getAttribute('data-report-image'))));
+      } catch {
+        catalogGrid.innerHTML = `<div class="alert alert-error">Catalog failed.</div>`;
+      }
+    }
+
+    async function loadFeeds() {
+      try {
+        const [o, t] = await Promise.all([
+          fetch("/api/cs2/feed/opens?limit=25", { credentials: "same-origin" }),
+          fetch("/api/cs2/feed/trades?limit=25", { credentials: "same-origin" })
+        ]);
+        const opensData = await o.json().catch(() => null);
+        const tradesData = await t.json().catch(() => null);
+
+        if (o.ok && opensData?.success) {
+          const opens = opensData.opens || [];
+          feedOpens.innerHTML = opens.length ? opens.map((x) => `
+            <div class="feed-row">
+              <div><strong>${escapeHtml(x.username)}</strong> opened <strong>${escapeHtml(x.case_name)}</strong></div>
+              <div><span class="rarity-dot" style="background:${escapeHtml(x.color_hex || "#999")}"></span>${escapeHtml(x.item_name)}</div>
+              <div class="muted">${escapeHtml(x.opened_at || "")}</div>
+            </div>
+          `).join("") : `<div class="muted">No opens yet.</div>`;
+        }
+
+        if (t.ok && tradesData?.success) {
+          const trades = tradesData.trades || [];
+          feedTrades.innerHTML = trades.length ? trades.map((x) => `
+            <div class="feed-row">
+              <div>${escapeHtml(x.item_name)}</div>
+              <div class="muted">${escapeHtml(x.trade_type)} · ${formatGrevCoins(x.price_pence)}</div>
+              <div class="muted">${escapeHtml(x.buyer)} → ${escapeHtml(x.seller)}</div>
+              <div class="muted">${escapeHtml(x.created_at || "")}</div>
+            </div>
+          `).join("") : `<div class="muted">No trades yet.</div>`;
+        }
+      } catch {
+        feedOpens.innerHTML = `<div class="muted">Feed unavailable.</div>`;
+      }
+    }
+
+    async function runTradeSearch() {
+      const q = document.getElementById("trade-search").value.trim();
+      tradeSearchResults.innerHTML = `<div class="muted">Searching…</div>`;
+      try {
+        const response = await fetch(`/api/cs2/trades/search?q=${encodeURIComponent(q)}&limit=60`, { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          tradeSearchResults.innerHTML = `<div class="alert alert-error">Search failed.</div>`;
+          return;
+        }
+        const trades = data.trades || [];
+        tradeSearchResults.innerHTML = trades.length ? trades.map((x) => `
+          <div class="feed-row">
+            <div>${escapeHtml(x.item_name)} · ${formatGrevCoins(x.price_pence)}</div>
+            <div class="muted">${escapeHtml(x.trade_type)} · ${escapeHtml(x.buyer)} / ${escapeHtml(x.seller)}</div>
+            <div class="muted">${escapeHtml(x.created_at || "")}</div>
+          </div>
+        `).join("") : `<div class="muted">No results.</div>`;
+      } catch {
+        tradeSearchResults.innerHTML = `<div class="alert alert-error">Search failed.</div>`;
+      }
+    }
+
+    function setupTabs() {
+      const buttons = document.querySelectorAll("#cs2-tabs .tab-btn");
+      const panels = document.querySelectorAll(".cs2-panel");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tab = btn.getAttribute("data-tab");
+          buttons.forEach((b) => b.classList.toggle("active", b === btn));
+          panels.forEach((p) => p.classList.toggle("active", p.id === `panel-${tab}`));
+        });
+      });
+    }
+
+    document.getElementById("reload-listings").addEventListener("click", () => {
+      loadListings(document.getElementById("listing-search").value.trim().toLowerCase());
+    });
+
+    document.getElementById("listing-search").addEventListener("input", (e) => {
+      loadListings(e.target.value.trim().toLowerCase());
+    });
+
+    document.getElementById("run-trade-search").addEventListener("click", runTradeSearch);
+
+    document.getElementById("reload-catalog").addEventListener("click", loadCatalog);
+    ["catalog-search", "catalog-weapon", "catalog-rarity", "catalog-wear", "inventory-search", "inventory-rarity", "inventory-min-price", "inventory-max-price"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", () => {
+        clearTimeout(window.__catT);
+        window.__catT = setTimeout(() => {
+          if (id.startsWith("catalog-")) loadCatalog();
+          else loadInventoryUi();
+        }, 200);
+      });
+      document.getElementById(id)?.addEventListener("change", () => {
+        if (id.startsWith("catalog-")) loadCatalog();
+        else loadInventoryUi();
+      });
+    });
+    document.getElementById("catalog-detail-close")?.addEventListener("click", () => catalogDetailOverlay?.classList.remove("open"));
+    document.getElementById("multi-drop-close")?.addEventListener("click", closeMultiDropOverlay);
+    catalogDetailOverlay?.addEventListener("click", (e) => { if (e.target === catalogDetailOverlay) catalogDetailOverlay.classList.remove("open"); });
+    multiDropOverlay?.addEventListener("click", (e) => { if (e.target === multiDropOverlay) closeMultiDropOverlay(); });
+
+    document.getElementById("refund-keys-btn")?.addEventListener("click", async () => {
+      if (!currentUser) { window.location.href = "/login.html"; return; }
+      let qty = Number(document.getElementById("buy-keys-qty")?.value || 1);
+      if (!Number.isInteger(qty) || qty < 1) qty = 1;
+      if (qty > 100) qty = 100;
+      try {
+        const response = await fetch("/api/cs2/store/refund-keys", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quantity: qty }) });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage("error", data?.error || "Could not refund keys."); return; }
+        showMessage("success", `${data.message} · ${formatGrevCoins(data.payout_pence)} returned.`);
+        await loadBalance(); await loadInventoryUi();
+      } catch { showMessage("error", "Network error."); }
+    });
+
+    document.getElementById("buy-keys-btn")?.addEventListener("click", async () => {
+      if (!currentUser) {
+        window.location.href = "/login.html";
+        return;
+      }
+      let qty = Number(document.getElementById("buy-keys-qty")?.value || 1);
+      if (!Number.isInteger(qty) || qty < 1) qty = 1;
+      if (qty > 100) qty = 100;
+      clearMessage();
+      try {
+        const response = await fetch("/api/cs2/store/buy-keys", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quantity: qty })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Could not buy keys.");
+          return;
+        }
+        keyBalance = Number(data.key_balance ?? keyBalance);
+        showToast(data.message || "Keys purchased", "success");
+        showMessage("success", `${data.message || "Keys purchased"} · Key balance: ${Number(data.key_balance ?? keyBalance)}.`);
+        await loadBalance();
+        await loadInventoryUi();
+      } catch {
+        showMessage("error", "Network error.");
+      }
+    });
+
+    openSelectedBtn?.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const picks = [...openInventoryList.querySelectorAll("[data-case-pick]:checked")].map((el) =>
+        Number(el.getAttribute("data-case-pick"))
+      );
+      if (picks.length < 1 || picks.length > 10) return;
+      openSelectedBtn.disabled = true;
+      clearMessage();
+      try {
+        const response = await fetch("/api/cs2/open-batch", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventory_ids: picks })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Batch open failed.");
+          return;
+        }
+        const opens = data.opens || [];
+        if (opens.length) {
+          await revealOpenResult(opens);
+        }
+        if (opens.length > 1) {
+          showMessage("success", `Opened ${opens.length} cases — all results are on screen now so you can deal with them immediately.`);
+        }
+        await loadBalance();
+        await loadInventoryUi();
+        await loadFeeds();
+        await loadPendingDrops();
+      } catch {
+        showMessage("error", "Network error.");
+      } finally {
+        openSelectedBtn.disabled = false;
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      setupTabs();
+      currentUser = await fetchMe();
+      authNote.textContent = currentUser
+        ? `Signed in as ${currentUser.username}`
+        : `Guest — login to play · `;
+      if (!currentUser) {
+        authNote.innerHTML = `Guest — <a href="/login.html">login</a> to use Grev Coins.`;
+      }
+
+      cs2AdminEntry?.classList.toggle("hidden", !currentUser?.can_manage_gambling);
+
+      await loadBalance();
+      await loadCasesStore();
+      await loadInventoryUi();
+      await loadListings("");
+      await loadIncomingOffers();
+      await loadOutgoingOffers();
+      await loadCatalog();
+      await loadFeeds();
+      await runTradeSearch();
+      await loadPendingDrops();
+
+      setInterval(() => {
+        if (document.visibilityState === "visible") {
+          loadBalance();
+        }
+      }, 60000);
+    });
+  </script>
+</body>
+</html>
