@@ -134,8 +134,27 @@ async function handleRequest(request, env, ctx) {
     return await handleGamblingProfile(request, env);
   }
 
-  if (pathname.startsWith("/api/cs2")) {
-    const cs2Response = await handleCs2Request(request, env, {
+  let cs2Request = request;
+  if (pathname === "/api/cases" && request.method === "GET") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/cases";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  } else if (pathname === "/api/cases/catalog" && request.method === "GET") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/catalog";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  } else if (pathname === "/api/admin/cases" && request.method === "GET") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/admin/cases";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  } else if (pathname === "/api/admin/cases/create" && request.method === "POST") {
+    const aliasUrl = new URL(request.url);
+    aliasUrl.pathname = "/api/cs2/admin/cases/create";
+    cs2Request = new Request(aliasUrl.toString(), request);
+  }
+
+  if (pathname.startsWith("/api/cs2") || cs2Request !== request) {
+    const cs2Response = await handleCs2Request(cs2Request, env, {
       json,
       getApprovedUser,
       requireAdmin,
@@ -191,9 +210,9 @@ async function handleRequest(request, env, ctx) {
     return json(
       {
         success: false,
-        error: "Use /api/cs2 and /api/gambling/profile for the CS2 simulator"
+        error: "Unknown legacy cases route. Supported aliases: GET /api/cases and GET /api/cases/catalog."
       },
-      501,
+      404,
       request
     );
   }
@@ -1480,6 +1499,65 @@ async function handleGamblingProfile(request, env) {
   }, 200, request);
 }
 
+
+async function attachCaseAdminStats(env, users) {
+  const list = Array.isArray(users) ? users : [];
+  if (!env.CASES_DB || !list.length) return list;
+
+  const ids = [...new Set(list.map((user) => Number(user.id)).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!ids.length) return list;
+
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = await env.CASES_DB.prepare(`
+    SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
+    FROM case_profiles
+    WHERE user_id IN (${placeholders})
+  `).bind(...ids).all();
+
+  const statsByUserId = new Map();
+  for (const row of rows.results || []) {
+    statsByUserId.set(Number(row.user_id), {
+      case_balance: Number(row.balance || 0),
+      key_balance: Number(row.key_balance || 0),
+      total_cases_opened: Number(row.total_cases_opened || 0),
+      case_inventory_value: Number(row.total_inventory_value || 0)
+    });
+  }
+
+  return list.map((user) => ({
+    ...user,
+    case_balance: statsByUserId.get(Number(user.id))?.case_balance ?? 0,
+    key_balance: statsByUserId.get(Number(user.id))?.key_balance ?? 0,
+    total_cases_opened: statsByUserId.get(Number(user.id))?.total_cases_opened ?? 0,
+    case_inventory_value: statsByUserId.get(Number(user.id))?.case_inventory_value ?? 0
+  }));
+}
+
+async function ensureAdminCaseProfile(env, userId, username) {
+  if (!env.CASES_DB) return null;
+  const now = isoNow();
+  await env.CASES_DB.prepare(`
+    INSERT OR IGNORE INTO case_profiles (
+      user_id,
+      display_name,
+      balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+  `).bind(userId, username, STARTING_BALANCE_PENCE, now, now).run();
+
+  return env.CASES_DB.prepare(`
+    SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
+    FROM case_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(userId).first();
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                   ADMIN                                    */
 /* -------------------------------------------------------------------------- */
@@ -1511,6 +1589,7 @@ async function handleAdminUsers(request, env) {
   `).all();
 
   let users = (rows.results || []).map(formatAdminUserRow);
+  users = await attachCaseAdminStats(env, users);
 
   if (search) {
     users = users.filter((user) =>
@@ -1561,9 +1640,11 @@ async function handleAdminUser(request, env) {
     return json({ success: false, error: "User not found" }, 404, request);
   }
 
+  const [userWithStats] = await attachCaseAdminStats(env, [formatAdminUserRow(row)]);
+
   return json({
     success: true,
-    user: formatAdminUserRow(row),
+    user: userWithStats,
     available_groups: ALLOWED_GROUPS
   }, 200, request);
 }
@@ -1591,7 +1672,7 @@ async function handleAdminPendingUsers(request, env) {
 
   return json({
     success: true,
-    users: (rows.results || []).map(formatAdminUserRow)
+    users: await attachCaseAdminStats(env, (rows.results || []).map(formatAdminUserRow))
   }, 200, request);
 }
 
@@ -1608,6 +1689,7 @@ async function handleAdminUpdateUser(request, env) {
   const isAdmin = body?.is_admin;
   const gamblingAdmin = body?.gambling_admin;
   const requestedGroup = sanitiseGroupName(body?.group_name);
+  const gamblingBalanceDelta = Number(body?.gambling_balance_delta ?? body?.case_balance_delta ?? 0);
 
   if (!Number.isInteger(userId) || userId <= 0) {
     return json({ success: false, error: "A valid user id is required" }, 400, request);
@@ -1624,6 +1706,10 @@ async function handleAdminUpdateUser(request, env) {
     LIMIT 1
   `).bind(userId).first();
 
+  if (!Number.isFinite(gamblingBalanceDelta) || !Number.isInteger(gamblingBalanceDelta)) {
+    return json({ success: false, error: "gambling_balance_delta must be an integer amount in pence" }, 400, request);
+  }
+
   if (!existingUser) {
     return json({ success: false, error: "User not found" }, 404, request);
   }
@@ -1636,11 +1722,37 @@ async function handleAdminUpdateUser(request, env) {
   const nextApproved = approved === undefined ? true : Boolean(approved);
   const nextGroup = requestedGroup === "admin" ? "admin" : requestedGroup;
 
+  let nextBalance = null;
+  if (gamblingBalanceDelta !== 0) {
+    if (!env.CASES_DB) {
+      return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+    }
+
+    const profile = await ensureAdminCaseProfile(env, userId, existingUser.username);
+    const currentBalance = Number(profile?.balance || 0);
+    nextBalance = currentBalance + gamblingBalanceDelta;
+
+    if (nextBalance < 0) {
+      return json({ success: false, error: "Balance update would make the gambling balance negative" }, 400, request);
+    }
+  }
+
   await env.DB.prepare(`
     UPDATE users
     SET approved = ?, is_admin = ?, group_name = ?, gambling_admin = ?
     WHERE id = ?
   `).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, Boolean(gamblingAdmin) ? 1 : 0, userId).run();
+
+  let updatedBalance = null;
+  if (nextBalance != null) {
+    await env.CASES_DB.prepare(`
+      UPDATE case_profiles
+      SET balance = ?, updated_at = ?
+      WHERE user_id = ?
+    `).bind(nextBalance, isoNow(), userId).run();
+
+    updatedBalance = nextBalance;
+  }
 
   const updatedRow = await env.DB.prepare(`
     SELECT
@@ -1660,10 +1772,14 @@ async function handleAdminUpdateUser(request, env) {
     LIMIT 1
   `).bind(userId).first();
 
+  const [userWithStats] = await attachCaseAdminStats(env, [formatAdminUserRow(updatedRow)]);
+
   return json({
     success: true,
-    message: "User updated successfully",
-    user: formatAdminUserRow(updatedRow)
+    message: updatedBalance == null ? "User updated successfully" : "User and gambling balance updated successfully",
+    user: userWithStats,
+    gambling_balance_delta: gamblingBalanceDelta,
+    balance_after: updatedBalance
   }, 200, request);
 }
 
