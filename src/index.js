@@ -11,6 +11,7 @@ import { ensureBlackjackTables } from "./blackjack/schema.js";
 import { handleBlackjackRequest } from "./blackjack/handlers.js";
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
+import { handleCasinoRequest } from "./casino/handlers.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -236,6 +237,17 @@ async function handleRequest(request, env, ctx) {
       safeJson
     });
     if (blackjackResponse) return blackjackResponse;
+  }
+
+  if (pathname.startsWith("/api/casino")) {
+    await ensureCasesCatalogReady(env);
+    const casinoResponse = await handleCasinoRequest(request, env, {
+      json,
+      requireGamblingAdmin,
+      isoNow,
+      safeJson
+    });
+    if (casinoResponse) return casinoResponse;
   }
 
   // Admin
