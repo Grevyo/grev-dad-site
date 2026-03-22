@@ -1,4 +1,5 @@
 import { KEY_PRICE_PENCE, STARTING_BALANCE_PENCE } from "./constants.js";
+import { getStartingBalancePence } from "../lib/gambling.js";
 import { getQuickSellFeePercent, quickSellPayoutFromMarket } from "./quick-sell.js";
 import { getOrCreateResolvedSkinItem } from "./skin-resolve.js";
 import { fetchSteamIconUrl, getCachedItemPricePence, getOrFetchItemPricePence } from "./steam.js";
@@ -37,7 +38,7 @@ async function ensureUserCaseProfileById(env, userId, username, isoNowFn) {
       updated_at
     )
     VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-  `).bind(userId, username, STARTING_BALANCE_PENCE, now, now).run();
+  `).bind(userId, username, await getStartingBalancePence(env), now, now).run();
 }
 
 async function resolveUsernames(env, userIds) {

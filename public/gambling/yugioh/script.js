@@ -317,7 +317,7 @@
       renderCatalog();
       renderMissions();
     } catch (error) {
-      $('pack-grid').innerHTML = `<p class="muted">${escapeHtml(error.message)} — sign in with an approved account to use the pack opener.</p>`;
+      $('pack-grid').innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
     }
   }
 

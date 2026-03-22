@@ -1,5 +1,6 @@
 import { YGO_ACHIEVEMENTS, YGO_PACKS, YGO_RARITIES } from './data.js';
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from '../lib/runtime-cache.js';
+import { getStartingBalancePence } from '../lib/gambling.js';
 import { getYgoRarityMeta } from './schema.js';
 
 function getYgoDataDb(env) {
@@ -63,7 +64,7 @@ async function ensurePlayer(env, session, isoNow) {
     INSERT OR IGNORE INTO case_profiles (
       user_id, display_name, balance, total_cases_opened, total_spent, total_inventory_value, created_at, updated_at
     ) VALUES (?, ?, 500000, 0, 0, 0, ?, ?)
-  `).bind(session.id, session.username, now, now).run();
+  `).bind(session.id, session.username, await getStartingBalancePence(env), now, now).run();
 
   await ygoDb.prepare(`
     INSERT OR IGNORE INTO ygo_player_stats (
@@ -225,6 +226,12 @@ export async function handleYgoRequest(request, env, deps) {
       return list;
     });
     return json({ success: true, packs: payload }, 200, request);
+  }
+
+  if (pathname === '/api/ygo/single/settings' && request.method === 'GET') {
+    const basePrice = await getSingleCardPriceCoins(env);
+    const activeDiscountPercent = await getYgoDiscountPercent(env);
+    return json({ success: true, single_card_price_coins: basePrice, discounted_single_card_price_coins: Math.max(1, Math.round(basePrice * ((100 - activeDiscountPercent) / 100))), active_discount_percent: activeDiscountPercent }, 200, request);
   }
 
   if (pathname === '/api/ygo/admin/settings' && request.method === 'GET') {

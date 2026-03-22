@@ -379,6 +379,14 @@
       return { key: "offline", label: "Offline" };
     }
 
+    function activityMarkup(activity) {
+      if (!activity) return 'Not currently sharing a live area.';
+      const action = activity.room_id && activity.area === 'Gambling - Blackjack'
+        ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><a class="btn" href="/gambling/blackjack/index.html?room_id=${encodeURIComponent(activity.room_id)}">Join table</a><a class="btn" href="/gambling/blackjack/index.html?room_id=${encodeURIComponent(activity.room_id)}">Spectate</a></div>`
+        : '';
+      return `${escapeHtml(activity.area || 'Browsing')} — ${escapeHtml(activity.detail || 'around the site')}${action}`;
+    }
+
     function moneyFormat(value) {
       if (value === null || value === undefined || value === "") {
         return "—";
@@ -494,6 +502,11 @@
                   <span class="member-stat-value">
                     <a href="/profile.html?id=${encodeURIComponent(member.id)}">View profile</a>
                   </span>
+                </div>
+
+                <div class="member-stat" style="grid-column: 1 / -1;">
+                  <span class="member-stat-label">Current Area</span>
+                  <span class="member-stat-value">${activityMarkup(member.current_activity)}</span>
                 </div>
               </div>
 

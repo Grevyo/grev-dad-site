@@ -12,7 +12,7 @@ export async function ensureBlackjackTables(env) {
       owner_user_id INTEGER NOT NULL,
       bet_pence INTEGER NOT NULL DEFAULT 100,
       status TEXT NOT NULL DEFAULT 'waiting',
-      max_players INTEGER NOT NULL DEFAULT 5,
+      max_players INTEGER NOT NULL DEFAULT 4,
       room_state TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL

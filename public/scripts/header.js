@@ -185,3 +185,30 @@ window.addEventListener("unhandledrejection", () => {
 });
 
 document.addEventListener("DOMContentLoaded", loadSharedHeader);
+
+window.fetchCurrentUser = fetchCurrentUser;
+window.readCachedAuthUser = readCachedAuthUser;
+window.reportCurrentPresence = async function reportCurrentPresence(payload = {}) {
+  try {
+    await fetch('/api/presence', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    console.error('Failed to update presence:', error);
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const path = window.location.pathname;
+  let area = 'Browsing';
+  let detail = 'around the site';
+  if (path.startsWith('/gambling/blackjack')) { area = 'Gambling - Blackjack'; detail = 'browsing blackjack tables'; }
+  else if (path.startsWith('/gambling')) { area = 'Gambling'; detail = 'in the gambling hub'; }
+  else if (path.startsWith('/profile')) { area = 'Profile'; detail = 'viewing profiles'; }
+  else if (path.startsWith('/members')) { area = 'Members'; detail = 'checking the members page'; }
+  window.reportCurrentPresence({ area, detail, page_path: path });
+  window.setInterval(() => window.reportCurrentPresence({ area, detail, page_path: path }), 45000);
+});
