@@ -418,7 +418,7 @@ async function ensureCasesTables(env) {
     CREATE TABLE IF NOT EXISTS case_profiles (
       user_id INTEGER PRIMARY KEY,
       display_name TEXT,
-      balance INTEGER NOT NULL DEFAULT 1000,
+      balance INTEGER NOT NULL DEFAULT 500000,
       total_cases_opened INTEGER NOT NULL DEFAULT 0,
       total_spent INTEGER NOT NULL DEFAULT 0,
       total_inventory_value INTEGER NOT NULL DEFAULT 0,
@@ -428,7 +428,7 @@ async function ensureCasesTables(env) {
   `).run();
 
   await ensureColumn(env.CASES_DB, "case_profiles", "display_name", "TEXT");
-  await ensureColumn(env.CASES_DB, "case_profiles", "balance", "INTEGER NOT NULL DEFAULT 1000");
+  await ensureColumn(env.CASES_DB, "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
   await ensureColumn(env.CASES_DB, "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.CASES_DB, "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.CASES_DB, "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");

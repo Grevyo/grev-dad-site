@@ -19,6 +19,24 @@ function pickWeighted(rows) {
   return list[list.length - 1];
 }
 
+async function ensureUserCaseProfileById(env, userId, username, isoNowFn) {
+  const now = isoNowFn();
+
+  await env.CASES_DB.prepare(`
+    INSERT OR IGNORE INTO case_profiles (
+      user_id,
+      display_name,
+      balance,
+      total_cases_opened,
+      total_spent,
+      total_inventory_value,
+      created_at,
+      updated_at
+    )
+    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
+  `).bind(userId, username, STARTING_BALANCE_PENCE, now, now).run();
+}
+
 async function resolveUsernames(env, userIds) {
   const ids = [...new Set((userIds || []).filter((id) => Number.isInteger(id) && id > 0))];
   if (!ids.length || !env.DB) return new Map();
@@ -65,21 +83,7 @@ async function refreshInventoryValue(env, userId) {
 }
 
 async function ensureCaseProfile(env, session, isoNowFn) {
-  const now = isoNowFn();
-
-  await env.CASES_DB.prepare(`
-    INSERT OR IGNORE INTO case_profiles (
-      user_id,
-      display_name,
-      balance,
-      total_cases_opened,
-      total_spent,
-      total_inventory_value,
-      created_at,
-      updated_at
-    )
-    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-  `).bind(session.id, session.username, STARTING_BALANCE_PENCE, now, now).run();
+  await ensureUserCaseProfileById(env, session.id, session.username, isoNowFn);
 }
 
 
@@ -132,6 +136,31 @@ async function ensureItemImageUrl(env, itemRow) {
   return imageUrl;
 }
 
+async function buildCaseDropPreview(env, caseId) {
+  const rows = await env.CASES_DB.prepare(`
+    SELECT ci.item_name, ci.rarity, ci.color_hex, ci.image_url, ci.market_hash_name, cd.drop_weight
+    FROM case_drops cd
+    INNER JOIN case_items ci ON ci.id = cd.item_id
+    WHERE cd.case_id = ? AND cd.drop_weight > 0
+    ORDER BY cd.drop_weight DESC, ci.item_name ASC
+  `).bind(caseId).all();
+
+  const list = rows.results || [];
+  const totalWeight = list.reduce((sum, row) => sum + Number(row.drop_weight || 0), 0);
+  const preview = [];
+  for (const row of list) {
+    preview.push({
+      item_name: row.item_name,
+      rarity: row.rarity || "",
+      color_hex: row.color_hex || "",
+      image_url: row.image_url || "",
+      market_hash_name: row.market_hash_name || row.item_name || "",
+      chance_percent: totalWeight > 0 ? Number((((Number(row.drop_weight || 0) / totalWeight) * 100)).toFixed(3)) : 0
+    });
+  }
+  return preview;
+}
+
 async function formatCaseSummary(env, caseRow, options = {}) {
   const storePrice = await getCaseStorePricePence(env, caseRow, options);
   const imageUrl = await ensureCaseImageUrl(env, caseRow, options);
@@ -145,7 +174,8 @@ async function formatCaseSummary(env, caseRow, options = {}) {
     fallback_price_pence: Number(caseRow.fallback_price_pence || caseRow.price || 0),
     steam_market_hash_name: caseRow.steam_market_hash_name || caseRow.case_name || "",
     key_price_pence: KEY_PRICE_PENCE,
-    is_active: Boolean(caseRow.is_active)
+    is_active: Boolean(caseRow.is_active),
+    preview_drops: await buildCaseDropPreview(env, caseRow.id)
   };
 }
 
@@ -205,7 +235,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
   if (keys < 1) {
     return {
       success: false,
-      error: "You need case keys to open — buy them in the store (2.50 Grev Coins each)",
+      error: "You need case keys to open — buy them in the store (1.00 Grev Coin each)",
       status: 400
     };
   }
@@ -337,7 +367,7 @@ export async function handleCs2Request(request, env, deps) {
     const cases = [];
     for (const row of rows.results || []) {
       if (!Number(row.is_active)) continue;
-      cases.push(await formatCaseSummary(env, row, { allowLiveFetch: false }));
+      cases.push(await formatCaseSummary(env, row, { allowLiveFetch: true }));
     }
 
     const feePct = await getQuickSellFeePercent(env);
@@ -777,6 +807,93 @@ export async function handleCs2Request(request, env, deps) {
 
     const fee = await getQuickSellFeePercent(env);
     return json({ success: true, quick_sell_fee_percent: fee }, 200, request);
+  }
+
+
+  if (pathname === "/api/cs2/admin/users" && request.method === "GET") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const search = (url.searchParams.get("q") || "").trim().toLowerCase();
+    const usersRow = await env.DB.prepare(`
+      SELECT id, username
+      FROM users
+      WHERE approved = 1
+      ORDER BY LOWER(username) ASC
+    `).all();
+
+    const users = [];
+    for (const user of usersRow.results || []) {
+      const username = String(user.username || "").trim();
+      if (!username) continue;
+      if (search && !username.toLowerCase().includes(search)) continue;
+      await ensureUserCaseProfileById(env, Number(user.id), username, isoNow);
+      const profile = await env.CASES_DB.prepare(`
+        SELECT balance, key_balance, total_cases_opened, total_inventory_value
+        FROM case_profiles
+        WHERE user_id = ?
+        LIMIT 1
+      `).bind(user.id).first();
+      users.push({
+        user_id: Number(user.id),
+        username,
+        balance_pence: Number(profile?.balance || 0),
+        key_balance: Number(profile?.key_balance || 0),
+        total_cases_opened: Number(profile?.total_cases_opened || 0),
+        total_inventory_value_pence: Number(profile?.total_inventory_value || 0)
+      });
+    }
+
+    return json({ success: true, users, query: search }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/users/balance" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const userId = Number(body?.user_id);
+    const balanceCoins = Number(body?.balance_coins);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return json({ success: false, error: "A valid user id is required" }, 400, request);
+    }
+
+    if (!Number.isFinite(balanceCoins) || balanceCoins < 0) {
+      return json({ success: false, error: "balance_coins must be 0 or more" }, 400, request);
+    }
+
+    const user = await env.DB.prepare(`SELECT id, username FROM users WHERE id = ? LIMIT 1`).bind(userId).first();
+    if (!user) {
+      return json({ success: false, error: "User not found" }, 404, request);
+    }
+
+    await ensureUserCaseProfileById(env, userId, String(user.username || `user#${userId}`), isoNow);
+
+    const balancePence = Math.round(balanceCoins * 100);
+    await env.CASES_DB.prepare(`
+      UPDATE case_profiles
+      SET balance = ?, updated_at = ?
+      WHERE user_id = ?
+    `).bind(balancePence, isoNow(), userId).run();
+
+    const profile = await env.CASES_DB.prepare(`
+      SELECT balance, key_balance
+      FROM case_profiles
+      WHERE user_id = ?
+      LIMIT 1
+    `).bind(userId).first();
+
+    return json({
+      success: true,
+      message: "Balance updated",
+      profile: {
+        user_id: userId,
+        username: String(user.username || `user#${userId}`),
+        balance_pence: Number(profile?.balance || 0),
+        key_balance: Number(profile?.key_balance || 0)
+      }
+    }, 200, request);
   }
 
   if (pathname === "/api/cs2/admin/settings/quick-sell-fee" && request.method === "POST") {

@@ -7,9 +7,8 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .case-admin-row {
+    .case-admin-row, .user-balance-row {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) 120px 140px auto;
       gap: 12px;
       align-items: center;
       padding: 12px;
@@ -18,8 +17,11 @@
       background: rgba(255,255,255,0.02);
       margin-bottom: 10px;
     }
+    .case-admin-row { grid-template-columns: minmax(0, 1.4fr) 120px 140px auto; }
+    .user-balance-row { grid-template-columns: minmax(0, 1.1fr) minmax(140px, 180px) auto; }
+    .admin-stack { display: grid; gap: 18px; }
     @media (max-width: 900px) {
-      .case-admin-row { grid-template-columns: 1fr; }
+      .case-admin-row, .user-balance-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -30,8 +32,20 @@
     <main class="page-main">
       <section class="panel">
         <h1 class="auth-title">CS2 gambling admin</h1>
-        <p class="auth-subtitle">Show or hide cases in the store and edit fallback prices (pence). Live Steam prices still apply when available.</p>
+        <p class="auth-subtitle">Manage case visibility and pricing, plus select a user and directly set their CS2 gambling balance.</p>
         <div id="page-message" class="hidden"></div>
+      </section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">User balance manager</h2>
+        <p class="panel-subtitle">All users now start with 5,000 Grev Coins. Use this tool to find a user and set their balance to an exact value.</p>
+        <div class="admin-stack">
+          <div class="search-row" style="margin-bottom:0">
+            <input id="user-search" class="form-input" type="search" placeholder="Search users by username..." />
+            <button type="button" class="btn" id="reload-users">Reload users</button>
+          </div>
+          <div id="user-balance-list"></div>
+        </div>
       </section>
 
       <section class="panel mt-24">
@@ -59,6 +73,8 @@
   <script>
     const pageMessage = document.getElementById("page-message");
     const caseAdminList = document.getElementById("case-admin-list");
+    const userBalanceList = document.getElementById("user-balance-list");
+    const userSearch = document.getElementById("user-search");
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -72,6 +88,74 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
+    }
+
+    function formatGrevCoins(pence) {
+      return `${(Number(pence || 0) / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
+    async function loadUsers(query = "") {
+      userBalanceList.innerHTML = `<div class="muted">Loading users…</div>`;
+      try {
+        const response = await fetch(`/api/cs2/admin/users?q=${encodeURIComponent(query)}`, { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          userBalanceList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Failed to load users")}</div>`;
+          return;
+        }
+        const users = data.users || [];
+        if (!users.length) {
+          userBalanceList.innerHTML = `<div class="muted">No matching users found.</div>`;
+          return;
+        }
+        userBalanceList.innerHTML = users.map((user) => `
+          <div class="user-balance-row" data-user-id="${user.user_id}">
+            <div>
+              <strong>${escapeHtml(user.username)}</strong>
+              <div class="muted">Balance ${formatGrevCoins(user.balance_pence)} · Keys ${Number(user.key_balance || 0)} · Opens ${Number(user.total_cases_opened || 0)}</div>
+            </div>
+            <label class="muted">Set balance (GC)
+              <input class="form-input" type="number" min="0" step="0.01" data-balance-input value="${(Number(user.balance_pence || 0) / 100).toFixed(2)}" />
+            </label>
+            <button type="button" class="btn btn-primary" data-save-balance>Save balance</button>
+          </div>
+        `).join("");
+
+        userBalanceList.querySelectorAll(".user-balance-row").forEach((row) => {
+          const userId = Number(row.getAttribute("data-user-id"));
+          const button = row.querySelector("[data-save-balance]");
+          const input = row.querySelector("[data-balance-input]");
+          button.addEventListener("click", async () => {
+            const balanceCoins = Number(input?.value);
+            if (!Number.isFinite(balanceCoins) || balanceCoins < 0) {
+              showMessage("error", "Balance must be 0 or more.");
+              return;
+            }
+            button.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/admin/users/balance", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: userId, balance_coins: balanceCoins })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not update balance.");
+                return;
+              }
+              showMessage("success", `${data.profile?.username || "User"} now has ${formatGrevCoins(data.profile?.balance_pence)}.`);
+              await loadUsers(userSearch.value.trim());
+            } catch {
+              showMessage("error", "Could not update balance.");
+            } finally {
+              button.disabled = false;
+            }
+          });
+        });
+      } catch {
+        userBalanceList.innerHTML = `<div class="alert alert-error">Could not load users.</div>`;
+      }
     }
 
     async function loadCases() {
@@ -117,7 +201,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ case_id: id, fallback_price_pence: Number(fallback.value) })
               });
-              showMessage("success", "Saved.");
+              showMessage("success", "Case settings saved.");
             } catch {
               showMessage("error", "Save failed.");
             } finally {
@@ -141,6 +225,9 @@
         }
       } catch { /* ignore */ }
     }
+
+    document.getElementById("reload-users")?.addEventListener("click", () => loadUsers(userSearch.value.trim()));
+    userSearch?.addEventListener("input", () => loadUsers(userSearch.value.trim()));
 
     document.getElementById("save-quick-sell-fee")?.addEventListener("click", async () => {
       const input = document.getElementById("quick-sell-fee");
@@ -182,6 +269,7 @@
         if (!data.user?.can_manage_gambling) {
           showMessage("error", "You do not have access to CS2 gambling admin tools.");
           caseAdminList.innerHTML = "";
+          userBalanceList.innerHTML = "";
           return false;
         }
         return true;
@@ -196,7 +284,7 @@
       const hasAccess = await checkGamblingAdminAccess();
       if (!hasAccess) return;
       await loadQuickSellFee();
-      await loadCases();
+      await Promise.all([loadUsers(), loadCases()]);
     });
   </script>
 </body>

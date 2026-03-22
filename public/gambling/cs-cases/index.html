@@ -66,12 +66,48 @@
       gap: 14px;
     }
     .case-card {
+      position: relative;
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 14px;
-      background: rgba(255,255,255,0.02);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(15,23,42,0.92));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      overflow: hidden;
     }
     .case-card h3 { margin: 0 0 8px; font-size: 1rem; }
+    .case-visual {
+      display: grid; place-items: center; min-height: 160px; margin-bottom: 12px;
+      border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);
+      background: radial-gradient(circle at top, rgba(248,113,113,0.24), rgba(15,23,42,0.95));
+    }
+    .case-visual img, .case-visual .case-fallback { max-width: 100%; max-height: 140px; object-fit: contain; }
+    .case-fallback {
+      width: 120px; height: 140px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(180deg, #7f1d1d, #1e293b); color: #fff; display: grid; place-items: center;
+      text-align: center; padding: 12px; font-weight: 800;
+    }
+    .price-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); font-weight: 800; }
+    .price-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .key-card { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+    .key-visual { width: 74px; height: 74px; border-radius: 16px; display: grid; place-items: center; background: radial-gradient(circle at top, rgba(250,204,21,0.35), rgba(15,23,42,0.95)); border: 1px solid rgba(250,204,21,0.35); font-size: 2rem; }
+    .drop-preview { position: absolute; left: 14px; right: 14px; top: 14px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: 180ms ease; }
+    .case-card:hover .drop-preview, .case-card:focus-within .drop-preview { opacity: 1; transform: translateY(0); }
+    .drop-preview-inner { max-height: 250px; overflow: auto; border-radius: 14px; padding: 12px; background: rgba(2,6,23,0.96); border: 1px solid rgba(255,255,255,0.09); }
+    .drop-preview-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.86rem; }
+    .drop-preview-row:last-child { border-bottom: none; }
+    .case-actions-bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    .reel-overlay { position: fixed; inset: 0; display:none; align-items:center; justify-content:center; padding:20px; background: rgba(2,6,23,0.82); z-index: 2050; }
+    .reel-overlay.open { display:flex; }
+    .reel-modal { width:min(960px, 100%); border-radius: 20px; border: 1px solid var(--border); background:#020617; padding:20px; box-shadow:0 24px 70px rgba(0,0,0,0.55); }
+    .reel-window { position: relative; overflow:hidden; border-radius: 18px; border:1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(15,23,42,0.86)); padding:16px 0; }
+    .reel-window::before, .reel-window::after { content:""; position:absolute; top:0; bottom:0; width:120px; z-index:2; pointer-events:none; }
+    .reel-window::before { left:0; background:linear-gradient(90deg, #020617, transparent); }
+    .reel-window::after { right:0; background:linear-gradient(270deg, #020617, transparent); }
+    .reel-center-line { position:absolute; top:10px; bottom:10px; left:50%; width:4px; transform:translateX(-50%); background:#f8fafc; border-radius:999px; z-index:3; box-shadow:0 0 16px rgba(255,255,255,0.5); }
+    .reel-track { display:flex; gap:14px; padding:0 24px; will-change: transform; }
+    .reel-item { width:150px; flex:0 0 150px; border-radius:16px; padding:12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); text-align:center; }
+    .reel-item img, .reel-item .reel-fallback { width:100%; height:90px; object-fit:contain; margin-bottom:8px; }
+    .reel-fallback { display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,0.04); }
     .case-meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; line-height: 1.45; }
     .feed-list { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
     .feed-row {
@@ -131,6 +167,10 @@
       border: 1px solid var(--border); border-radius: 12px; padding: 10px;
       background: rgba(255,255,255,0.02);
     }
+    .toast-stack { position: fixed; right: 16px; bottom: 16px; z-index: 2100; display: grid; gap: 10px; max-width: min(360px, calc(100vw - 32px)); }
+    .toast { border-radius: 12px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.96); padding: 12px 14px; box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
+    .toast.success { border-color: rgba(74, 222, 128, 0.45); }
+    .toast.error { border-color: rgba(248, 113, 113, 0.45); }
     @media (max-width: 720px) {
       .inv-row, .list-row { grid-template-columns: 1fr; }
     }
@@ -149,7 +189,7 @@
           <h1>CS CASES · CS2</h1>
           <p>
             Everything for Counter-Strike cases lives on this page — buy cases and keys, open singles or batches, manage inventory, and trade.
-            <strong>Grev Coins</strong> are the same wallet as the rest of the gambling hub (blackjack, packs, etc. when they launch).
+            <strong>Grev Coins</strong> use the same wallet as the rest of the gambling hub. All prices below are shown as <strong>£00.00GV</strong> so the GV side is much clearer.
             Quick sell pays live market reference minus the admin fee (default 10%).
           </p>
           <div id="gambling-wallet-mount" class="cs2-balance"></div>
@@ -175,7 +215,9 @@
         <section class="panel cs2-panel active" id="panel-cases">
           <h2 class="panel-title">Case openings</h2>
           <p class="panel-subtitle">Each open uses one key from your key balance (not your coin balance). Select up to 10 cases and speed-open in one go, or open one at a time. Claim each drop before it is added to inventory.</p>
-          <div class="inv-actions" style="margin-bottom:14px;align-items:center">
+          <div class="case-actions-bar">
+            <button type="button" class="btn" id="select-all-cases">Select all shown</button>
+            <button type="button" class="btn" id="clear-selected-cases">Clear selection</button>
             <button type="button" class="btn btn-primary" id="open-selected-cases" disabled>Open selected (1–10)</button>
             <span class="muted" id="case-selection-hint">Select cases below — requires one key per case.</span>
           </div>
@@ -184,16 +226,19 @@
 
         <section class="panel cs2-panel" id="panel-store">
           <h2 class="panel-title">Case market &amp; keys</h2>
-          <p class="panel-subtitle">Case prices follow the live market when available. Keys are always <span id="store-key-price-label">2.50 GC</span> each and are required to open cases.</p>
-          <div class="case-card" style="max-width:420px;margin-bottom:18px">
+          <p class="panel-subtitle">Case prices use the clearer <strong>£00.00GV</strong> format. Hover a case to inspect every possible drop and its percentage chance. Keys are always <span id="store-key-price-label">£1.00GV</span> each.</p>
+          <div class="case-card key-card" style="max-width:520px;margin-bottom:18px">
+            <div class="key-visual" aria-hidden="true">🔑</div>
+            <div>
             <h3 class="mt-0">Buy keys</h3>
-            <div class="case-meta">Keys are stored on your profile and spent when you open a case.</div>
+            <div class="case-meta">Keys are stored on your profile and spent when you open a case. Every case open costs exactly <strong>£1.00GV</strong>.</div>
             <div class="inv-actions" style="margin-top:10px">
               <label class="muted" style="display:flex;align-items:center;gap:8px">Qty
                 <input class="form-input" type="number" id="buy-keys-qty" min="1" max="100" value="1" style="max-width:100px" />
               </label>
               <button type="button" class="btn btn-primary" id="buy-keys-btn">Buy keys</button>
             </div>
+          </div>
           </div>
           <h3 class="mt-0">Cases</h3>
           <div id="store-case-grid" class="case-grid"></div>
@@ -265,9 +310,22 @@
     </footer>
   </div>
 
+  <div class="reel-overlay" id="opening-reel" aria-hidden="true">
+    <div class="reel-modal" role="dialog" aria-labelledby="opening-reel-title">
+      <h3 id="opening-reel-title" style="margin-top:0">Case opening simulation</h3>
+      <div class="muted" id="opening-reel-subtitle" style="margin-bottom:12px">Rolling your item…</div>
+      <div class="reel-window">
+        <div class="reel-center-line"></div>
+        <div class="reel-track" id="opening-reel-track"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
   <div class="drop-modal-overlay" id="drop-modal" aria-hidden="true">
     <div class="drop-modal" role="dialog" aria-labelledby="drop-modal-title">
-      <h3 id="drop-modal-title">Unclaimed drop</h3>
+      <h3 id="drop-modal-title">You unboxed an item</h3>
       <img class="drop-modal-img" id="drop-modal-img" alt="" hidden />
       <div id="drop-modal-body"></div>
       <div class="drop-modal-actions">
@@ -295,12 +353,18 @@
     const outgoingOffersEl = document.getElementById("outgoing-offers");
     const showcaseMount = document.getElementById("showcase-mount");
     const openSelectedBtn = document.getElementById("open-selected-cases");
-    const KEY_PRICE_PENCE = 250;
+    const selectAllCasesBtn = document.getElementById("select-all-cases");
+    const clearSelectedCasesBtn = document.getElementById("clear-selected-cases");
+    const KEY_PRICE_PENCE = 100;
 
     /** @type {number} */
     let keyBalance = 0;
     /** @type {number} */
     let quickSellFeePercent = 10;
+    const toastStack = document.getElementById("toast-stack");
+    const openingReel = document.getElementById("opening-reel");
+    const openingReelTrack = document.getElementById("opening-reel-track");
+    const openingReelSubtitle = document.getElementById("opening-reel-subtitle");
     const dropModal = document.getElementById("drop-modal");
     const dropModalImg = document.getElementById("drop-modal-img");
     const dropModalBody = document.getElementById("drop-modal-body");
@@ -309,6 +373,7 @@
     let balancePence = 0;
     let inventoryValuePence = 0;
     let activePendingId = null;
+    let availableCases = [];
 
     const WEAR_LABEL = {
       FN: "Factory New",
@@ -333,6 +398,15 @@
       cs2Message.textContent = "";
     }
 
+    function showToast(text, type = "success") {
+      if (!toastStack) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<strong>${type === "error" ? "Error" : "Success"}</strong><div>${escapeHtml(text)}</div>`;
+      toastStack.appendChild(toast);
+      window.setTimeout(() => { toast.remove(); }, 3200);
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
@@ -344,7 +418,7 @@
 
     function formatGrevCoins(pence) {
       const n = Number(pence || 0) / 100;
-      return `${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GV`;
     }
 
     function setBalancePills() {
@@ -478,6 +552,7 @@
           showMessage("error", data?.error || "Claim failed.");
           return;
         }
+        showToast("Added to inventory", "success");
         showMessage("success", "Added to inventory.");
         closeDropModal();
         await loadBalance();
@@ -504,6 +579,7 @@
           return;
         }
         if (data.quick_sell_fee_percent != null) quickSellFeePercent = Number(data.quick_sell_fee_percent);
+        showToast(`Quick sold for ${formatGrevCoins(data.payout_pence)}`, "success");
         showMessage("success", `Quick sold for ${formatGrevCoins(data.payout_pence)} (after fee).`);
         closeDropModal();
         await loadBalance();
@@ -545,6 +621,71 @@
       if (e.target === dropModal) closeDropModal();
     });
 
+    function caseNameFromInventoryItem(itemName) {
+      return String(itemName || "").replace(/\s*\(Unopened\)\s*$/, "").trim();
+    }
+
+    function findCaseDataByName(caseName) {
+      return availableCases.find((entry) => entry.case_name === caseName) || null;
+    }
+
+    function renderDropPreviewList(caseData) {
+      const drops = caseData?.preview_drops || [];
+      if (!drops.length) return '<div class="muted">Drop table unavailable.</div>';
+      return `<div class="drop-preview-inner"><strong style="display:block;margin-bottom:8px">Possible drops</strong>${drops.map((drop) => `
+        <div class="drop-preview-row">
+          <span><span class="rarity-dot" style="background:${escapeHtml(drop.color_hex || "#999")}"></span>${escapeHtml(drop.item_name)}</span>
+          <strong>${Number(drop.chance_percent || 0).toFixed(3)}%</strong>
+        </div>`).join("")}</div>`;
+    }
+
+    function reelTileMarkup(item) {
+      const media = item?.image_url
+        ? `<img src="${escapeHtml(item.image_url)}" alt="" />`
+        : `<div class="reel-fallback">${escapeHtml(item.item_name || "Item")}</div>`;
+      return `<div class="reel-item">${media}<div><span class="rarity-dot" style="background:${escapeHtml(item.color_hex || "#999")}"></span>${escapeHtml(item.item_name || "Item")}</div><div class="muted">${escapeHtml(item.rarity || "")}</div></div>`;
+    }
+
+    async function playOpeningSimulation(result) {
+      if (!openingReel || !openingReelTrack) return;
+      const caseData = findCaseDataByName(result?.case_name || "");
+      const source = (caseData?.preview_drops || []).slice(0, 12);
+      const winner = {
+        item_name: result?.dropped?.item_name || "Item",
+        rarity: result?.dropped?.rarity || "",
+        color_hex: result?.dropped?.color_hex || "#999",
+        image_url: result?.dropped?.image_url || ""
+      };
+      const pool = [];
+      for (let i = 0; i < 24; i += 1) {
+        const pick = source.length ? source[i % source.length] : winner;
+        pool.push(pick);
+      }
+      const winnerIndex = 18;
+      pool[winnerIndex] = winner;
+      openingReelTrack.innerHTML = pool.map(reelTileMarkup).join("");
+      openingReel.classList.add("open");
+      openingReel.setAttribute("aria-hidden", "false");
+      openingReelSubtitle.textContent = `${result?.case_name || "Case"} · rolling for ${winner.item_name}`;
+      openingReelTrack.style.transition = 'none';
+      openingReelTrack.style.transform = 'translateX(0px)';
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const tiles = [...openingReelTrack.children];
+      const tile = tiles[winnerIndex];
+      const distance = tile.offsetLeft - ((openingReelTrack.parentElement.clientWidth / 2) - (tile.clientWidth / 2)) + 24;
+      openingReelTrack.style.transition = 'transform 4.6s cubic-bezier(0.08, 0.7, 0.12, 1)';
+      openingReelTrack.style.transform = `translateX(${-distance}px)`;
+      await new Promise((resolve) => window.setTimeout(resolve, 4800));
+      openingReel.classList.remove("open");
+      openingReel.setAttribute("aria-hidden", "true");
+    }
+
+    async function revealOpenResult(result) {
+      await playOpeningSimulation(result);
+      showDropModalFromOpen(result);
+      showToast(`${result?.dropped?.item_name || "Item"} · ${wearLabel(result?.dropped?.wear_code, result?.dropped?.wear)}`, "success");
+    }
+
     async function loadCasesStore() {
       storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
       try {
@@ -563,16 +704,21 @@
           kpl.textContent = `${formatGrevCoins(data.key_price_pence)} each`;
         }
         const cases = data.cases || [];
+        availableCases = cases;
         if (!cases.length) {
           storeCaseGrid.innerHTML = `<div class="muted">No cases are available right now. Please check back later.</div>`;
           return;
         }
         storeCaseGrid.innerHTML = cases.map((c) => `
-          <div class="case-card">
+          <div class="case-card" tabindex="0">
+            <div class="drop-preview">${renderDropPreviewList(c)}</div>
+            <div class="case-visual">${c.image_url ? `<img src="${escapeHtml(c.image_url)}" alt="${escapeHtml(c.case_name)}" />` : `<div class="case-fallback">${escapeHtml(c.case_name)}</div>`}</div>
             <h3>${escapeHtml(c.case_name)}</h3>
-            <div class="case-meta">
-              Case ${formatGrevCoins(c.store_price_pence)} · Key ${formatGrevCoins(c.key_price_pence)}
+            <div class="price-row">
+              <span class="price-badge">📦 ${formatGrevCoins(c.store_price_pence)}</span>
+              <span class="price-badge">🔑 ${formatGrevCoins(c.key_price_pence)}</span>
             </div>
+            <div class="case-meta">Hover to view every skin, knife, and percentage chance in this case.</div>
             <div class="inv-actions" style="margin-top:10px">
               <label class="muted" style="display:flex;align-items:center;gap:6px">Qty
                 <input class="form-input" type="number" min="1" max="100" value="1" data-case-buy-qty="${c.id}" style="max-width:90px" />
@@ -607,7 +753,8 @@
                 showMessage("error", data?.error || "Purchase failed.");
                 return;
               }
-              showMessage("success", "Case added to inventory.");
+              showToast(data?.message || "Case purchased", "success");
+              showMessage("success", data?.message || "Case added to inventory.");
               await loadBalance();
               await loadInventoryUi();
             } catch (e) {
@@ -712,9 +859,12 @@
             <div style="align-self:center">
               <input type="checkbox" data-case-pick="${c.inventory_id}" aria-label="Select for batch open" />
             </div>
-            <div>
-              <strong>${escapeHtml(c.item_name)}</strong>
-              <div class="muted">${escapeHtml(c.acquired_at || "")}</div>
+            <div style="display:flex;gap:12px;align-items:center">
+              ${c.image_url ? `<img class="inv-thumb" src="${escapeHtml(c.image_url)}" alt="" />` : `<div class="inv-thumb case-fallback">CASE</div>`}
+              <div>
+                <strong>${escapeHtml(c.item_name)}</strong>
+                <div class="muted">${escapeHtml(c.acquired_at || "")}</div>
+              </div>
             </div>
             <div class="inv-actions">
               <button type="button" class="btn btn-primary" data-open="${c.inventory_id}">Open (1 key)</button>
@@ -725,6 +875,15 @@
         openInventoryList.querySelectorAll("[data-case-pick]").forEach((cb) => {
           cb.addEventListener("change", syncOpenSelection);
         });
+        selectAllCasesBtn?.addEventListener("click", () => {
+          const boxes = [...openInventoryList.querySelectorAll("[data-case-pick]")].slice(0, 10);
+          boxes.forEach((cb) => { cb.checked = true; });
+          syncOpenSelection();
+        }, { once: true });
+        clearSelectedCasesBtn?.addEventListener("click", () => {
+          openInventoryList.querySelectorAll("[data-case-pick]").forEach((cb) => { cb.checked = false; });
+          syncOpenSelection();
+        }, { once: true });
         syncOpenSelection();
 
         openInventoryList.querySelectorAll("[data-open]").forEach((btn) => {
@@ -744,7 +903,7 @@
                 showMessage("error", data?.error || "Open failed.");
                 return;
               }
-              showDropModalFromOpen(data);
+              await revealOpenResult(data);
               await loadBalance();
               await loadInventoryUi();
               await loadFeeds();
@@ -772,7 +931,7 @@
                 <option value="auction">Auction</option>
                 <option value="accept_offers">Offers only</option>
               </select>
-              <input class="form-input" type="number" min="1" step="1" placeholder="Price (p)" data-ask="${s.inventory_id}" style="max-width:100px" title="Ask in pence (or start bid)" />
+              <input class="form-input" type="number" min="1" step="1" placeholder="Price (£GV)" data-ask="${s.inventory_id}" style="max-width:100px" title="Ask in GV pricing units (stored internally as pence)" />
               <input class="form-input" type="datetime-local" data-auct-end="${s.inventory_id}" style="max-width:180px" title="Auction end (local time)" />
               <button type="button" class="btn btn-primary" data-list="${s.inventory_id}">List</button>
             </div>
@@ -913,11 +1072,11 @@
             <div class="inv-actions">
               ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy</button>` : ""}
               ${canBid ? `
-                <input class="form-input" type="number" min="1" step="1" placeholder="Bid (p)" data-bid-amt="${row.id}" style="max-width:100px" />
+                <input class="form-input" type="number" min="1" step="1" placeholder="Bid (£GV)" data-bid-amt="${row.id}" style="max-width:100px" />
                 <button type="button" class="btn btn-primary" data-bid-listing="${row.id}">Bid</button>
               ` : ""}
               ${canOffer ? `
-                <input class="form-input" type="number" min="1" step="1" placeholder="Offer (p)" data-offer-amt="${row.id}" style="max-width:100px" />
+                <input class="form-input" type="number" min="1" step="1" placeholder="Offer (£GV)" data-offer-amt="${row.id}" style="max-width:100px" />
                 <input class="form-input" type="text" placeholder="Comment" data-offer-comment="${row.id}" style="max-width:140px" maxlength="2000" />
                 <button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Send offer</button>
               ` : ""}
@@ -1102,7 +1261,7 @@
             ${hasCounter ? `<div class="muted" style="margin-top:6px">Your counter: ${formatGrevCoins(counterP)}${o.seller_counter_message ? ` — ${escapeHtml(o.seller_counter_message)}` : ""}</div>` : ""}
             <div class="inv-actions" style="margin-top:10px">
               ${!hasCounter ? `<button type="button" class="btn btn-primary" data-accept-offer="${o.offer_id}">Accept offer</button>` : `<span class="muted">Waiting for buyer to accept your counter</span>`}
-              <input class="form-input" type="number" min="1" step="1" placeholder="Counter (p)" data-counter-amt="${o.offer_id}" style="max-width:100px" />
+              <input class="form-input" type="number" min="1" step="1" placeholder="Counter (£GV)" data-counter-amt="${o.offer_id}" style="max-width:100px" />
               <input class="form-input" type="text" placeholder="Counter message" data-counter-msg="${o.offer_id}" style="max-width:160px" maxlength="2000" />
               <button type="button" class="btn" data-send-counter="${o.offer_id}">Send counter</button>
               <input class="form-input" type="text" placeholder="Thread reply" data-thread-reply="${o.offer_id}" style="max-width:160px" maxlength="2000" />
@@ -1150,7 +1309,7 @@
             const counterPence = Number(amtEl?.value || 0);
             const message = (msgEl?.value || "").trim();
             if (!Number.isInteger(counterPence) || counterPence <= 0) {
-              showMessage("error", "Enter a valid counter price in pence.");
+              showMessage("error", "Enter a valid counter price.");
               return;
             }
             btn.disabled = true;
@@ -1450,7 +1609,8 @@
           return;
         }
         keyBalance = Number(data.key_balance ?? keyBalance);
-        showMessage("success", data.message || "Keys purchased.");
+        showToast(data.message || "Keys purchased", "success");
+        showMessage("success", `${data.message || "Keys purchased"} · Key balance: ${Number(data.key_balance ?? keyBalance)}.`);
         await loadBalance();
         await loadInventoryUi();
       } catch {
@@ -1480,8 +1640,11 @@
         }
         const opens = data.opens || [];
         const first = opens[0];
-        if (first) showDropModalFromOpen(first);
+        if (first) {
+          await revealOpenResult(first);
+        }
         if (opens.length > 1) {
+          showToast(`Opened ${opens.length} cases`, "success");
           showMessage("success", `Opened ${opens.length} cases — finish this drop; the rest stay in your pending queue.`);
         }
         await loadBalance();

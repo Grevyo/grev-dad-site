@@ -1,4 +1,5 @@
 import { CS2_CASE_CATALOG } from "./case-names.js";
+import { fetchSteamIconUrl } from "./steam.js";
 
 function isoNow() {
   return new Date().toISOString();
@@ -33,11 +34,16 @@ const SKIN_TEMPLATES = [
   { weapon_name: "Sawed-Off", skin_name: "The Kraken", rarity: "Classified", color_hex: "#d32ce6", market_value: 8500 },
   { weapon_name: "Tec-9", skin_name: "Fuel Injector", rarity: "Classified", color_hex: "#d32ce6", market_value: 7800 },
   { weapon_name: "CZ75-Auto", skin_name: "Victoria", rarity: "Classified", color_hex: "#d32ce6", market_value: 9200 },
-  { weapon_name: "MP9", skin_name: "Starlight Protector", rarity: "Classified", color_hex: "#d32ce6", market_value: 10500 }
+  { weapon_name: "MP9", skin_name: "Starlight Protector", rarity: "Classified", color_hex: "#d32ce6", market_value: 10500 },
+  { weapon_name: "★ Karambit", skin_name: "Doppler", rarity: "Special Item", color_hex: "#e4ae39", market_value: 520000 },
+  { weapon_name: "★ Butterfly Knife", skin_name: "Tiger Tooth", rarity: "Special Item", color_hex: "#e4ae39", market_value: 475000 },
+  { weapon_name: "★ M9 Bayonet", skin_name: "Lore", rarity: "Special Item", color_hex: "#e4ae39", market_value: 610000 },
+  { weapon_name: "★ Talon Knife", skin_name: "Crimson Web", rarity: "Special Item", color_hex: "#e4ae39", market_value: 455000 }
 ];
 
 function rarityWeight(rarity) {
   const r = String(rarity || "").toLowerCase();
+  if (r.includes("special item")) return 1;
   if (r.includes("consumer")) return 420;
   if (r.includes("industrial")) return 220;
   if (r.includes("mil-spec")) return 110;
@@ -77,15 +83,17 @@ export async function seedCs2CatalogIfEmpty(env) {
         case_def_id,
         market_hash_name
       )
-      VALUES (?, ?, ?, ?, '', '', ?, ?, ?, 'skin_template', NULL, NULL)
+      VALUES (?, ?, ?, ?, '', ?, ?, ?, ?, 'skin_template', NULL, ?)
     `).bind(
       itemName,
       t.weapon_name,
       t.skin_name,
       t.rarity,
+      await fetchSteamIconUrl(itemName) || "",
       t.market_value,
       t.color_hex,
-      now
+      now,
+      itemName
     ).run();
 
     const id = result.meta?.last_row_id;
@@ -109,7 +117,7 @@ export async function seedCs2CatalogIfEmpty(env) {
     `).bind(
       c.name,
       c.slug,
-      "",
+      await fetchSteamIconUrl(c.steam_market_hash_name) || "",
       c.fallback_price_pence,
       `Simulated ${c.name} drops for Grev Coins.`,
       now,
@@ -135,8 +143,8 @@ export async function seedCs2CatalogIfEmpty(env) {
         case_def_id,
         market_hash_name
       )
-      VALUES (?, '', '', 'container', '', '', 0, '#9ea3b5', ?, 'case', ?, ?)
-    `).bind(`${c.name} (Unopened)`, now, caseId, c.steam_market_hash_name).run();
+      VALUES (?, '', '', 'container', '', ?, 0, '#9ea3b5', ?, 'case', ?, ?)
+    `).bind(`${c.name} (Unopened)`, await fetchSteamIconUrl(c.steam_market_hash_name) || "", now, caseId, c.steam_market_hash_name).run();
 
     for (const t of SKIN_TEMPLATES) {
       const itemName = `${t.weapon_name} | ${t.skin_name}`;
