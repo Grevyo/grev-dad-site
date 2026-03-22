@@ -114,6 +114,13 @@
           return;
         }
 
+        try {
+          window.sessionStorage.setItem("grevdad_auth_user", JSON.stringify(data.user || null));
+          window.dispatchEvent(new Event("grevdad-auth-changed"));
+        } catch (error) {
+          console.error("Failed to cache login state:", error);
+        }
+
         showMessage("success", "Login successful. Redirecting...");
         window.location.href = "/index.html";
       } catch (error) {

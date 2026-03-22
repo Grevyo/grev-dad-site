@@ -154,6 +154,10 @@
           </p>
           <div id="gambling-wallet-mount" class="cs2-balance"></div>
           <p class="muted" id="auth-note" style="margin-top:10px"></p>
+          <div id="cs2-admin-entry" class="inv-actions hidden" style="margin-top:14px">
+            <a class="btn btn-primary" href="/cs2-admin.html">Open CS2 gambling admin</a>
+            <span class="muted">Visible only to gambling admins.</span>
+          </div>
         </section>
 
         <section class="panel">
@@ -278,6 +282,7 @@
   <script>
     const cs2Message = document.getElementById("cs2-message");
     const authNote = document.getElementById("auth-note");
+    const cs2AdminEntry = document.getElementById("cs2-admin-entry");
     const openInventoryList = document.getElementById("open-inventory-list");
     const storeCaseGrid = document.getElementById("store-case-grid");
     const skinInventoryList = document.getElementById("skin-inventory-list");
@@ -1499,6 +1504,8 @@
       if (!currentUser) {
         authNote.innerHTML = `Guest — <a href="/login.html">login</a> to use Grev Coins.`;
       }
+
+      cs2AdminEntry?.classList.toggle("hidden", !currentUser?.can_manage_gambling);
 
       await loadBalance();
       await loadCasesStore();

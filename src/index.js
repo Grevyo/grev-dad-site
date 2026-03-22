@@ -31,6 +31,7 @@ const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
 const ALLOWED_GROUPS = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
 const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
+let coreTablesReadyPromise = null;
 
 async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
@@ -138,6 +139,7 @@ async function handleRequest(request, env, ctx) {
       json,
       getApprovedUser,
       requireAdmin,
+      requireGamblingAdmin,
       isoNow,
       safeJson
     });
@@ -235,6 +237,17 @@ async function ensureCoreTables(env) {
     throw new Error("Missing DB binding");
   }
 
+  if (!coreTablesReadyPromise) {
+    coreTablesReadyPromise = ensureCoreTablesOnce(env).catch((error) => {
+      coreTablesReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await coreTablesReadyPromise;
+}
+
+async function ensureCoreTablesOnce(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -251,6 +264,7 @@ async function ensureCoreTables(env) {
   await ensureColumn(env.DB, "users", "approved", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.DB, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.DB, "users", "group_name", "TEXT NOT NULL DEFAULT 'standard'");
+  await ensureColumn(env.DB, "users", "gambling_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.DB, "users", "created_at", "TEXT");
   await ensureColumn(env.DB, "users", "last_seen_at", "TEXT");
 
@@ -512,6 +526,7 @@ async function handleRegister(request, env) {
       approved,
       is_admin,
       group_name,
+      gambling_admin,
       created_at,
       last_seen_at
     )
@@ -555,7 +570,7 @@ async function handleLogin(request, env) {
   }
 
   const user = await env.DB.prepare(`
-    SELECT id, username, password_hash, approved, is_admin, group_name
+    SELECT id, username, password_hash, approved, is_admin, group_name, gambling_admin
     FROM users
     WHERE LOWER(username) = LOWER(?)
     LIMIT 1
@@ -599,6 +614,8 @@ async function handleLogin(request, env) {
       username: user.username,
       approved: Boolean(user.approved),
       is_admin: Boolean(user.is_admin),
+      gambling_admin: Boolean(user.gambling_admin),
+      can_manage_gambling: Boolean(user.gambling_admin),
       group,
       groups: buildUserGroups(group, Boolean(user.is_admin))
     }
@@ -648,6 +665,8 @@ async function handleMe(request, env) {
       username: session.username,
       approved: Boolean(session.approved),
       is_admin: Boolean(session.is_admin),
+      gambling_admin: Boolean(session.gambling_admin),
+      can_manage_gambling: Boolean(session.gambling_admin),
       group,
       groups: buildUserGroups(group, Boolean(session.is_admin)),
       can_moderate_forum: canModerateForum(group, Boolean(session.is_admin)),
@@ -677,6 +696,7 @@ async function handleProfileMe(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.real_name,
@@ -726,6 +746,7 @@ async function handleProfileView(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.real_name,
@@ -817,6 +838,7 @@ async function handleProfileUpdate(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.real_name,
@@ -854,6 +876,8 @@ function formatProfileRow(row) {
     username: row.username,
     approved: Boolean(row.approved),
     is_admin: Boolean(row.is_admin),
+    gambling_admin: Boolean(row.gambling_admin),
+    can_manage_gambling: Boolean(row.gambling_admin),
     group,
     group_display: displayGroupName(group, Boolean(row.is_admin)),
     created_at: row.created_at || null,
@@ -888,6 +912,7 @@ async function handleMembers(request, env) {
       u.username,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.last_seen_at,
       p.bio,
       p.avatar_url,
@@ -1475,6 +1500,7 @@ async function handleAdminUsers(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.bio,
@@ -1520,6 +1546,7 @@ async function handleAdminUser(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.bio,
@@ -1554,6 +1581,7 @@ async function handleAdminPendingUsers(request, env) {
       approved,
       is_admin,
       group_name,
+      gambling_admin,
       created_at,
       last_seen_at
     FROM users
@@ -1578,6 +1606,7 @@ async function handleAdminUpdateUser(request, env) {
   const userId = Number(body?.user_id);
   const approved = body?.approved;
   const isAdmin = body?.is_admin;
+  const gamblingAdmin = body?.gambling_admin;
   const requestedGroup = sanitiseGroupName(body?.group_name);
 
   if (!Number.isInteger(userId) || userId <= 0) {
@@ -1589,7 +1618,7 @@ async function handleAdminUpdateUser(request, env) {
   }
 
   const existingUser = await env.DB.prepare(`
-    SELECT id, username, is_admin, group_name
+    SELECT id, username, is_admin, group_name, gambling_admin
     FROM users
     WHERE id = ?
     LIMIT 1
@@ -1609,9 +1638,9 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     UPDATE users
-    SET approved = ?, is_admin = ?, group_name = ?
+    SET approved = ?, is_admin = ?, group_name = ?, gambling_admin = ?
     WHERE id = ?
-  `).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, userId).run();
+  `).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, Boolean(gamblingAdmin) ? 1 : 0, userId).run();
 
   const updatedRow = await env.DB.prepare(`
     SELECT
@@ -1620,6 +1649,7 @@ async function handleAdminUpdateUser(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.created_at,
       u.last_seen_at,
       p.bio,
@@ -1651,6 +1681,20 @@ async function requireAdmin(request, env) {
   return session;
 }
 
+async function requireGamblingAdmin(request, env) {
+  const session = await getSessionUser(request, env);
+
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  if (!Boolean(session.gambling_admin)) {
+    return json({ success: false, error: "Gambling admin access required" }, 403, request);
+  }
+
+  return session;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                  SESSION                                   */
 /* -------------------------------------------------------------------------- */
@@ -1670,6 +1714,7 @@ async function getSessionUser(request, env) {
       u.approved,
       u.is_admin,
       u.group_name,
+      u.gambling_admin,
       u.last_seen_at,
       p.bio,
       p.avatar_url,
@@ -1884,6 +1929,8 @@ function formatAdminUserRow(row) {
     username: row.username,
     approved: Boolean(row.approved),
     is_admin: Boolean(row.is_admin),
+    gambling_admin: Boolean(row.gambling_admin),
+    can_manage_gambling: Boolean(row.gambling_admin),
     group,
     groups: buildUserGroups(group, Boolean(row.is_admin)),
     created_at: row.created_at || null,

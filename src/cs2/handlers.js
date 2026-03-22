@@ -229,7 +229,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
 }
 
 export async function handleCs2Request(request, env, deps) {
-  const { json, getApprovedUser, requireAdmin, isoNow, safeJson } = deps;
+  const { json, getApprovedUser, requireGamblingAdmin, isoNow, safeJson } = deps;
   const url = new URL(request.url);
   const { pathname } = url;
 
@@ -569,7 +569,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/cases" && request.method === "GET") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const rows = await env.CASES_DB.prepare(`
@@ -582,7 +582,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/cases/toggle" && request.method === "POST") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const body = await safeJson(request);
@@ -601,7 +601,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/cases/price" && request.method === "POST") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const body = await safeJson(request);
@@ -626,7 +626,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/settings" && request.method === "GET") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const fee = await getQuickSellFeePercent(env);
@@ -634,7 +634,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/settings/quick-sell-fee" && request.method === "POST") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const body = await safeJson(request);

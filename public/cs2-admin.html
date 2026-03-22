@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CS2 admin | Grev.dad</title>
+  <title>CS2 gambling admin | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
@@ -29,7 +29,7 @@
 
     <main class="page-main">
       <section class="panel">
-        <h1 class="auth-title">CS2 case admin</h1>
+        <h1 class="auth-title">CS2 gambling admin</h1>
         <p class="auth-subtitle">Show or hide cases in the store and edit fallback prices (pence). Live Steam prices still apply when available.</p>
         <div id="page-message" class="hidden"></div>
       </section>
@@ -52,7 +52,7 @@
     </main>
 
     <footer class="footer">
-      <div class="footer-inner">Grev.dad — CS2 admin</div>
+      <div class="footer-inner">Grev.dad — CS2 gambling admin</div>
     </footer>
   </div>
 
@@ -171,7 +171,30 @@
       }
     });
 
+    async function checkGamblingAdminAccess() {
+      try {
+        const response = await fetch("/api/auth/me", { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) {
+          window.location.href = "/login.html";
+          return false;
+        }
+        if (!data.user?.can_manage_gambling) {
+          showMessage("error", "You do not have access to CS2 gambling admin tools.");
+          caseAdminList.innerHTML = "";
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not verify gambling admin access.");
+        return false;
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
+      const hasAccess = await checkGamblingAdminAccess();
+      if (!hasAccess) return;
       await loadQuickSellFee();
       await loadCases();
     });
