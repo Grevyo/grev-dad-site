@@ -3,7 +3,7 @@
 import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
 import { getQuickSellFeePercent } from "./cs2/quick-sell.js";
 import { handleCs2Request } from "./cs2/handlers.js";
-import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
+import { importMasterCatalog } from "./cs2/master-import.js";
 import { ensureCs2Extensions } from "./cs2/schema.js";
 import { ensureYgoTables } from "./ygo/schema.js";
 import { handleYgoRequest } from "./ygo/handlers.js";
@@ -337,7 +337,24 @@ async function handleSetup(env, request) {
 
 async function ensureCasesCatalogReady(env) {
   await ensureCasesTables(env);
-  return await seedCs2CatalogIfEmpty(env);
+  const countRow = env.CASES_DB
+    ? await env.CASES_DB.prepare(`SELECT COUNT(*) AS c FROM case_definitions`).first().catch(() => null)
+    : null;
+  const caseCount = Number(countRow?.c || 0);
+  if (env.CASES_DB && caseCount === 0) {
+    const stats = await importMasterCatalog(env);
+    return {
+      seeded: true,
+      reason: "bundled_researched_catalog_imported",
+      case_count: Number(stats.cases_created || 0),
+      stats
+    };
+  }
+  return {
+    seeded: false,
+    reason: "catalog_already_present",
+    case_count: caseCount
+  };
 }
 
 async function ensureCoreTables(env) {

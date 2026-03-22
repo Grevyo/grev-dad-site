@@ -1,5 +1,5 @@
 import { fetchSteamIconUrl } from './steam.js';
-import { CS2_MASTER_CATALOG_RAW } from './master-catalog.js';
+import { CS2_MASTER_CATALOG } from './master-catalog.js';
 
 function slugify(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120);
@@ -15,26 +15,6 @@ function rarityWeight(rarity) {
   if (r.includes('covert')) return 5;
   if (r.includes('contraband')) return 1;
   return 50;
-}
-
-function parseCatalog(raw) {
-  const lines = String(raw || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const sections = [];
-  let current = null;
-  for (const line of lines) {
-    if (/^(collections|map collections|themed collections|weapon case collections|limited edition item)$/i.test(line)) continue;
-    if (/^weapon\s+skin\s+quality/i.test(line) || /^weapon\tSkin\tQuality/i.test(line)) continue;
-    const parts = line.split(/\t+/).map((p) => p.trim()).filter(Boolean);
-    if (parts.length >= 3) {
-      if (!current) continue;
-      current.items.push({ weapon_name: parts[0], skin_name: parts[1], rarity: parts[2] });
-      continue;
-    }
-    if (current) sections.push(current);
-    current = { case_name: line, items: [] };
-  }
-  if (current) sections.push(current);
-  return sections.filter((s) => s.items.length);
 }
 
 async function ensureCaseDefinition(env, caseName, now) {
@@ -72,7 +52,7 @@ async function upsertSkin(env, row, now) {
 
 export async function importMasterCatalog(env) {
   const now = new Date().toISOString();
-  const sections = parseCatalog(CS2_MASTER_CATALOG_RAW);
+  const sections = CS2_MASTER_CATALOG;
   const stats = { sections: sections.length, cases_created: 0, skins_upserted: 0, drops_added: 0, images_refreshed: 0 };
   for (const section of sections) {
     const before = await env.CASES_DB.prepare(`SELECT id FROM case_definitions WHERE case_name = ? LIMIT 1`).bind(section.case_name).first();

@@ -32,7 +32,7 @@
     <main class="page-main">
       <section class="panel">
         <h1 class="auth-title">CS2 admin</h1>
-        <p class="auth-subtitle">Manage CS2 cases, imports, images, and quick-sell settings from the gambling hub's CS2 admin page.</p>
+        <p class="auth-subtitle">Manage the CS2 case-opener catalog. The simulator now ships with a researched built-in case list, and you can still upload your own text file to replace it or refresh saved prices from this admin page.</p>
         <div class="admin-nav" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
           <a class="btn" href="/gambling-admin.html">Main hub</a>
           <a class="btn btn-primary" href="/cs2-admin.html">CS2 admin</a>
@@ -56,25 +56,24 @@
 
 
       <section class="panel mt-24">
-        <h2 class="panel-title">PriceEmpire import</h2>
-        <p class="panel-subtitle">Pull a much larger CS2 skin catalog directly from PriceEmpire using an API key. The key is sent only for this import request and is not written into the repo.</p>
+        <h2 class="panel-title">Manual catalog workflow</h2>
+        <p class="panel-subtitle">The simulator seeds a researched built-in catalog for the requested CS2 cases, and nothing auto-syncs after that. Upload your own text file if you want to wipe and replace the catalog, then use the buttons below whenever you want to refresh saved Steam prices or images.</p>
         <div class="admin-stack">
-          <label class="muted">API key
-            <input id="pricempire-api-key" class="form-input" type="password" placeholder="Paste PriceEmpire API key" />
+          <label class="muted">
+            <input id="reset-catalog-on-upload" type="checkbox" checked />
+            Wipe and rebuild the CS2 catalog on upload
           </label>
           <div class="inv-actions" style="justify-content:flex-start">
-            <label class="muted">Limit (optional for smaller test imports)
-              <input id="pricempire-import-limit" class="form-input" type="number" min="0" step="1" value="0" style="max-width:120px;margin-left:8px" />
-            </label>
-            <button type="button" class="btn btn-primary" id="run-pricempire-import">Import skins from PriceEmpire</button>
-            <button type="button" class="btn" id="run-master-catalog-import">Import bundled CS2 catalog</button>
+            <button type="button" class="btn btn-primary" id="update-all-prices">Update all saved prices</button>
+            <button type="button" class="btn" id="update-skin-prices">Update skins/knives only</button>
+            <button type="button" class="btn" id="update-case-prices">Update cases only</button>
           </div>
         </div>
       </section>
 
       <section class="panel mt-24">
-        <h2 class="panel-title">Upload skin file</h2>
-        <p class="panel-subtitle">Upload a text file and import skins directly into the CS2 database. Supported formats: <code>Case: Name</code> headings followed by <code>Weapon | Skin | Rarity</code>, or one row per line like <code>Case | Weapon | Skin | Rarity | Wear | Market Hash</code>.</p>
+        <h2 class="panel-title">Upload case-opener text file</h2>
+        <p class="panel-subtitle">Upload the fixed list of skins you want available in the case opener. Supported formats: <code>Case: Name</code> headings followed by <code>Weapon | Skin | Rarity</code>, or one row per line like <code>Case | Weapon | Skin | Rarity | Wear | Market Hash</code>. During import, the admin tool will fetch and save the image plus one stored market price for each case and skin.</p>
         <div class="admin-stack">
           <input id="skins-upload-file" class="form-input" type="file" accept=".txt,.csv,.tsv,.log,text/plain" />
           <div class="inv-actions" style="justify-content:flex-start">
@@ -686,12 +685,12 @@
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text, reset_catalog: document.getElementById("reset-catalog-on-upload")?.checked !== false })
         });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) { showMessage("error", data?.error || "Upload failed."); return; }
         const stats = data.stats || {};
-        showMessage("success", `${data.message || "Upload complete."} Cases: ${stats.cases_created || 0}, skins: ${stats.skins_upserted || 0}, assignments: ${stats.assignments_created || 0}.`);
+        showMessage("success", `${data.message || "Upload complete."} Cases: ${stats.cases_created || 0}, skins: ${stats.skins_upserted || 0}, assignments: ${stats.assignments_created || 0}, reset: ${stats.catalog_reset ? "yes" : "no"}.`);
         await loadCases();
       } catch {
         showMessage("error", "Upload failed.");
@@ -700,43 +699,31 @@
       }
     });
 
-    document.getElementById("run-master-catalog-import")?.addEventListener("click", async () => {
-      const btn = document.getElementById("run-master-catalog-import");
+    async function runPriceUpdate(target, buttonId) {
+      const btn = document.getElementById(buttonId);
       if (!btn) return;
       btn.disabled = true;
       try {
-        const response = await fetch('/api/cs2/admin/catalog/import', { method: 'POST', credentials: 'same-origin' });
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) { showMessage("error", data?.error || "Bundled import failed."); return; }
-        showMessage("success", data.message || "Bundled catalog imported.");
-      } catch {
-        showMessage("error", "Bundled import failed.");
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    document.getElementById("run-pricempire-import")?.addEventListener("click", async () => {
-      const btn = document.getElementById("run-pricempire-import");
-      const apiKey = document.getElementById("pricempire-api-key")?.value?.trim();
-      const limit = Number(document.getElementById("pricempire-import-limit")?.value || 0);
-      if (!apiKey) { showMessage("error", "Paste a PriceEmpire API key first."); return; }
-      btn.disabled = true;
-      try {
-        const response = await fetch('/api/cs2/admin/pricempire/import', {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: apiKey, limit })
+        const response = await fetch('/api/cs2/admin/prices/update', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target })
         });
         const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'PriceEmpire import failed.'); return; }
-        showMessage('success', data.message || 'PriceEmpire import complete.');
+        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Price update failed.'); return; }
+        showMessage('success', data.message || 'Saved prices refreshed.');
         await loadCases();
       } catch {
-        showMessage('error', 'PriceEmpire import failed.');
+        showMessage('error', 'Price update failed.');
       } finally {
         btn.disabled = false;
       }
-    });
+    }
+
+    document.getElementById("update-all-prices")?.addEventListener("click", () => runPriceUpdate("all", "update-all-prices"));
+    document.getElementById("update-skin-prices")?.addEventListener("click", () => runPriceUpdate("skins", "update-skin-prices"));
+    document.getElementById("update-case-prices")?.addEventListener("click", () => runPriceUpdate("cases", "update-case-prices"));
 
 
     document.getElementById("bulk-refresh-skins")?.addEventListener("click", async () => {

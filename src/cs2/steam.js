@@ -66,24 +66,8 @@ export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date
     return Number(cached.price_pence) || null;
   }
 
-  const live = await fetchSteamPricePence(marketHashName);
-  const stamp = currentBucket;
-
+  const live = await fetchAndStoreItemPricePence(env, marketHashName, nowMs);
   if (live != null && live > 0) {
-    await env.CASES_DB.prepare(`
-      INSERT INTO market_price_cache (market_hash_name, price_pence, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(market_hash_name) DO UPDATE SET
-        price_pence = excluded.price_pence,
-        updated_at = excluded.updated_at
-    `).bind(marketHashName, live, stamp).run();
-    await env.CASES_DB.prepare(`
-      INSERT INTO market_price_history (market_hash_name, price_pence, bucket_started_at, updated_at)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(market_hash_name, bucket_started_at) DO UPDATE SET
-        price_pence = excluded.price_pence,
-        updated_at = excluded.updated_at
-    `).bind(marketHashName, live, stamp, new Date(nowMs).toISOString()).run();
     return live;
   }
 
@@ -117,6 +101,34 @@ export function getPriceBucketIso(nowMs = Date.now()) {
   const day = date.getUTCDate();
   const hour = date.getUTCHours() >= 12 ? 12 : 0;
   return new Date(Date.UTC(year, month, day, hour, 0, 0, 0)).toISOString();
+}
+
+
+export async function fetchAndStoreItemPricePence(env, marketHashName, nowMs = Date.now()) {
+  if (!env.CASES_DB || !marketHashName) return null;
+
+  const live = await fetchSteamPricePence(marketHashName);
+  const stamp = getPriceBucketIso(nowMs);
+
+  if (live != null && live > 0) {
+    await env.CASES_DB.prepare(`
+      INSERT INTO market_price_cache (market_hash_name, price_pence, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(market_hash_name) DO UPDATE SET
+        price_pence = excluded.price_pence,
+        updated_at = excluded.updated_at
+    `).bind(marketHashName, live, stamp).run();
+    await env.CASES_DB.prepare(`
+      INSERT INTO market_price_history (market_hash_name, price_pence, bucket_started_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(market_hash_name, bucket_started_at) DO UPDATE SET
+        price_pence = excluded.price_pence,
+        updated_at = excluded.updated_at
+    `).bind(marketHashName, live, stamp, new Date(nowMs).toISOString()).run();
+    return live;
+  }
+
+  return null;
 }
 
 /**
