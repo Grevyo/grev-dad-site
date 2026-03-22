@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GV slot machine | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/gambling-wallet.js" defer></script>
+  <style>
+    .slot-shell { display:grid; gap:24px; }
+    .slot-hero { background:linear-gradient(140deg, rgba(245,158,11,0.2), rgba(15,23,42,0.96)), radial-gradient(circle at top right, rgba(168,85,247,0.18), transparent 35%); }
+    .slot-layout { display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(300px, .85fr); gap:18px; }
+    .slot-card, .info-card, .payline-card, .art-card { border:1px solid var(--border); border-radius:20px; background:rgba(255,255,255,0.04); }
+    .slot-card, .info-card, .payline-card { padding:18px; }
+    .slot-machine { display:grid; gap:16px; }
+    .reel-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
+    .reel { min-height:130px; border-radius:18px; border:1px solid rgba(255,255,255,0.12); background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(15,23,42,0.9)); display:grid; place-items:center; padding:16px; text-align:center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+    .reel .icon { font-size:2.8rem; display:block; margin-bottom:8px; }
+    .reel .label { font-weight:800; letter-spacing:.04em; }
+    .reel .meta { color:var(--muted); font-size:.86rem; margin-top:6px; }
+    .control-row, .stake-grid, .gallery-grid { display:flex; gap:12px; flex-wrap:wrap; }
+    .stake-grid, .gallery-grid { display:grid; }
+    .stake-grid { grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); }
+    .gallery-grid { grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); }
+    .stake-btn { width:100%; justify-content:center; }
+    .stake-btn.active { border-color:#f59e0b; background:rgba(245,158,11,0.14); color:#fff7ed; }
+    .result-banner { padding:14px 16px; border-radius:16px; background:rgba(15,23,42,0.68); border:1px solid rgba(255,255,255,0.08); }
+    .stat-line { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.08); }
+    .stat-line:last-child { border-bottom:0; }
+    .payline-card strong { display:block; margin-bottom:4px; }
+    .art-card { overflow:hidden; min-height:120px; }
+    .art-card img { display:block; width:100%; height:100%; object-fit:cover; }
+    .caption { padding:10px 12px; color:var(--muted); font-size:.85rem; }
+    .tiny { font-size:.84rem; color:var(--muted); }
+    @media (max-width: 960px) { .slot-layout { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main slot-shell">
+      <section class="panel slot-hero">
+        <p class="gambling-breadcrumb"><a href="/gambling/casino/index.html">← Casino game hub</a></p>
+        <h1 class="panel-title">GV slot machine</h1>
+        <p class="panel-subtitle">
+          This Grev.dad slot uses the imported <code>public/gambling/casino</code> repo assets for presentation,
+          while all rewards are converted into <strong>GV</strong> — Grev Coin values displayed in GBP-style amounts.
+        </p>
+        <div id="gambling-wallet-mount"></div>
+      </section>
+
+      <section class="slot-layout">
+        <article class="slot-card slot-machine">
+          <div>
+            <div class="badge">Repo-inspired demo</div>
+            <h2 style="margin:12px 0 8px;">Spin the reels</h2>
+            <p class="tiny">Stake sizes, results, and prize ladder all show <strong>£x.xx GV</strong> formatting so they read like Great British Pound values inside the Grev Coins economy.</p>
+          </div>
+          <div id="result-banner" class="result-banner">Choose a stake and hit spin to start the GV slot machine.</div>
+          <div id="reel-grid" class="reel-grid" aria-live="polite"></div>
+          <div>
+            <div class="tiny" style="margin-bottom:10px;">Choose your stake</div>
+            <div id="stake-grid" class="stake-grid"></div>
+          </div>
+          <div class="control-row">
+            <button id="spin-button" class="btn btn-primary" type="button">Spin</button>
+            <button id="auto-spin-button" class="btn" type="button">Auto spin ×5</button>
+          </div>
+        </article>
+
+        <aside style="display:grid; gap:18px;">
+          <article class="info-card">
+            <h2 style="margin-top:0;">Session totals</h2>
+            <div class="stat-line"><span>Current stake</span><strong id="current-stake">£1.00 GV</strong></div>
+            <div class="stat-line"><span>Total spins</span><strong id="total-spins">0</strong></div>
+            <div class="stat-line"><span>Total staked</span><strong id="total-staked">£0.00 GV</strong></div>
+            <div class="stat-line"><span>Total won</span><strong id="total-won">£0.00 GV</strong></div>
+            <div class="stat-line"><span>Net</span><strong id="net-result">£0.00 GV</strong></div>
+          </article>
+          <article class="info-card">
+            <h2 style="margin-top:0;">How prizes work</h2>
+            <p class="tiny">GV means Grev Coin value, formatted like GBP. Example: <strong>£5.00 GV</strong> means a five-pound-style Grev Coin payout.</p>
+            <p class="tiny">Three matching symbols pay the full ladder, two matching symbols pay a small save, and any crown symbol offers a wild recovery prize.</p>
+          </article>
+        </aside>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">GV payout ladder</h2>
+        <div id="paytable" class="stake-grid"></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Imported repo artwork</h2>
+        <p class="panel-subtitle">These screenshots come directly from the local files already stored in <code>public/gambling/casino/docs/images/games</code>.</p>
+        <div class="gallery-grid">
+          <figure class="art-card"><img src="/gambling/casino/docs/images/games/slot-game-2.png" alt="Imported slot game screenshot 2" /><figcaption class="caption">Reference slot artwork 2</figcaption></figure>
+          <figure class="art-card"><img src="/gambling/casino/docs/images/games/slot-game-4.png" alt="Imported slot game screenshot 4" /><figcaption class="caption">Reference slot artwork 4</figcaption></figure>
+          <figure class="art-card"><img src="/gambling/casino/docs/images/games/slot-game-7.png" alt="Imported slot game screenshot 7" /><figcaption class="caption">Reference slot artwork 7</figcaption></figure>
+          <figure class="art-card"><img src="/gambling/casino/docs/images/games/slot-game-11.png" alt="Imported slot game screenshot 11" /><figcaption class="caption">Reference slot artwork 11</figcaption></figure>
+        </div>
+      </section>
+    </main>
+  </div>
+<script>
+const symbols = [
+  { key:'crown', icon:'👑', label:'Crown', weight:1, triple:2500, pair:500, wild:50 },
+  { key:'seven', icon:'7️⃣', label:'Seven', weight:2, triple:1500, pair:300, wild:0 },
+  { key:'coin', icon:'🪙', label:'GV Coin', weight:3, triple:900, pair:180, wild:0 },
+  { key:'diamond', icon:'💎', label:'Diamond', weight:3, triple:700, pair:140, wild:0 },
+  { key:'star', icon:'⭐', label:'Star', weight:4, triple:500, pair:100, wild:0 },
+  { key:'clover', icon:'🍀', label:'Clover', weight:5, triple:350, pair:75, wild:0 }
+];
+const stakes = [100, 200, 500, 1000];
+const state = { stake: 100, spins: 0, staked: 0, won: 0, autoSpinsRemaining: 0, spinning: false };
+const reelGrid = document.getElementById('reel-grid');
+const stakeGrid = document.getElementById('stake-grid');
+const paytable = document.getElementById('paytable');
+const resultBanner = document.getElementById('result-banner');
+const spinButton = document.getElementById('spin-button');
+const autoSpinButton = document.getElementById('auto-spin-button');
+function formatGV(pence){ return `£${(Number(pence||0)/100).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2})} GV`; }
+function weightedPick(){
+  const pool = symbols.flatMap((symbol)=>Array.from({length:symbol.weight},()=>symbol));
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function renderReels(reels){
+  reelGrid.innerHTML = reels.map((symbol)=>`<div class="reel"><span class="icon">${symbol.icon}</span><span class="label">${symbol.label}</span><span class="meta">${formatGV(state.stake)}</span></div>`).join('');
+}
+function updateStats(){
+  document.getElementById('current-stake').textContent = formatGV(state.stake);
+  document.getElementById('total-spins').textContent = String(state.spins);
+  document.getElementById('total-staked').textContent = formatGV(state.staked);
+  document.getElementById('total-won').textContent = formatGV(state.won);
+  const net = state.won - state.staked;
+  const netEl = document.getElementById('net-result');
+  netEl.textContent = `${net >= 0 ? '+' : '-'}${formatGV(Math.abs(net))}`;
+  netEl.style.color = net >= 0 ? '#86efac' : '#fca5a5';
+  [...stakeGrid.querySelectorAll('button')].forEach((button)=>button.classList.toggle('active', Number(button.dataset.stake) === state.stake));
+}
+function renderStakeButtons(){
+  stakeGrid.innerHTML = stakes.map((stake)=>`<button type="button" class="btn stake-btn${stake === state.stake ? ' active' : ''}" data-stake="${stake}">${formatGV(stake)}</button>`).join('');
+  stakeGrid.querySelectorAll('button').forEach((button)=>{
+    button.addEventListener('click', ()=>{
+      if (state.spinning) return;
+      state.stake = Number(button.dataset.stake);
+      updateStats();
+    });
+  });
+}
+function renderPaytable(){
+  paytable.innerHTML = symbols.map((symbol)=>`<article class="payline-card"><strong>${symbol.icon} ${symbol.label}</strong><div class="tiny">3x match: ${formatGV(symbol.triple)}</div><div class="tiny">2x match: ${formatGV(symbol.pair)}</div>${symbol.wild ? `<div class="tiny">Wild save: ${formatGV(symbol.wild)}</div>` : ''}</article>`).join('');
+}
+function evaluate(reels){
+  const counts = reels.reduce((map, symbol)=>{ map[symbol.key] = (map[symbol.key] || 0) + 1; return map; }, {});
+  const triple = Object.keys(counts).find((key)=>counts[key] === 3);
+  if (triple) {
+    const symbol = symbols.find((entry)=>entry.key === triple);
+    return { payout: symbol.triple, message: `Jackpot hit — ${symbol.label} x3 pays ${formatGV(symbol.triple)}.` };
+  }
+  const pair = Object.keys(counts).find((key)=>counts[key] === 2);
+  if (pair) {
+    const symbol = symbols.find((entry)=>entry.key === pair);
+    return { payout: symbol.pair, message: `${symbol.label} x2 returns ${formatGV(symbol.pair)}.` };
+  }
+  const crown = reels.find((symbol)=>symbol.key === 'crown');
+  if (crown) return { payout: crown.wild, message: `Wild crown save awards ${formatGV(crown.wild)}.` };
+  return { payout: 0, message: 'No payout this spin — try another GV stake.' };
+}
+async function runSpin(){
+  if (state.spinning) return;
+  state.spinning = true;
+  spinButton.disabled = true;
+  autoSpinButton.disabled = true;
+  resultBanner.textContent = 'Reels spinning…';
+  const animationFrames = 8;
+  for (let i = 0; i < animationFrames; i += 1) {
+    renderReels([weightedPick(), weightedPick(), weightedPick()]);
+    await new Promise((resolve)=>setTimeout(resolve, 90 + i * 18));
+  }
+  const finalReels = [weightedPick(), weightedPick(), weightedPick()];
+  renderReels(finalReels);
+  const outcome = evaluate(finalReels);
+  state.spins += 1;
+  state.staked += state.stake;
+  state.won += outcome.payout;
+  resultBanner.textContent = `${outcome.message} Stake ${formatGV(state.stake)}.`;
+  updateStats();
+  state.spinning = false;
+  spinButton.disabled = false;
+  autoSpinButton.disabled = false;
+  if (state.autoSpinsRemaining > 0) {
+    state.autoSpinsRemaining -= 1;
+    await new Promise((resolve)=>setTimeout(resolve, 260));
+    runSpin();
+  }
+}
+spinButton.addEventListener('click', ()=>runSpin());
+autoSpinButton.addEventListener('click', ()=>{ if (state.spinning) return; state.autoSpinsRemaining = 5; runSpin(); });
+renderStakeButtons();
+renderPaytable();
+renderReels([{ icon:'👑', label:'Crown', key:'crown' }, { icon:'7️⃣', label:'Seven', key:'seven' }, { icon:'🪙', label:'GV Coin', key:'coin' }]);
+updateStats();
+</script>
+</body>
+</html>
