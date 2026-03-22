@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact | Grev.dad</title>
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <script src="/assets/js/main.js" defer></script>
+  <script src="/assets/js/contact-form.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <section class="panel" style="max-width: 720px; margin: 0 auto;">
+        <h1 class="auth-title">Contact</h1>
+        <p class="auth-subtitle">Use this form to send a site message without exposing your email address on the page.</p>
+        <div id="contact-message" class="hidden"></div>
+        <form id="contact-form" class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="contact-name">Name</label>
+            <input class="form-input" id="contact-name" name="name" maxlength="80" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="contact-email">Email</label>
+            <input class="form-input" id="contact-email" name="email" type="email" maxlength="120" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="contact-message-input">Message</label>
+            <textarea class="form-textarea" id="contact-message-input" name="message" rows="6" maxlength="4000" required></textarea>
+          </div>
+          <div class="button-row">
+            <button class="btn btn-primary" type="submit">Send message</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

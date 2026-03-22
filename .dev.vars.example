@@ -1,0 +1,2 @@
+# Copy to .dev.vars and fill with local-only values.
+CONTACT_EMAIL=owner@example.com
