@@ -13,7 +13,7 @@ async function ensureColumn(db, tableName, columnName, columnDefinition) {
   }
 }
 
-export async function ensureYgoTables(db) {
+export async function ensureYgoTables(db, walletDb = db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS ygo_pack_definitions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,7 +155,7 @@ export async function ensureYgoTables(db) {
     )
   `).run();
 
-  await ensureColumn(db, 'case_profiles', 'balance', 'INTEGER NOT NULL DEFAULT 500000');
+  await ensureColumn(walletDb, 'case_profiles', 'balance', 'INTEGER NOT NULL DEFAULT 500000');
   await ensureColumn(db, 'ygo_cards', 'drop_weight', 'INTEGER NOT NULL DEFAULT 0');
 
   const now = isoNow();

@@ -67,6 +67,17 @@
       </section>
 
       <section class="panel mt-24">
+        <h2 class="panel-title">Upload skin file</h2>
+        <p class="panel-subtitle">Upload a text file and import skins directly into the CS2 database. Supported formats: <code>Case: Name</code> headings followed by <code>Weapon | Skin | Rarity</code>, or one row per line like <code>Case | Weapon | Skin | Rarity | Wear | Market Hash</code>.</p>
+        <div class="admin-stack">
+          <input id="skins-upload-file" class="form-input" type="file" accept=".txt,.csv,.tsv,.log,text/plain" />
+          <div class="inv-actions" style="justify-content:flex-start">
+            <button type="button" class="btn btn-primary" id="run-skins-upload">Upload skins file</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel mt-24">
         <h2 class="panel-title">Quick sell fee</h2>
         <p class="panel-subtitle">Players receive (100 − fee)% of the live market reference when quick selling. Default 10% fee → 90% payout.</p>
         <div class="inv-actions" style="align-items:center;margin-bottom:16px">
@@ -95,11 +106,23 @@
 
       <section class="panel mt-24">
         <h2 class="panel-title">Cases admin</h2>
+        <div class="admin-stack" style="margin-bottom:16px">
+          <div class="user-balance-row" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+            <label class="muted">Case name<input id="new-case-name" class="form-input" type="text" placeholder="Revolution Case" /></label>
+            <label class="muted">Slug<input id="new-case-slug" class="form-input" type="text" placeholder="revolution-case" /></label>
+            <label class="muted">Price (GC)<input id="new-case-price" class="form-input" type="number" min="0.01" step="0.01" placeholder="2.99" /></label>
+            <label class="muted">Steam market hash<input id="new-case-market-hash" class="form-input" type="text" placeholder="Revolution Case" /></label>
+          </div>
+          <label class="muted">Description<input id="new-case-description" class="form-input" type="text" placeholder="Simulated case description" /></label>
+          <div class="inv-actions" style="justify-content:flex-start">
+            <button type="button" class="btn btn-primary" id="create-case-btn">Create case</button>
+          </div>
+        </div>
         <div id="case-admin-list"></div>
       </section>
 
       <section class="panel mt-24">
-        <h2 class="panel-title">Blackjack admin</h2><p class="panel-subtitle">Blackjack room logic is still pending, but event payout boosts can already be configured below.</p></section>
+        <h2 class="panel-title">Blackjack admin</h2><p class="panel-subtitle">Live blackjack rooms now use the shared Grev Coins wallet. Configure site-wide payout boosts in the event panel below.</p></section>
 
       <section class="panel mt-24">
         <h2 class="panel-title">Yu-Gi-Oh admin</h2>
@@ -344,22 +367,57 @@
         }
         const cases = data.cases || [];
         caseAdminList.innerHTML = cases.map((c) => `
-          <div class="case-admin-row" data-case-id="${c.id}">
-            <div>
-              <strong>${escapeHtml(c.case_name)}</strong>
-              <div class="muted">${escapeHtml(c.slug || "")}</div>
+          <div class="panel" data-case-id="${c.id}" style="padding:16px">
+            <div class="case-admin-row">
+              <div>
+                <strong>${escapeHtml(c.case_name)}</strong>
+                <div class="muted">${escapeHtml(c.slug || "")}</div>
+                <div class="muted">${Number(c.drop_count || 0)} skins assigned · ${(c.preview_drops || []).length} shown below</div>
+              </div>
+              <label class="muted"><input type="checkbox" data-toggle ${Number(c.is_active) ? "checked" : ""} /> Active</label>
+              <input class="form-input" type="number" min="1" data-fallback value="${Number(c.fallback_price_pence || c.price || 0)}" />
+              <div class="inv-actions" style="justify-content:flex-end">
+                <button type="button" class="btn btn-primary" data-save>Save</button>
+                <button type="button" class="btn" data-delete>Delete case</button>
+              </div>
             </div>
-            <label class="muted"><input type="checkbox" data-toggle ${Number(c.is_active) ? "checked" : ""} /> Active</label>
-            <input class="form-input" type="number" min="1" data-fallback value="${Number(c.fallback_price_pence || c.price || 0)}" />
-            <button type="button" class="btn btn-primary" data-save>Save</button>
+            <div class="admin-stack" style="margin-top:14px">
+              <div>
+                <strong>Skins in this case</strong>
+                <div class="muted" style="margin-top:6px">${(c.preview_drops || []).length ? '' : 'No skins assigned yet.'}</div>
+                <div class="admin-stack" style="margin-top:10px">
+                  ${(c.preview_drops || []).map((drop) => `
+                    <div class="case-admin-row" style="grid-template-columns:minmax(0,1.5fr) 130px auto">
+                      <div><strong>${escapeHtml(drop.item_name || 'Unknown skin')}</strong><div class="muted">${escapeHtml(drop.rarity || '')}${drop.wear ? ` · ${escapeHtml(drop.wear)}` : ''}</div></div>
+                      <div class="muted">${Number(drop.drop_weight || 0)} weight</div>
+                      <div class="inv-actions" style="justify-content:flex-end"><button type="button" class="btn" data-remove-skin="${c.id}:${drop.id}">Remove</button></div>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+              <div class="admin-stack" style="gap:10px">
+                <strong>Assign skin to this case</strong>
+                <div class="user-balance-row" style="grid-template-columns:minmax(0,1.6fr) 120px auto">
+                  <input class="form-input" type="search" data-skin-search placeholder="Search skins to add..." />
+                  <input class="form-input" type="number" min="1" step="1" value="1" data-drop-weight />
+                  <button type="button" class="btn" data-find-skins>Search</button>
+                </div>
+                <div class="admin-stack" data-skin-results></div>
+              </div>
+            </div>
           </div>
         `).join("");
 
-        caseAdminList.querySelectorAll(".case-admin-row").forEach((row) => {
+        caseAdminList.querySelectorAll("[data-case-id]").forEach((row) => {
           const id = Number(row.getAttribute("data-case-id"));
           const saveBtn = row.querySelector("[data-save]");
+          const deleteBtn = row.querySelector("[data-delete]");
           const toggle = row.querySelector("[data-toggle]");
           const fallback = row.querySelector("[data-fallback]");
+          const skinSearch = row.querySelector("[data-skin-search]");
+          const dropWeight = row.querySelector("[data-drop-weight]");
+          const findSkinsBtn = row.querySelector("[data-find-skins]");
+          const skinResults = row.querySelector("[data-skin-results]");
 
           saveBtn.addEventListener("click", async () => {
             saveBtn.disabled = true;
@@ -381,6 +439,92 @@
               showMessage("error", "Save failed.");
             } finally {
               saveBtn.disabled = false;
+            }
+          });
+
+          deleteBtn?.addEventListener("click", async () => {
+            if (!confirm("Delete this case and its case-drop assignments?")) return;
+            deleteBtn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/admin/cases/delete", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ case_id: id })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) { showMessage("error", data?.error || "Delete failed."); return; }
+              showMessage("success", data.message || "Case deleted.");
+              await loadCases();
+            } catch {
+              showMessage("error", "Delete failed.");
+            } finally {
+              deleteBtn.disabled = false;
+            }
+          });
+
+          findSkinsBtn?.addEventListener("click", async () => {
+            const query = skinSearch?.value?.trim() || "";
+            skinResults.innerHTML = `<div class="muted">Searching skins…</div>`;
+            try {
+              const response = await fetch(`/api/cs2/admin/skins/search?q=${encodeURIComponent(query)}`, { credentials: "same-origin" });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) { skinResults.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Search failed.")}</div>`; return; }
+              const items = data.items || [];
+              skinResults.innerHTML = items.length ? items.slice(0, 20).map((item) => `
+                <div class="case-admin-row" style="grid-template-columns:minmax(0,1.6fr) 120px auto">
+                  <div><strong>${escapeHtml(item.item_name || "")}</strong><div class="muted">${escapeHtml(item.rarity || "")}${item.wear ? ` · ${escapeHtml(item.wear)}` : ""}</div></div>
+                  <div class="muted">#${Number(item.id)}</div>
+                  <div class="inv-actions" style="justify-content:flex-end"><button type="button" class="btn btn-primary" data-assign-skin="${Number(item.id)}">Add to case</button></div>
+                </div>
+              `).join("") : `<div class="muted">No skins found.</div>`;
+
+              skinResults.querySelectorAll("[data-assign-skin]").forEach((btn) => {
+                btn.addEventListener("click", async () => {
+                  btn.disabled = true;
+                  try {
+                    const response = await fetch("/api/cs2/admin/cases/assign-skin", {
+                      method: "POST",
+                      credentials: "same-origin",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ case_id: id, item_id: Number(btn.getAttribute("data-assign-skin")), drop_weight: Number(dropWeight?.value || 1) })
+                    });
+                    const data = await response.json().catch(() => null);
+                    if (!response.ok || !data?.success) { showMessage("error", data?.error || "Assign failed."); return; }
+                    showMessage("success", data.message || "Skin assigned.");
+                    await loadCases();
+                  } catch {
+                    showMessage("error", "Assign failed.");
+                  } finally {
+                    btn.disabled = false;
+                  }
+                });
+              });
+            } catch {
+              skinResults.innerHTML = `<div class="alert alert-error">Search failed.</div>`;
+            }
+          });
+        });
+
+        caseAdminList.querySelectorAll("[data-remove-skin]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const [caseId, itemId] = String(btn.getAttribute("data-remove-skin") || "").split(":").map(Number);
+            btn.disabled = true;
+            try {
+              const response = await fetch("/api/cs2/admin/cases/remove-skin", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ case_id: caseId, item_id: itemId })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) { showMessage("error", data?.error || "Remove failed."); return; }
+              showMessage("success", data.message || "Skin removed.");
+              await loadCases();
+            } catch {
+              showMessage("error", "Remove failed.");
+            } finally {
+              btn.disabled = false;
             }
           });
         });
@@ -493,6 +637,59 @@
 
     document.getElementById("reload-users")?.addEventListener("click", () => loadUsers(userSearch.value.trim()));
     userSearch?.addEventListener("input", () => loadUsers(userSearch.value.trim()));
+
+    document.getElementById("create-case-btn")?.addEventListener("click", async () => {
+      const btn = document.getElementById("create-case-btn");
+      btn.disabled = true;
+      try {
+        const response = await fetch("/api/cs2/admin/cases/create", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            case_name: document.getElementById("new-case-name")?.value?.trim(),
+            slug: document.getElementById("new-case-slug")?.value?.trim(),
+            steam_market_hash_name: document.getElementById("new-case-market-hash")?.value?.trim(),
+            description: document.getElementById("new-case-description")?.value?.trim(),
+            fallback_price_pence: Math.round(Number(document.getElementById("new-case-price")?.value || 0) * 100)
+          })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage("error", data?.error || "Could not create case."); return; }
+        showMessage("success", data.message || "Case created.");
+        await loadCases();
+      } catch {
+        showMessage("error", "Could not create case.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("run-skins-upload")?.addEventListener("click", async () => {
+      const btn = document.getElementById("run-skins-upload");
+      const fileInput = document.getElementById("skins-upload-file");
+      const file = fileInput?.files?.[0];
+      if (!file) { showMessage("error", "Pick a text file first."); return; }
+      btn.disabled = true;
+      try {
+        const text = await file.text();
+        const response = await fetch("/api/cs2/admin/catalog/upload", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage("error", data?.error || "Upload failed."); return; }
+        const stats = data.stats || {};
+        showMessage("success", `${data.message || "Upload complete."} Cases: ${stats.cases_created || 0}, skins: ${stats.skins_upserted || 0}, assignments: ${stats.assignments_created || 0}.`);
+        await loadCases();
+      } catch {
+        showMessage("error", "Upload failed.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
     document.getElementById("run-master-catalog-import")?.addEventListener("click", async () => {
       const btn = document.getElementById("run-master-catalog-import");

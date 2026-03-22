@@ -7,6 +7,8 @@ import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
 import { ensureCs2Extensions } from "./cs2/schema.js";
 import { ensureYgoTables } from "./ygo/schema.js";
 import { handleYgoRequest } from "./ygo/handlers.js";
+import { ensureBlackjackTables } from "./blackjack/schema.js";
+import { handleBlackjackRequest } from "./blackjack/handlers.js";
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
 
 export default {
@@ -201,6 +203,17 @@ async function handleRequest(request, env, ctx) {
       safeJson
     });
     if (ygoResponse) return ygoResponse;
+  }
+
+  if (pathname.startsWith("/api/blackjack")) {
+    await ensureCasesCatalogReady(env);
+    const blackjackResponse = await handleBlackjackRequest(request, env, {
+      json,
+      getApprovedUser,
+      isoNow,
+      safeJson
+    });
+    if (blackjackResponse) return blackjackResponse;
   }
 
   // Admin
@@ -540,8 +553,10 @@ async function ensureCasesTables(env) {
   await env.CASES_DB.prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
   await env.CASES_DB.prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
 
+  const ygoDb = env.YGO_DB || env.CASES_DB;
   await ensureCs2Extensions(env.CASES_DB);
-  await ensureYgoTables(env.CASES_DB);
+  await ensureYgoTables(ygoDb, env.CASES_DB);
+  await ensureBlackjackTables(env);
 }
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
@@ -1628,7 +1643,13 @@ async function handleAdminUsers(request, env) {
       u.created_at,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     ORDER BY LOWER(u.username) ASC
@@ -1675,7 +1696,13 @@ async function handleAdminUser(request, env) {
       u.created_at,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = ?
@@ -1736,6 +1763,16 @@ async function handleAdminUpdateUser(request, env) {
   const gamblingAdmin = body?.gambling_admin;
   const requestedGroup = sanitiseGroupName(body?.group_name);
   const gamblingBalanceDelta = Number(body?.gambling_balance_delta ?? body?.case_balance_delta ?? 0);
+  const profileFields = {
+    real_name: typeof body?.real_name === "string" ? body.real_name.trim().slice(0, 80) : "",
+    motto: typeof body?.motto === "string" ? body.motto.trim().slice(0, 140) : "",
+    bio: typeof body?.bio === "string" ? body.bio.trim().slice(0, 3000) : "",
+    avatar_url: cleanUrl(body?.avatar_url, 1200),
+    media_1_url: cleanUrl(body?.media_1_url, 1200),
+    media_2_url: cleanUrl(body?.media_2_url, 1200),
+    media_3_url: cleanUrl(body?.media_3_url, 1200),
+    music_url: cleanUrl(body?.music_url, 1200)
+  };
 
   if (!Number.isInteger(userId) || userId <= 0) {
     return json({ success: false, error: "A valid user id is required" }, 400, request);
@@ -1789,6 +1826,28 @@ async function handleAdminUpdateUser(request, env) {
     WHERE id = ?
   `).bind(nextApproved ? 1 : 0, nextIsAdmin ? 1 : 0, nextGroup, Boolean(gamblingAdmin) ? 1 : 0, userId).run();
 
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO user_profiles (
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url
+    ) VALUES (?, '', '', '', '', '', '', '', '')
+  `).bind(userId).run();
+
+  await env.DB.prepare(`
+    UPDATE user_profiles
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = ?, media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?
+    WHERE user_id = ?
+  `).bind(
+    profileFields.real_name,
+    profileFields.motto,
+    profileFields.bio,
+    profileFields.avatar_url,
+    profileFields.media_1_url,
+    profileFields.media_2_url,
+    profileFields.media_3_url,
+    profileFields.music_url,
+    userId
+  ).run();
+
   let updatedBalance = null;
   if (nextBalance != null) {
     await env.CASES_DB.prepare(`
@@ -1811,7 +1870,13 @@ async function handleAdminUpdateUser(request, env) {
       u.created_at,
       u.last_seen_at,
       p.bio,
-      p.avatar_url
+      p.avatar_url,
+      p.real_name,
+      p.motto,
+      p.media_1_url,
+      p.media_2_url,
+      p.media_3_url,
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.id = ?
@@ -2098,7 +2163,13 @@ function formatAdminUserRow(row) {
     created_at: row.created_at || null,
     last_seen_at: row.last_seen_at || null,
     bio: row.bio || "",
-    avatar_url: row.avatar_url || ""
+    avatar_url: row.avatar_url || "",
+    real_name: row.real_name || "",
+    motto: row.motto || "",
+    media_1_url: row.media_1_url || "",
+    media_2_url: row.media_2_url || "",
+    media_3_url: row.media_3_url || "",
+    music_url: row.music_url || ""
   };
 }
 
