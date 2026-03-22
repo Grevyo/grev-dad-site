@@ -6,6 +6,7 @@ export const CS2_CASE_CATALOG = [
   { slug: "csgo-weapon-case", name: "CS:GO Weapon Case", steam_market_hash_name: "CS:GO Weapon Case", fallback_price_pence: 45000 },
   { slug: "esports-2013-case", name: "eSports 2013 Case", steam_market_hash_name: "eSports 2013 Case", fallback_price_pence: 120000 },
   { slug: "operation-bravo-case", name: "Operation Bravo Case", steam_market_hash_name: "Operation Bravo Case", fallback_price_pence: 180000 },
+  { slug: "contraband-case", name: "Contraband Case", steam_market_hash_name: "Contraband Case", fallback_price_pence: 95000 },
   { slug: "csgo-weapon-case-2", name: "CS:GO Weapon Case 2", steam_market_hash_name: "CS:GO Weapon Case 2", fallback_price_pence: 12000 },
   { slug: "csgo-weapon-case-3", name: "CS:GO Weapon Case 3", steam_market_hash_name: "CS:GO Weapon Case 3", fallback_price_pence: 12000 },
   { slug: "winter-offensive-weapon-case", name: "Winter Offensive Weapon Case", steam_market_hash_name: "Winter Offensive Weapon Case", fallback_price_pence: 35000 },
