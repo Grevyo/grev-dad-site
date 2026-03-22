@@ -34,16 +34,47 @@ function rarityColorHex(rarity) {
 
 function fallbackSkinValuePence(rarity) {
   const r = String(rarity || '').toLowerCase();
-  if (r.includes('special item')) return 475000;
-  if (r.includes('contraband')) return 500000;
-  if (r.includes('covert')) return 48000;
-  if (r.includes('classified')) return 12000;
-  if (r.includes('restricted')) return 3200;
-  if (r.includes('mil-spec')) return 850;
-  if (r.includes('industrial')) return 220;
-  if (r.includes('consumer')) return 80;
-  return 500;
+  if (r.includes('special item')) return 160000;
+  if (r.includes('contraband')) return 220000;
+  if (r.includes('covert')) return 30000;
+  if (r.includes('classified')) return 9000;
+  if (r.includes('restricted')) return 2600;
+  if (r.includes('mil-spec')) return 700;
+  if (r.includes('industrial')) return 180;
+  if (r.includes('consumer')) return 60;
+  return 400;
 }
+
+const CLASSIC_KNIFE_SPECIALS = [
+  { weapon_name: '★ Knife', skin_name: 'Blue Steel', rarity: 'Special Item', market_hash_name: '★ Knife | Blue Steel', fallback_price_pence: 90000 },
+  { weapon_name: '★ Knife', skin_name: 'Case Hardened', rarity: 'Special Item', market_hash_name: '★ Knife | Case Hardened', fallback_price_pence: 130000 },
+  { weapon_name: '★ Knife', skin_name: 'Crimson Web', rarity: 'Special Item', market_hash_name: '★ Knife | Crimson Web', fallback_price_pence: 180000 },
+  { weapon_name: '★ Knife', skin_name: 'Fade', rarity: 'Special Item', market_hash_name: '★ Knife | Fade', fallback_price_pence: 220000 },
+  { weapon_name: '★ Knife', skin_name: 'Forest DDPAT', rarity: 'Special Item', market_hash_name: '★ Knife | Forest DDPAT', fallback_price_pence: 70000 },
+  { weapon_name: '★ Knife', skin_name: 'Night', rarity: 'Special Item', market_hash_name: '★ Knife | Night', fallback_price_pence: 95000 },
+  { weapon_name: '★ Knife', skin_name: 'Safari Mesh', rarity: 'Special Item', market_hash_name: '★ Knife | Safari Mesh', fallback_price_pence: 70000 },
+  { weapon_name: '★ Knife', skin_name: 'Scorched', rarity: 'Special Item', market_hash_name: '★ Knife | Scorched', fallback_price_pence: 72000 },
+  { weapon_name: '★ Knife', skin_name: 'Slaughter', rarity: 'Special Item', market_hash_name: '★ Knife | Slaughter', fallback_price_pence: 180000 },
+  { weapon_name: '★ Knife', skin_name: 'Stained', rarity: 'Special Item', market_hash_name: '★ Knife | Stained', fallback_price_pence: 85000 },
+  { weapon_name: '★ Knife', skin_name: 'Urban Masked', rarity: 'Special Item', market_hash_name: '★ Knife | Urban Masked', fallback_price_pence: 76000 },
+  { weapon_name: '★ Knife', skin_name: 'Boreal Forest', rarity: 'Special Item', market_hash_name: '★ Knife | Boreal Forest', fallback_price_pence: 73000 }
+];
+
+const KUKRI_SPECIALS = [
+  { weapon_name: '★ Kukri Knife', skin_name: 'Blue Steel', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Blue Steel', fallback_price_pence: 110000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Case Hardened', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Case Hardened', fallback_price_pence: 150000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Crimson Web', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Crimson Web', fallback_price_pence: 170000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Fade', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Fade', fallback_price_pence: 210000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Forest DDPAT', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Forest DDPAT', fallback_price_pence: 95000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Night Stripe', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Night Stripe', fallback_price_pence: 98000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Safari Mesh', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Safari Mesh', fallback_price_pence: 90000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Scorched', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Scorched', fallback_price_pence: 90000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Slaughter', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Slaughter', fallback_price_pence: 190000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Stained', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Stained', fallback_price_pence: 105000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Urban Masked', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Urban Masked', fallback_price_pence: 96000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Boreal Forest', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Boreal Forest', fallback_price_pence: 94000 },
+  { weapon_name: '★ Kukri Knife', skin_name: 'Vanilla', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Vanilla', fallback_price_pence: 140000 }
+];
 
 function buildCaseDefinition(caseName, items, specialItems = []) {
   const fallback = CS2_CASE_CATALOG.find((entry) => entry.name === caseName);
@@ -69,26 +100,17 @@ export const CS2_CASE_ITEM_DEFINITIONS = [
     { weapon_name: 'MP7', skin_name: 'Skulls', rarity: 'Mil-Spec' },
     { weapon_name: 'SG 553', skin_name: 'Ultraviolet', rarity: 'Mil-Spec' },
     { weapon_name: 'AUG', skin_name: 'Wings', rarity: 'Mil-Spec' },
+    { weapon_name: 'P250', skin_name: 'Splash', rarity: 'Mil-Spec' },
+    { weapon_name: 'XM1014', skin_name: 'Blue Spruce', rarity: 'Mil-Spec' },
+    { weapon_name: 'Galil AR', skin_name: 'Blue Titanium', rarity: 'Mil-Spec' },
     { weapon_name: 'M4A1-S', skin_name: 'Dark Water', rarity: 'Restricted' },
     { weapon_name: 'USP-S', skin_name: 'Dark Water', rarity: 'Restricted' },
     { weapon_name: 'Glock-18', skin_name: 'Dragon Tattoo', rarity: 'Restricted' },
+    { weapon_name: 'M4A4', skin_name: 'X-Ray', rarity: 'Restricted' },
     { weapon_name: 'Desert Eagle', skin_name: 'Hypnotic', rarity: 'Classified' },
     { weapon_name: 'AK-47', skin_name: 'Case Hardened', rarity: 'Classified' },
     { weapon_name: 'AWP', skin_name: 'Lightning Strike', rarity: 'Covert' }
-  ], [
-    { weapon_name: '★ Knife', skin_name: 'Blue Steel', rarity: 'Special Item', market_hash_name: '★ Knife | Blue Steel', fallback_price_pence: 90000 },
-    { weapon_name: '★ Knife', skin_name: 'Case Hardened', rarity: 'Special Item', market_hash_name: '★ Knife | Case Hardened', fallback_price_pence: 130000 },
-    { weapon_name: '★ Knife', skin_name: 'Crimson Web', rarity: 'Special Item', market_hash_name: '★ Knife | Crimson Web', fallback_price_pence: 180000 },
-    { weapon_name: '★ Knife', skin_name: 'Fade', rarity: 'Special Item', market_hash_name: '★ Knife | Fade', fallback_price_pence: 220000 },
-    { weapon_name: '★ Knife', skin_name: 'Forest DDPAT', rarity: 'Special Item', market_hash_name: '★ Knife | Forest DDPAT', fallback_price_pence: 70000 },
-    { weapon_name: '★ Knife', skin_name: 'Night', rarity: 'Special Item', market_hash_name: '★ Knife | Night', fallback_price_pence: 95000 },
-    { weapon_name: '★ Knife', skin_name: 'Safari Mesh', rarity: 'Special Item', market_hash_name: '★ Knife | Safari Mesh', fallback_price_pence: 70000 },
-    { weapon_name: '★ Knife', skin_name: 'Scorched', rarity: 'Special Item', market_hash_name: '★ Knife | Scorched', fallback_price_pence: 72000 },
-    { weapon_name: '★ Knife', skin_name: 'Slaughter', rarity: 'Special Item', market_hash_name: '★ Knife | Slaughter', fallback_price_pence: 180000 },
-    { weapon_name: '★ Knife', skin_name: 'Stained', rarity: 'Special Item', market_hash_name: '★ Knife | Stained', fallback_price_pence: 85000 },
-    { weapon_name: '★ Knife', skin_name: 'Urban Masked', rarity: 'Special Item', market_hash_name: '★ Knife | Urban Masked', fallback_price_pence: 76000 },
-    { weapon_name: '★ Knife', skin_name: 'Boreal Forest', rarity: 'Special Item', market_hash_name: '★ Knife | Boreal Forest', fallback_price_pence: 73000 }
-  ]),
+  ], CLASSIC_KNIFE_SPECIALS),
   buildCaseDefinition('Operation Bravo Case', [
     { weapon_name: 'Nova', skin_name: 'Tempest', rarity: 'Mil-Spec' },
     { weapon_name: 'Dual Berettas', skin_name: 'Black Limba', rarity: 'Mil-Spec' },
@@ -105,19 +127,20 @@ export const CS2_CASE_ITEM_DEFINITIONS = [
     { weapon_name: 'AWP', skin_name: 'Graphite', rarity: 'Classified' },
     { weapon_name: 'Desert Eagle', skin_name: 'Golden Koi', rarity: 'Covert' },
     { weapon_name: 'AK-47', skin_name: 'Fire Serpent', rarity: 'Covert' }
-  ], [
-    { weapon_name: '★ Knife', skin_name: 'Blue Steel', rarity: 'Special Item', market_hash_name: '★ Knife | Blue Steel', fallback_price_pence: 90000 },
-    { weapon_name: '★ Knife', skin_name: 'Case Hardened', rarity: 'Special Item', market_hash_name: '★ Knife | Case Hardened', fallback_price_pence: 130000 },
-    { weapon_name: '★ Knife', skin_name: 'Crimson Web', rarity: 'Special Item', market_hash_name: '★ Knife | Crimson Web', fallback_price_pence: 180000 },
-    { weapon_name: '★ Knife', skin_name: 'Fade', rarity: 'Special Item', market_hash_name: '★ Knife | Fade', fallback_price_pence: 220000 },
-    { weapon_name: '★ Knife', skin_name: 'Forest DDPAT', rarity: 'Special Item', market_hash_name: '★ Knife | Forest DDPAT', fallback_price_pence: 70000 },
-    { weapon_name: '★ Knife', skin_name: 'Night', rarity: 'Special Item', market_hash_name: '★ Knife | Night', fallback_price_pence: 95000 },
-    { weapon_name: '★ Knife', skin_name: 'Safari Mesh', rarity: 'Special Item', market_hash_name: '★ Knife | Safari Mesh', fallback_price_pence: 70000 },
-    { weapon_name: '★ Knife', skin_name: 'Scorched', rarity: 'Special Item', market_hash_name: '★ Knife | Scorched', fallback_price_pence: 72000 },
-    { weapon_name: '★ Knife', skin_name: 'Slaughter', rarity: 'Special Item', market_hash_name: '★ Knife | Slaughter', fallback_price_pence: 180000 },
-    { weapon_name: '★ Knife', skin_name: 'Stained', rarity: 'Special Item', market_hash_name: '★ Knife | Stained', fallback_price_pence: 85000 },
-    { weapon_name: '★ Knife', skin_name: 'Urban Masked', rarity: 'Special Item', market_hash_name: '★ Knife | Urban Masked', fallback_price_pence: 76000 },
-    { weapon_name: '★ Knife', skin_name: 'Boreal Forest', rarity: 'Special Item', market_hash_name: '★ Knife | Boreal Forest', fallback_price_pence: 73000 }
+  ], CLASSIC_KNIFE_SPECIALS),
+  buildCaseDefinition('Contraband Case', [
+    { weapon_name: 'M4A4', skin_name: 'Howl', rarity: 'Contraband', fallback_price_pence: 450000 },
+    { weapon_name: 'AWP', skin_name: 'Dragon Lore', rarity: 'Covert', fallback_price_pence: 320000 },
+    { weapon_name: 'AK-47', skin_name: 'Wild Lotus', rarity: 'Covert', fallback_price_pence: 260000 },
+    { weapon_name: 'AWP', skin_name: 'Gungnir', rarity: 'Covert', fallback_price_pence: 240000 },
+    { weapon_name: 'M4A1-S', skin_name: 'Welcome to the Jungle', rarity: 'Covert', fallback_price_pence: 190000 },
+    { weapon_name: 'AWP', skin_name: 'Medusa', rarity: 'Classified', fallback_price_pence: 180000 },
+    { weapon_name: 'AK-47', skin_name: 'X-Ray', rarity: 'Classified', fallback_price_pence: 170000 },
+    { weapon_name: 'M4A4', skin_name: 'Poseidon', rarity: 'Classified', fallback_price_pence: 150000 },
+    { weapon_name: 'AK-47', skin_name: 'Hydroponic', rarity: 'Classified', fallback_price_pence: 125000 },
+    { weapon_name: 'Desert Eagle', skin_name: 'Blaze', rarity: 'Classified', fallback_price_pence: 110000 },
+    { weapon_name: 'MP9', skin_name: 'Bulldozer', rarity: 'Restricted', fallback_price_pence: 32000 },
+    { weapon_name: 'AUG', skin_name: 'Akihabara Accept', rarity: 'Covert', fallback_price_pence: 150000 }
   ]),
   buildCaseDefinition('Kilowatt Case', [
     { weapon_name: 'Nova', skin_name: 'Dark Sigil', rarity: 'Mil-Spec' },
@@ -137,21 +160,7 @@ export const CS2_CASE_ITEM_DEFINITIONS = [
     { weapon_name: 'M4A1-S', skin_name: 'Black Lotus', rarity: 'Classified' },
     { weapon_name: 'AWP', skin_name: 'Chrome Cannon', rarity: 'Covert' },
     { weapon_name: 'AK-47', skin_name: 'Inheritance', rarity: 'Covert' }
-  ], [
-    { weapon_name: '★ Kukri Knife', skin_name: 'Blue Steel', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Blue Steel', fallback_price_pence: 110000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Case Hardened', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Case Hardened', fallback_price_pence: 150000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Crimson Web', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Crimson Web', fallback_price_pence: 170000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Fade', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Fade', fallback_price_pence: 210000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Forest DDPAT', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Forest DDPAT', fallback_price_pence: 95000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Night Stripe', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Night Stripe', fallback_price_pence: 98000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Safari Mesh', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Safari Mesh', fallback_price_pence: 90000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Scorched', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Scorched', fallback_price_pence: 90000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Slaughter', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Slaughter', fallback_price_pence: 190000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Stained', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Stained', fallback_price_pence: 105000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Urban Masked', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Urban Masked', fallback_price_pence: 96000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Boreal Forest', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Boreal Forest', fallback_price_pence: 94000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Vanilla', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Vanilla', fallback_price_pence: 140000 }
-  ]),
+  ], KUKRI_SPECIALS),
   buildCaseDefinition('Gallery Case', [
     { weapon_name: 'M249', skin_name: 'Hypnosis', rarity: 'Mil-Spec' },
     { weapon_name: 'MP5-SD', skin_name: 'Statics', rarity: 'Mil-Spec' },
@@ -170,21 +179,7 @@ export const CS2_CASE_ITEM_DEFINITIONS = [
     { weapon_name: 'AK-47', skin_name: 'The Outsiders', rarity: 'Classified' },
     { weapon_name: 'Glock-18', skin_name: 'Gold Toof', rarity: 'Covert' },
     { weapon_name: 'M4A1-S', skin_name: 'Vaporwave', rarity: 'Covert' }
-  ], [
-    { weapon_name: '★ Kukri Knife', skin_name: 'Blue Steel', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Blue Steel', fallback_price_pence: 110000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Case Hardened', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Case Hardened', fallback_price_pence: 150000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Crimson Web', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Crimson Web', fallback_price_pence: 170000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Fade', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Fade', fallback_price_pence: 210000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Forest DDPAT', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Forest DDPAT', fallback_price_pence: 95000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Night Stripe', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Night Stripe', fallback_price_pence: 98000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Safari Mesh', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Safari Mesh', fallback_price_pence: 90000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Scorched', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Scorched', fallback_price_pence: 90000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Slaughter', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Slaughter', fallback_price_pence: 190000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Stained', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Stained', fallback_price_pence: 105000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Urban Masked', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Urban Masked', fallback_price_pence: 96000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Boreal Forest', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Boreal Forest', fallback_price_pence: 94000 },
-    { weapon_name: '★ Kukri Knife', skin_name: 'Vanilla', rarity: 'Special Item', market_hash_name: '★ Kukri Knife | Vanilla', fallback_price_pence: 140000 }
-  ]),
+  ], KUKRI_SPECIALS),
   buildCaseDefinition('Anubis Collection', [
     { weapon_name: 'R8 Revolver', skin_name: 'Inlay', rarity: 'Consumer Grade' },
     { weapon_name: 'M249', skin_name: 'Submerged', rarity: 'Consumer Grade' },
