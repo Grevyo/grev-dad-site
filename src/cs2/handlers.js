@@ -3,6 +3,8 @@ import { getQuickSellFeePercent, quickSellPayoutFromMarket } from "./quick-sell.
 import { getOrCreateResolvedSkinItem } from "./skin-resolve.js";
 import { fetchSteamIconUrl, getCachedItemPricePence, getOrFetchItemPricePence } from "./steam.js";
 import { pickWearTier } from "./wear.js";
+import { importPriceEmpireCatalog } from "./pricempire.js";
+import { importMasterCatalog } from "./master-import.js";
 
 function pickWeighted(rows) {
   const list = (rows || []).filter((r) => Number(r.drop_weight) > 0);
@@ -171,10 +173,12 @@ async function ensureCaseImageUrl(env, caseRow, options = {}) {
   return imageUrl;
 }
 
-async function ensureItemImageUrl(env, itemRow) {
+async function ensureItemImageUrl(env, itemRow, options = {}) {
+  const { allowLiveFetch = true } = options;
   if (!itemRow) return "";
   const existing = String(itemRow.image_url || "").trim();
   if (existing) return existing;
+  if (!allowLiveFetch) return "";
 
   const hash = String(itemRow.market_hash_name || itemRow.item_name || "").trim();
   if (!hash) return "";
@@ -194,7 +198,59 @@ async function ensureItemImageUrl(env, itemRow) {
   return imageUrl;
 }
 
+async function getOwnerCountsByItemId(env, itemIds) {
+  const ids = [...new Set((itemIds || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+  const map = new Map();
+  if (!ids.length) return map;
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await env.CASES_DB.prepare(`
+    SELECT resolved_item_id, COUNT(*) AS c
+    FROM skin_instances
+    WHERE status = 'inventory' AND resolved_item_id IN (${placeholders})
+    GROUP BY resolved_item_id
+  `).bind(...ids).all();
+  for (const row of rows.results || []) {
+    map.set(Number(row.resolved_item_id), Number(row.c || 0));
+  }
+  return map;
+}
+
+async function upsertImageReport(env, payload) {
+  const existing = await env.CASES_DB.prepare(`
+    SELECT id FROM cs2_image_reports
+    WHERE item_type = ? AND target_id = ? AND status = 'open'
+    LIMIT 1
+  `).bind(payload.itemType, payload.targetId).first();
+  const now = payload.now;
+  if (existing?.id) {
+    await env.CASES_DB.prepare(`
+      UPDATE cs2_image_reports
+      SET report_reason = ?, current_image_url = ?, market_hash_name = ?, updated_at = ?
+      WHERE id = ?
+    `).bind(payload.reason || '', payload.currentImageUrl || '', payload.marketHashName || '', now, existing.id).run();
+    return Number(existing.id);
+  }
+  const result = await env.CASES_DB.prepare(`
+    INSERT INTO cs2_image_reports (
+      item_type, target_id, target_name, market_hash_name, current_image_url,
+      report_reason, status, reported_by_user_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)
+  `).bind(
+    payload.itemType,
+    payload.targetId,
+    payload.targetName,
+    payload.marketHashName || '',
+    payload.currentImageUrl || '',
+    payload.reason || '',
+    payload.reportedByUserId,
+    now,
+    now
+  ).run();
+  return Number(result.meta?.last_row_id || 0);
+}
+
 async function buildCaseDropPreview(env, caseId) {
+
   const rows = await env.CASES_DB.prepare(`
     SELECT ci.item_name, ci.rarity, ci.color_hex, ci.image_url, ci.market_hash_name, cd.drop_weight
     FROM case_drops cd
@@ -454,7 +510,7 @@ export async function handleCs2Request(request, env, deps) {
     const cases = [];
     for (const row of rows.results || []) {
       if (!Number(row.is_active)) continue;
-      cases.push(await formatCaseSummary(env, row, { allowLiveFetch: true }));
+      cases.push(await formatCaseSummary(env, row, { allowLiveFetch: false }));
     }
 
     const feePct = await getQuickSellFeePercent(env);
@@ -581,6 +637,7 @@ export async function handleCs2Request(request, env, deps) {
     const limit = Math.min(Number(url.searchParams.get("limit") || 100), 400);
     const offset = Math.max(Number(url.searchParams.get("offset") || 0), 0);
     const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+    const weapon = (url.searchParams.get("weapon") || "").trim().toLowerCase();
     const rarity = (url.searchParams.get("rarity") || "").trim().toLowerCase();
     const wearCode = (url.searchParams.get("wear_code") || "").trim().toUpperCase();
     const minPrice = Number(url.searchParams.get("min_price_pence") || 0);
@@ -607,25 +664,28 @@ export async function handleCs2Request(request, env, deps) {
 
     let list = rows.results || [];
     if (q) {
-      list = list.filter((r) => String(r.item_name || "").toLowerCase().includes(q));
+      list = list.filter((r) => {
+        const haystack = `${r.item_name || ''} ${r.weapon_name || ''} ${r.skin_name || ''}`.toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+    if (weapon) {
+      list = list.filter((r) => String(r.weapon_name || '').toLowerCase().includes(weapon));
     }
     if (rarity) {
-      list = list.filter((r) => String(r.rarity || "").toLowerCase().includes(rarity));
+      list = list.filter((r) => String(r.rarity || '').toLowerCase().includes(rarity));
     }
     if (wearCode) {
-      list = list.filter((r) => String(r.wear_code || "").toUpperCase() === wearCode);
+      list = list.filter((r) => String(r.wear_code || '').toUpperCase() === wearCode);
     }
 
+    const ownerCounts = await getOwnerCountsByItemId(env, list.map((r) => r.id));
     const items = [];
     for (const r of list) {
-      let live = await getOrFetchItemPricePence(env, r.market_hash_name);
+      let live = await getCachedItemPricePence(env, r.market_hash_name);
       if (live == null || live <= 0) live = Number(r.market_value || 0);
       if (Number.isFinite(minPrice) && minPrice > 0 && live < minPrice) continue;
       if (Number.isFinite(maxPrice) && maxPrice > 0 && live > maxPrice) continue;
-      const ownerCountRow = await env.CASES_DB.prepare(`
-        SELECT COUNT(*) AS c FROM skin_instances
-        WHERE resolved_item_id = ? AND status = 'inventory'
-      `).bind(r.id).first();
       items.push({
         id: r.id,
         item_name: r.item_name,
@@ -633,13 +693,13 @@ export async function handleCs2Request(request, env, deps) {
         skin_name: r.skin_name,
         rarity: r.rarity,
         wear: r.wear,
-        wear_code: r.wear_code || "",
+        wear_code: r.wear_code || '',
         market_hash_name: r.market_hash_name,
-        image_url: await ensureItemImageUrl(env, r),
-        color_hex: r.color_hex || "",
+        image_url: await ensureItemImageUrl(env, r, { allowLiveFetch: false }),
+        color_hex: r.color_hex || '',
         fallback_value_pence: Number(r.market_value || 0),
         live_price_pence: live,
-        owner_count: Number(ownerCountRow?.c || 0)
+        owner_count: ownerCounts.get(Number(r.id)) || 0
       });
     }
 
@@ -659,7 +719,7 @@ export async function handleCs2Request(request, env, deps) {
     `).bind(itemId).first();
     if (!row) return json({ success: false, error: "Skin not found" }, 404, request);
 
-    let live = await getOrFetchItemPricePence(env, row.market_hash_name);
+    let live = await getCachedItemPricePence(env, row.market_hash_name);
     if (live == null || live <= 0) live = Number(row.market_value || 0);
     const owners = await env.CASES_DB.prepare(`
       SELECT DISTINCT si.current_owner_user_id AS user_id
@@ -686,7 +746,7 @@ export async function handleCs2Request(request, env, deps) {
         wear: row.wear,
         wear_code: row.wear_code || "",
         market_hash_name: row.market_hash_name,
-        image_url: await ensureItemImageUrl(env, row),
+        image_url: await ensureItemImageUrl(env, row, { allowLiveFetch: false }),
         color_hex: row.color_hex || "",
         fallback_value_pence: Number(row.market_value || 0),
         live_price_pence: live
@@ -697,6 +757,116 @@ export async function handleCs2Request(request, env, deps) {
         bucket_started_at: r.bucket_started_at
       }))
     }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/report-image" && request.method === "POST") {
+    const session = await getApprovedUser(request, env);
+    if (session instanceof Response) return session;
+
+    const body = await safeJson(request);
+    const itemType = String(body?.item_type || '').trim().toLowerCase();
+    const targetId = Number(body?.target_id);
+    const reason = typeof body?.reason === 'string' ? body.reason.trim().slice(0, 500) : '';
+    if (!["skin", "case"].includes(itemType)) {
+      return json({ success: false, error: "item_type must be skin or case" }, 400, request);
+    }
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return json({ success: false, error: "A valid target_id is required" }, 400, request);
+    }
+
+    const row = itemType === 'skin'
+      ? await env.CASES_DB.prepare(`SELECT id, item_name AS target_name, market_hash_name, image_url FROM case_items WHERE id = ? LIMIT 1`).bind(targetId).first()
+      : await env.CASES_DB.prepare(`SELECT id, case_name AS target_name, steam_market_hash_name AS market_hash_name, image_url FROM case_definitions WHERE id = ? LIMIT 1`).bind(targetId).first();
+    if (!row) return json({ success: false, error: `${itemType} not found` }, 404, request);
+
+    const reportId = await upsertImageReport(env, {
+      itemType,
+      targetId,
+      targetName: row.target_name,
+      marketHashName: row.market_hash_name || '',
+      currentImageUrl: row.image_url || '',
+      reason,
+      reportedByUserId: session.id,
+      now: isoNow()
+    });
+
+    return json({ success: true, report_id: reportId, message: 'Image report submitted.' }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/image-reports" && request.method === "GET") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    const rows = await env.CASES_DB.prepare(`
+      SELECT * FROM cs2_image_reports
+      ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, id DESC
+      LIMIT 250
+    `).all();
+    return json({ success: true, reports: rows.results || [] }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/image/update" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    const body = await safeJson(request);
+    const itemType = String(body?.item_type || '').trim().toLowerCase();
+    const targetId = Number(body?.target_id);
+    const imageUrl = typeof body?.image_url === 'string' ? body.image_url.trim() : '';
+    const reportId = Number(body?.report_id || 0);
+    if (!["skin", "case"].includes(itemType) || !Number.isInteger(targetId) || targetId <= 0) {
+      return json({ success: false, error: 'Valid item_type and target_id are required.' }, 400, request);
+    }
+    let resolvedUrl = imageUrl;
+    if (!resolvedUrl) {
+      const source = itemType === 'skin'
+        ? await env.CASES_DB.prepare(`SELECT market_hash_name, item_name FROM case_items WHERE id = ? LIMIT 1`).bind(targetId).first()
+        : await env.CASES_DB.prepare(`SELECT steam_market_hash_name AS market_hash_name, case_name AS item_name FROM case_definitions WHERE id = ? LIMIT 1`).bind(targetId).first();
+      resolvedUrl = await fetchSteamIconUrl(source?.market_hash_name || source?.item_name || '');
+    }
+    if (!resolvedUrl) return json({ success: false, error: 'Could not resolve a replacement image.' }, 400, request);
+
+    if (itemType === 'skin') {
+      await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE id = ?`).bind(resolvedUrl, targetId).run();
+    } else {
+      await env.CASES_DB.prepare(`UPDATE case_definitions SET image_url = ? WHERE id = ?`).bind(resolvedUrl, targetId).run();
+      await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE case_def_id = ? AND item_kind = 'case'`).bind(resolvedUrl, targetId).run();
+    }
+    if (reportId > 0) {
+      await env.CASES_DB.prepare(`UPDATE cs2_image_reports SET status = 'resolved', resolved_at = ?, resolved_by_user_id = ?, updated_at = ? WHERE id = ?`).bind(isoNow(), admin.id, isoNow(), reportId).run();
+    }
+    return json({ success: true, image_url: resolvedUrl, message: 'Image updated.' }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/image/refresh" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    const body = await safeJson(request);
+    const itemType = String(body?.item_type || '').trim().toLowerCase();
+    const onlyReported = body?.only_reported !== false;
+    if (!["skin", "case"].includes(itemType)) {
+      return json({ success: false, error: 'item_type must be skin or case' }, 400, request);
+    }
+    const rows = itemType === 'skin'
+      ? await env.CASES_DB.prepare(`SELECT id, item_name AS label, market_hash_name AS market_name FROM case_items WHERE item_kind = 'skin' ${''}`).all()
+      : await env.CASES_DB.prepare(`SELECT id, case_name AS label, steam_market_hash_name AS market_name FROM case_definitions`).all();
+    const openReports = await env.CASES_DB.prepare(`SELECT DISTINCT target_id FROM cs2_image_reports WHERE item_type = ? AND status = 'open'`).bind(itemType).all();
+    const targetIds = new Set((openReports.results || []).map((r) => Number(r.target_id)));
+    let updated = 0;
+    for (const row of rows.results || []) {
+      if (onlyReported && !targetIds.has(Number(row.id))) continue;
+      const resolvedUrl = await fetchSteamIconUrl(row.market_name || row.label || '');
+      if (!resolvedUrl) continue;
+      if (itemType === 'skin') {
+        await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE id = ?`).bind(resolvedUrl, row.id).run();
+      } else {
+        await env.CASES_DB.prepare(`UPDATE case_definitions SET image_url = ? WHERE id = ?`).bind(resolvedUrl, row.id).run();
+        await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE case_def_id = ? AND item_kind = 'case'`).bind(resolvedUrl, row.id).run();
+      }
+      updated += 1;
+    }
+    if (onlyReported) {
+      await env.CASES_DB.prepare(`UPDATE cs2_image_reports SET status = 'resolved', resolved_at = ?, resolved_by_user_id = ?, updated_at = ? WHERE item_type = ? AND status = 'open'`).bind(isoNow(), admin.id, isoNow(), itemType).run();
+    }
+    return json({ success: true, updated, message: `${updated} ${itemType} image(s) refreshed.` }, 200, request);
   }
 
   if (pathname === "/api/cs2/profile/public" && request.method === "GET") {
@@ -956,6 +1126,34 @@ export async function handleCs2Request(request, env, deps) {
     `).bind(fallback, fallback, caseId).run();
 
     return json({ success: true, message: "Fallback price updated" }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/catalog/import" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    try {
+      const stats = await importMasterCatalog(env);
+      return json({ success: true, stats, message: `Imported ${stats.skins_upserted} skin rows across ${stats.sections} catalog sections.` }, 200, request);
+    } catch (error) {
+      return json({ success: false, error: error?.message || 'Catalog import failed.' }, 500, request);
+    }
+  }
+
+  if (pathname === "/api/cs2/admin/pricempire/import" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const apiKey = typeof body?.api_key === 'string' ? body.api_key.trim() : '';
+    const limit = Number(body?.limit || 0);
+    if (!apiKey) return json({ success: false, error: 'A PriceEmpire API key is required.' }, 400, request);
+
+    try {
+      const stats = await importPriceEmpireCatalog(env, apiKey, { limit });
+      return json({ success: true, message: `Imported ${stats.skins_inserted} new skins, updated ${stats.skins_updated} skins, and added ${stats.drops_added} case drops.`, stats }, 200, request);
+    } catch (error) {
+      return json({ success: false, error: error instanceof Error ? error.message : 'PriceEmpire import failed.' }, 500, request);
+    }
   }
 
   if (pathname === "/api/cs2/admin/settings" && request.method === "GET") {

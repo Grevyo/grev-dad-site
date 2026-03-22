@@ -210,4 +210,26 @@ export async function ensureCs2Extensions(db) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_auction_bids_listing ON auction_bids (listing_id)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_market_offers_listing ON market_offers (listing_id)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_offer_messages_offer ON offer_messages (offer_id)`).run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS cs2_image_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_type TEXT NOT NULL,
+      target_id INTEGER NOT NULL,
+      target_name TEXT NOT NULL,
+      market_hash_name TEXT,
+      current_image_url TEXT,
+      report_reason TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      reported_by_user_id INTEGER,
+      resolved_at TEXT,
+      resolved_by_user_id INTEGER,
+      admin_note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_cs2_image_reports_status ON cs2_image_reports (status, created_at DESC)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_cs2_image_reports_target ON cs2_image_reports (item_type, target_id, status)`).run();
 }

@@ -48,6 +48,24 @@
         </div>
       </section>
 
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">PriceEmpire import</h2>
+        <p class="panel-subtitle">Pull a much larger CS2 skin catalog directly from PriceEmpire using an API key. The key is sent only for this import request and is not written into the repo.</p>
+        <div class="admin-stack">
+          <label class="muted">API key
+            <input id="pricempire-api-key" class="form-input" type="password" placeholder="Paste PriceEmpire API key" />
+          </label>
+          <div class="inv-actions" style="justify-content:flex-start">
+            <label class="muted">Limit (optional for smaller test imports)
+              <input id="pricempire-import-limit" class="form-input" type="number" min="0" step="1" value="0" style="max-width:120px;margin-left:8px" />
+            </label>
+            <button type="button" class="btn btn-primary" id="run-pricempire-import">Import skins from PriceEmpire</button>
+            <button type="button" class="btn" id="run-master-catalog-import">Import bundled CS2 catalog</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel mt-24">
         <h2 class="panel-title">Quick sell fee</h2>
         <p class="panel-subtitle">Players receive (100 − fee)% of the live market reference when quick selling. Default 10% fee → 90% payout.</p>
@@ -63,6 +81,16 @@
         <h2 class="panel-title">Quick-sell graveyard</h2>
         <p class="panel-subtitle">Admins can see quick-sold tracked skins and refund them back to players if a sell was accidental.</p>
         <div id="graveyard-list"></div>
+      </section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">Image reports</h2>
+        <p class="panel-subtitle">Players can flag bad skin or case artwork here. Resolve one image at a time or bulk refresh all reported entries.</p>
+        <div class="inv-actions" style="margin-bottom:16px">
+          <button type="button" class="btn btn-primary" id="bulk-refresh-skins">Bulk refresh reported skin images</button>
+          <button type="button" class="btn" id="bulk-refresh-cases">Bulk refresh reported case images</button>
+        </div>
+        <div id="image-report-list"></div>
       </section>
 
       <section class="panel mt-24">
@@ -82,6 +110,7 @@
     const userBalanceList = document.getElementById("user-balance-list");
     const userSearch = document.getElementById("user-search");
     const graveyardList = document.getElementById("graveyard-list");
+    const imageReportList = document.getElementById("image-report-list");
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -204,6 +233,53 @@
       }
     }
 
+
+    async function loadImageReports() {
+      imageReportList.innerHTML = `<div class="muted">Loading image reports…</div>`;
+      try {
+        const response = await fetch('/api/cs2/admin/image-reports', { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          imageReportList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || 'Failed to load image reports')}</div>`;
+          return;
+        }
+        const reports = data.reports || [];
+        if (!reports.length) { imageReportList.innerHTML = `<div class="muted">No open image reports.</div>`; return; }
+        imageReportList.innerHTML = reports.map((report) => `
+          <div class="case-admin-row" data-report-id="${report.id}" style="grid-template-columns:minmax(0,1.3fr) minmax(180px,1fr) minmax(180px,1fr) auto">
+            <div>
+              <strong>${escapeHtml(report.target_name)}</strong>
+              <div class="muted">${escapeHtml(report.item_type)} · status ${escapeHtml(report.status)} · report #${report.id}</div>
+              <div class="muted">${escapeHtml(report.report_reason || 'No reason given.')}</div>
+            </div>
+            <label class="muted">Image URL
+              <input class="form-input" type="url" data-image-url value="${escapeHtml(report.current_image_url || '')}" placeholder="Leave blank to auto-refresh from market name" />
+            </label>
+            <div class="muted">${escapeHtml(report.market_hash_name || '')}</div>
+            <button type="button" class="btn btn-primary" data-resolve-image>Resolve</button>
+          </div>`).join('');
+        imageReportList.querySelectorAll('[data-resolve-image]').forEach((btn) => btn.addEventListener('click', async () => {
+          const row = btn.closest('[data-report-id]');
+          const reportId = Number(row?.getAttribute('data-report-id'));
+          const imageUrl = row?.querySelector('[data-image-url]')?.value?.trim() || '';
+          const report = reports.find((entry) => Number(entry.id) === reportId);
+          btn.disabled = true;
+          try {
+            const response = await fetch('/api/cs2/admin/image/update', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ report_id: reportId, item_type: report.item_type, target_id: report.target_id, image_url: imageUrl }) });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Image update failed.'); return; }
+            showMessage('success', data.message || 'Image updated.');
+            await loadImageReports();
+            await loadCases();
+          } catch {
+            showMessage('error', 'Image update failed.');
+          } finally { btn.disabled = false; }
+        }));
+      } catch {
+        imageReportList.innerHTML = `<div class="alert alert-error">Could not load image reports.</div>`;
+      }
+    }
+
     async function loadCases() {
       caseAdminList.innerHTML = `<div class="muted">Loading…</div>`;
       try {
@@ -275,6 +351,55 @@
     document.getElementById("reload-users")?.addEventListener("click", () => loadUsers(userSearch.value.trim()));
     userSearch?.addEventListener("input", () => loadUsers(userSearch.value.trim()));
 
+    document.getElementById("run-master-catalog-import")?.addEventListener("click", async () => {
+      const btn = document.getElementById("run-master-catalog-import");
+      if (!btn) return;
+      btn.disabled = true;
+      try {
+        const response = await fetch('/api/cs2/admin/catalog/import', { method: 'POST', credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage("error", data?.error || "Bundled import failed."); return; }
+        showMessage("success", data.message || "Bundled catalog imported.");
+      } catch {
+        showMessage("error", "Bundled import failed.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("run-pricempire-import")?.addEventListener("click", async () => {
+      const btn = document.getElementById("run-pricempire-import");
+      const apiKey = document.getElementById("pricempire-api-key")?.value?.trim();
+      const limit = Number(document.getElementById("pricempire-import-limit")?.value || 0);
+      if (!apiKey) { showMessage("error", "Paste a PriceEmpire API key first."); return; }
+      btn.disabled = true;
+      try {
+        const response = await fetch('/api/cs2/admin/pricempire/import', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: apiKey, limit })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'PriceEmpire import failed.'); return; }
+        showMessage('success', data.message || 'PriceEmpire import complete.');
+        await loadCases();
+      } catch {
+        showMessage('error', 'PriceEmpire import failed.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+
+    document.getElementById("bulk-refresh-skins")?.addEventListener("click", async () => {
+      const btn = document.getElementById("bulk-refresh-skins"); btn.disabled = true;
+      try { const response = await fetch("/api/cs2/admin/image/refresh", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item_type: "skin", only_reported: true }) }); const data = await response.json().catch(() => null); if (!response.ok || !data?.success) { showMessage("error", data?.error || "Bulk refresh failed."); return; } showMessage("success", data.message || "Skin images refreshed."); await loadImageReports(); } catch { showMessage("error", "Bulk refresh failed."); } finally { btn.disabled = false; }
+    });
+
+    document.getElementById("bulk-refresh-cases")?.addEventListener("click", async () => {
+      const btn = document.getElementById("bulk-refresh-cases"); btn.disabled = true;
+      try { const response = await fetch("/api/cs2/admin/image/refresh", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item_type: "case", only_reported: true }) }); const data = await response.json().catch(() => null); if (!response.ok || !data?.success) { showMessage("error", data?.error || "Bulk refresh failed."); return; } showMessage("success", data.message || "Case images refreshed."); await loadImageReports(); await loadCases(); } catch { showMessage("error", "Bulk refresh failed."); } finally { btn.disabled = false; }
+    });
+
     document.getElementById("save-quick-sell-fee")?.addEventListener("click", async () => {
       const input = document.getElementById("quick-sell-fee");
       const fee = Number(input?.value);
@@ -330,7 +455,7 @@
       const hasAccess = await checkGamblingAdminAccess();
       if (!hasAccess) return;
       await loadQuickSellFee();
-      await Promise.all([loadUsers(), loadCases()]);
+      await Promise.all([loadUsers(), loadGraveyard(), loadImageReports(), loadCases()]);
     });
   </script>
 </body>
