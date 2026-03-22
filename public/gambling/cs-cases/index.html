@@ -183,6 +183,9 @@
     .graph { width:100%; height:180px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); }
     .pending-tray { position:fixed; right:16px; bottom:16px; z-index:2090; display:grid; gap:10px; width:min(340px, calc(100vw - 32px)); }
     .pending-card { border:1px solid var(--border); border-radius:12px; background:rgba(2,6,23,0.96); padding:12px; box-shadow:0 18px 40px rgba(0,0,0,0.35); }
+    .multi-drop-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px; }
+    .multi-drop-card { border:1px solid var(--border); border-radius:14px; padding:12px; background:rgba(255,255,255,0.03); }
+    .multi-drop-card img { width:100%; height:120px; object-fit:contain; border-radius:10px; background:rgba(0,0,0,0.35); margin-bottom:10px; }
     @media (max-width: 720px) {
       .inv-row, .list-row { grid-template-columns: 1fr; }
     }
@@ -298,6 +301,7 @@
           <p class="panel-subtitle">Resolved skins in the database with live Steam reference prices by wear.</p>
           <div class="filter-row">
             <input id="catalog-search" class="form-input" type="search" placeholder="Search any skin..." />
+            <input id="catalog-weapon" class="form-input" type="search" placeholder="Filter by weapon (AK-47, AWP, Glock...)" />
             <select id="catalog-rarity" class="form-input"><option value="">All rarities</option><option>Consumer Grade</option><option>Industrial Grade</option><option>Mil-Spec Grade</option><option>Restricted</option><option>Classified</option><option>Covert</option><option>Special Item</option><option>Contraband</option></select>
             <select id="catalog-wear" class="form-input"><option value="">All wears</option><option value="FN">Factory New</option><option value="MW">Minimal Wear</option><option value="FT">Field-Tested</option><option value="WW">Well-Worn</option><option value="BS">Battle-Scarred</option></select>
             <button type="button" class="btn btn-primary" id="reload-catalog">Refresh</button>
@@ -356,6 +360,16 @@
     </div>
   </div>
 
+  <div class="catalog-detail-overlay" id="multi-drop-overlay" aria-hidden="true">
+    <div class="catalog-detail-modal">
+      <div class="inv-actions" style="justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">Batch opening results</h3>
+        <button type="button" class="btn" id="multi-drop-close">Close</button>
+      </div>
+      <div id="multi-drop-body"></div>
+    </div>
+  </div>
+
   <div class="catalog-detail-overlay" id="catalog-detail-overlay" aria-hidden="true">
     <div class="catalog-detail-modal">
       <div class="inv-actions" style="justify-content:space-between;margin-bottom:12px">
@@ -398,6 +412,8 @@
     const dropModal = document.getElementById("drop-modal");
     const catalogDetailOverlay = document.getElementById("catalog-detail-overlay");
     const catalogDetailBody = document.getElementById("catalog-detail-body");
+    const multiDropOverlay = document.getElementById("multi-drop-overlay");
+    const multiDropBody = document.getElementById("multi-drop-body");
     const dropModalImg = document.getElementById("drop-modal-img");
     const dropModalBody = document.getElementById("drop-modal-body");
 
@@ -532,6 +548,7 @@
         <div class="muted">${escapeHtml(p.rarity || "")} · ${escapeHtml(wearLabel(p.wear_code, p.wear))}</div>
         <div class="muted">${escapeHtml(p.case_name || "")}</div>
         <div class="mini-stat">Market price: ${formatGrevCoins(p.market_reference_pence)} · Quick sell return: ${formatGrevCoins(p.quick_sell_payout_pence)}</div>
+        <div class="price-row" style="margin-top:10px"><span class="price-badge">💷 ${formatGrevCoins(p.market_reference_pence)}</span><span class="price-badge">⚡ ${formatGrevCoins(p.quick_sell_payout_pence)}</span></div>
       `;
       openDropModal();
     }
@@ -554,6 +571,7 @@
         <div class="muted">${escapeHtml(d.rarity || "")} · ${escapeHtml(wearLabel(d.wear_code, d.wear))}</div>
         <div class="muted">Case: ${escapeHtml(data.case_name || "")}</div>
         <div class="mini-stat">Skin price after roll: ${formatGrevCoins(d.live_price_pence)} · Quick sell return: ${formatGrevCoins(d.quick_sell_payout_pence)}</div>
+        <div class="price-row" style="margin-top:10px"><span class="price-badge">💷 ${formatGrevCoins(d.live_price_pence)}</span><span class="price-badge">⚡ ${formatGrevCoins(d.quick_sell_payout_pence)}</span></div>
       `;
       openDropModal();
     }
@@ -724,15 +742,57 @@
       openingReel.setAttribute("aria-hidden", "true");
     }
 
+    async function actOnPendingDrop(action, pendingDropId) {
+      const endpoint = action === 'claim' ? '/api/cs2/drop/claim' : action === 'quick' ? '/api/cs2/drop/quick-sell' : '/api/cs2/drop/discard';
+      const response = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pending_drop_id: pendingDropId }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Action failed.');
+      return data;
+    }
+
+    function closeMultiDropOverlay() {
+      multiDropOverlay?.classList.remove('open');
+      multiDropOverlay?.setAttribute('aria-hidden', 'true');
+      if (multiDropBody) multiDropBody.innerHTML = '';
+    }
+
+    function bindMultiDropActions(results) {
+      multiDropBody?.querySelectorAll('[data-batch-action]').forEach((btn) => btn.addEventListener('click', async () => {
+        const card = btn.closest('[data-pending-drop-id]');
+        const pendingDropId = Number(card?.getAttribute('data-pending-drop-id') || 0);
+        if (!pendingDropId) return;
+        btn.disabled = true;
+        try {
+          await actOnPendingDrop(btn.getAttribute('data-batch-action'), pendingDropId);
+          card?.remove();
+          await loadBalance();
+          await loadInventoryUi();
+          await loadFeeds();
+          await loadPendingDrops();
+          if (!multiDropBody?.querySelector('[data-pending-drop-id]')) closeMultiDropOverlay();
+        } catch (error) {
+          showMessage('error', error?.message || 'Action failed.');
+          btn.disabled = false;
+        }
+      }));
+    }
+
+    function showMultiDropOverlay(list) {
+      if (!multiDropOverlay || !multiDropBody) return;
+      multiDropBody.innerHTML = `<div class="muted">All ${list.length} results are ready. Claim, quick sell, discard, or leave them pending.</div><div class="multi-drop-grid">${list.map((entry) => { const d = entry?.dropped || {}; return `<div class="multi-drop-card" data-pending-drop-id="${Number(entry.pending_drop_id || 0)}">${d.image_url ? `<img src="${escapeHtml(d.image_url)}" alt="${escapeHtml(d.item_name || '')}" />` : ''}<strong>${escapeHtml(d.item_name || '')}</strong><div class="case-meta">${escapeHtml(entry.case_name || '')}<br>${escapeHtml(d.rarity || '')} · ${escapeHtml(wearLabel(d.wear_code, d.wear))}</div><div class="price-row"><span class="price-badge">💷 ${formatGrevCoins(d.live_price_pence)}</span><span class="price-badge">⚡ ${formatGrevCoins(d.quick_sell_payout_pence)}</span></div><div class="inv-actions" style="justify-content:flex-start"><button type="button" class="btn btn-primary" data-batch-action="claim">Claim</button><button type="button" class="btn" data-batch-action="quick">Quick sell</button><button type="button" class="btn" data-batch-action="discard">Discard</button></div></div>`; }).join('')}</div>`;
+      multiDropOverlay.classList.add('open');
+      multiDropOverlay.setAttribute('aria-hidden', 'false');
+      bindMultiDropActions(list);
+    }
+
     async function revealOpenResult(results) {
       const list = Array.isArray(results) ? results : [results].filter(Boolean);
       await playOpeningSimulation(list);
-      if (list[0]) {
-        showDropModalFromOpen(list[0]);
-      }
       if (list.length > 1) {
-        showToast(`Opened ${list.length} cases. ${list.length - 1} more drops are waiting in your pending box.`, "success");
+        showMultiDropOverlay(list);
+        showToast(`Opened ${list.length} cases. All results are ready for quick actions.`, 'success');
       } else if (list[0]) {
+        showDropModalFromOpen(list[0]);
         showToast(`${list[0]?.dropped?.item_name || "Item"} · ${wearLabel(list[0]?.dropped?.wear_code, list[0]?.dropped?.wear)}`, "success");
       }
     }
@@ -770,14 +830,18 @@
               <span class="price-badge">🔑 ${formatGrevCoins(c.key_price_pence)}</span>
             </div>
             <div class="case-meta">Hover to view every skin, knife, and percentage chance in this case.</div>
+            <div class="mini-stat">${(c.preview_drops || []).length} possible drops loaded.</div>
             <div class="inv-actions" style="margin-top:10px">
               <label class="muted" style="display:flex;align-items:center;gap:6px">Qty
                 <input class="form-input" type="number" min="1" max="100" value="1" data-case-buy-qty="${c.id}" style="max-width:90px" />
               </label>
               <button type="button" class="btn btn-primary" data-buy-case="${c.id}">Buy cases</button>
+              <button type="button" class="btn" data-report-image="${c.id}" data-report-type="case">Report image</button>
             </div>
           </div>
         `).join("");
+
+        storeCaseGrid.querySelectorAll("[data-report-image]").forEach((btn) => btn.addEventListener("click", () => submitImageReport(btn.getAttribute("data-report-type"), btn.getAttribute("data-report-image"))));
 
         storeCaseGrid.querySelectorAll("[data-buy-case]").forEach((btn) => {
           btn.addEventListener("click", async () => {
@@ -1568,6 +1632,23 @@
       return `<svg class="graph" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="#eb4b4b" stroke-width="4" stroke-linecap="round" /></svg>`;
     }
 
+    async function submitImageReport(itemType, targetId) {
+      if (!currentUser) { window.location.href = "/login.html"; return; }
+      const reason = window.prompt(`What needs updating for this ${itemType} image?`, "Wrong artwork / outdated image");
+      if (reason == null) return;
+      try {
+        const response = await fetch('/api/cs2/report-image', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_type: itemType, target_id: Number(targetId), reason })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Could not submit image report.'); return; }
+        showToast(data.message || 'Image report submitted.', 'success');
+      } catch {
+        showMessage('error', 'Could not submit image report.');
+      }
+    }
+
     async function openCatalogDetail(itemId) {
       if (!catalogDetailOverlay || !catalogDetailBody) return;
       catalogDetailOverlay.classList.add('open');
@@ -1599,10 +1680,12 @@
     async function loadCatalog() {
       const q = document.getElementById("catalog-search").value.trim();
       const rarity = document.getElementById("catalog-rarity").value.trim();
+      const weapon = document.getElementById("catalog-weapon").value.trim();
       const wearCode = document.getElementById("catalog-wear").value.trim();
       catalogGrid.innerHTML = `<div class="muted">Loading…</div>`;
       try {
         const params = new URLSearchParams({ limit: '120', q });
+        if (weapon) params.set('weapon', weapon);
         if (rarity) params.set('rarity', rarity);
         if (wearCode) params.set('wear_code', wearCode);
         const response = await fetch(`/api/cs2/catalog?${params.toString()}`, { credentials: "same-origin" });
@@ -1617,7 +1700,7 @@
           return;
         }
         catalogGrid.innerHTML = items.map((it) => `
-          <button type="button" class="case-card" data-catalog-open="${it.id}" style="text-align:left;color:inherit">
+          <div class="case-card" style="text-align:left;color:inherit">
             ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" style="width:100%;max-height:120px;object-fit:contain;margin-bottom:8px;border-radius:8px;background:rgba(0,0,0,0.35)" />` : ""}
             <h3>${escapeHtml(it.item_name)}</h3>
             <div class="case-meta">
@@ -1625,9 +1708,14 @@
               Live: ${formatGrevCoins(it.live_price_pence)}<br/>
               Owners now: ${Number(it.owner_count || 0)}
             </div>
-          </button>
+            <div class="inv-actions" style="margin-top:10px;justify-content:space-between">
+              <button type="button" class="btn btn-primary" data-catalog-open="${it.id}">Open profile</button>
+              <button type="button" class="btn" data-report-image="${it.id}" data-report-type="skin">Report image</button>
+            </div>
+          </div>
         `).join("");
         catalogGrid.querySelectorAll('[data-catalog-open]').forEach((btn) => btn.addEventListener('click', () => openCatalogDetail(btn.getAttribute('data-catalog-open'))));
+        catalogGrid.querySelectorAll('[data-report-image]').forEach((btn) => btn.addEventListener('click', () => submitImageReport(btn.getAttribute('data-report-type'), btn.getAttribute('data-report-image'))));
       } catch {
         catalogGrid.innerHTML = `<div class="alert alert-error">Catalog failed.</div>`;
       }
@@ -1715,7 +1803,7 @@
     document.getElementById("run-trade-search").addEventListener("click", runTradeSearch);
 
     document.getElementById("reload-catalog").addEventListener("click", loadCatalog);
-    ["catalog-search", "catalog-rarity", "catalog-wear", "inventory-search", "inventory-rarity", "inventory-min-price", "inventory-max-price"].forEach((id) => {
+    ["catalog-search", "catalog-weapon", "catalog-rarity", "catalog-wear", "inventory-search", "inventory-rarity", "inventory-min-price", "inventory-max-price"].forEach((id) => {
       document.getElementById(id)?.addEventListener("input", () => {
         clearTimeout(window.__catT);
         window.__catT = setTimeout(() => {
@@ -1729,7 +1817,9 @@
       });
     });
     document.getElementById("catalog-detail-close")?.addEventListener("click", () => catalogDetailOverlay?.classList.remove("open"));
+    document.getElementById("multi-drop-close")?.addEventListener("click", closeMultiDropOverlay);
     catalogDetailOverlay?.addEventListener("click", (e) => { if (e.target === catalogDetailOverlay) catalogDetailOverlay.classList.remove("open"); });
+    multiDropOverlay?.addEventListener("click", (e) => { if (e.target === multiDropOverlay) closeMultiDropOverlay(); });
 
     document.getElementById("refund-keys-btn")?.addEventListener("click", async () => {
       if (!currentUser) { window.location.href = "/login.html"; return; }
@@ -1801,7 +1891,7 @@
           await revealOpenResult(opens);
         }
         if (opens.length > 1) {
-          showMessage("success", `Opened ${opens.length} cases — the first result is shown now and the rest stay queued in the bottom-right pending box.`);
+          showMessage("success", `Opened ${opens.length} cases — all results are on screen now so you can deal with them immediately.`);
         }
         await loadBalance();
         await loadInventoryUi();
