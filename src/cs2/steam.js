@@ -44,12 +44,7 @@ function parseSteamGbpToPence(value) {
 export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date.now()) {
   if (!env.CASES_DB || !marketHashName) return null;
 
-  const cached = await env.CASES_DB.prepare(`
-    SELECT price_pence, updated_at
-    FROM market_price_cache
-    WHERE market_hash_name = ?
-    LIMIT 1
-  `).bind(marketHashName).first();
+  const cached = await getCachedItemPrice(env, marketHashName);
 
   const updated = cached?.updated_at ? Date.parse(cached.updated_at) : 0;
   if (cached && Number.isFinite(updated) && nowMs - updated < MARKET_CACHE_TTL_MS) {
@@ -75,6 +70,22 @@ export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date
   }
 
   return null;
+}
+
+async function getCachedItemPrice(env, marketHashName) {
+  if (!env.CASES_DB || !marketHashName) return null;
+
+  return await env.CASES_DB.prepare(`
+    SELECT price_pence, updated_at
+    FROM market_price_cache
+    WHERE market_hash_name = ?
+    LIMIT 1
+  `).bind(marketHashName).first();
+}
+
+export async function getCachedItemPricePence(env, marketHashName) {
+  const cached = await getCachedItemPrice(env, marketHashName);
+  return Number(cached?.price_pence) || null;
 }
 
 /**

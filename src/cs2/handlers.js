@@ -1,7 +1,7 @@
 import { KEY_PRICE_PENCE, STARTING_BALANCE_PENCE } from "./constants.js";
 import { getQuickSellFeePercent, quickSellPayoutFromMarket } from "./quick-sell.js";
 import { getOrCreateResolvedSkinItem } from "./skin-resolve.js";
-import { fetchSteamIconUrl, getOrFetchItemPricePence } from "./steam.js";
+import { fetchSteamIconUrl, getCachedItemPricePence, getOrFetchItemPricePence } from "./steam.js";
 import { pickWearTier } from "./wear.js";
 
 function pickWeighted(rows) {
@@ -84,10 +84,12 @@ async function ensureCaseProfile(env, session, isoNowFn) {
 
 
 
-async function ensureCaseImageUrl(env, caseRow) {
+async function ensureCaseImageUrl(env, caseRow, options = {}) {
+  const { allowLiveFetch = true } = options;
   if (!caseRow) return "";
   const existing = String(caseRow.image_url || "").trim();
   if (existing) return existing;
+  if (!allowLiveFetch) return "";
 
   const hash = String(caseRow.steam_market_hash_name || caseRow.case_name || "").trim();
   if (!hash) return "";
@@ -130,9 +132,9 @@ async function ensureItemImageUrl(env, itemRow) {
   return imageUrl;
 }
 
-async function formatCaseSummary(env, caseRow) {
-  const storePrice = await getCaseStorePricePence(env, caseRow);
-  const imageUrl = await ensureCaseImageUrl(env, caseRow);
+async function formatCaseSummary(env, caseRow, options = {}) {
+  const storePrice = await getCaseStorePricePence(env, caseRow, options);
+  const imageUrl = await ensureCaseImageUrl(env, caseRow, options);
   return {
     id: caseRow.id,
     case_name: caseRow.case_name,
@@ -147,8 +149,8 @@ async function formatCaseSummary(env, caseRow) {
   };
 }
 
-async function buildAdminCasePayload(env, caseRow) {
-  const summary = await formatCaseSummary(env, caseRow);
+async function buildAdminCasePayload(env, caseRow, options = {}) {
+  const summary = await formatCaseSummary(env, caseRow, options);
   const dropStats = await env.CASES_DB.prepare(`
     SELECT COUNT(*) AS drop_count, COALESCE(SUM(drop_weight), 0) AS total_weight
     FROM case_drops
@@ -163,9 +165,12 @@ async function buildAdminCasePayload(env, caseRow) {
   };
 }
 
-async function getCaseStorePricePence(env, caseRow) {
+async function getCaseStorePricePence(env, caseRow, options = {}) {
+  const { allowLiveFetch = true } = options;
   const hash = caseRow.steam_market_hash_name || caseRow.case_name;
-  const live = await getOrFetchItemPricePence(env, hash);
+  const live = allowLiveFetch
+    ? await getOrFetchItemPricePence(env, hash)
+    : await getCachedItemPricePence(env, hash);
   if (live != null && live > 0) return live;
   return Number(caseRow.fallback_price_pence || caseRow.price || 0);
 }
@@ -332,7 +337,7 @@ export async function handleCs2Request(request, env, deps) {
     const cases = [];
     for (const row of rows.results || []) {
       if (!Number(row.is_active)) continue;
-      cases.push(await formatCaseSummary(env, row));
+      cases.push(await formatCaseSummary(env, row, { allowLiveFetch: false }));
     }
 
     const feePct = await getQuickSellFeePercent(env);
@@ -666,7 +671,7 @@ export async function handleCs2Request(request, env, deps) {
 
     const cases = [];
     for (const row of list) {
-      cases.push(await buildAdminCasePayload(env, row));
+      cases.push(await buildAdminCasePayload(env, row, { allowLiveFetch: false }));
     }
 
     return json({ success: true, cases, query: search }, 200, request);
