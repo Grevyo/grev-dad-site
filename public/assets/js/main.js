@@ -1,5 +1,4 @@
 // Shared header loader and auth-state synchronizer used by every page that mounts the top navigation.
-// public/scripts/header.js
 
 const AUTH_CACHE_KEY = "grevdad_auth_user";
 const AUTH_CACHE_EVENT = "grevdad-auth-changed";
