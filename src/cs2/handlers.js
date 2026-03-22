@@ -445,6 +445,220 @@ async function getCs2DiscountPercent(env) {
   return row && Number(row.is_active) ? Math.max(0, Math.min(100, Number(row.cs2_discount_percent || 0))) : 0;
 }
 
+async function getPublicCatalogItems(env, options = {}) {
+  const { limit = 400, offset = 0 } = options;
+  const rows = await env.CASES_DB.prepare(`
+    SELECT
+      id,
+      item_name,
+      weapon_name,
+      skin_name,
+      rarity,
+      wear,
+      wear_code,
+      market_hash_name,
+      market_value,
+      image_url,
+      color_hex
+    FROM case_items
+    WHERE item_kind = 'skin'
+    ORDER BY id DESC
+    LIMIT ? OFFSET ?
+  `).bind(limit, offset).all();
+
+  const list = rows.results || [];
+  const ownerCounts = await getOwnerCountsByItemId(env, list.map((row) => row.id));
+  const items = [];
+  for (const row of list) {
+    let live = await getCachedItemPricePence(env, row.market_hash_name);
+    if (live == null || live <= 0) live = Number(row.market_value || 0);
+    items.push({
+      id: row.id,
+      item_name: row.item_name,
+      weapon_name: row.weapon_name,
+      skin_name: row.skin_name,
+      rarity: row.rarity,
+      wear: row.wear,
+      wear_code: row.wear_code || '',
+      market_hash_name: row.market_hash_name,
+      image_url: await ensureItemImageUrl(env, row, { allowLiveFetch: false }),
+      color_hex: row.color_hex || '',
+      fallback_value_pence: Number(row.market_value || 0),
+      live_price_pence: live,
+      owner_count: ownerCounts.get(Number(row.id)) || 0
+    });
+  }
+  return items;
+}
+
+async function getPublicListingsSnapshot(env) {
+  const rows = await env.CASES_DB.prepare(`
+    SELECT
+      l.id,
+      l.seller_user_id,
+      l.inventory_id,
+      l.item_id,
+      l.asking_price_pence,
+      l.created_at,
+      l.list_mode,
+      l.auction_end_at,
+      l.auction_start_bid_pence,
+      l.current_bid_pence,
+      l.current_high_bidder_id,
+      ci.item_name,
+      ci.rarity,
+      ci.color_hex,
+      ci.market_hash_name,
+      ci.image_url,
+      ci.wear,
+      ci.wear_code,
+      COALESCE(om.top_offer, 0) AS top_offer_pence
+    FROM market_listings l
+    INNER JOIN case_items ci ON ci.id = l.item_id
+    LEFT JOIN (
+      SELECT listing_id, MAX(offer_pence) AS top_offer
+      FROM market_offers
+      WHERE status = 'pending'
+      GROUP BY listing_id
+    ) om ON om.listing_id = l.id
+    WHERE l.status = 'active'
+    ORDER BY l.id DESC
+    LIMIT 200
+  `).all();
+
+  const listings = rows.results || [];
+  const sellerIds = listings.map((row) => Number(row.seller_user_id));
+  const names = await resolveUsernames(env, sellerIds);
+
+  const formatted = [];
+  for (const row of listings) {
+    formatted.push({
+      id: row.id,
+      seller: names.get(Number(row.seller_user_id)) || `user#${row.seller_user_id}`,
+      seller_user_id: row.seller_user_id,
+      inventory_id: row.inventory_id,
+      item_id: row.item_id,
+      item_name: row.item_name,
+      rarity: row.rarity,
+      color_hex: row.color_hex || "",
+      image_url: await ensureItemImageUrl(env, row, { allowLiveFetch: false }),
+      wear: row.wear || "",
+      wear_code: row.wear_code || "",
+      asking_price_pence: Number(row.asking_price_pence || 0),
+      list_mode: row.list_mode || "fixed",
+      auction_end_at: row.auction_end_at || null,
+      auction_start_bid_pence: row.auction_start_bid_pence != null ? Number(row.auction_start_bid_pence) : null,
+      current_bid_pence: Number(row.current_bid_pence || 0),
+      current_high_bidder_id: row.current_high_bidder_id || null,
+      top_offer_pence: Number(row.top_offer_pence || 0),
+      created_at: row.created_at
+    });
+  }
+
+  return formatted;
+}
+
+async function getCs2StoreVersionInfo(env) {
+  const [casesAgg, itemsAgg, dropsAgg, listingsAgg, eventRow] = await Promise.all([
+    env.CASES_DB.prepare(`
+      SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(price + fallback_price_pence + is_active), 0) AS checksum, COALESCE(MAX(created_at), '') AS latest_created_at
+      FROM case_definitions
+    `).first(),
+    env.CASES_DB.prepare(`
+      SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(market_value), 0) AS checksum, COALESCE(MAX(created_at), '') AS latest_created_at
+      FROM case_items
+      WHERE item_kind = 'skin'
+    `).first(),
+    env.CASES_DB.prepare(`
+      SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(drop_weight), 0) AS checksum
+      FROM case_drops
+    `).first(),
+    env.CASES_DB.prepare(`
+      SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(asking_price_pence + COALESCE(current_bid_pence, 0)), 0) AS checksum, COALESCE(MAX(created_at), '') AS latest_created_at
+      FROM market_listings
+      WHERE status = 'active'
+    `).first(),
+    env.CASES_DB.prepare(`
+      SELECT is_active, cs2_discount_percent, title, message, updated_at
+      FROM gambling_event_config
+      WHERE id = 1
+      LIMIT 1
+    `).first().catch(() => null)
+  ]);
+
+  const storeVersion = [
+    Number(casesAgg?.count_all || 0),
+    Number(casesAgg?.max_id || 0),
+    Number(casesAgg?.checksum || 0),
+    String(casesAgg?.latest_created_at || ''),
+    Number(itemsAgg?.count_all || 0),
+    Number(itemsAgg?.max_id || 0),
+    Number(itemsAgg?.checksum || 0),
+    String(itemsAgg?.latest_created_at || ''),
+    Number(dropsAgg?.count_all || 0),
+    Number(dropsAgg?.max_id || 0),
+    Number(dropsAgg?.checksum || 0),
+    Number(listingsAgg?.count_all || 0),
+    Number(listingsAgg?.max_id || 0),
+    Number(listingsAgg?.checksum || 0),
+    String(listingsAgg?.latest_created_at || ''),
+    Number(eventRow?.is_active || 0),
+    Number(eventRow?.cs2_discount_percent || 0),
+    String(eventRow?.title || ''),
+    String(eventRow?.message || ''),
+    String(eventRow?.updated_at || '')
+  ].join(':');
+
+  const updatedAt = String(eventRow?.updated_at || listingsAgg?.latest_created_at || casesAgg?.latest_created_at || itemsAgg?.latest_created_at || '');
+  return { store_version: storeVersion, updated_at: updatedAt };
+}
+
+async function buildCs2StoreBootstrap(env) {
+  const [{ store_version, updated_at }, cases, catalog_items, listings, quickSellFeePercent, eventConfig] = await Promise.all([
+    getCs2StoreVersionInfo(env),
+    getCachedValue('casesdb:cs2:cases', 60000, async () => {
+      const rows = await env.CASES_DB.prepare(`
+        SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
+        FROM case_definitions
+        ORDER BY case_name ASC
+      `).all();
+      const list = [];
+      for (const row of rows.results || []) {
+        if (!Number(row.is_active)) continue;
+        list.push(await formatCaseSummary(env, row, { allowLiveFetch: false }));
+      }
+      return list;
+    }),
+    getCachedValue('casesdb:cs2:catalog:bootstrap', 60000, async () => getPublicCatalogItems(env, { limit: 400, offset: 0 })),
+    getCachedValue('casesdb:cs2:listings:bootstrap', 60000, async () => getPublicListingsSnapshot(env)),
+    getQuickSellFeePercent(env),
+    getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`
+      SELECT is_active, cs2_discount_percent, title, message, updated_at
+      FROM gambling_event_config
+      WHERE id = 1
+      LIMIT 1
+    `).first().catch(() => null))
+  ]);
+
+  return {
+    store_version,
+    updated_at,
+    fetched_at: new Date().toISOString(),
+    key_price_pence: KEY_PRICE_PENCE,
+    quick_sell_fee_percent: quickSellFeePercent,
+    event: eventConfig ? {
+      is_active: Boolean(eventConfig.is_active),
+      cs2_discount_percent: Number(eventConfig.cs2_discount_percent || 0),
+      title: String(eventConfig.title || ''),
+      message: String(eventConfig.message || ''),
+      updated_at: String(eventConfig.updated_at || '')
+    } : null,
+    cases,
+    catalog_items,
+    listings
+  };
+}
+
 async function getCaseStorePricePence(env, caseRow, options = {}) {
   const { allowLiveFetch = true } = options;
   const hash = caseRow.steam_market_hash_name || caseRow.case_name;
@@ -637,6 +851,16 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   /* ------------------------------ Public cases ----------------------------- */
+  if (pathname === "/api/cs2/store/version" && request.method === "GET") {
+    const version = await getCs2StoreVersionInfo(env);
+    return json({ success: true, ...version }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/store/bootstrap" && request.method === "GET") {
+    const payload = await buildCs2StoreBootstrap(env);
+    return json({ success: true, ...payload }, 200, request);
+  }
+
   if (pathname === "/api/cs2/cases" && request.method === "GET") {
     const cases = await getCachedValue('casesdb:cs2:cases', 60000, async () => {
       const rows = await env.CASES_DB.prepare(`
@@ -663,6 +887,29 @@ export async function handleCs2Request(request, env, deps) {
       200,
       request
     );
+  }
+
+  if (pathname === "/api/cs2/me/summary" && request.method === "GET") {
+    const session = await getApprovedUser(request, env);
+    if (session instanceof Response) return session;
+    await ensureCaseProfile(env, session, isoNow);
+    await refreshInventoryValue(env, session.id);
+    const profile = await env.CASES_DB.prepare(`
+      SELECT balance, total_inventory_value, key_balance
+      FROM case_profiles
+      WHERE user_id = ?
+      LIMIT 1
+    `).bind(session.id).first();
+    const feePct = await getQuickSellFeePercent(env);
+    return json({
+      success: true,
+      summary: {
+        balance: Number(profile?.balance || 0),
+        total_inventory_value: Number(profile?.total_inventory_value || 0),
+        key_balance: Number(profile?.key_balance || 0),
+        quick_sell_fee_percent: feePct
+      }
+    }, 200, request);
   }
 
   /* ------------------------------ Feeds ----------------------------------- */
