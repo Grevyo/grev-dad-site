@@ -154,6 +154,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname.startsWith("/api/cs2") || cs2Request !== request) {
+    await ensureCasesCatalogReady(env);
     const cs2Response = await handleCs2Request(cs2Request, env, {
       json,
       getApprovedUser,
@@ -237,8 +238,7 @@ async function handleRequest(request, env, ctx) {
 
 async function handleSetup(env, request) {
   await ensureCoreTables(env);
-  await ensureCasesTables(env);
-  const cs2Seed = await seedCs2CatalogIfEmpty(env);
+  const cs2Seed = await ensureCasesCatalogReady(env);
 
   return json(
     {
@@ -249,6 +249,11 @@ async function handleSetup(env, request) {
     200,
     request
   );
+}
+
+async function ensureCasesCatalogReady(env) {
+  await ensureCasesTables(env);
+  return await seedCs2CatalogIfEmpty(env);
 }
 
 async function ensureCoreTables(env) {
@@ -1436,7 +1441,7 @@ async function handleForumRemovePost(request, env) {
 
 async function handleGamblingProfile(request, env) {
   await ensureCoreTables(env);
-  await ensureCasesTables(env);
+  await ensureCasesCatalogReady(env);
 
   if (!env.CASES_DB) {
     return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
