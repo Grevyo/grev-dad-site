@@ -5,7 +5,7 @@
 (function () {
   function formatGrevCoins(pence) {
     const n = Number(pence || 0) / 100;
-    return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GV`;
+    return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GC`;
   }
 
   async function refreshGamblingWallet() {

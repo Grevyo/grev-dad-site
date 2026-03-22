@@ -97,7 +97,7 @@
           Prices follow the same rules site-wide; sign in to play.
         </p>
         <div id="gambling-wallet-mount" class="gambling-wallet-mount" aria-live="polite"></div>
-        <p class="hub-back-note">Your balance, keys, and inventory value stay in sync on every gambling page.</p>
+        <div id="gambling-event-banner" class="hub-back-note"></div><p class="hub-back-note">Your balance, keys, and inventory value stay in sync on every gambling page.</p>
       </section>
 
       <section class="panel mt-24">
@@ -127,5 +127,10 @@
       <div class="footer-inner">Grev.dad — gambling hub · one Grev Coins wallet across all modes</div>
     </footer>
   </div>
-</body>
+<script>
+(async function(){
+ const banner=document.getElementById("gambling-event-banner"); if(!banner) return;
+ try{ const res=await fetch("/api/gambling/event",{credentials:"same-origin"}); const data=await res.json().catch(()=>null); const event=data?.event; if(!event?.is_active) { banner.textContent="No special gambling event live right now."; return; } banner.innerHTML=`🔥 <strong>${event.title || "Special event"}</strong> — ${event.message || "Boosted gambling mode pricing is live."} · CS2 discount ${Number(event.cs2_discount_percent||0)}% · YGO discount ${Number(event.ygo_discount_percent||0)}% · Blackjack payout boost ${Number(event.blackjack_bonus_percent||0)}%`; }catch{ banner.textContent="Could not load the current gambling event."; if(window.showPageLoadError) window.showPageLoadError("Could not load the gambling event banner."); }
+})();
+</script></body>
 </html>

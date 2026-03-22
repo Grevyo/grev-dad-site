@@ -7,6 +7,7 @@ import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
 import { ensureCs2Extensions } from "./cs2/schema.js";
 import { ensureYgoTables } from "./ygo/schema.js";
 import { handleYgoRequest } from "./ygo/handlers.js";
+import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -136,6 +137,28 @@ async function handleRequest(request, env, ctx) {
     return await handleGamblingProfile(request, env);
   }
 
+  if (pathname === "/api/gambling/event" && request.method === "GET") {
+    await ensureCasesCatalogReady(env);
+    const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await env.CASES_DB.prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
+    return json({ success: true, event }, 200, request);
+  }
+
+  if (pathname === "/api/gambling/admin/event" && request.method === "POST") {
+    const adminUser = await requireGamblingAdmin(request, env);
+    if (adminUser instanceof Response) return adminUser;
+    await ensureCasesCatalogReady(env);
+    const body = await safeJson(request);
+    const now = isoNow();
+    const event = { id: 1, title: String(body?.title || '').trim(), message: String(body?.message || '').trim(), is_active: Boolean(body?.is_active), cs2_discount_percent: Math.max(0, Math.min(100, Number(body?.cs2_discount_percent || 0))), ygo_discount_percent: Math.max(0, Math.min(100, Number(body?.ygo_discount_percent || 0))), blackjack_bonus_percent: Math.max(0, Math.min(500, Number(body?.blackjack_bonus_percent || 0))), updated_at: now };
+    await env.CASES_DB.prepare(`INSERT INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, message = excluded.message, is_active = excluded.is_active, cs2_discount_percent = excluded.cs2_discount_percent, ygo_discount_percent = excluded.ygo_discount_percent, blackjack_bonus_percent = excluded.blackjack_bonus_percent, updated_at = excluded.updated_at`).bind(event.title, event.message, event.is_active ? 1 : 0, event.cs2_discount_percent, event.ygo_discount_percent, event.blackjack_bonus_percent, now).run();
+    setCachedValue("casesdb:event-config", event, 30000);
+    invalidateCachedPrefix("casesdb:cs2:cases");
+    invalidateCachedPrefix("casesdb:ygo:packs");
+    invalidateCachedPrefix("casesdb:ygo:single-price");
+    return json({ success: true, message: 'Gambling event saved' }, 200, request);
+  }
+
+
   let cs2Request = request;
   if (pathname === "/api/cases" && request.method === "GET") {
     const aliasUrl = new URL(request.url);
@@ -173,6 +196,7 @@ async function handleRequest(request, env, ctx) {
     const ygoResponse = await handleYgoRequest(request, env, {
       json,
       getApprovedUser,
+      requireGamblingAdmin,
       isoNow,
       safeJson
     });
@@ -512,6 +536,9 @@ async function ensureCasesTables(env) {
   await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
   await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
   await env.CASES_DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
+
+  await env.CASES_DB.prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
+  await env.CASES_DB.prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
 
   await ensureCs2Extensions(env.CASES_DB);
   await ensureYgoTables(env.CASES_DB);

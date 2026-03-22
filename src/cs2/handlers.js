@@ -5,6 +5,7 @@ import { fetchSteamIconUrl, getCachedItemPricePence, getOrFetchItemPricePence } 
 import { pickWearTier } from "./wear.js";
 import { importPriceEmpireCatalog } from "./pricempire.js";
 import { importMasterCatalog } from "./master-import.js";
+import { getCachedValue, invalidateCachedPrefix } from "../lib/runtime-cache.js";
 
 function pickWeighted(rows) {
   const list = (rows || []).filter((r) => Number(r.drop_weight) > 0);
@@ -309,14 +310,20 @@ async function buildAdminCasePayload(env, caseRow, options = {}) {
   };
 }
 
+async function getCs2DiscountPercent(env) {
+  const row = await getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`SELECT is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, title, message, updated_at FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
+  return row && Number(row.is_active) ? Math.max(0, Math.min(100, Number(row.cs2_discount_percent || 0))) : 0;
+}
+
 async function getCaseStorePricePence(env, caseRow, options = {}) {
   const { allowLiveFetch = true } = options;
   const hash = caseRow.steam_market_hash_name || caseRow.case_name;
   const live = allowLiveFetch
     ? await getOrFetchItemPricePence(env, hash)
     : await getCachedItemPricePence(env, hash);
-  if (live != null && live > 0) return live;
-  return Number(caseRow.fallback_price_pence || caseRow.price || 0);
+  const basePrice = live != null && live > 0 ? live : Number(caseRow.fallback_price_pence || caseRow.price || 0);
+  const discount = await getCs2DiscountPercent(env);
+  return Math.max(1, Math.round(basePrice * ((100 - discount) / 100)));
 }
 
 /**
@@ -501,17 +508,19 @@ export async function handleCs2Request(request, env, deps) {
 
   /* ------------------------------ Public cases ----------------------------- */
   if (pathname === "/api/cs2/cases" && request.method === "GET") {
-    const rows = await env.CASES_DB.prepare(`
-      SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
-      FROM case_definitions
-      ORDER BY case_name ASC
-    `).all();
-
-    const cases = [];
-    for (const row of rows.results || []) {
-      if (!Number(row.is_active)) continue;
-      cases.push(await formatCaseSummary(env, row, { allowLiveFetch: false }));
-    }
+    const cases = await getCachedValue('casesdb:cs2:cases', 60000, async () => {
+      const rows = await env.CASES_DB.prepare(`
+        SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
+        FROM case_definitions
+        ORDER BY case_name ASC
+      `).all();
+      const list = [];
+      for (const row of rows.results || []) {
+        if (!Number(row.is_active)) continue;
+        list.push(await formatCaseSummary(env, row, { allowLiveFetch: false }));
+      }
+      return list;
+    });
 
     const feePct = await getQuickSellFeePercent(env);
     return json(
@@ -1081,6 +1090,7 @@ export async function handleCs2Request(request, env, deps) {
       FROM case_definitions WHERE id = ? LIMIT 1
     `).bind(caseId).first();
 
+    invalidateCachedPrefix('casesdb:cs2:cases');
     return json({ success: true, message: "Case created", case: await buildAdminCasePayload(env, created) }, 200, request);
   }
 
@@ -1100,6 +1110,7 @@ export async function handleCs2Request(request, env, deps) {
       UPDATE case_definitions SET is_active = ? WHERE id = ?
     `).bind(isActive ? 1 : 0, caseId).run();
 
+    invalidateCachedPrefix('casesdb:cs2:cases');
     return json({ success: true, message: "Case updated" }, 200, request);
   }
 
@@ -1125,6 +1136,7 @@ export async function handleCs2Request(request, env, deps) {
       WHERE id = ?
     `).bind(fallback, fallback, caseId).run();
 
+    invalidateCachedPrefix('casesdb:cs2:cases');
     return json({ success: true, message: "Fallback price updated" }, 200, request);
   }
 
@@ -1133,6 +1145,7 @@ export async function handleCs2Request(request, env, deps) {
     if (admin instanceof Response) return admin;
     try {
       const stats = await importMasterCatalog(env);
+      invalidateCachedPrefix('casesdb:cs2:cases');
       return json({ success: true, stats, message: `Imported ${stats.skins_upserted} skin rows across ${stats.sections} catalog sections.` }, 200, request);
     } catch (error) {
       return json({ success: false, error: error?.message || 'Catalog import failed.' }, 500, request);
@@ -1150,6 +1163,7 @@ export async function handleCs2Request(request, env, deps) {
 
     try {
       const stats = await importPriceEmpireCatalog(env, apiKey, { limit });
+      invalidateCachedPrefix('casesdb:cs2:cases');
       return json({ success: true, message: `Imported ${stats.skins_inserted} new skins, updated ${stats.skins_updated} skins, and added ${stats.drops_added} case drops.`, stats }, 200, request);
     } catch (error) {
       return json({ success: false, error: error instanceof Error ? error.message : 'PriceEmpire import failed.' }, 500, request);
@@ -1417,12 +1431,16 @@ export async function handleCs2Request(request, env, deps) {
     const keyMeta = await env.CASES_DB.prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(session.id)
       .first();
+    const showcaseRows = await env.CASES_DB.prepare(`SELECT slot, inventory_id FROM profile_showcase WHERE user_id = ? ORDER BY slot ASC`)
+      .bind(session.id)
+      .all();
 
     return json(
       {
         success: true,
         items,
-        key_balance: Number(keyMeta?.key_balance ?? 0)
+        key_balance: Number(keyMeta?.key_balance ?? 0),
+        showcase: (showcaseRows.results || []).map((row) => ({ slot: Number(row.slot), inventory_id: Number(row.inventory_id) }))
       },
       200,
       request
