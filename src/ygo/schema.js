@@ -50,6 +50,7 @@ export async function ensureYgoTables(db) {
       image_url TEXT,
       external_price_note TEXT,
       source_url TEXT,
+      drop_weight INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE(pack_slug, card_name, rarity_code)
@@ -133,11 +134,29 @@ export async function ensureYgoTables(db) {
     )
   `).run();
 
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS ygo_showcase (
+      user_id INTEGER NOT NULL,
+      slot INTEGER NOT NULL,
+      inventory_id INTEGER NOT NULL,
+      PRIMARY KEY (user_id, slot)
+    )
+  `).run();
+
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ygo_cards_pack_slug ON ygo_cards (pack_slug, rarity_code)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ygo_inventory_user_id ON ygo_inventory (user_id, sold_at)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_ygo_open_history_user_id ON ygo_pack_open_history (user_id, opened_at DESC)`).run();
 
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS ygo_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `).run();
+
   await ensureColumn(db, 'case_profiles', 'balance', 'INTEGER NOT NULL DEFAULT 500000');
+  await ensureColumn(db, 'ygo_cards', 'drop_weight', 'INTEGER NOT NULL DEFAULT 0');
 
   const now = isoNow();
   for (const pack of YGO_PACKS) {
@@ -181,8 +200,8 @@ export async function ensureYgoTables(db) {
       INSERT INTO ygo_cards (
         pack_slug, card_name, ygoprodeck_card_id, rarity_code, estimated_price_coins,
         card_type, attribute, level_stars, attack_points, defense_points, image_url,
-        external_price_note, source_url, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        external_price_note, source_url, drop_weight, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(pack_slug, card_name, rarity_code) DO UPDATE SET
         ygoprodeck_card_id = excluded.ygoprodeck_card_id,
         estimated_price_coins = excluded.estimated_price_coins,
@@ -194,6 +213,7 @@ export async function ensureYgoTables(db) {
         image_url = excluded.image_url,
         external_price_note = excluded.external_price_note,
         source_url = excluded.source_url,
+        drop_weight = excluded.drop_weight,
         updated_at = excluded.updated_at
     `).bind(
       card.set_slug,
@@ -209,10 +229,13 @@ export async function ensureYgoTables(db) {
       card.image_url,
       card.external_price_note,
       card.source_url,
+      Number(card.drop_weight || YGO_RARITIES[card.rarity_code]?.pull_weight || (card.rarity_code === 'rare' ? 100 : 1)),
       now,
       now
     ).run();
   }
+
+  await db.prepare(`INSERT OR IGNORE INTO ygo_settings (key, value) VALUES ('single_card_price_coins', '125')`).run();
 
   for (const achievement of YGO_ACHIEVEMENTS) {
     await db.prepare(`

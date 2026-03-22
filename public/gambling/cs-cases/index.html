@@ -204,7 +204,7 @@
           <h1>CS CASES · CS2</h1>
           <p>
             Everything for Counter-Strike cases lives on this page — buy cases and keys, open singles or batches, manage inventory, and trade.
-            <strong>Grev Coins</strong> use the same wallet as the rest of the gambling hub. All prices below are shown as <strong>£00.00GV</strong> so the GV side is much clearer.
+            <strong>Grev Coins</strong> use the same wallet as the rest of the gambling hub. All prices below are shown as <strong>£00.00GC</strong> so the GC side is much clearer.
             Quick sell pays live market reference minus the admin fee (default 10%).
           </p>
           <div id="gambling-wallet-mount" class="cs2-balance"></div>
@@ -241,12 +241,12 @@
 
         <section class="panel cs2-panel" id="panel-store">
           <h2 class="panel-title">Case market &amp; keys</h2>
-          <p class="panel-subtitle">Case prices use the clearer <strong>£00.00GV</strong> format. Hover a case to inspect every possible drop and its percentage chance. Keys are always <span id="store-key-price-label">£1.00GV</span> each.</p>
+          <p class="panel-subtitle">Case prices use the clearer <strong>£00.00GC</strong> format. Hover a case to inspect every possible drop and its percentage chance. Keys are always <span id="store-key-price-label">£1.00GC</span> each.</p>
           <div class="case-card key-card" style="max-width:520px;margin-bottom:18px">
             <div class="key-visual" aria-hidden="true">🔑</div>
             <div>
             <h3 class="mt-0">Buy keys</h3>
-            <div class="case-meta">Keys are stored on your profile and spent when you open a case. Every case open costs exactly <strong>£1.00GV</strong>.</div>
+            <div class="case-meta">Keys are stored on your profile and spent when you open a case. Every case open costs exactly <strong>£1.00GC</strong>.</div>
             <div class="inv-actions" style="margin-top:10px">
               <label class="muted" style="display:flex;align-items:center;gap:8px">Qty
                 <input class="form-input" type="number" id="buy-keys-qty" min="1" max="100" value="1" style="max-width:100px" />
@@ -270,8 +270,8 @@
           <div class="filter-row">
             <input id="inventory-search" class="form-input" type="search" placeholder="Search skins..." />
             <select id="inventory-rarity" class="form-input"><option value="">All rarities</option><option>Consumer Grade</option><option>Industrial Grade</option><option>Mil-Spec Grade</option><option>Restricted</option><option>Classified</option><option>Covert</option><option>Special Item</option><option>Contraband</option></select>
-            <input id="inventory-min-price" class="form-input" type="number" min="0" step="0.01" placeholder="Min GV" />
-            <input id="inventory-max-price" class="form-input" type="number" min="0" step="0.01" placeholder="Max GV" />
+            <input id="inventory-min-price" class="form-input" type="number" min="0" step="0.01" placeholder="Min GC" />
+            <input id="inventory-max-price" class="form-input" type="number" min="0" step="0.01" placeholder="Max GC" />
           </div>
           <div id="skin-inventory-list"></div>
         </section>
@@ -466,7 +466,7 @@
 
     function formatGrevCoins(pence) {
       const n = Number(pence || 0) / 100;
-      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GV`;
+      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}GC`;
     }
 
     function setBalancePills() {
@@ -884,11 +884,12 @@
       }
     }
 
-    function renderShowcase(skins) {
+    function renderShowcase(skins, showcase = []) {
       if (!currentUser) {
         showcaseMount.innerHTML = `<div class="muted">Login to set showcase slots.</div>`;
         return;
       }
+      const showcaseMap = new Map((showcase || []).map((entry) => [Number(entry.slot), Number(entry.inventory_id)]));
       const opts = skins.map((s) =>
         `<option value="${s.inventory_id}">${escapeHtml(s.item_name)} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</option>`
       ).join("");
@@ -902,6 +903,11 @@
           <button type="button" class="btn btn-primary" data-showcase-save="${slot}" style="width:100%">Save</button>
         </div>
       `).join("");
+      showcaseMount.querySelectorAll("[data-showcase-slot]").forEach((sel) => {
+        const slot = Number(sel.getAttribute("data-showcase-slot"));
+        const active = showcaseMap.get(slot);
+        if (active) sel.value = String(active);
+      });
 
       showcaseMount.querySelectorAll("[data-showcase-save]").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -950,6 +956,7 @@
           return;
         }
         const items = data.items || [];
+        const showcase = data.showcase || [];
         if (data.key_balance != null) keyBalance = Number(data.key_balance);
         setBalancePills();
 
@@ -1044,7 +1051,10 @@
           });
         });
 
-        skinInventoryList.innerHTML = filteredSkins.length ? filteredSkins.map((s) => `
+        const showcaseByInventory = new Map((showcase || []).map((entry) => [Number(entry.inventory_id), Number(entry.slot)]));
+        skinInventoryList.innerHTML = filteredSkins.length ? filteredSkins.map((s) => {
+          const favoriteSlot = showcaseByInventory.get(Number(s.inventory_id));
+          return `
           <div class="inv-row">
             ${s.image_url ? `<img class="inv-thumb" src="${escapeHtml(s.image_url)}" alt="" />` : `<div></div>`}
             <div>
@@ -1054,20 +1064,57 @@
               <div class="muted">Live ref: ${formatGrevCoins(s.live_price_pence)} · Quick sell: ${formatGrevCoins(Math.max(1, Math.floor((Number(s.live_price_pence || 0) * (100 - quickSellFeePercent)) / 100)))} · Track ID #${s.skin_instance_id || s.inventory_id}</div>
             </div>
             <div class="inv-actions">
+              <label class="mini-pill" title="Save this skin into one of your 5 profile favorite slots." style="display:flex;align-items:center;gap:8px">🖤
+                <select class="form-input" data-favorite-slot="${s.inventory_id}" style="max-width:90px">
+                  <option value="">Slot</option>
+                  <option value="0" ${favoriteSlot === 0 ? "selected" : ""}>1</option>
+                  <option value="1" ${favoriteSlot === 1 ? "selected" : ""}>2</option>
+                  <option value="2" ${favoriteSlot === 2 ? "selected" : ""}>3</option>
+                  <option value="3" ${favoriteSlot === 3 ? "selected" : ""}>4</option>
+                  <option value="4" ${favoriteSlot === 4 ? "selected" : ""}>5</option>
+                </select>
+              </label>
               <button type="button" class="btn" data-quick="${s.inventory_id}" title="Live ref minus admin fee">Quick sell</button>
               <select class="form-input" data-list-mode="${s.inventory_id}" style="max-width:130px">
                 <option value="fixed">Fixed price</option>
                 <option value="auction">Auction</option>
                 <option value="accept_offers">Offers only</option>
               </select>
-              <input class="form-input" type="number" min="1" step="1" placeholder="Price (£GV)" data-ask="${s.inventory_id}" style="max-width:100px" title="Ask in GV pricing units (stored internally as pence)" />
+              <input class="form-input" type="number" min="1" step="1" placeholder="Price (£GC)" data-ask="${s.inventory_id}" style="max-width:100px" title="Ask in GC pricing units (stored internally as pence)" />
               <input class="form-input" type="datetime-local" data-auct-end="${s.inventory_id}" style="max-width:180px" title="Auction end (local time)" />
               <button type="button" class="btn btn-primary" data-list="${s.inventory_id}">List</button>
             </div>
           </div>
-        `).join("") : `<div class="muted">No skins yet.</div>`;
+        `; }).join("") : `<div class="muted">No skins yet.</div>`;
 
-        renderShowcase(skins);
+        renderShowcase(skins, showcase);
+
+        skinInventoryList.querySelectorAll("[data-favorite-slot]").forEach((sel) => {
+          sel.addEventListener("change", async () => {
+            if (sel.value === "") return;
+            sel.disabled = true;
+            clearMessage();
+            try {
+              const response = await fetch("/api/cs2/showcase", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slot: Number(sel.value), inventory_id: Number(sel.getAttribute("data-favorite-slot")) })
+              });
+              const data = await response.json().catch(() => null);
+              if (!response.ok || !data?.success) {
+                showMessage("error", data?.error || "Could not update showcase.");
+                return;
+              }
+              showMessage("success", "Favorite slot updated.");
+              await loadInventoryUi();
+            } catch {
+              showMessage("error", "Network error.");
+            } finally {
+              sel.disabled = false;
+            }
+          });
+        });
 
         skinInventoryList.querySelectorAll("[data-quick]").forEach((btn) => {
           btn.addEventListener("click", async () => {
@@ -1218,11 +1265,11 @@
             <div class="inv-actions">
               ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy</button>` : ""}
               ${canBid ? `
-                <input class="form-input" type="number" min="1" step="1" placeholder="Bid (£GV)" data-bid-amt="${row.id}" style="max-width:100px" />
+                <input class="form-input" type="number" min="1" step="1" placeholder="Bid (£GC)" data-bid-amt="${row.id}" style="max-width:100px" />
                 <button type="button" class="btn btn-primary" data-bid-listing="${row.id}">Bid</button>
               ` : ""}
               ${canOffer ? `
-                <input class="form-input" type="number" min="1" step="1" placeholder="Offer (£GV)" data-offer-amt="${row.id}" style="max-width:100px" />
+                <input class="form-input" type="number" min="1" step="1" placeholder="Offer (£GC)" data-offer-amt="${row.id}" style="max-width:100px" />
                 <input class="form-input" type="text" placeholder="Comment" data-offer-comment="${row.id}" style="max-width:140px" maxlength="2000" />
                 <button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Send offer</button>
               ` : ""}
@@ -1407,7 +1454,7 @@
             ${hasCounter ? `<div class="muted" style="margin-top:6px">Your counter: ${formatGrevCoins(counterP)}${o.seller_counter_message ? ` — ${escapeHtml(o.seller_counter_message)}` : ""}</div>` : ""}
             <div class="inv-actions" style="margin-top:10px">
               ${!hasCounter ? `<button type="button" class="btn btn-primary" data-accept-offer="${o.offer_id}">Accept offer</button>` : `<span class="muted">Waiting for buyer to accept your counter</span>`}
-              <input class="form-input" type="number" min="1" step="1" placeholder="Counter (£GV)" data-counter-amt="${o.offer_id}" style="max-width:100px" />
+              <input class="form-input" type="number" min="1" step="1" placeholder="Counter (£GC)" data-counter-amt="${o.offer_id}" style="max-width:100px" />
               <input class="form-input" type="text" placeholder="Counter message" data-counter-msg="${o.offer_id}" style="max-width:160px" maxlength="2000" />
               <button type="button" class="btn" data-send-counter="${o.offer_id}">Send counter</button>
               <input class="form-input" type="text" placeholder="Thread reply" data-thread-reply="${o.offer_id}" style="max-width:160px" maxlength="2000" />

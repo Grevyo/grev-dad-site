@@ -1,8 +1,8 @@
 (function () {
-  const state = { packs: [], profile: null, inventory: [], catalog: [] };
+  const state = { packs: [], profile: null, inventory: [], catalog: [], showcase: [], singleCardPrice: 0 };
 
   const $ = (id) => document.getElementById(id);
-  const formatCoins = (coins) => `${Number(coins || 0).toLocaleString('en-US')} GC`;
+  const formatCoins = (coins) => `${(Number(coins || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
   const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[char]));
 
   async function request(url, options) {
@@ -10,6 +10,13 @@
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.success) throw new Error(data?.error || 'Request failed');
     return data;
+  }
+
+  async function loadSingleCardSettings() {
+    const data = await request('/api/ygo/single/settings');
+    state.singleCardPrice = Number(data.discounted_single_card_price_coins || data.single_card_price_coins || 0);
+    const pill = $('single-card-price');
+    if (pill) pill.textContent = `Price: ${formatCoins(state.singleCardPrice)}${Number(data.active_discount_percent || 0) > 0 ? ` (-${Number(data.active_discount_percent)}% event)` : ''}`;
   }
 
   function setTabs() {
@@ -49,7 +56,7 @@
           <span class="mini-pill">${pack.card_count} cards in pool</span>
         </div>
         <p style="margin:12px 0 8px">${escapeHtml(pack.description)}</p>
-        <div class="price-line">${formatCoins(pack.pack_price_coins)} per pack</div>
+        <div class="price-line">${formatCoins(pack.discounted_pack_price_coins ?? pack.pack_price_coins)} per pack${Number(pack.active_discount_percent || 0) > 0 ? ` <span class="mini-pill">-${Number(pack.active_discount_percent)}%</span>` : ''}</div>
         <div class="foil-text">Guaranteed <strong>Rare</strong> every pack. Extra slots can upgrade into Super, Ultra, Ultimate, Secret, or Ghost Rare pulls.</div>
         <div class="pack-odds">
           ${pack.rarity_odds.map((odds) => `<div class="odds-row"><span>${escapeHtml(odds.label)}${odds.guaranteed ? ' slot' : ''}</span><strong>${odds.guaranteed ? 'Guaranteed' : `${odds.chance_percent}%`}</strong></div>`).join('')}
@@ -115,7 +122,10 @@
   }
 
   function renderInventory() {
-    $('inventory-grid').innerHTML = state.inventory.map((card) => `
+    const showcaseByCard = new Map((state.showcase || []).map((item) => [Number(item.inventory_id), Number(item.slot)]));
+    $('inventory-grid').innerHTML = state.inventory.map((card) => {
+      const assignedSlot = showcaseByCard.get(Number(card.id));
+      return `
       <article class="ygo-card">
         <img class="card-art" src="${escapeHtml(card.image_url)}" alt="${escapeHtml(card.card_name)}" />
         <div class="action-row" style="justify-content:space-between;margin:10px 0 8px">
@@ -128,11 +138,59 @@
           <div class="detail-row"><span>Pack</span><strong>${escapeHtml(card.pack_slug)}</strong></div>
           <div class="detail-row"><span>Sell back</span><strong>${formatCoins(card.sell_back_coins)}</strong></div>
         </div>
-        <div class="action-row">
-          <button type="button" class="btn sell-card-btn" data-id="${card.id}">Sell back</button>
+        <div class="action-row" style="align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <label class="mini-pill" style="display:flex;align-items:center;gap:8px">
+            <span>🖤 Favorite slot</span>
+            <select class="form-input" data-showcase-select="${card.id}" style="max-width:90px">
+              <option value="">Pick</option>
+              <option value="0" ${assignedSlot === 0 ? 'selected' : ''}>1</option>
+              <option value="1" ${assignedSlot === 1 ? 'selected' : ''}>2</option>
+              <option value="2" ${assignedSlot === 2 ? 'selected' : ''}>3</option>
+              <option value="3" ${assignedSlot === 3 ? 'selected' : ''}>4</option>
+              <option value="4" ${assignedSlot === 4 ? 'selected' : ''}>5</option>
+            </select>
+          </label>
+          <div class="action-row">
+            <button type="button" class="btn" data-showcase-clear="${card.id}">Clear favorite</button>
+            <button type="button" class="btn sell-card-btn" data-id="${card.id}">Sell back</button>
+          </div>
         </div>
       </article>
-    `).join('') || '<p class="muted">No cards yet. Open a pack to start your binder.</p>';
+    `; }).join('') || '<p class="muted">No cards yet. Open a pack to start your binder.</p>';
+
+    document.querySelectorAll('[data-showcase-select]').forEach((select) => {
+      select.addEventListener('change', async () => {
+        if (select.value === '') return;
+        select.disabled = true;
+        try {
+          await request('/api/ygo/showcase', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slot: Number(select.value), inventory_id: Number(select.dataset.showcaseSelect) }) });
+          await loadInventory();
+          renderInventory();
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          select.disabled = false;
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-showcase-clear]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const cardId = Number(button.dataset.showcaseClear);
+        const active = (state.showcase || []).find((item) => Number(item.inventory_id) === cardId);
+        if (!active) return;
+        button.disabled = true;
+        try {
+          await request('/api/ygo/showcase', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slot: Number(active.slot), inventory_id: 0 }) });
+          await loadInventory();
+          renderInventory();
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
 
     document.querySelectorAll('.sell-card-btn').forEach((button) => {
       button.addEventListener('click', async () => {
@@ -212,6 +270,7 @@
   async function loadInventory() {
     const data = await request('/api/ygo/inventory');
     state.inventory = data.inventory || [];
+    state.showcase = data.showcase || [];
   }
 
   async function loadCatalog() {
@@ -222,10 +281,33 @@
   async function boot() {
     setTabs();
     $('close-open-modal').addEventListener('click', () => $('open-modal').classList.remove('open'));
+    $('open-single-card')?.addEventListener('click', async () => {
+      const button = $('open-single-card');
+      button.disabled = true;
+      try {
+        const data = await request('/api/ygo/single/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        state.profile = data.profile;
+        await Promise.all([loadInventory(), loadCatalog(), loadSingleCardSettings()]);
+        renderProfile();
+        renderInventory();
+        renderCatalog();
+        renderMissions();
+        renderOpenResults({
+          pack: { set_name: 'Single-card opener' },
+          bonus_coins_awarded: 0,
+          achievements_unlocked: [],
+          pulls: [data.pull]
+        });
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
     $('catalog-pack-filter').addEventListener('change', renderCatalog);
     $('catalog-rarity-filter').addEventListener('change', renderCatalog);
     try {
-      const [packsData, profileData] = await Promise.all([request('/api/ygo/packs'), request('/api/ygo/profile')]);
+      const [packsData, profileData] = await Promise.all([request('/api/ygo/packs'), request('/api/ygo/profile'), loadSingleCardSettings()]);
       state.packs = packsData.packs || [];
       state.profile = profileData.profile;
       await Promise.all([loadInventory(), loadCatalog()]);
