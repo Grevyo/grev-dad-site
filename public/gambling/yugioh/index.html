@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yu-Gi-Oh Pack Playground | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/gambling-wallet.js" defer></script>
+  <script src="/gambling/yugioh/script.js" defer></script>
+  <link rel="stylesheet" href="/gambling/yugioh/style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main ygo-page">
+      <section class="panel ygo-hero">
+        <p class="gambling-breadcrumb"><a href="/gambling/index.html">← Gambling hub</a></p>
+        <h1>Yu-Gi-Oh Pack Playground</h1>
+        <p>
+          Custom Grev.dad pack opening mode powered by <strong>YGOPRODeck card/set data</strong> for art + card metadata,
+          with Grev.dad controlling the economy: <strong>Grev Coins</strong>, pack prices, rarity odds, sell-back values,
+          inventory, achievements, missions, and streak bonuses. No cash-out, no real-money trading, pure collection energy.
+        </p>
+        <div id="gambling-wallet-mount" class="ygo-wallet"></div>
+      </section>
+
+      <section class="panel">
+        <div class="tabs" id="ygo-tabs">
+          <button class="tab-btn active" data-tab="packs" type="button">Pack opener</button>
+          <button class="tab-btn" data-tab="collection" type="button">Collection</button>
+          <button class="tab-btn" data-tab="catalog" type="button">Card pricing</button>
+          <button class="tab-btn" data-tab="missions" type="button">Achievements</button>
+        </div>
+      </section>
+
+      <section class="panel ygo-panel active" id="panel-packs">
+        <div class="section-header">
+          <div>
+            <h2 class="panel-title">Open packs</h2>
+            <p class="panel-subtitle">Every pack has 5 cards with a guaranteed Rare slot. The other four slots use Grev.dad rarity tables.</p>
+          </div>
+          <div id="ygo-profile-strip" class="stat-strip"></div>
+        </div>
+        <div id="pack-grid" class="pack-grid"></div>
+      </section>
+
+      <section class="panel ygo-panel" id="panel-collection">
+        <div class="section-header">
+          <div>
+            <h2 class="panel-title">Your collection</h2>
+            <p class="panel-subtitle">Collection-only inventory with Grev.dad sell-back values and foil labels.</p>
+          </div>
+        </div>
+        <div id="inventory-summary" class="stat-strip"></div>
+        <div id="inventory-grid" class="collection-grid"></div>
+      </section>
+
+      <section class="panel ygo-panel" id="panel-catalog">
+        <div class="section-header">
+          <div>
+            <h2 class="panel-title">Card pricing + rarity data</h2>
+            <p class="panel-subtitle">Estimated Grev Coins pricing generally mirrors online demand; if no dependable value is available, Grev.dad stores a fallback estimate.</p>
+          </div>
+        </div>
+        <div class="filter-row">
+          <select id="catalog-pack-filter" class="form-input"></select>
+          <select id="catalog-rarity-filter" class="form-input">
+            <option value="">All rarities</option>
+            <option value="common">Common</option>
+            <option value="rare">Rare</option>
+            <option value="super">Super Rare</option>
+            <option value="ultra">Ultra Rare</option>
+            <option value="ultimate">Ultimate Rare</option>
+            <option value="ghost">Ghost Rare</option>
+            <option value="secret">Secret Rare</option>
+          </select>
+        </div>
+        <div id="catalog-grid" class="catalog-grid"></div>
+      </section>
+
+      <section class="panel ygo-panel" id="panel-missions">
+        <div class="section-header">
+          <div>
+            <h2 class="panel-title">Achievements, missions, and streaks</h2>
+            <p class="panel-subtitle">Grev.dad controls coin rewards so you can tune progression independently from card metadata.</p>
+          </div>
+        </div>
+        <div id="mission-grid" class="mission-grid"></div>
+        <div id="achievement-grid" class="achievement-grid"></div>
+      </section>
+    </main>
+
+    <div id="open-modal" class="open-modal-overlay" aria-hidden="true">
+      <div class="open-modal">
+        <div class="open-modal-head">
+          <div>
+            <p class="eyebrow">Pack opened</p>
+            <h3 id="open-modal-title">Pack results</h3>
+          </div>
+          <button type="button" class="btn" id="close-open-modal">Close</button>
+        </div>
+        <div id="open-bonus" class="bonus-banner hidden"></div>
+        <div id="open-results" class="open-results-grid"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
