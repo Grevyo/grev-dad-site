@@ -31,8 +31,14 @@
 
     <main class="page-main">
       <section class="panel">
-        <h1 class="auth-title">Gambling admin</h1>
-        <p class="auth-subtitle">Manage CS2 and Yu-Gi-Oh pricing, packs, imports, and user balances from one gambling admin panel.</p>
+        <h1 class="auth-title">CS2 admin</h1>
+        <p class="auth-subtitle">Manage CS2 cases, imports, images, and quick-sell settings from the gambling hub's CS2 admin page.</p>
+        <div class="admin-nav" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+          <a class="btn" href="/gambling-admin.html">Main hub</a>
+          <a class="btn btn-primary" href="/cs2-admin.html">CS2 admin</a>
+          <a class="btn" href="/blackjack-admin.html">Blackjack admin</a>
+          <a class="btn" href="/ygo-admin.html">Yu-Gi-Oh admin</a>
+        </div>
         <div id="page-message" class="hidden"></div>
       </section>
 
@@ -174,7 +180,7 @@
     </main>
 
     <footer class="footer">
-      <div class="footer-inner">Grev.dad — gambling admin</div>
+      <div class="footer-inner">Grev.dad — CS2 admin</div>
     </footer>
   </div>
 
@@ -230,7 +236,7 @@
               <input class="form-input" type="number" min="0" step="0.01" data-balance-input value="${(Number(user.balance_pence || 0) / 100).toFixed(2)}" />
             </label>
             <button type="button" class="btn btn-primary" data-save-balance>Save balance</button>
-          </div>
+          </details>
         `).join("");
 
         userBalanceList.querySelectorAll(".user-balance-row").forEach((row) => {
@@ -367,7 +373,8 @@
         }
         const cases = data.cases || [];
         caseAdminList.innerHTML = cases.map((c) => `
-          <div class="panel" data-case-id="${c.id}" style="padding:16px">
+          <details class="panel" data-case-id="${c.id}" style="padding:16px">
+            <summary style="cursor:pointer;list-style:none;display:block">
             <div class="case-admin-row">
               <div>
                 <strong>${escapeHtml(c.case_name)}</strong>
@@ -381,6 +388,7 @@
                 <button type="button" class="btn" data-delete>Delete case</button>
               </div>
             </div>
+            </summary>
             <div class="admin-stack" style="margin-top:14px">
               <div>
                 <strong>Skins in this case</strong>
@@ -405,7 +413,7 @@
                 <div class="admin-stack" data-skin-results></div>
               </div>
             </div>
-          </div>
+          </details>
         `).join("");
 
         caseAdminList.querySelectorAll("[data-case-id]").forEach((row) => {
@@ -545,16 +553,17 @@
         if (!packs.length) { ygoPackList.innerHTML = `<div class="muted">No Yu-Gi-Oh packs yet.</div>`; return; }
         const settingsRes = await fetch('/api/ygo/admin/settings', { credentials: 'same-origin' }); const settingsData = await settingsRes.json().catch(() => null); const singlePriceInput = document.getElementById('ygo-single-card-price'); if (singlePriceInput && settingsData?.settings) singlePriceInput.value = (Number(settingsData.settings.single_card_price_coins || 0) / 100).toFixed(2);
         ygoPackList.innerHTML = packs.map((pack) => `
-          <div class="case-admin-row" style="grid-template-columns:minmax(0,1.5fr) 140px 140px auto">
-            <div>
+          <details class="panel" style="padding:16px;margin-bottom:12px">
+            <summary style="cursor:pointer;list-style:none">
               <strong>${escapeHtml(pack.set_name)}</strong>
               <div class="muted">${escapeHtml(pack.slug)} · ${escapeHtml(pack.description || '')}</div>
               <div class="muted">${pack.cards.length} cards · EV ${formatGrevCoins(pack.expected_value_coins)} · ROI ${Number(pack.roi_percent || 0).toFixed(2)}%</div>
+            </summary>
+            <div class="admin-stack" style="margin-top:12px">
+              <div class="muted">Live price ${formatGrevCoins(pack.pack_price_coins)} · Suggested ${formatGrevCoins(pack.suggested_pack_price_coins)}</div>
+              ${(pack.cards || []).map((card) => `<div class="case-admin-row" style="grid-template-columns:minmax(0,1.4fr) 120px 120px"><div><strong>${escapeHtml(card.card_name)}</strong></div><div class="muted">${escapeHtml(card.rarity_code || '')}</div><div class="muted">weight ${Number(card.drop_weight || 0)}</div></div>`).join('') || '<div class="muted">No cards yet.</div>'}
             </div>
-            <div class="muted">Live price ${formatGrevCoins(pack.pack_price_coins)}</div>
-            <div class="muted">Suggested ${formatGrevCoins(pack.suggested_pack_price_coins)}</div>
-            <div class="muted">${pack.cards.slice(0, 5).map((card) => `${escapeHtml(card.card_name)} (${Number(card.drop_weight || 0)})`).join(', ') || 'No cards yet'}</div>
-          </div>
+          </details>
         `).join('');
       } catch {
         ygoPackList.innerHTML = `<div class="alert alert-error">Could not load Yu-Gi-Oh packs.</div>`;

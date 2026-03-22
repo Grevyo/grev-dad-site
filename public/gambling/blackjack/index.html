@@ -1,13 +1,161 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Blackjack | Grev.dad</title><link rel="stylesheet" href="/styles/site.css" /><script src="/scripts/header.js" defer></script><script src="/scripts/gambling-wallet.js" defer></script></head><body><div class="page-shell"><div id="header-mount"></div><main class="page-main"><section class="panel"><p class="gambling-breadcrumb"><a href="/gambling/index.html">← Gambling hub</a></p><h1 class="panel-title">Live Blackjack</h1><p class="panel-subtitle">Create a room, join up to 5 seats, play against the house, and optionally add bots.</p><div id="gambling-wallet-mount"></div></section><section class="panel"><div class="form-grid"><input id="room-name" class="form-input" placeholder="Room name" /><input id="room-bet" class="form-input" type="number" min="1" step="0.01" value="1.00" /><select id="room-bots" class="form-input"><option value="0">0 bots</option><option value="1">1 bot</option><option value="2">2 bots</option><option value="3">3 bots</option><option value="4">4 bots</option></select><select id="room-bot-difficulty" class="form-input"><option value="easy">Easy bot</option><option value="medium">Medium bot</option><option value="hard">Hard bot</option></select><button id="create-room" class="btn btn-primary" type="button">Create room</button></div></section><section class="panel"><h2 class="panel-title">Rooms</h2><div id="room-list"></div></section><section class="panel"><h2 class="panel-title">Table</h2><div id="room-view" class="muted">Join a room to view it.</div><div class="inv-actions mt-16"><button id="start-room" class="btn btn-primary" type="button">Start round</button><button id="hit-btn" class="btn" type="button">Hit</button><button id="stand-btn" class="btn" type="button">Stand</button></div></section></main></div><script>
-let currentRoomId=0; const $=(id)=>document.getElementById(id); const fmt=(p)=>`${(Number(p||0)/100).toFixed(2)} GC`;
-async function api(url, options){ const r=await fetch(url,{credentials:'same-origin',...options}); const d=await r.json().catch(()=>null); if(!r.ok||!d?.success) throw new Error(d?.error||'Request failed'); return d; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackjack | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/gambling-wallet.js" defer></script>
+  <style>
+    .blackjack-shell { display:grid; gap:24px; }
+    .blackjack-hero { background: radial-gradient(circle at top, rgba(16,185,129,0.2), rgba(15,23,42,0.95) 56%), linear-gradient(135deg, rgba(15,118,110,0.18), rgba(2,6,23,0.92)); }
+    .hero-grid, .table-layout, .room-creation { display:grid; gap:16px; }
+    .hero-grid { grid-template-columns: 1.3fr 0.7fr; align-items:start; }
+    .stats-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; }
+    .stat-card, .info-card, .seat-card, .room-card, .table-card { border:1px solid var(--border); border-radius:18px; background:rgba(255,255,255,0.04); }
+    .stat-card { padding:16px; }
+    .stat-card strong { display:block; font-size:1.45rem; color:#fde68a; }
+    .big-gc { font-size:1.65rem; font-weight:900; color:#fde68a; letter-spacing:.04em; }
+    .room-creation { grid-template-columns: repeat(6, minmax(0,1fr)); }
+    .room-creation .wide { grid-column: span 2; }
+    .room-card { padding:16px; display:grid; gap:12px; }
+    .room-list { display:grid; gap:14px; }
+    .room-meta, .seat-meta, .table-meta, .small-note { color:var(--muted); font-size:.92rem; }
+    .room-actions, .action-row { display:flex; flex-wrap:wrap; gap:10px; }
+    .table-layout { grid-template-columns: minmax(0,1.35fr) minmax(320px,0.65fr); }
+    .blackjack-table { position:relative; min-height:720px; padding:24px; overflow:hidden; }
+    .felt { position:relative; min-height:670px; border-radius:36px; border:2px solid rgba(250,204,21,0.28); background: radial-gradient(circle at 50% 0%, rgba(52,211,153,0.12), transparent 25%), radial-gradient(circle at center, rgba(22,163,74,0.25), rgba(6,78,59,0.95) 70%); box-shadow: inset 0 0 0 6px rgba(255,255,255,0.03); }
+    .dealer-zone { position:absolute; top:36px; left:50%; transform:translateX(-50%); text-align:center; width:min(520px, calc(100% - 56px)); }
+    .dealer-zone h3 { margin:0 0 8px; }
+    .dealer-zone .label, .seat-number { text-transform:uppercase; letter-spacing:.12em; font-size:.76rem; color:#bbf7d0; }
+    .card-row { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; min-height:124px; }
+    .playing-card { width:84px; height:118px; border-radius:14px; background:#fff; box-shadow:0 12px 24px rgba(0,0,0,0.28); border:1px solid rgba(15,23,42,0.15); overflow:hidden; }
+    .playing-card img { width:100%; height:100%; display:block; object-fit:cover; }
+    .seat-grid { position:absolute; inset:0; }
+    .seat-card { position:absolute; width:190px; min-height:150px; padding:14px; backdrop-filter: blur(8px); }
+    .seat-card.empty { border-style:dashed; background:rgba(15,23,42,0.22); }
+    .seat-card.current-user { border-color:#facc15; box-shadow:0 0 0 1px rgba(250,204,21,0.25); }
+    .seat-card.seat-0 { left:50%; bottom:22px; transform:translateX(-50%); }
+    .seat-card.seat-1 { right:36px; bottom:102px; }
+    .seat-card.seat-2 { right:22px; top:280px; }
+    .seat-card.seat-3 { right:78px; top:118px; }
+    .seat-card.seat-4 { left:78px; top:118px; }
+    .seat-card.seat-5 { left:22px; top:280px; }
+    .seat-card.seat-6 { left:36px; bottom:102px; }
+    .seat-card.seat-7 { left:50%; top:206px; transform:translateX(-50%); }
+    .avatar-pill { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:999px; background:rgba(250,204,21,0.12); color:#fde68a; font-weight:800; }
+    .seat-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .seat-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .seat-payout { font-weight:900; color:#fde68a; font-size:1.1rem; }
+    .table-card { padding:16px; display:grid; gap:14px; }
+    .player-list { display:grid; gap:10px; }
+    .chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid var(--border); }
+    .spectator-list, .event-log { display:grid; gap:8px; }
+    .event-log { max-height:220px; overflow:auto; }
+    .event-line { padding:8px 10px; border-radius:12px; background:rgba(255,255,255,0.04); font-size:.9rem; }
+    @media (max-width: 1100px) { .hero-grid, .table-layout { grid-template-columns: 1fr; } .room-creation { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 760px) { .room-creation { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } .blackjack-table { min-height:auto; } .felt { min-height:1120px; } .seat-card { width:calc(100% - 36px); left:18px !important; right:18px !important; transform:none !important; } .seat-card.seat-0 { bottom:16px; } .seat-card.seat-1 { bottom:184px; } .seat-card.seat-2 { bottom:352px; top:auto; } .seat-card.seat-3 { bottom:520px; top:auto; } .seat-card.seat-4 { top:140px; } .seat-card.seat-5 { top:308px; } .seat-card.seat-6 { top:476px; } .seat-card.seat-7 { top:644px; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main blackjack-shell">
+      <section class="panel blackjack-hero">
+        <p class="gambling-breadcrumb"><a href="/gambling/index.html">← Gambling hub</a></p>
+        <div class="hero-grid">
+          <div>
+            <h1 class="panel-title">Live Blackjack Tables</h1>
+            <p class="panel-subtitle">Pick a 4, 6, or 8 seat table, click a seat box to sit down, add a chaos bot, or spectate the room while cards deal one-by-one on the felt.</p>
+            <div id="gambling-wallet-mount"></div><div class="inv-actions mt-16"><a class="btn btn-primary" href="/blackjack-admin.html">Open blackjack admin</a><span class="muted">Visible only to gambling admins.</span></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><span class="small-note">Base payout</span><strong>2x</strong><div class="small-note">Win your hand against the dealer.</div></div>
+            <div class="stat-card"><span class="small-note">Push</span><strong>1x</strong><div class="small-note">Keep your Grev Coins.</div></div>
+            <div class="stat-card"><span class="small-note">Table bet</span><strong id="hero-bet">1.00 GC</strong><div class="small-note">Updates with the open room.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Create a room</h2>
+        <div class="room-creation">
+          <input id="room-name" class="form-input wide" placeholder="Room name" />
+          <input id="room-bet" class="form-input" type="number" min="1" step="0.01" value="1.00" />
+          <select id="room-size" class="form-input"><option value="4">4 seats</option><option value="6">6 seats</option><option value="8">8 seats</option></select>
+          <select id="room-bots" class="form-input"><option value="0">0 bots</option><option value="1">1 bot</option><option value="2">2 bots</option><option value="3">3 bots</option><option value="4">4 bots</option><option value="5">5 bots</option><option value="6">6 bots</option><option value="7">7 bots</option></select>
+          <select id="room-bot-difficulty" class="form-input"><option value="easy">Easy bot</option><option value="medium">Medium bot</option><option value="hard">Hard bot</option></select>
+          <button id="create-room" class="btn btn-primary" type="button">Create room</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Rooms</h2>
+        <div id="room-list" class="room-list"></div>
+      </section>
+
+      <section class="table-layout">
+        <section class="panel blackjack-table">
+          <div id="room-view" class="felt"><div class="muted" style="padding:24px;">Join or spectate a room to see the table.</div></div>
+        </section>
+        <aside class="table-card">
+          <div>
+            <h2 class="panel-title">Table controls</h2>
+            <div class="action-row">
+              <button id="start-room" class="btn btn-primary" type="button">Start round</button>
+              <button id="hit-btn" class="btn" type="button">Hit</button>
+              <button id="stand-btn" class="btn" type="button">Stand</button>
+            </div>
+          </div>
+          <div>
+            <div class="small-note">Current payout</div>
+            <div id="current-payout" class="big-gc">0.00 GC</div>
+          </div>
+          <div>
+            <div class="small-note">Seated players</div>
+            <div id="room-players" class="player-list"></div>
+          </div>
+          <div>
+            <div class="small-note">Spectators</div>
+            <div id="room-spectators" class="spectator-list"></div>
+          </div>
+          <div>
+            <div class="small-note">Table feed</div>
+            <div id="event-log" class="event-log"></div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+<script>
+let currentRoomId = 0;
+let currentRoom = null;
+let dealingTimers = [];
+const $ = (id) => document.getElementById(id);
+const SUITS = { spades: '♠', hearts: '♥', diamonds: '♦', clubs: '♣' };
+const RED_SUITS = new Set(['hearts', 'diamonds']);
+const fmt = (p) => `${(Number(p || 0) / 100).toFixed(2)} GC`;
 function score(cards){ let total=0, aces=0; (cards||[]).forEach(c=>{ if(c.rank==='A'){total+=11;aces+=1;} else if(['J','Q','K'].includes(c.rank)) total+=10; else total+=Number(c.rank); }); while(total>21&&aces>0){ total-=10; aces-=1;} return total; }
-function renderRoom(room){ if(!room){ $('room-view').textContent='Join a room to view it.'; return; } const s=room.room_state||{}; $('room-view').innerHTML=`<div class="muted">Status: ${room.status} · Bet: ${fmt(room.bet_pence)}</div><div class="mt-12"><strong>Dealer</strong><div>${(s.dealer?.cards||[]).map(c=>`${c.rank}${c.suit}`).join(' ')} (${score(s.dealer?.cards)})</div></div><div class="mt-16">${(s.players||[]).map(p=>`<div class="panel" style="padding:12px;margin-bottom:10px"><strong>${p.username}${p.is_bot?` (${p.difficulty})`:''}</strong><div>${(p.cards||[]).map(c=>`${c.rank}${c.suit}`).join(' ')} (${score(p.cards)})</div><div class="muted">${p.result?`${p.result} · payout ${fmt(p.payout_pence)}`:(p.busted?'Busted':p.standing?'Standing':'Playing')}</div></div>`).join('')}</div>`; }
-async function loadRooms(){ const data=await api('/api/blackjack/rooms'); $('room-list').innerHTML=(data.rooms||[]).map(r=>`<div class="inv-row"><div><strong>${r.room_name}</strong><div class="muted">${r.player_count}/${r.max_players} · ${r.status} · ${fmt(r.bet_pence)}</div></div><div class="inv-actions"><button class="btn" data-join="${r.id}">Join</button><button class="btn" data-open="${r.id}">Open</button></div></div>`).join('')||'<div class="muted">No rooms yet.</div>'; document.querySelectorAll('[data-join]').forEach(b=>b.onclick=async()=>{ await api('/api/blackjack/rooms/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:Number(b.dataset.join)})}); currentRoomId=Number(b.dataset.join); await loadCurrentRoom(); await loadRooms();}); document.querySelectorAll('[data-open]').forEach(b=>b.onclick=async()=>{ currentRoomId=Number(b.dataset.open); await loadCurrentRoom();}); }
-async function loadCurrentRoom(){ if(!currentRoomId) return renderRoom(null); const data=await api(`/api/blackjack/room?room_id=${currentRoomId}`); renderRoom(data.room); }
-$('create-room').onclick=async()=>{ const data=await api('/api/blackjack/rooms/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_name:$('room-name').value.trim(),bet_pence:Math.round(Number($('room-bet').value||1)*100),bot_count:Number($('room-bots').value),bot_difficulty:$('room-bot-difficulty').value})}); currentRoomId=data.room_id; await loadRooms(); await loadCurrentRoom();};
-$('start-room').onclick=async()=>{ if(!currentRoomId) return; await api('/api/blackjack/rooms/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:currentRoomId})}); await loadCurrentRoom(); if(window.refreshGamblingWallet) window.refreshGamblingWallet(); };
+function escapeHtml(value){ return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+async function api(url, options){ const r=await fetch(url,{credentials:'same-origin',...options}); const d=await r.json().catch(()=>null); if(!r.ok||!d?.success) throw new Error(d?.error||'Request failed'); return d; }
+function cardSvg(card){ const suit = SUITS[card.suit] || '?'; const red = RED_SUITS.has(card.suit); const rank = escapeHtml(card.rank); return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 250"><rect x="4" y="4" width="172" height="242" rx="18" fill="white" stroke="#dbe4ee" stroke-width="4"/><text x="18" y="38" font-size="28" font-family="Arial" font-weight="700" fill="${red ? '#dc2626' : '#111827'}">${rank}</text><text x="18" y="68" font-size="26" font-family="Arial" fill="${red ? '#dc2626' : '#111827'}">${suit}</text><text x="90" y="148" text-anchor="middle" font-size="72" font-family="Arial" fill="${red ? '#dc2626' : '#111827'}">${suit}</text><g transform="rotate(180 90 125)"><text x="18" y="38" font-size="28" font-family="Arial" font-weight="700" fill="${red ? '#dc2626' : '#111827'}">${rank}</text><text x="18" y="68" font-size="26" font-family="Arial" fill="${red ? '#dc2626' : '#111827'}">${suit}</text></g></svg>`)}`; }
+function cardMarkup(card, index){ return `<div class="playing-card" style="animation-delay:${index * 120}ms"><img src="${cardSvg(card)}" alt="${escapeHtml(card.rank)} of ${escapeHtml(card.suit)}" /></div>`; }
+function clearDealing(){ dealingTimers.forEach((timer)=>clearTimeout(timer)); dealingTimers=[]; }
+function animateCardRows(){ clearDealing(); document.querySelectorAll('[data-deal-cards]').forEach((row)=>{ const cards = JSON.parse(row.dataset.cards || '[]'); row.innerHTML=''; cards.forEach((card, index)=>{ const timer = setTimeout(()=>{ row.insertAdjacentHTML('beforeend', cardMarkup(card, index)); }, index * 180); dealingTimers.push(timer); }); }); }
+async function reportPresence(room){ if(!window.reportCurrentPresence) return; const state = room?.room_state; const isSeated = state?.players?.some((player)=>!player.is_bot && Number(player.user_id) === Number(window.__authUser?.id)); const detail = room ? `${room.room_name} · ${isSeated ? 'playing blackjack' : 'spectating blackjack'}` : 'in the gambling hub'; await window.reportCurrentPresence({ area: room ? 'Gambling - Blackjack' : 'Gambling', detail, room_id: room?.id || null, room_name: room?.room_name || '', page_path: location.pathname }); }
+function renderSidePanel(room){ const state = room?.room_state || {}; $('hero-bet').textContent = room ? fmt(room.bet_pence) : '1.00 GC'; $('current-payout').textContent = room ? fmt((state.players||[]).filter(p=>!p.is_bot).reduce((sum,p)=>sum+Number(p.payout_pence||0),0)) : '0.00 GC'; $('room-players').innerHTML = (state.players||[]).map((player)=>`<div class="chip">${escapeHtml(player.username)}${player.is_bot ? '' : ` · seat ${Number(player.seat_index)+1}`}</div>`).join('') || '<div class="muted">No one seated yet.</div>'; $('room-spectators').innerHTML = (state.spectators||[]).map((spectator)=>`<div class="chip">${escapeHtml(spectator.username)}</div>`).join('') || '<div class="muted">No spectators.</div>'; $('event-log').innerHTML = (state.event_log||[]).map((line)=>`<div class="event-line">${escapeHtml(line.message)}</div>`).join('') || '<div class="muted">No action yet.</div>'; }
+function seatPositionClass(index, maxPlayers){ const maps = { 4:[0,2,5,7], 6:[0,1,2,4,5,6], 8:[0,1,2,3,4,5,6,7] }; return `seat-${(maps[maxPlayers] || maps[4])[index]}`; }
+function renderRoom(room){ currentRoom = room; renderSidePanel(room); if(!room){ $('room-view').innerHTML='<div class="muted" style="padding:24px;">Join or spectate a room to see the table.</div>'; return; } const state=room.room_state||{}; const meId = Number(window.__authUser?.id || 0); const dealerCards = JSON.stringify(state.dealer?.cards || []); $('room-view').innerHTML = `
+  <div class="dealer-zone"><div class="label">Dealer</div><h3>${escapeHtml(room.room_name)}</h3><div class="table-meta">${escapeHtml(room.status)} · Bet <span class="big-gc" style="font-size:1.1rem;">${fmt(room.bet_pence)}</span></div><div class="table-meta">Seats ${room.max_players} · Spectators ${(state.spectators||[]).length}</div><div class="card-row" data-deal-cards data-cards='${escapeHtml(dealerCards)}'></div><div class="table-meta">Score ${score(state.dealer?.cards || [])}</div></div>
+  <div class="seat-grid">${(state.seats||[]).map((seat,index)=>{ if(!seat){ return `<article class="seat-card empty ${seatPositionClass(index, room.max_players)}"><div class="seat-number">Seat ${index+1}</div><h3>Open seat</h3><div class="seat-meta">Click to sit down at this blackjack table.</div><div class="seat-actions"><button class="btn btn-primary" data-sit="${index}">Sit here</button></div></article>`; } const isCurrentUser = !seat.is_bot && Number(seat.user_id)===meId; return `<article class="seat-card ${seatPositionClass(index, room.max_players)} ${isCurrentUser ? 'current-user' : ''}"><div class="seat-number">Seat ${index+1}</div><div class="seat-header"><div class="avatar-pill">${escapeHtml((seat.username||'U')[0].toUpperCase())}</div><div><strong>${escapeHtml(seat.username)}</strong><div class="seat-meta">${seat.is_bot ? escapeHtml(seat.difficulty + ' difficulty bot') : (isCurrentUser ? 'You are seated here.' : 'Human player')}</div></div></div><div class="card-row" data-deal-cards data-cards='${escapeHtml(JSON.stringify(seat.cards || []))}'></div><div class="seat-meta">Score ${score(seat.cards || [])} · ${seat.result ? escapeHtml(seat.result) : seat.busted ? 'Busted' : seat.standing ? 'Standing' : 'Waiting'}</div><div class="seat-payout">Payout: ${fmt(seat.payout_pence || 0)}</div>${isCurrentUser && room.status === 'waiting' ? `<div class="seat-actions"><button class="btn" data-standup="1">Stand up</button></div>` : ''}</article>`; }).join('')}</div>`; document.querySelectorAll('[data-sit]').forEach((button)=>button.onclick=async()=>{ await api('/api/blackjack/rooms/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:room.id, seat_index:Number(button.dataset.sit)})}); await loadCurrentRoom(); await loadRooms(); }); const standButton = document.querySelector('[data-standup]'); if(standButton) standButton.onclick=async()=>{ await api('/api/blackjack/rooms/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:room.id})}); await loadCurrentRoom(); await loadRooms(); }; animateCardRows(); reportPresence(room); }
+async function loadRooms(){ const data=await api('/api/blackjack/rooms'); $('room-list').innerHTML=(data.rooms||[]).map((room)=>`<article class="room-card"><div><strong>${escapeHtml(room.room_name)}</strong><div class="room-meta">${room.player_count}/${room.max_players} seated · ${escapeHtml(room.status)} · Bet ${fmt(room.bet_pence)}</div></div><div class="room-meta">At table: ${(room.players||[]).map((player)=>escapeHtml(player.username)).join(', ') || 'No one seated.'}</div><div class="room-meta">Spectators: ${(room.spectators||[]).map((spectator)=>escapeHtml(spectator.username)).join(', ') || 'None'}</div><div class="room-actions"><button class="btn btn-primary" data-open="${room.id}">Open table</button><button class="btn" data-spectate="${room.id}">Spectate</button></div></article>`).join('') || '<div class="muted">No rooms yet.</div>'; document.querySelectorAll('[data-open]').forEach((b)=>b.onclick=async()=>{ currentRoomId=Number(b.dataset.open); await loadCurrentRoom(); }); document.querySelectorAll('[data-spectate]').forEach((b)=>b.onclick=async()=>{ currentRoomId=Number(b.dataset.spectate); await api('/api/blackjack/rooms/spectate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:currentRoomId})}); await loadCurrentRoom(); await loadRooms(); }); }
+async function loadCurrentRoom(){ if(!currentRoomId){ renderRoom(null); await reportPresence(null); return; } const data=await api(`/api/blackjack/room?room_id=${currentRoomId}`); renderRoom(data.room); }
+$('create-room').onclick=async()=>{ const data=await api('/api/blackjack/rooms/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_name:$('room-name').value.trim(),bet_pence:Math.round(Number($('room-bet').value||1)*100),bot_count:Number($('room-bots').value),bot_difficulty:$('room-bot-difficulty').value,max_players:Number($('room-size').value)})}); currentRoomId=data.room_id; await loadRooms(); await loadCurrentRoom();};
+$('start-room').onclick=async()=>{ if(!currentRoomId) return; await api('/api/blackjack/rooms/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:currentRoomId})}); await loadCurrentRoom(); await loadRooms(); if(window.refreshGamblingWallet) window.refreshGamblingWallet(); };
 $('hit-btn').onclick=async()=>{ if(!currentRoomId) return; await api('/api/blackjack/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:currentRoomId,action:'hit'})}); await loadCurrentRoom(); if(window.refreshGamblingWallet) window.refreshGamblingWallet(); };
 $('stand-btn').onclick=async()=>{ if(!currentRoomId) return; await api('/api/blackjack/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room_id:currentRoomId,action:'stand'})}); await loadCurrentRoom(); if(window.refreshGamblingWallet) window.refreshGamblingWallet(); };
-window.addEventListener('DOMContentLoaded', async()=>{ await loadRooms(); });
-</script></body></html>
+window.addEventListener('DOMContentLoaded', async()=>{ const params = new URLSearchParams(window.location.search); const roomParam = Number(params.get('room_id') || 0); if(window.fetchCurrentUser) window.__authUser = await window.fetchCurrentUser({ preferCache: true }); if(roomParam) currentRoomId = roomParam; await loadRooms(); await loadCurrentRoom(); if(!roomParam) await reportPresence(null); });
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import { handleYgoRequest } from "./ygo/handlers.js";
 import { ensureBlackjackTables } from "./blackjack/schema.js";
 import { handleBlackjackRequest } from "./blackjack/handlers.js";
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
+import { getStartingBalancePence } from "./lib/gambling.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -96,6 +97,10 @@ async function handleRequest(request, env, ctx) {
     return await handleMembers(request, env);
   }
 
+  if (pathname === "/api/presence" && request.method === "POST") {
+    return await handlePresenceUpdate(request, env);
+  }
+
   // Global chat
   if (pathname === "/api/chat/global" && request.method === "GET") {
     return await handleGetGlobalChat(request, env);
@@ -143,6 +148,23 @@ async function handleRequest(request, env, ctx) {
     await ensureCasesCatalogReady(env);
     const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await env.CASES_DB.prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
     return json({ success: true, event }, 200, request);
+  }
+
+  if (pathname === "/api/gambling/admin/settings" && request.method === "GET") {
+    const adminUser = await requireGamblingAdmin(request, env);
+    if (adminUser instanceof Response) return adminUser;
+    await ensureCoreTables(env);
+    return json({ success: true, settings: { starting_balance_pence: await getStartingBalancePence(env) } }, 200, request);
+  }
+
+  if (pathname === "/api/gambling/admin/settings" && request.method === "POST") {
+    const adminUser = await requireGamblingAdmin(request, env);
+    if (adminUser instanceof Response) return adminUser;
+    await ensureCoreTables(env);
+    const body = await safeJson(request);
+    const startingBalancePence = Math.max(0, Math.round(Number(body?.starting_balance_pence || 0)));
+    await env.DB.prepare(`INSERT INTO gambling_settings (key, value, updated_at) VALUES ('starting_balance_pence', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`).bind(String(startingBalancePence), isoNow()).run();
+    return json({ success: true, message: "Starting balance updated", settings: { starting_balance_pence: startingBalancePence } }, 200, request);
   }
 
   if (pathname === "/api/gambling/admin/event" && request.method === "POST") {
@@ -341,6 +363,36 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "users", "gambling_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.DB, "users", "created_at", "TEXT");
   await ensureColumn(env.DB, "users", "last_seen_at", "TEXT");
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS user_presence (
+      user_id INTEGER PRIMARY KEY,
+      area TEXT,
+      detail TEXT,
+      room_id INTEGER,
+      room_name TEXT,
+      page_path TEXT,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(env.DB, "user_presence", "area", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "detail", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "room_id", "INTEGER");
+  await ensureColumn(env.DB, "user_presence", "room_name", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "page_path", "TEXT");
+  await ensureColumn(env.DB, "user_presence", "updated_at", "TEXT");
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS gambling_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+  await ensureColumn(env.DB, "gambling_settings", "value", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(env.DB, "gambling_settings", "updated_at", "TEXT NOT NULL DEFAULT ''");
+  await env.DB.prepare(`INSERT OR IGNORE INTO gambling_settings (key, value, updated_at) VALUES ('starting_balance_pence', ?, ?)` ).bind(String(STARTING_BALANCE_PENCE), new Date().toISOString()).run();
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -786,9 +838,16 @@ async function handleProfileMe(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      up.area AS presence_area,
+      up.detail AS presence_detail,
+      up.room_id AS presence_room_id,
+      up.room_name AS presence_room_name,
+      up.page_path AS presence_page_path,
+      up.updated_at AS presence_updated_at
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
   `).bind(session.id).first();
@@ -836,9 +895,16 @@ async function handleProfileView(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      up.area AS presence_area,
+      up.detail AS presence_detail,
+      up.room_id AS presence_room_id,
+      up.room_name AS presence_room_name,
+      up.page_path AS presence_page_path,
+      up.updated_at AS presence_updated_at
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.id = ? AND u.approved = 1
     LIMIT 1
   `).bind(targetUserId).first();
@@ -970,7 +1036,20 @@ function formatProfileRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
-    media
+    media,
+    current_activity: formatPresenceRow(row)
+  };
+}
+
+function formatPresenceRow(row) {
+  if (!row?.presence_updated_at) return null;
+  return {
+    area: row.presence_area || '',
+    detail: row.presence_detail || '',
+    room_id: row.presence_room_id ? Number(row.presence_room_id) : null,
+    room_name: row.presence_room_name || '',
+    page_path: row.presence_page_path || '',
+    updated_at: row.presence_updated_at || null
   };
 }
 
@@ -997,9 +1076,16 @@ async function handleMembers(request, env) {
       p.bio,
       p.avatar_url,
       p.real_name,
-      p.motto
+      p.motto,
+      up.area AS presence_area,
+      up.detail AS presence_detail,
+      up.room_id AS presence_room_id,
+      up.room_name AS presence_room_name,
+      up.page_path AS presence_page_path,
+      up.updated_at AS presence_updated_at
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.approved = 1
     ORDER BY LOWER(u.username) ASC
   `).all();
@@ -1040,11 +1126,39 @@ async function handleMembers(request, env) {
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
       motto: row.motto || "",
+      current_activity: formatPresenceRow(row),
       ...caseSummary
     });
   }
 
   return json({ success: true, members }, 200, request);
+}
+
+
+async function handlePresenceUpdate(request, env) {
+  await ensureCoreTables(env);
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const body = await safeJson(request);
+  const area = cleanShortText(body?.area, 80);
+  const detail = cleanShortText(body?.detail, 140);
+  const roomId = Number(body?.room_id || 0) || null;
+  const roomName = cleanShortText(body?.room_name, 120);
+  const pagePath = cleanShortText(body?.page_path, 240);
+  const now = isoNow();
+  await env.DB.prepare(`
+    INSERT INTO user_presence (user_id, area, detail, room_id, room_name, page_path, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      area = excluded.area,
+      detail = excluded.detail,
+      room_id = excluded.room_id,
+      room_name = excluded.room_name,
+      page_path = excluded.page_path,
+      updated_at = excluded.updated_at
+  `).bind(session.id, area, detail, roomId, roomName, pagePath, now).run();
+  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE id = ?`).bind(now, session.id).run();
+  return json({ success: true, updated_at: now }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1522,7 +1636,7 @@ async function handleGamblingProfile(request, env) {
       updated_at
     )
     VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-  `).bind(session.id, session.username, STARTING_BALANCE_PENCE, now, now).run();
+  `).bind(session.id, session.username, await getStartingBalancePence(env), now, now).run();
 
   const row = await env.CASES_DB.prepare(`
     SELECT
@@ -1609,7 +1723,7 @@ async function ensureAdminCaseProfile(env, userId, username) {
       updated_at
     )
     VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-  `).bind(userId, username, STARTING_BALANCE_PENCE, now, now).run();
+  `).bind(userId, username, await getStartingBalancePence(env), now, now).run();
 
   return env.CASES_DB.prepare(`
     SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
