@@ -247,7 +247,7 @@ export async function handleYgoRequest(request, env, deps) {
       const expectedValue = calculatePackExpectedValue(cards.results || []);
       const discountPercent = await getYgoDiscountPercent(env);
       const discountedPackPrice = Math.max(1, Math.round(Number(pack.pack_price_coins || 0) * ((100 - discountPercent) / 100)));
-      list.push({
+      payload.push({
         ...pack,
         pack_price_coins: Number(pack.pack_price_coins || 0),
         discounted_pack_price_coins: discountedPackPrice,
@@ -257,9 +257,7 @@ export async function handleYgoRequest(request, env, deps) {
         roi_percent: Number(pack.pack_price_coins || 0) > 0 ? Number(((expectedValue / Number(pack.pack_price_coins || 1)) * 100).toFixed(2)) : 0,
         cards: (cards.results || []).map((card) => ({ ...card, estimated_price_coins: Number(card.estimated_price_coins || 0), drop_weight: Number(card.drop_weight || 0) }))
       });
-      }
-      return list;
-    });
+    }
     return json({ success: true, packs: payload }, 200, request);
   }
 
