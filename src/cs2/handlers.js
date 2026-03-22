@@ -1,7 +1,7 @@
 import { KEY_PRICE_PENCE, STARTING_BALANCE_PENCE } from "./constants.js";
 import { getQuickSellFeePercent, quickSellPayoutFromMarket } from "./quick-sell.js";
 import { getOrCreateResolvedSkinItem } from "./skin-resolve.js";
-import { getOrFetchItemPricePence } from "./steam.js";
+import { fetchSteamIconUrl, getOrFetchItemPricePence } from "./steam.js";
 import { pickWearTier } from "./wear.js";
 
 function pickWeighted(rows) {
@@ -80,6 +80,87 @@ async function ensureCaseProfile(env, session, isoNowFn) {
     )
     VALUES (?, ?, ?, 0, 0, 0, ?, ?)
   `).bind(session.id, session.username, STARTING_BALANCE_PENCE, now, now).run();
+}
+
+
+
+async function ensureCaseImageUrl(env, caseRow) {
+  if (!caseRow) return "";
+  const existing = String(caseRow.image_url || "").trim();
+  if (existing) return existing;
+
+  const hash = String(caseRow.steam_market_hash_name || caseRow.case_name || "").trim();
+  if (!hash) return "";
+
+  const imageUrl = await fetchSteamIconUrl(hash);
+  if (!imageUrl) return "";
+
+  if (caseRow.id) {
+    await env.CASES_DB.prepare(`
+      UPDATE case_definitions
+      SET image_url = ?
+      WHERE id = ?
+    `).bind(imageUrl, caseRow.id).run();
+  }
+
+  caseRow.image_url = imageUrl;
+  return imageUrl;
+}
+
+async function ensureItemImageUrl(env, itemRow) {
+  if (!itemRow) return "";
+  const existing = String(itemRow.image_url || "").trim();
+  if (existing) return existing;
+
+  const hash = String(itemRow.market_hash_name || itemRow.item_name || "").trim();
+  if (!hash) return "";
+
+  const imageUrl = await fetchSteamIconUrl(hash);
+  if (!imageUrl) return "";
+
+  if (itemRow.id) {
+    await env.CASES_DB.prepare(`
+      UPDATE case_items
+      SET image_url = ?
+      WHERE id = ?
+    `).bind(imageUrl, itemRow.id).run();
+  }
+
+  itemRow.image_url = imageUrl;
+  return imageUrl;
+}
+
+async function formatCaseSummary(env, caseRow) {
+  const storePrice = await getCaseStorePricePence(env, caseRow);
+  const imageUrl = await ensureCaseImageUrl(env, caseRow);
+  return {
+    id: caseRow.id,
+    case_name: caseRow.case_name,
+    slug: caseRow.slug,
+    image_url: imageUrl,
+    description: caseRow.description || "",
+    store_price_pence: storePrice,
+    fallback_price_pence: Number(caseRow.fallback_price_pence || caseRow.price || 0),
+    steam_market_hash_name: caseRow.steam_market_hash_name || caseRow.case_name || "",
+    key_price_pence: KEY_PRICE_PENCE,
+    is_active: Boolean(caseRow.is_active)
+  };
+}
+
+async function buildAdminCasePayload(env, caseRow) {
+  const summary = await formatCaseSummary(env, caseRow);
+  const dropStats = await env.CASES_DB.prepare(`
+    SELECT COUNT(*) AS drop_count, COALESCE(SUM(drop_weight), 0) AS total_weight
+    FROM case_drops
+    WHERE case_id = ?
+  `).bind(caseRow.id).first();
+
+  return {
+    ...summary,
+    price: Number(caseRow.price || caseRow.fallback_price_pence || 0),
+    drop_count: Number(dropStats?.drop_count || 0),
+    total_drop_weight: Number(dropStats?.total_weight || 0)
+  };
 }
 
 async function getCaseStorePricePence(env, caseRow) {
@@ -217,7 +298,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
         wear: droppedRow.wear || "",
         wear_code: droppedRow.wear_code || "",
         color_hex: droppedRow.color_hex || "",
-        image_url: droppedRow.image_url || "",
+        image_url: await ensureItemImageUrl(env, droppedRow),
         market_hash_name: droppedRow.market_hash_name || ""
       },
       case_name: inv.case_name,
@@ -251,16 +332,7 @@ export async function handleCs2Request(request, env, deps) {
     const cases = [];
     for (const row of rows.results || []) {
       if (!Number(row.is_active)) continue;
-      const storePrice = await getCaseStorePricePence(env, row);
-      cases.push({
-        id: row.id,
-        case_name: row.case_name,
-        slug: row.slug,
-        image_url: row.image_url || "",
-        description: row.description || "",
-        store_price_pence: storePrice,
-        key_price_pence: KEY_PRICE_PENCE
-      });
+      cases.push(await formatCaseSummary(env, row));
     }
 
     const feePct = await getQuickSellFeePercent(env);
@@ -425,7 +497,7 @@ export async function handleCs2Request(request, env, deps) {
         wear: r.wear,
         wear_code: r.wear_code || "",
         market_hash_name: r.market_hash_name,
-        image_url: r.image_url || "",
+        image_url: await ensureItemImageUrl(env, r),
         color_hex: r.color_hex || "",
         fallback_value_pence: Number(r.market_value || 0),
         live_price_pence: live
@@ -493,8 +565,8 @@ export async function handleCs2Request(request, env, deps) {
         total_inventory_value_pence: Number(profile.total_inventory_value || 0)
       },
       opens: opens.results || [],
-      recent_inventory: inv.results || [],
-      showcase: showcase.results || []
+      recent_inventory: await Promise.all((inv.results || []).map(async (row) => ({ ...row, image_url: await ensureItemImageUrl(env, row) }))),
+      showcase: await Promise.all((showcase.results || []).map(async (row) => ({ ...row, image_url: await ensureItemImageUrl(env, row) })))
     }, 200, request);
   }
 
@@ -542,9 +614,9 @@ export async function handleCs2Request(request, env, deps) {
     const sellerIds = listings.map((r) => Number(r.seller_user_id));
     const names = await resolveUsernames(env, sellerIds);
 
-    return json({
-      success: true,
-      listings: listings.map((r) => ({
+    const formattedListings = [];
+    for (const r of listings) {
+      formattedListings.push({
         id: r.id,
         seller: names.get(Number(r.seller_user_id)) || `user#${r.seller_user_id}`,
         seller_user_id: r.seller_user_id,
@@ -553,7 +625,7 @@ export async function handleCs2Request(request, env, deps) {
         item_name: r.item_name,
         rarity: r.rarity,
         color_hex: r.color_hex || "",
-        image_url: r.image_url || "",
+        image_url: await ensureItemImageUrl(env, r),
         wear: r.wear || "",
         wear_code: r.wear_code || "",
         asking_price_pence: Number(r.asking_price_pence || 0),
@@ -564,7 +636,12 @@ export async function handleCs2Request(request, env, deps) {
         current_high_bidder_id: r.current_high_bidder_id || null,
         top_offer_pence: Number(r.top_offer_pence || 0),
         created_at: r.created_at
-      }))
+      });
+    }
+
+    return json({
+      success: true,
+      listings: formattedListings
     }, 200, request);
   }
 
@@ -572,13 +649,77 @@ export async function handleCs2Request(request, env, deps) {
     const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
+    const search = (url.searchParams.get("q") || "").trim().toLowerCase();
     const rows = await env.CASES_DB.prepare(`
       SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
       FROM case_definitions
       ORDER BY case_name ASC
     `).all();
 
-    return json({ success: true, cases: rows.results || [] }, 200, request);
+    let list = rows.results || [];
+    if (search) {
+      list = list.filter((row) => {
+        const haystack = `${row.case_name || ""} ${row.slug || ""} ${row.steam_market_hash_name || ""}`.toLowerCase();
+        return haystack.includes(search);
+      });
+    }
+
+    const cases = [];
+    for (const row of list) {
+      cases.push(await buildAdminCasePayload(env, row));
+    }
+
+    return json({ success: true, cases, query: search }, 200, request);
+  }
+
+  if (pathname === "/api/cs2/admin/cases/create" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const caseName = typeof body?.case_name === "string" ? body.case_name.trim() : "";
+    const rawSlug = typeof body?.slug === "string" ? body.slug.trim() : "";
+    const steamMarketHashName = typeof body?.steam_market_hash_name === "string" ? body.steam_market_hash_name.trim() : caseName;
+    const description = typeof body?.description === "string" ? body.description.trim() : `Simulated ${caseName} drops for Grev Coins.`;
+    const fallbackPrice = Number(body?.fallback_price_pence);
+    const imageUrlInput = typeof body?.image_url === "string" ? body.image_url.trim() : "";
+    const isActive = body?.is_active === false ? 0 : 1;
+    const slug = (rawSlug || caseName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")).slice(0, 120);
+
+    if (!caseName) return json({ success: false, error: "case_name is required" }, 400, request);
+    if (!slug) return json({ success: false, error: "slug is required" }, 400, request);
+    if (!Number.isInteger(fallbackPrice) || fallbackPrice <= 0) {
+      return json({ success: false, error: "fallback_price_pence must be a positive integer" }, 400, request);
+    }
+
+    const existing = await env.CASES_DB.prepare(`
+      SELECT id FROM case_definitions WHERE slug = ? OR case_name = ? LIMIT 1
+    `).bind(slug, caseName).first();
+    if (existing) return json({ success: false, error: "A case with that name or slug already exists" }, 400, request);
+
+    const now = isoNow();
+    let imageUrl = imageUrlInput;
+    if (!imageUrl) imageUrl = await fetchSteamIconUrl(steamMarketHashName);
+
+    const insert = await env.CASES_DB.prepare(`
+      INSERT INTO case_definitions (
+        case_name, slug, image_url, price, description, is_active, created_at, steam_market_hash_name, fallback_price_pence
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(caseName, slug, imageUrl || "", fallbackPrice, description, isActive, now, steamMarketHashName || caseName, fallbackPrice).run();
+
+    const caseId = Number(insert.meta?.last_row_id || 0);
+    await env.CASES_DB.prepare(`
+      INSERT INTO case_items (
+        item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
+      ) VALUES (?, '', '', 'container', '', ?, 0, '#9ea3b5', ?, 'case', ?, ?)
+    `).bind(`${caseName} (Unopened)`, imageUrl || "", now, caseId, steamMarketHashName || caseName).run();
+
+    const created = await env.CASES_DB.prepare(`
+      SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
+      FROM case_definitions WHERE id = ? LIMIT 1
+    `).bind(caseId).first();
+
+    return json({ success: true, message: "Case created", case: await buildAdminCasePayload(env, created) }, 200, request);
   }
 
   if (pathname === "/api/cs2/admin/cases/toggle" && request.method === "POST") {
@@ -707,7 +848,7 @@ export async function handleCs2Request(request, env, deps) {
         live_price_pence: live,
         color_hex: r.color_hex || "",
         market_hash_name: r.market_hash_name || "",
-        image_url: r.image_url || "",
+        image_url: await ensureItemImageUrl(env, r),
         acquired_at: r.acquired_at,
         acquired_from_case: r.source_case_name || "",
         locked: Boolean(r.locked)
@@ -1130,7 +1271,13 @@ export async function handleCs2Request(request, env, deps) {
       ORDER BY p.id DESC
     `).bind(session.id).all();
 
-    return json({ success: true, pending: rows.results || [] }, 200, request);
+    return json({
+      success: true,
+      pending: await Promise.all((rows.results || []).map(async (row) => ({
+        ...row,
+        image_url: await ensureItemImageUrl(env, row)
+      })))
+    }, 200, request);
   }
 
   if (pathname === "/api/cs2/quick-sell" && request.method === "POST") {
@@ -1703,9 +1850,9 @@ export async function handleCs2Request(request, env, deps) {
     const list = rows.results || [];
     const buyers = await resolveUsernames(env, list.map((r) => Number(r.buyer_user_id)));
 
-    return json({
-      success: true,
-      offers: list.map((r) => ({
+    const offers = [];
+    for (const r of list) {
+      offers.push({
         offer_id: r.id,
         listing_id: r.listing_id,
         buyer_user_id: r.buyer_user_id,
@@ -1716,12 +1863,14 @@ export async function handleCs2Request(request, env, deps) {
         seller_counter_message: r.seller_counter_message || "",
         created_at: r.created_at,
         item_name: r.item_name,
-        image_url: r.image_url || "",
+        image_url: await ensureItemImageUrl(env, r),
         wear: r.wear || "",
         wear_code: r.wear_code || "",
         rarity: r.rarity || ""
-      }))
-    }, 200, request);
+      });
+    }
+
+    return json({ success: true, offers }, 200, request);
   }
 
   if (pathname === "/api/cs2/offers/outgoing" && request.method === "GET") {
@@ -1752,9 +1901,9 @@ export async function handleCs2Request(request, env, deps) {
     const list = rows.results || [];
     const sellers = await resolveUsernames(env, list.map((r) => Number(r.seller_user_id)));
 
-    return json({
-      success: true,
-      offers: list.map((r) => ({
+    const offers = [];
+    for (const r of list) {
+      offers.push({
         offer_id: r.id,
         listing_id: r.listing_id,
         seller_user_id: r.seller_user_id,
@@ -1765,12 +1914,14 @@ export async function handleCs2Request(request, env, deps) {
         seller_counter_message: r.seller_counter_message || "",
         created_at: r.created_at,
         item_name: r.item_name,
-        image_url: r.image_url || "",
+        image_url: await ensureItemImageUrl(env, r),
         wear: r.wear || "",
         wear_code: r.wear_code || "",
         rarity: r.rarity || ""
-      }))
-    }, 200, request);
+      });
+    }
+
+    return json({ success: true, offers }, 200, request);
   }
 
   if (pathname === "/api/cs2/offers/thread" && request.method === "GET") {
