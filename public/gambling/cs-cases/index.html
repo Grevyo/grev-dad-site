@@ -205,7 +205,7 @@
           <p>
             Everything for Counter-Strike cases lives on this page — buy cases and keys, open singles or batches, manage inventory, and trade.
             <strong>Grev Coins</strong> use the same wallet as the rest of the gambling hub. All prices below are shown as <strong>£00.00GC</strong> so the GC side is much clearer.
-            Quick sell pays live market reference minus the admin fee (default 10%).
+            Quick sell pays the saved market reference minus the admin fee (default 10%).
           </p>
           <div id="gambling-wallet-mount" class="cs2-balance"></div>
           <p class="muted" id="auth-note" style="margin-top:10px"></p>
@@ -262,7 +262,7 @@
 
         <section class="panel cs2-panel" id="panel-inventory">
           <h2 class="panel-title">Inventory</h2>
-          <p class="panel-subtitle">Skins show live reference value. Quick sell pays market reference minus the admin fee (see hero — default 10%). List on the trading tab for player sales.</p>
+          <p class="panel-subtitle">Skins show the saved market reference value. Quick sell pays that stored reference minus the admin fee (see hero — default 10%). List on the trading tab for player sales.</p>
           <h3 class="mt-24">Profile showcase (5 slots)</h3>
           <p class="panel-subtitle">Pick skins to display on your public profile.</p>
           <div id="showcase-mount" class="showcase-grid"></div>
@@ -298,7 +298,7 @@
 
         <section class="panel cs2-panel" id="panel-catalog">
           <h2 class="panel-title">Skin catalog</h2>
-          <p class="panel-subtitle">Resolved skins in the database with live Steam reference prices by wear.</p>
+          <p class="panel-subtitle">Resolved skins in the database with saved Steam reference prices by wear.</p>
           <div class="filter-row">
             <input id="catalog-search" class="form-input" type="search" placeholder="Search any skin..." />
             <input id="catalog-weapon" class="form-input" type="search" placeholder="Filter by weapon (AK-47, AWP, Glock...)" />
@@ -1061,7 +1061,7 @@
               <span class="rarity-dot" style="background:${escapeHtml(s.color_hex || "#999")}"></span>
               <strong>${escapeHtml(s.item_name)}</strong>
               <div class="muted">${escapeHtml(s.rarity || "")} · ${escapeHtml(wearLabel(s.wear_code, s.wear))}</div>
-              <div class="muted">Live ref: ${formatGrevCoins(s.live_price_pence)} · Quick sell: ${formatGrevCoins(Math.max(1, Math.floor((Number(s.live_price_pence || 0) * (100 - quickSellFeePercent)) / 100)))} · Track ID #${s.skin_instance_id || s.inventory_id}</div>
+              <div class="muted">Saved ref: ${formatGrevCoins(s.live_price_pence)} · Quick sell: ${formatGrevCoins(Math.max(1, Math.floor((Number(s.live_price_pence || 0) * (100 - quickSellFeePercent)) / 100)))} · Track ID #${s.skin_instance_id || s.inventory_id}</div>
             </div>
             <div class="inv-actions">
               <label class="mini-pill" title="Save this skin into one of your 5 profile favorite slots." style="display:flex;align-items:center;gap:8px">🖤
@@ -1712,7 +1712,7 @@
           ${it.image_url ? `<img src="${escapeHtml(it.image_url)}" alt="" class="drop-modal-img" />` : ''}
           <h3>${escapeHtml(it.item_name || '')}</h3>
           <div class="case-meta">${escapeHtml(it.rarity || '')} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}</div>
-          <div class="price-row"><span class="price-badge">Live ${formatGrevCoins(it.live_price_pence)}</span><span class="price-badge">Fallback ${formatGrevCoins(it.fallback_value_pence)}</span></div>
+          <div class="price-row"><span class="price-badge">Saved ${formatGrevCoins(it.live_price_pence)}</span><span class="price-badge">Fallback ${formatGrevCoins(it.fallback_value_pence)}</span></div>
           <h4>Price history</h4>
           ${renderPriceGraph(data.price_history || [])}
           <div class="mini-stat" style="margin-top:8px">12-hour snapshot schedule: 00:00 UTC and 12:00 UTC, up to the last week.</div>
@@ -1752,7 +1752,7 @@
             <h3>${escapeHtml(it.item_name)}</h3>
             <div class="case-meta">
               ${escapeHtml(it.rarity || "")} · ${escapeHtml(wearLabel(it.wear_code, it.wear))}<br/>
-              Live: ${formatGrevCoins(it.live_price_pence)}<br/>
+              Saved: ${formatGrevCoins(it.live_price_pence)}<br/>
               Owners now: ${Number(it.owner_count || 0)}
             </div>
             <div class="inv-actions" style="margin-top:10px;justify-content:space-between">

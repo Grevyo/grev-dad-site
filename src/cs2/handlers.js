@@ -2,7 +2,7 @@ import { KEY_PRICE_PENCE, STARTING_BALANCE_PENCE } from "./constants.js";
 import { getStartingBalancePence } from "../lib/gambling.js";
 import { getQuickSellFeePercent, quickSellPayoutFromMarket } from "./quick-sell.js";
 import { getOrCreateResolvedSkinItem } from "./skin-resolve.js";
-import { fetchSteamIconUrl, getCachedItemPricePence, getOrFetchItemPricePence } from "./steam.js";
+import { fetchAndStoreItemPricePence, fetchSteamIconUrl, getCachedItemPricePence } from "./steam.js";
 import { pickWearTier } from "./wear.js";
 import { importPriceEmpireCatalog } from "./pricempire.js";
 import { importMasterCatalog } from "./master-import.js";
@@ -70,7 +70,7 @@ async function refreshInventoryValue(env, userId) {
   let total = 0;
   for (const r of rows.results || []) {
     const hash = r.market_hash_name;
-    let pence = await getOrFetchItemPricePence(env, hash);
+    let pence = await getCachedItemPricePence(env, hash);
     if (pence == null || pence <= 0) {
       pence = Number(r.market_value || 0);
     }
@@ -198,6 +198,57 @@ async function ensureItemImageUrl(env, itemRow, options = {}) {
 
   itemRow.image_url = imageUrl;
   return imageUrl;
+}
+
+async function captureItemSnapshot(env, marketHashName, fallbackPrice = 0) {
+  const hash = String(marketHashName || "").trim();
+  if (!hash) {
+    return { imageUrl: "", pricePence: Math.max(0, Number(fallbackPrice || 0)) };
+  }
+
+  const [imageUrl, livePrice] = await Promise.all([
+    fetchSteamIconUrl(hash).catch(() => null),
+    fetchAndStoreItemPricePence(env, hash).catch(() => null)
+  ]);
+
+  return {
+    imageUrl: imageUrl || "",
+    pricePence: livePrice != null && livePrice > 0 ? Number(livePrice) : Math.max(0, Number(fallbackPrice || 0))
+  };
+}
+
+async function updateCaseDefinitionSnapshot(env, caseRow) {
+  if (!caseRow?.id) return null;
+  const marketHashName = String(caseRow.steam_market_hash_name || caseRow.case_name || "").trim();
+  const snapshot = await captureItemSnapshot(env, marketHashName, Number(caseRow.fallback_price_pence || caseRow.price || 0));
+
+  await env.CASES_DB.prepare(`
+    UPDATE case_definitions
+    SET image_url = ?, price = ?, fallback_price_pence = ?, steam_market_hash_name = ?
+    WHERE id = ?
+  `).bind(snapshot.imageUrl, snapshot.pricePence, snapshot.pricePence, marketHashName, caseRow.id).run();
+
+  await env.CASES_DB.prepare(`
+    UPDATE case_items
+    SET image_url = ?, market_value = ?, market_hash_name = ?
+    WHERE case_def_id = ? AND item_kind = 'case'
+  `).bind(snapshot.imageUrl, snapshot.pricePence, marketHashName, caseRow.id).run();
+
+  return snapshot;
+}
+
+async function updateSkinSnapshot(env, itemRow) {
+  if (!itemRow?.id) return null;
+  const marketHashName = String(itemRow.market_hash_name || itemRow.item_name || "").trim();
+  const snapshot = await captureItemSnapshot(env, marketHashName, Number(itemRow.market_value || 0));
+
+  await env.CASES_DB.prepare(`
+    UPDATE case_items
+    SET image_url = ?, market_value = ?, market_hash_name = ?
+    WHERE id = ?
+  `).bind(snapshot.imageUrl, snapshot.pricePence, marketHashName, itemRow.id).run();
+
+  return snapshot;
 }
 
 async function getOwnerCountsByItemId(env, itemIds) {
@@ -449,7 +500,7 @@ async function getCaseStorePricePence(env, caseRow, options = {}) {
   const { allowLiveFetch = true } = options;
   const hash = caseRow.steam_market_hash_name || caseRow.case_name;
   const live = allowLiveFetch
-    ? await getOrFetchItemPricePence(env, hash)
+    ? await getCachedItemPricePence(env, hash)
     : await getCachedItemPricePence(env, hash);
   const basePrice = live != null && live > 0 ? live : Number(caseRow.fallback_price_pence || caseRow.price || 0);
   const discount = await getCs2DiscountPercent(env);
@@ -544,7 +595,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
     return { success: false, error: "Could not resolve drop item", status: 500 };
   }
 
-  let marketPrice = await getOrFetchItemPricePence(env, droppedRow.market_hash_name || droppedRow.item_name);
+  let marketPrice = await getCachedItemPricePence(env, droppedRow.market_hash_name || droppedRow.item_name);
   if (marketPrice == null || marketPrice <= 0) {
     marketPrice = Number(droppedRow.market_value || 0);
   }
@@ -1199,14 +1250,15 @@ export async function handleCs2Request(request, env, deps) {
     if (existing) return json({ success: false, error: "A case with that name or slug already exists" }, 400, request);
 
     const now = isoNow();
-    let imageUrl = imageUrlInput;
-    if (!imageUrl) imageUrl = await fetchSteamIconUrl(steamMarketHashName);
+    const snapshot = await captureItemSnapshot(env, steamMarketHashName || caseName, fallbackPrice);
+    const imageUrl = imageUrlInput || snapshot.imageUrl;
+    const storedPrice = snapshot.pricePence > 0 ? snapshot.pricePence : fallbackPrice;
 
     const insert = await env.CASES_DB.prepare(`
       INSERT INTO case_definitions (
         case_name, slug, image_url, price, description, is_active, created_at, steam_market_hash_name, fallback_price_pence
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(caseName, slug, imageUrl || "", fallbackPrice, description, isActive, now, steamMarketHashName || caseName, fallbackPrice).run();
+    `).bind(caseName, slug, imageUrl || "", storedPrice, description, isActive, now, steamMarketHashName || caseName, storedPrice).run();
 
     const caseId = Number(insert.meta?.last_row_id || 0);
     await env.CASES_DB.prepare(`
@@ -1364,6 +1416,29 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "No valid case/skin rows were found in the uploaded text." }, 400, request);
     }
 
+    const resetCatalog = body?.reset_catalog !== false;
+    if (resetCatalog) {
+      await env.CASES_DB.batch([
+        env.CASES_DB.prepare(`DELETE FROM case_drops`),
+        env.CASES_DB.prepare(`DELETE FROM inventory`),
+        env.CASES_DB.prepare(`DELETE FROM pending_drops`),
+        env.CASES_DB.prepare(`DELETE FROM case_open_history`),
+        env.CASES_DB.prepare(`DELETE FROM skin_instances`),
+        env.CASES_DB.prepare(`DELETE FROM quick_sell_graveyard`),
+        env.CASES_DB.prepare(`DELETE FROM profile_showcase`),
+        env.CASES_DB.prepare(`DELETE FROM market_listings`),
+        env.CASES_DB.prepare(`DELETE FROM auction_bids`),
+        env.CASES_DB.prepare(`DELETE FROM market_offers`),
+        env.CASES_DB.prepare(`DELETE FROM offer_messages`),
+        env.CASES_DB.prepare(`DELETE FROM trade_history`),
+        env.CASES_DB.prepare(`DELETE FROM case_items`),
+        env.CASES_DB.prepare(`DELETE FROM case_definitions`),
+        env.CASES_DB.prepare(`DELETE FROM market_price_cache`),
+        env.CASES_DB.prepare(`DELETE FROM market_price_history`),
+        env.CASES_DB.prepare(`DELETE FROM cs2_image_reports`)
+      ]);
+    }
+
     let casesCreated = 0;
     let skinsUpserted = 0;
     let assignmentsCreated = 0;
@@ -1381,6 +1456,14 @@ export async function handleCs2Request(request, env, deps) {
 
       const itemId = await ensureAdminSkinItem(env, row, isoNow);
       if (!itemId) continue;
+      const skinRow = await env.CASES_DB.prepare(`
+        SELECT id, item_name, market_hash_name, market_value
+        FROM case_items
+        WHERE id = ?
+        LIMIT 1
+      `).bind(itemId).first();
+      if (skinRow) await updateSkinSnapshot(env, skinRow);
+      if (caseRow) await updateCaseDefinitionSnapshot(env, caseRow);
       skinsUpserted += 1;
 
       const assignmentKey = `${caseRow.id}:${itemId}`;
@@ -1400,7 +1483,7 @@ export async function handleCs2Request(request, env, deps) {
     return json({
       success: true,
       message: `Imported ${parsedRows.length} rows from upload.`,
-      stats: { parsed_rows: parsedRows.length, cases_created: casesCreated, skins_upserted: skinsUpserted, assignments_created: assignmentsCreated }
+      stats: { parsed_rows: parsedRows.length, cases_created: casesCreated, skins_upserted: skinsUpserted, assignments_created: assignmentsCreated, catalog_reset: resetCatalog }
     }, 200, request);
   }
 
@@ -1432,6 +1515,52 @@ export async function handleCs2Request(request, env, deps) {
     } catch (error) {
       return json({ success: false, error: error instanceof Error ? error.message : 'PriceEmpire import failed.' }, 500, request);
     }
+  }
+
+  if (pathname === "/api/cs2/admin/prices/update" && request.method === "POST") {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+
+    const body = await safeJson(request);
+    const target = String(body?.target || "all").trim().toLowerCase();
+    if (!["all", "skins", "cases"].includes(target)) {
+      return json({ success: false, error: "target must be all, skins, or cases" }, 400, request);
+    }
+
+    let updatedSkins = 0;
+    let updatedCases = 0;
+
+    if (target === "all" || target === "skins") {
+      const rows = await env.CASES_DB.prepare(`
+        SELECT id, item_name, market_hash_name, market_value
+        FROM case_items
+        WHERE item_kind = 'skin'
+        ORDER BY id ASC
+      `).all();
+      for (const row of rows.results || []) {
+        await updateSkinSnapshot(env, row);
+        updatedSkins += 1;
+      }
+    }
+
+    if (target === "all" || target === "cases") {
+      const rows = await env.CASES_DB.prepare(`
+        SELECT id, case_name, steam_market_hash_name, fallback_price_pence, price
+        FROM case_definitions
+        ORDER BY id ASC
+      `).all();
+      for (const row of rows.results || []) {
+        await updateCaseDefinitionSnapshot(env, row);
+        updatedCases += 1;
+      }
+    }
+
+    invalidateCachedPrefix('casesdb:cs2:cases');
+    return json({
+      success: true,
+      message: `Updated ${updatedSkins} skin(s) and ${updatedCases} case(s).`,
+      stats: { updated_skins: updatedSkins, updated_cases: updatedCases }
+    }, 200, request);
   }
 
   if (pathname === "/api/cs2/admin/settings" && request.method === "GET") {
@@ -1670,7 +1799,7 @@ export async function handleCs2Request(request, env, deps) {
 
     const items = [];
     for (const r of rows.results || []) {
-      let live = await getOrFetchItemPricePence(env, r.market_hash_name);
+      let live = await getCachedItemPricePence(env, r.market_hash_name);
       if (live == null || live <= 0) live = Number(r.market_value || 0);
       items.push({
         inventory_id: r.id,
@@ -2133,7 +2262,7 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const hash = row.market_hash_name || row.item_name;
-    let marketPrice = await getOrFetchItemPricePence(env, hash);
+    let marketPrice = await getCachedItemPricePence(env, hash);
     if (marketPrice == null || marketPrice <= 0) {
       marketPrice = Number(row.market_value || 0);
     }
@@ -2277,7 +2406,7 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const hash = row.market_hash_name || row.item_name;
-    let marketPrice = await getOrFetchItemPricePence(env, hash);
+    let marketPrice = await getCachedItemPricePence(env, hash);
     if (marketPrice == null || marketPrice <= 0) {
       marketPrice = Number(row.market_value || 0);
     }
@@ -3208,7 +3337,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "market_hash_name is required" }, 400, request);
     }
 
-    const price = await getOrFetchItemPricePence(env, hash);
+    const price = await getCachedItemPricePence(env, hash);
     return json({ success: true, market_hash_name: hash, price_pence: price }, 200, request);
   }
 
