@@ -546,22 +546,28 @@
       return data;
     }
 
+    async function revalidateStoreBootstrap(cached) {
+      if (!cached?.store_version) return cached;
+      const ageMs = Math.max(0, Date.now() - Number(cached.cached_at_ms || 0));
+      try {
+        const version = await fetchStoreVersion();
+        if (version?.store_version && version.store_version === cached.store_version && ageMs <= STORE_CACHE_TTL_MS) {
+          return cached;
+        }
+      } catch {
+        if (ageMs <= STORE_CACHE_TTL_MS) {
+          return cached;
+        }
+      }
+      return await fetchStoreBootstrap();
+    }
+
     async function ensureStoreBootstrap(forceRefresh = false) {
       const cached = cachedStoreBootstrap || readStoreCache();
-      if (!forceRefresh && cached?.store_version) {
-        const ageMs = Math.max(0, Date.now() - Number(cached.cached_at_ms || 0));
-        try {
-          const version = await fetchStoreVersion();
-          if (version?.store_version && version.store_version === cached.store_version && ageMs <= STORE_CACHE_TTL_MS) {
-            applyStoreBootstrap(cached);
-            return cached;
-          }
-        } catch {
-          if (ageMs <= STORE_CACHE_TTL_MS) {
-            applyStoreBootstrap(cached);
-            return cached;
-          }
-        }
+      if (!forceRefresh && cached?.cases?.length) {
+        applyStoreBootstrap(cached);
+        void revalidateStoreBootstrap(cached).catch(() => null);
+        return cached;
       }
       return await fetchStoreBootstrap();
     }
