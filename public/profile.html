@@ -154,6 +154,55 @@
       width: 100%;
     }
 
+    .profile-load-indicator {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      width: min(320px, calc(100vw - 36px));
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.94);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      z-index: 1200;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .profile-load-indicator.hidden {
+      display: block;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+    }
+
+    .profile-load-title {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .profile-load-text {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .profile-load-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .profile-load-bar-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #10a37f, #8ec5ff);
+      transition: width 0.25s ease;
+    }
+
     @media (max-width: 980px) {
       .profile-layout {
         grid-template-columns: 1fr;
@@ -292,14 +341,25 @@
     <footer class="footer">
       <div class="footer-inner">Grev.dad — profile</div>
     </footer>
+
+    <div id="profile-load-indicator" class="profile-load-indicator hidden" aria-live="polite">
+      <p class="profile-load-title">Loading profile data</p>
+      <p id="profile-load-text" class="profile-load-text">Starting…</p>
+      <div class="profile-load-bar">
+        <div id="profile-load-bar-fill" class="profile-load-bar-fill"></div>
+      </div>
+    </div>
   </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const profileId = Number(params.get("id") || "");
 
+    const AUTH_CACHE_KEY = "grevdad_auth_user";
+
     let currentUser = null;
     let loadedProfile = null;
+    let loadingIndicatorTimer = null;
 
     const profileMessage = document.getElementById("profile-message");
     const profileAvatarWrap = document.getElementById("profile-avatar-wrap");
@@ -316,6 +376,9 @@
     const profileEditPanel = document.getElementById("profile-edit-panel");
     const profileForm = document.getElementById("profile-form");
     const saveProfileBtn = document.getElementById("save-profile-btn");
+    const profileLoadIndicator = document.getElementById("profile-load-indicator");
+    const profileLoadText = document.getElementById("profile-load-text");
+    const profileLoadBarFill = document.getElementById("profile-load-bar-fill");
 
     const realNameInput = document.getElementById("real-name");
     const mottoInput = document.getElementById("motto");
@@ -345,6 +408,33 @@
         .replaceAll("'", "&#39;");
     }
 
+
+    function readCachedAuthUser() {
+      try {
+        const raw = window.sessionStorage.getItem(AUTH_CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
+    }
+
+    function setLoadProgress(percent, text) {
+      if (!profileLoadIndicator) return;
+      window.clearTimeout(loadingIndicatorTimer);
+      profileLoadIndicator.classList.remove("hidden");
+      profileLoadBarFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+      profileLoadText.textContent = text;
+    }
+
+    function completeLoadProgress(text = "Profile ready.") {
+      if (!profileLoadIndicator) return;
+      setLoadProgress(100, text);
+      loadingIndicatorTimer = window.setTimeout(() => {
+        profileLoadIndicator.classList.add("hidden");
+      }, 700);
+    }
+
     function formatDate(value) {
       if (!value) return "—";
       const date = new Date(value);
@@ -366,6 +456,7 @@
     async function loadCs2Profile(userId) {
       if (!cs2ProfileBody) return;
       cs2ProfileBody.textContent = "Loading CS2 stats…";
+      setLoadProgress(72, "Downloading CS2 profile data…");
 
       try {
         const response = await fetch(`/api/cs2/profile/public?user_id=${encodeURIComponent(userId)}`, {
@@ -376,11 +467,13 @@
 
         if (!response.ok || !data?.success) {
           cs2ProfileBody.textContent = "CS2 stats are unavailable (database may not be configured).";
+          completeLoadProgress("Profile loaded with limited CS2 data.");
           return;
         }
 
         if (!data.profile) {
           cs2ProfileBody.textContent = "No CS2 profile yet — visit the CS2 hub after logging in.";
+          completeLoadProgress();
           return;
         }
 
@@ -414,9 +507,11 @@
           </div>
           ${recentOpens ? `<ul class="mt-16" style="margin:0;padding-left:18px;line-height:1.6;">${recentOpens}</ul>` : `<p class="mt-16 empty-note">No opens recorded yet.</p>`}
         `;
+        completeLoadProgress();
       } catch (error) {
         console.error(error);
         cs2ProfileBody.textContent = "Could not load CS2 stats.";
+        completeLoadProgress("Profile loaded, but CS2 stats failed.");
       }
     }
 
@@ -438,6 +533,7 @@
 
     async function loadProfile() {
       clearMessage();
+      setLoadProgress(28, "Downloading profile data…");
 
       const endpoint = Number.isInteger(profileId) && profileId > 0
         ? `/api/profile/view?id=${encodeURIComponent(profileId)}`
@@ -452,17 +548,24 @@
         const data = await response.json().catch(() => null);
 
         if (!response.ok || !data?.success) {
+          if (response.status === 401 && !(Number.isInteger(profileId) && profileId > 0)) {
+            window.location.href = "/login.html";
+            return;
+          }
           showMessage("error", data?.error || "Failed to load profile.");
+          completeLoadProgress("Profile load failed.");
           return;
         }
 
         loadedProfile = data.profile;
         renderProfile(data.profile);
         populateForm(data.profile);
-        loadCs2Profile(data.profile.id);
+        setLoadProgress(58, "Rendering profile…");
+        await loadCs2Profile(data.profile.id);
       } catch (error) {
         console.error(error);
         showMessage("error", "Could not load profile.");
+        completeLoadProgress("Profile load failed.");
       }
     }
 
@@ -534,6 +637,11 @@
         </div>
       `;
 
+      updateProfileEditVisibility(profile);
+    }
+
+    function updateProfileEditVisibility(profile = loadedProfile) {
+      if (!profile) return;
       const isOwnProfile = currentUser && Number(currentUser.id) === Number(profile.id);
       profileEditPanel.classList.toggle("hidden", !isOwnProfile);
     }
@@ -728,14 +836,27 @@
     }
 
     async function initPage() {
-      currentUser = await fetchCurrentUser();
+      setLoadProgress(8, "Preparing profile page…");
+      currentUser = readCachedAuthUser();
 
-      if (!currentUser && !(Number.isInteger(profileId) && profileId > 0)) {
-        window.location.href = "/login.html";
+      const isViewingSpecificProfile = Number.isInteger(profileId) && profileId > 0;
+      const currentUserRefresh = isViewingSpecificProfile
+        ? fetchCurrentUser().then((user) => {
+            currentUser = user;
+            updateProfileEditVisibility();
+            return user;
+          })
+        : Promise.resolve(currentUser);
+
+      await loadProfile();
+
+      if (!isViewingSpecificProfile) {
+        currentUser = currentUser || loadedProfile;
+        updateProfileEditVisibility();
         return;
       }
 
-      await loadProfile();
+      await currentUserRefresh;
     }
 
     profileForm.addEventListener("submit", saveProfile);

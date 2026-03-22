@@ -229,7 +229,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
 }
 
 export async function handleCs2Request(request, env, deps) {
-  const { json, getApprovedUser, requireAdmin, isoNow, safeJson } = deps;
+  const { json, getApprovedUser, requireGamblingAdmin, isoNow, safeJson } = deps;
   const url = new URL(request.url);
   const { pathname } = url;
 
@@ -242,6 +242,7 @@ export async function handleCs2Request(request, env, deps) {
 
   /* ------------------------------ Public cases ----------------------------- */
   if (pathname === "/api/cs2/cases" && request.method === "GET") {
+    const q = (url.searchParams.get("q") || "").trim().toLowerCase();
     const rows = await env.CASES_DB.prepare(`
       SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
       FROM case_definitions
@@ -250,7 +251,11 @@ export async function handleCs2Request(request, env, deps) {
 
     const cases = [];
     for (const row of rows.results || []) {
-      if (!Number(row.is_active)) continue;
+      if (q) {
+        const haystack = `${row.case_name || ""} ${row.slug || ""}`.toLowerCase();
+        if (!haystack.includes(q)) continue;
+      }
+
       const storePrice = await getCaseStorePricePence(env, row);
       cases.push({
         id: row.id,
@@ -258,6 +263,7 @@ export async function handleCs2Request(request, env, deps) {
         slug: row.slug,
         image_url: row.image_url || "",
         description: row.description || "",
+        is_active: Boolean(row.is_active),
         store_price_pence: storePrice,
         key_price_pence: KEY_PRICE_PENCE
       });
@@ -569,7 +575,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/cases" && request.method === "GET") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const rows = await env.CASES_DB.prepare(`
@@ -582,7 +588,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/cases/toggle" && request.method === "POST") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const body = await safeJson(request);
@@ -601,7 +607,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/cases/price" && request.method === "POST") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const body = await safeJson(request);
@@ -626,7 +632,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/settings" && request.method === "GET") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const fee = await getQuickSellFeePercent(env);
@@ -634,7 +640,7 @@ export async function handleCs2Request(request, env, deps) {
   }
 
   if (pathname === "/api/cs2/admin/settings/quick-sell-fee" && request.method === "POST") {
-    const admin = await requireAdmin(request, env);
+    const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
     const body = await safeJson(request);
