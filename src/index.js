@@ -549,7 +549,7 @@ async function handleRegister(request, env) {
       created_at,
       last_seen_at
     )
-    VALUES (?, ?, 0, 0, ?, ?, ?)
+    VALUES (?, ?, 0, 0, ?, 0, ?, ?)
   `).bind(username, passwordHash, DEFAULT_USER_GROUP, now, now).run();
 
   const userId = result.meta?.last_row_id ?? null;
