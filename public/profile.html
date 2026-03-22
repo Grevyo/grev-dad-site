@@ -84,6 +84,10 @@
       gap: 12px;
     }
 
+    .showcase-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+
+    .showcase-slot { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.03); padding: 12px; }
+
     .profile-media-grid img {
       width: 100%;
       aspect-ratio: 1 / 1;
@@ -226,6 +230,7 @@
     <div id="header-mount"></div>
 
     <main class="page-main">
+      <p class="gambling-breadcrumb"><a href="/index.html">← Back to home</a></p>
       <div id="profile-message" class="hidden"></div>
 
       <div class="profile-layout">
@@ -270,9 +275,10 @@
           </section>
 
           <section class="panel">
-            <h2 class="panel-title">CS2 simulator</h2>
+            <h2 class="panel-title">CS2 simulator showcase</h2>
             <p class="panel-subtitle">Simulated Grev Coins balance, opens, and recent drops (fake economy).</p>
             <div id="cs2-profile-body" class="muted">Loading CS2 stats…</div>
+            <div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div>
             <div class="mt-16" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
               <a class="btn btn-primary" href="/gambling/index.html">Open gambling hub</a>
               <a class="btn" href="/gambling/cs-cases/index.html">CS CASES</a>
@@ -373,6 +379,7 @@
     const profileMusicWrap = document.getElementById("profile-music-wrap");
     const profileInfo = document.getElementById("profile-info");
     const cs2ProfileBody = document.getElementById("cs2-profile-body");
+    const ygoProfileBody = document.getElementById("ygo-profile-body");
     const profileEditPanel = document.getElementById("profile-edit-panel");
     const profileForm = document.getElementById("profile-form");
     const saveProfileBtn = document.getElementById("save-profile-btn");
@@ -453,6 +460,11 @@
       return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 
+    function formatCoins(value) {
+      const n = Number(value || 0);
+      return `${(n / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
     async function loadCs2Profile(userId) {
       if (!cs2ProfileBody) return;
       cs2ProfileBody.textContent = "Loading CS2 stats…";
@@ -490,7 +502,7 @@
           <div class="profile-info-grid">
             <div class="info-card">
               <h3>Balance</h3>
-              <p>${escapeHtml(formatGbpPence(p.balance_pence))} Grev Coins</p>
+              <p>${escapeHtml(formatGbpPence(p.balance_pence))} GC</p>
             </div>
             <div class="info-card">
               <h3>Cases opened</h3>
@@ -531,6 +543,36 @@
       }
     }
 
+    async function loadYgoProfile(userId) {
+      setLoadProgress(84, "Downloading Yu-Gi-Oh showcase data…");
+      try {
+        const response = await fetch(`/api/ygo/profile/public?user_id=${encodeURIComponent(userId)}`, { credentials: "same-origin" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success || !data.profile) {
+          ygoProfileBody.textContent = "No Yu-Gi-Oh showcase yet — open packs to build one.";
+          return;
+        }
+        const cards = Array.isArray(data.showcase) ? data.showcase : [];
+        ygoProfileBody.innerHTML = `
+          <div class="profile-info-grid">
+            <div><h3 class="mt-0">Wallet</h3><p>${escapeHtml(formatCoins(data.profile.wallet_balance))}</p></div>
+            <div><h3 class="mt-0">Packs opened</h3><p>${escapeHtml(String(data.profile.packs_opened || 0))}</p></div>
+            <div><h3 class="mt-0">Cards owned</h3><p>${escapeHtml(String(data.profile.cards_owned || 0))}</p></div>
+            <div><h3 class="mt-0">Achievements</h3><p>${escapeHtml(String(data.profile.achievements_completed || 0))}</p></div>
+          </div>
+          <div class="showcase-grid" style="margin-top:16px">
+            ${[0,1,2,3,4].map((slot) => {
+              const card = cards.find((entry) => Number(entry.slot) === slot);
+              if (!card) return `<div class="showcase-slot"><strong>Card slot ${slot + 1}</strong><div class="muted">Empty</div></div>`;
+              return `<div class="showcase-slot"><strong>Card slot ${slot + 1}</strong>${card.image_url ? `<img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(card.card_name)}" style="width:100%;border-radius:12px;margin:10px 0;aspect-ratio:0.72;object-fit:cover" />` : ''}<div>${escapeHtml(card.card_name)}</div><div class="muted">${escapeHtml(card.foil_label || card.rarity_code || '')} · ${escapeHtml(card.pack_slug || '')} · ${escapeHtml(formatCoins(card.estimated_price_coins || 0))}</div></div>`;
+            }).join('')}
+          </div>`;
+      } catch (error) {
+        console.error(error);
+        ygoProfileBody.textContent = "Could not load Yu-Gi-Oh showcase.";
+      }
+    }
+
     async function loadProfile() {
       clearMessage();
       setLoadProgress(28, "Downloading profile data…");
@@ -562,6 +604,8 @@
         populateForm(data.profile);
         setLoadProgress(58, "Rendering profile…");
         await loadCs2Profile(data.profile.id);
+        await loadYgoProfile(data.profile.id);
+        setLoadProgress(100, "Done");
       } catch (error) {
         console.error(error);
         showMessage("error", "Could not load profile.");

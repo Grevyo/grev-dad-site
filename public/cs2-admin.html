@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CS2 gambling admin | Grev.dad</title>
+  <title>Gambling admin | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
@@ -31,8 +31,8 @@
 
     <main class="page-main">
       <section class="panel">
-        <h1 class="auth-title">CS2 gambling admin</h1>
-        <p class="auth-subtitle">Manage case visibility and pricing, plus select a user and directly set their CS2 gambling balance.</p>
+        <h1 class="auth-title">Gambling admin</h1>
+        <p class="auth-subtitle">Manage CS2 and Yu-Gi-Oh pricing, packs, imports, and user balances from one gambling admin panel.</p>
         <div id="page-message" class="hidden"></div>
       </section>
 
@@ -94,13 +94,64 @@
       </section>
 
       <section class="panel mt-24">
-        <h2 class="panel-title">Cases</h2>
+        <h2 class="panel-title">Cases admin</h2>
         <div id="case-admin-list"></div>
+      </section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">Blackjack admin</h2><p class="panel-subtitle">Blackjack room logic is still pending, but event payout boosts can already be configured below.</p></section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">Yu-Gi-Oh admin</h2>
+        <p class="panel-subtitle">Create or update packs, add cards, adjust prices, and check an ROI-based suggested pack price.</p>
+        <div class="admin-stack">
+          <div class="user-balance-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+            <label class="muted">Slug<input id="ygo-pack-slug" class="form-input" type="text" placeholder="spaced" /></label>
+            <label class="muted">Pack name<input id="ygo-pack-name" class="form-input" type="text" placeholder="Spaced" /></label>
+            <label class="muted">Pack price (GC)<input id="ygo-pack-price" class="form-input" type="number" min="0.01" step="0.01" placeholder="4.25" /></label>
+          </div>
+          <label class="muted">Description<input id="ygo-pack-description" class="form-input" type="text" placeholder="Retro dragon-heavy opener..." /></label>
+          <div class="inv-actions">
+            <button type="button" class="btn btn-primary" id="save-ygo-pack">Save pack</button>
+            <button type="button" class="btn" id="refresh-ygo-packs">Refresh packs</button>
+          </div>
+          <div class="user-balance-row" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+            <label class="muted">Pack slug<input id="ygo-card-pack-slug" class="form-input" type="text" placeholder="spaced" /></label>
+            <label class="muted">Card name<input id="ygo-card-name" class="form-input" type="text" placeholder="Blue-Eyes White Dragon" /></label>
+            <label class="muted">Rarity<select id="ygo-card-rarity" class="form-input"><option value="common">Common</option><option value="rare">Rare</option><option value="super">Super Rare</option><option value="ultra">Ultra Rare</option><option value="ultimate">Ultimate Rare</option><option value="secret">Secret Rare</option><option value="ghost">Ghost Rare</option></select></label>
+            <label class="muted">Card price (GC)<input id="ygo-card-price" class="form-input" type="number" min="0.01" step="0.01" placeholder="9.80" /></label>
+          </div>
+          <div class="user-balance-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+            <label class="muted">Drop weight<input id="ygo-card-drop-weight" class="form-input" type="number" min="1" step="1" placeholder="560" /></label>
+            <label class="muted">Image URL<input id="ygo-card-image" class="form-input" type="url" placeholder="https://..." /></label>
+            <label class="muted">Source URL<input id="ygo-card-source" class="form-input" type="url" placeholder="https://..." /></label>
+          </div>
+          <div class="inv-actions">
+            <button type="button" class="btn btn-primary" id="save-ygo-card">Save card</button>
+            <label class="muted">ROI target %<input id="ygo-roi-target" class="form-input" type="number" min="5" max="200" step="1" value="70" style="max-width:120px;margin-left:8px" /></label>
+            <button type="button" class="btn" id="suggest-ygo-price">Suggest pack price</button>
+            <span id="ygo-roi-output" class="muted"></span>
+          </div>
+          <div class="inv-actions"><label class="muted">Single-card price (GC)<input id="ygo-single-card-price" class="form-input" type="number" min="0.01" step="0.01" placeholder="1.25" style="max-width:120px;margin-left:8px" /></label><button type="button" class="btn" id="save-ygo-settings">Save single-card price</button></div><div id="ygo-pack-list"></div>
+        </div>
+      </section>
+
+      <section class="panel mt-24">
+        <h2 class="panel-title">Special event admin</h2>
+        <p class="panel-subtitle">Apply limited-time discounts and payout boosts across gambling areas.</p>
+        <div class="user-balance-row" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          <label class="muted">Title<input id="event-title" class="form-input" type="text" placeholder="Spring special" /></label>
+          <label class="muted">CS2 discount %<input id="event-cs2-discount" class="form-input" type="number" min="0" max="100" step="1" value="0" /></label>
+          <label class="muted">YGO discount %<input id="event-ygo-discount" class="form-input" type="number" min="0" max="100" step="1" value="0" /></label>
+          <label class="muted">Blackjack payout boost %<input id="event-blackjack-bonus" class="form-input" type="number" min="0" max="500" step="1" value="0" /></label>
+        </div>
+        <label class="muted">Message<input id="event-message" class="form-input" type="text" placeholder="Discounted packs and cases are live." /></label>
+        <div class="inv-actions"><label class="muted"><input id="event-active" type="checkbox" /> Event active</label><button type="button" class="btn btn-primary" id="save-event-settings">Save event</button></div>
       </section>
     </main>
 
     <footer class="footer">
-      <div class="footer-inner">Grev.dad — CS2 gambling admin</div>
+      <div class="footer-inner">Grev.dad — gambling admin</div>
     </footer>
   </div>
 
@@ -111,6 +162,8 @@
     const userSearch = document.getElementById("user-search");
     const graveyardList = document.getElementById("graveyard-list");
     const imageReportList = document.getElementById("image-report-list");
+    const ygoPackList = document.getElementById("ygo-pack-list");
+    
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -336,6 +389,34 @@
       }
     }
 
+
+    async function loadYgoPacks() {
+      if (!ygoPackList) return;
+      ygoPackList.innerHTML = `<div class="muted">Loading Yu-Gi-Oh packs…</div>`;
+      try {
+        const response = await fetch('/api/ygo/admin/packs', { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { ygoPackList.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || 'Failed to load packs')}</div>`; return; }
+        const packs = data.packs || [];
+        if (!packs.length) { ygoPackList.innerHTML = `<div class="muted">No Yu-Gi-Oh packs yet.</div>`; return; }
+        const settingsRes = await fetch('/api/ygo/admin/settings', { credentials: 'same-origin' }); const settingsData = await settingsRes.json().catch(() => null); const singlePriceInput = document.getElementById('ygo-single-card-price'); if (singlePriceInput && settingsData?.settings) singlePriceInput.value = (Number(settingsData.settings.single_card_price_coins || 0) / 100).toFixed(2);
+        ygoPackList.innerHTML = packs.map((pack) => `
+          <div class="case-admin-row" style="grid-template-columns:minmax(0,1.5fr) 140px 140px auto">
+            <div>
+              <strong>${escapeHtml(pack.set_name)}</strong>
+              <div class="muted">${escapeHtml(pack.slug)} · ${escapeHtml(pack.description || '')}</div>
+              <div class="muted">${pack.cards.length} cards · EV ${formatGrevCoins(pack.expected_value_coins)} · ROI ${Number(pack.roi_percent || 0).toFixed(2)}%</div>
+            </div>
+            <div class="muted">Live price ${formatGrevCoins(pack.pack_price_coins)}</div>
+            <div class="muted">Suggested ${formatGrevCoins(pack.suggested_pack_price_coins)}</div>
+            <div class="muted">${pack.cards.slice(0, 5).map((card) => `${escapeHtml(card.card_name)} (${Number(card.drop_weight || 0)})`).join(', ') || 'No cards yet'}</div>
+          </div>
+        `).join('');
+      } catch {
+        ygoPackList.innerHTML = `<div class="alert alert-error">Could not load Yu-Gi-Oh packs.</div>`;
+      }
+    }
+
     async function loadQuickSellFee() {
       const input = document.getElementById("quick-sell-fee");
       if (!input) return;
@@ -347,6 +428,68 @@
         }
       } catch { /* ignore */ }
     }
+
+
+    document.getElementById("refresh-ygo-packs")?.addEventListener("click", loadYgoPacks);
+    document.getElementById('save-ygo-settings')?.addEventListener('click', async () => { const response = await fetch('/api/ygo/admin/settings', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ single_card_price_coins: Math.round(Number(document.getElementById('ygo-single-card-price')?.value || 0) * 100) }) }); const data = await response.json().catch(() => null); if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Could not save YGO settings.'); return; } showMessage('success', data.message || 'YGO settings saved.'); await loadYgoPacks(); });
+    document.getElementById('save-event-settings')?.addEventListener('click', async () => { const response = await fetch('/api/gambling/admin/event', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title: document.getElementById('event-title')?.value?.trim(), message: document.getElementById('event-message')?.value?.trim(), is_active: document.getElementById('event-active')?.checked, cs2_discount_percent: Number(document.getElementById('event-cs2-discount')?.value || 0), ygo_discount_percent: Number(document.getElementById('event-ygo-discount')?.value || 0), blackjack_bonus_percent: Number(document.getElementById('event-blackjack-bonus')?.value || 0) }) }); const data = await response.json().catch(() => null); if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Could not save event.'); return; } showMessage('success', data.message || 'Event saved.'); });
+
+    document.getElementById("save-ygo-pack")?.addEventListener("click", async () => {
+      const btn = document.getElementById("save-ygo-pack");
+      btn.disabled = true;
+      try {
+        const response = await fetch('/api/ygo/admin/pack', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: document.getElementById('ygo-pack-slug')?.value?.trim(),
+            set_name: document.getElementById('ygo-pack-name')?.value?.trim(),
+            description: document.getElementById('ygo-pack-description')?.value?.trim(),
+            pack_price_coins: Math.round(Number(document.getElementById('ygo-pack-price')?.value || 0) * 100)
+          })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Could not save pack.'); return; }
+        showMessage('success', data.message || 'Pack saved.');
+        await loadYgoPacks();
+      } catch { showMessage('error', 'Could not save pack.'); } finally { btn.disabled = false; }
+    });
+
+    document.getElementById("save-ygo-card")?.addEventListener("click", async () => {
+      const btn = document.getElementById("save-ygo-card");
+      btn.disabled = true;
+      try {
+        const response = await fetch('/api/ygo/admin/card', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pack_slug: document.getElementById('ygo-card-pack-slug')?.value?.trim(),
+            card_name: document.getElementById('ygo-card-name')?.value?.trim(),
+            rarity_code: document.getElementById('ygo-card-rarity')?.value,
+            estimated_price_coins: Math.round(Number(document.getElementById('ygo-card-price')?.value || 0) * 100),
+            drop_weight: Number(document.getElementById('ygo-card-drop-weight')?.value || 0),
+            image_url: document.getElementById('ygo-card-image')?.value?.trim(),
+            source_url: document.getElementById('ygo-card-source')?.value?.trim()
+          })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { showMessage('error', data?.error || 'Could not save card.'); return; }
+        showMessage('success', data.message || 'Card saved.');
+        await loadYgoPacks();
+      } catch { showMessage('error', 'Could not save card.'); } finally { btn.disabled = false; }
+    });
+
+    document.getElementById("suggest-ygo-price")?.addEventListener("click", async () => {
+      const output = document.getElementById('ygo-roi-output');
+      output.textContent = 'Calculating…';
+      try {
+        const response = await fetch('/api/ygo/admin/roi', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pack_slug: document.getElementById('ygo-card-pack-slug')?.value?.trim() || document.getElementById('ygo-pack-slug')?.value?.trim(), roi_target_percent: Number(document.getElementById('ygo-roi-target')?.value || 70) })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) { output.textContent = data?.error || 'ROI failed'; return; }
+        output.textContent = `EV ${formatGrevCoins(data.expected_value_coins)} → suggested price ${formatGrevCoins(data.suggested_pack_price_coins)} at ${Number(data.roi_target_percent).toFixed(0)}% ROI target`;
+      } catch { output.textContent = 'ROI failed'; }
+    });
 
     document.getElementById("reload-users")?.addEventListener("click", () => loadUsers(userSearch.value.trim()));
     userSearch?.addEventListener("input", () => loadUsers(userSearch.value.trim()));
@@ -438,7 +581,7 @@
           return false;
         }
         if (!data.user?.can_manage_gambling) {
-          showMessage("error", "You do not have access to CS2 gambling admin tools.");
+          showMessage("error", "You do not have access to gambling admin tools.");
           caseAdminList.innerHTML = "";
           userBalanceList.innerHTML = "";
           return false;
@@ -455,7 +598,7 @@
       const hasAccess = await checkGamblingAdminAccess();
       if (!hasAccess) return;
       await loadQuickSellFee();
-      await Promise.all([loadUsers(), loadGraveyard(), loadImageReports(), loadCases()]);
+      await Promise.all([loadUsers(), loadGraveyard(), loadImageReports(), loadCases(), loadYgoPacks()]);
     });
   </script>
 </body>
