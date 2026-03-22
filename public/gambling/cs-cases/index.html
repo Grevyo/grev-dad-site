@@ -422,6 +422,10 @@
     let inventoryValuePence = 0;
     let activePendingId = null;
     let availableCases = [];
+    let cachedStoreBootstrap = null;
+
+    const STORE_CACHE_KEY = "grevdad:cs2:store-bootstrap:v1";
+    const STORE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
     const WEAR_LABEL = {
       FN: "Factory New",
@@ -481,6 +485,92 @@
       if (btn) btn.textContent = `Quick sell (${pct}% fee)`;
     }
 
+    function readStoreCache() {
+      try {
+        const raw = window.localStorage.getItem(STORE_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeStoreCache(payload) {
+      if (!payload || typeof payload !== "object") return;
+      try {
+        const record = { ...payload, cached_at_ms: Date.now() };
+        window.localStorage.setItem(STORE_CACHE_KEY, JSON.stringify(record));
+        cachedStoreBootstrap = record;
+      } catch {
+        cachedStoreBootstrap = payload;
+      }
+    }
+
+    function clearStoreCache() {
+      cachedStoreBootstrap = null;
+      try {
+        window.localStorage.removeItem(STORE_CACHE_KEY);
+      } catch {
+        // ignore storage failures
+      }
+    }
+
+    function applyStoreBootstrap(payload) {
+      cachedStoreBootstrap = payload || null;
+      availableCases = Array.isArray(payload?.cases) ? payload.cases : [];
+      if (payload?.quick_sell_fee_percent != null) {
+        quickSellFeePercent = Number(payload.quick_sell_fee_percent);
+        updateQuickSellButtonLabel();
+      }
+      const kpl = document.getElementById("store-key-price-label");
+      if (kpl && payload?.key_price_pence != null) {
+        kpl.textContent = `${formatGrevCoins(payload.key_price_pence)} each`;
+      }
+    }
+
+    async function fetchStoreVersion() {
+      const response = await fetch("/api/cs2/store/version", { credentials: "same-origin" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Could not validate cached store data.");
+      return data;
+    }
+
+    async function fetchStoreBootstrap() {
+      const response = await fetch("/api/cs2/store/bootstrap", { credentials: "same-origin" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Could not load store bootstrap.");
+      writeStoreCache(data);
+      applyStoreBootstrap(data);
+      return data;
+    }
+
+    async function ensureStoreBootstrap(forceRefresh = false) {
+      const cached = cachedStoreBootstrap || readStoreCache();
+      if (!forceRefresh && cached?.store_version) {
+        const ageMs = Math.max(0, Date.now() - Number(cached.cached_at_ms || 0));
+        try {
+          const version = await fetchStoreVersion();
+          if (version?.store_version && version.store_version === cached.store_version && ageMs <= STORE_CACHE_TTL_MS) {
+            applyStoreBootstrap(cached);
+            return cached;
+          }
+        } catch {
+          if (ageMs <= STORE_CACHE_TTL_MS) {
+            applyStoreBootstrap(cached);
+            return cached;
+          }
+        }
+      }
+      return await fetchStoreBootstrap();
+    }
+
+    async function refreshStoreBootstrap() {
+      clearStoreCache();
+      return await ensureStoreBootstrap(true);
+    }
+
     async function fetchMe() {
       try {
         const response = await fetch("/api/auth/me", { credentials: "same-origin" });
@@ -494,7 +584,7 @@
 
     async function loadBalance() {
       try {
-        const response = await fetch("/api/gambling/profile", { credentials: "same-origin" });
+        const response = await fetch("/api/cs2/me/summary", { credentials: "same-origin" });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) {
           balancePence = 0;
@@ -503,11 +593,11 @@
           setBalancePills();
           return;
         }
-        balancePence = Number(data.profile?.balance || 0);
-        inventoryValuePence = Number(data.profile?.total_inventory_value || 0);
-        keyBalance = Number(data.profile?.key_balance ?? 0);
-        if (data.profile?.quick_sell_fee_percent != null) {
-          quickSellFeePercent = Number(data.profile.quick_sell_fee_percent);
+        balancePence = Number(data.summary?.balance || 0);
+        inventoryValuePence = Number(data.summary?.total_inventory_value || 0);
+        keyBalance = Number(data.summary?.key_balance ?? 0);
+        if (data.summary?.quick_sell_fee_percent != null) {
+          quickSellFeePercent = Number(data.summary.quick_sell_fee_percent);
         }
         setBalancePills();
         updateQuickSellButtonLabel();
@@ -797,30 +887,12 @@
       }
     }
 
-    async function loadCasesStore() {
-      storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
-      try {
-        const response = await fetch("/api/cs2/cases", { credentials: "same-origin" });
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) {
-          storeCaseGrid.innerHTML = `<div class="alert alert-error">${escapeHtml(data?.error || "Could not load cases")}</div>`;
-          return;
-        }
-        if (data.quick_sell_fee_percent != null) {
-          quickSellFeePercent = Number(data.quick_sell_fee_percent);
-          updateQuickSellButtonLabel();
-        }
-        const kpl = document.getElementById("store-key-price-label");
-        if (kpl && data.key_price_pence != null) {
-          kpl.textContent = `${formatGrevCoins(data.key_price_pence)} each`;
-        }
-        const cases = data.cases || [];
-        availableCases = cases;
-        if (!cases.length) {
-          storeCaseGrid.innerHTML = `<div class="muted">No cases are available right now. Please check back later.</div>`;
-          return;
-        }
-        storeCaseGrid.innerHTML = cases.map((c) => `
+    function renderCasesStore(cases) {
+      if (!cases.length) {
+        storeCaseGrid.innerHTML = `<div class="muted">No cases are available right now. Please check back later.</div>`;
+        return;
+      }
+      storeCaseGrid.innerHTML = cases.map((c) => `
           <div class="case-card" tabindex="0">
             <div class="drop-preview">${renderDropPreviewList(c)}</div>
             <div class="case-visual">${c.image_url ? `<img src="${escapeHtml(c.image_url)}" alt="${escapeHtml(c.case_name)}" />` : `<div class="case-fallback">${escapeHtml(c.case_name)}</div>`}</div>
@@ -840,45 +912,51 @@
             </div>
           </div>
         `).join("");
+      storeCaseGrid.querySelectorAll("[data-report-image]").forEach((btn) => btn.addEventListener("click", () => submitImageReport(btn.getAttribute("data-report-type"), btn.getAttribute("data-report-image"))));
 
-        storeCaseGrid.querySelectorAll("[data-report-image]").forEach((btn) => btn.addEventListener("click", () => submitImageReport(btn.getAttribute("data-report-type"), btn.getAttribute("data-report-image"))));
-
-        storeCaseGrid.querySelectorAll("[data-buy-case]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            if (!currentUser) {
-              window.location.href = "/login.html";
+      storeCaseGrid.querySelectorAll("[data-buy-case]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!currentUser) {
+            window.location.href = "/login.html";
+            return;
+          }
+          const id = Number(btn.getAttribute("data-buy-case"));
+          const qtyEl = storeCaseGrid.querySelector(`[data-case-buy-qty="${id}"]`);
+          let qty = Number(qtyEl?.value || 1);
+          if (!Number.isInteger(qty) || qty < 1) qty = 1;
+          if (qty > 100) qty = 100;
+          btn.disabled = true;
+          clearMessage();
+          try {
+            const response = await fetch("/api/cs2/store/buy-case", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ case_id: id, quantity: qty })
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.success) {
+              showMessage("error", data?.error || "Could not buy case.");
               return;
             }
-            const id = Number(btn.getAttribute("data-buy-case"));
-            const qtyEl = storeCaseGrid.querySelector(`[data-case-buy-qty="${id}"]`);
-            let qty = Number(qtyEl?.value || 1);
-            if (!Number.isInteger(qty) || qty < 1) qty = 1;
-            if (qty > 100) qty = 100;
-            btn.disabled = true;
-            clearMessage();
-            try {
-              const response = await fetch("/api/cs2/store/buy-case", {
-                method: "POST",
-                credentials: "same-origin",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ case_id: id, quantity: qty })
-              });
-              const data = await response.json().catch(() => null);
-              if (!response.ok || !data?.success) {
-                showMessage("error", data?.error || "Purchase failed.");
-                return;
-              }
-              showToast(data?.message || "Case purchased", "success");
-              showMessage("success", data?.message || "Case added to inventory.");
-              await loadBalance();
-              await loadInventoryUi();
-            } catch (e) {
-              showMessage("error", "Network error.");
-            } finally {
-              btn.disabled = false;
-            }
-          });
+            showToast(data?.message || "Case purchased", "success");
+            showMessage("success", data?.message || "Case added to inventory.");
+            await loadBalance();
+            await loadInventoryUi();
+          } catch {
+            showMessage("error", "Network error.");
+          } finally {
+            btn.disabled = false;
+          }
         });
+      });
+    }
+
+    async function loadCasesStore() {
+      storeCaseGrid.innerHTML = `<div class="muted">Loading cases…</div>`;
+      try {
+        const data = await ensureStoreBootstrap();
+        renderCasesStore(data?.cases || []);
       } catch {
         storeCaseGrid.innerHTML = `<div class="alert alert-error">Could not load store.</div>`;
       }
@@ -1200,6 +1278,7 @@
                 return;
               }
               showMessage("success", `Listed (${data.list_mode || listMode}).`);
+              await refreshStoreBootstrap();
               await loadInventoryUi();
               await loadListings(document.getElementById("listing-search").value.trim());
               await loadIncomingOffers();
@@ -1224,14 +1303,12 @@
     async function loadListings(filter) {
       marketListings.innerHTML = `<div class="muted">Loading…</div>`;
       try {
-        const q = filter ? `?search=${encodeURIComponent(filter)}` : "";
-        const response = await fetch(`/api/cs2/listings${q}`, { credentials: "same-origin" });
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) {
-          marketListings.innerHTML = `<div class="alert alert-error">Could not load listings.</div>`;
-          return;
+        const data = await ensureStoreBootstrap();
+        const search = String(filter || "").trim().toLowerCase();
+        let rows = Array.isArray(data?.listings) ? [...data.listings] : [];
+        if (search) {
+          rows = rows.filter((row) => String(row.item_name || "").toLowerCase().includes(search));
         }
-        const rows = data.listings || [];
         if (!rows.length) {
           marketListings.innerHTML = `<div class="muted">No active listings.</div>`;
           return;
@@ -1262,20 +1339,12 @@
                 <div class="muted">Top offer: ${formatGrevCoins(row.top_offer_pence || 0)} · Guide price: ${formatGrevCoins(row.asking_price_pence)}</div>
               ` : `<div class="muted">Ask: ${formatGrevCoins(row.asking_price_pence)}</div>`}
             </div>
-            <div class="inv-actions">
-              ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy</button>` : ""}
-              ${canBid ? `
-                <input class="form-input" type="number" min="1" step="1" placeholder="Bid (£GC)" data-bid-amt="${row.id}" style="max-width:100px" />
-                <button type="button" class="btn btn-primary" data-bid-listing="${row.id}">Bid</button>
-              ` : ""}
-              ${canOffer ? `
-                <input class="form-input" type="number" min="1" step="1" placeholder="Offer (£GC)" data-offer-amt="${row.id}" style="max-width:100px" />
-                <input class="form-input" type="text" placeholder="Comment" data-offer-comment="${row.id}" style="max-width:140px" maxlength="2000" />
-                <button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Send offer</button>
-              ` : ""}
+            <div class="inv-actions" style="justify-content:flex-end">
+              ${canBuy ? `<button type="button" class="btn btn-primary" data-buy-listing="${row.id}">Buy now</button>` : ""}
+              ${canBid ? `<input class="form-input" style="max-width:120px" type="number" min="1" step="1" placeholder="Bid (£GC)" data-bid-amt="${row.id}" /><button type="button" class="btn btn-primary" data-bid-listing="${row.id}">Bid</button>` : ""}
+              ${canOffer ? `<input class="form-input" style="max-width:120px" type="number" min="1" step="1" placeholder="Offer (£GC)" data-offer-amt="${row.id}" /><input class="form-input" style="max-width:160px" type="text" maxlength="2000" placeholder="Comment" data-offer-comment="${row.id}" /><button type="button" class="btn btn-primary" data-offer-listing="${row.id}">Send offer</button>` : ""}
               ${canFinalize ? `<button type="button" class="btn btn-primary" data-finalize="${row.id}">Finalize auction</button>` : ""}
-              ${isSeller ? `<button type="button" class="btn" data-cancel-listing="${row.id}">Cancel listing</button>` : ""}
-              ${!isSeller && mode === "auction" && ended ? `<span class="muted">Awaiting seller finalize</span>` : ""}
+              ${isSeller ? `<button type="button" class="btn" data-cancel-listing="${row.id}">Cancel</button>` : ""}
             </div>
           </div>`;
         }).join("");
@@ -1298,6 +1367,7 @@
                 return;
               }
               showMessage("success", "Purchase complete.");
+              await refreshStoreBootstrap();
               await loadBalance();
               await loadInventoryUi();
               await loadListings(filter);
@@ -1330,6 +1400,7 @@
                 return;
               }
               showMessage("success", "Bid placed.");
+              await refreshStoreBootstrap();
               await loadListings(filter);
             } catch {
               showMessage("error", "Network error.");
@@ -1361,6 +1432,7 @@
                 return;
               }
               showMessage("success", "Offer submitted.");
+              await refreshStoreBootstrap();
               await loadIncomingOffers();
               await loadOutgoingOffers();
               await loadListings(filter);
@@ -1390,6 +1462,7 @@
                 return;
               }
               showMessage("success", data.message || "Auction finalized.");
+              await refreshStoreBootstrap();
               await loadBalance();
               await loadInventoryUi();
               await loadListings(filter);
@@ -1413,6 +1486,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ listing_id: id })
               });
+              await refreshStoreBootstrap();
               await loadListings(filter);
               await loadInventoryUi();
             } finally {
@@ -1480,6 +1554,7 @@
                 return;
               }
               showMessage("success", "Offer accepted.");
+              await refreshStoreBootstrap();
               await loadBalance();
               await loadInventoryUi();
               await loadListings(document.getElementById("listing-search").value.trim());
@@ -1615,6 +1690,7 @@
                 return;
               }
               showMessage("success", "Trade complete.");
+              await refreshStoreBootstrap();
               await loadBalance();
               await loadInventoryUi();
               await loadListings(document.getElementById("listing-search").value.trim());
@@ -1725,23 +1801,27 @@
     }
 
     async function loadCatalog() {
-      const q = document.getElementById("catalog-search").value.trim();
-      const rarity = document.getElementById("catalog-rarity").value.trim();
-      const weapon = document.getElementById("catalog-weapon").value.trim();
-      const wearCode = document.getElementById("catalog-wear").value.trim();
+      const q = document.getElementById("catalog-search").value.trim().toLowerCase();
+      const rarity = document.getElementById("catalog-rarity").value.trim().toLowerCase();
+      const weapon = document.getElementById("catalog-weapon").value.trim().toLowerCase();
+      const wearCode = document.getElementById("catalog-wear").value.trim().toUpperCase();
       catalogGrid.innerHTML = `<div class="muted">Loading…</div>`;
       try {
-        const params = new URLSearchParams({ limit: '120', q });
-        if (weapon) params.set('weapon', weapon);
-        if (rarity) params.set('rarity', rarity);
-        if (wearCode) params.set('wear_code', wearCode);
-        const response = await fetch(`/api/cs2/catalog?${params.toString()}`, { credentials: "same-origin" });
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) {
-          catalogGrid.innerHTML = `<div class="alert alert-error">Could not load catalog.</div>`;
-          return;
+        const data = await ensureStoreBootstrap();
+        let items = Array.isArray(data?.catalog_items) ? [...data.catalog_items] : [];
+        if (q) {
+          items = items.filter((it) => `${it.item_name || ''} ${it.weapon_name || ''} ${it.skin_name || ''}`.toLowerCase().includes(q));
         }
-        const items = data.items || [];
+        if (weapon) {
+          items = items.filter((it) => String(it.weapon_name || '').toLowerCase().includes(weapon));
+        }
+        if (rarity) {
+          items = items.filter((it) => String(it.rarity || '').toLowerCase().includes(rarity));
+        }
+        if (wearCode) {
+          items = items.filter((it) => String(it.wear_code || '').toUpperCase() === wearCode);
+        }
+        items = items.slice(0, 120);
         if (!items.length) {
           catalogGrid.innerHTML = `<div class="muted">No skins match.</div>`;
           return;
