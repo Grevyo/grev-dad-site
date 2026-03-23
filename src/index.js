@@ -100,7 +100,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname === "/api/presence" && request.method === "POST") {
-    return await handlePresenceUpdate(request, env);
+    return json({ success: true, disabled: true }, 202, request);
   }
 
   // Global chat
@@ -403,25 +403,6 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "users", "gambling_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(env.DB, "users", "created_at", "TEXT");
   await ensureColumn(env.DB, "users", "last_seen_at", "TEXT");
-
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS user_presence (
-      user_id INTEGER PRIMARY KEY,
-      area TEXT,
-      detail TEXT,
-      room_id INTEGER,
-      room_name TEXT,
-      page_path TEXT,
-      updated_at TEXT NOT NULL
-    )
-  `).run();
-
-  await ensureColumn(env.DB, "user_presence", "area", "TEXT");
-  await ensureColumn(env.DB, "user_presence", "detail", "TEXT");
-  await ensureColumn(env.DB, "user_presence", "room_id", "INTEGER");
-  await ensureColumn(env.DB, "user_presence", "room_name", "TEXT");
-  await ensureColumn(env.DB, "user_presence", "page_path", "TEXT");
-  await ensureColumn(env.DB, "user_presence", "updated_at", "TEXT");
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS gambling_settings (
@@ -880,16 +861,9 @@ async function handleProfileMe(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url,
-      up.area AS presence_area,
-      up.detail AS presence_detail,
-      up.room_id AS presence_room_id,
-      up.room_name AS presence_room_name,
-      up.page_path AS presence_page_path,
-      up.updated_at AS presence_updated_at
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
-    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
   `).bind(session.id).first();
@@ -937,16 +911,9 @@ async function handleProfileView(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url,
-      up.area AS presence_area,
-      up.detail AS presence_detail,
-      up.room_id AS presence_room_id,
-      up.room_name AS presence_room_name,
-      up.page_path AS presence_page_path,
-      up.updated_at AS presence_updated_at
+      p.music_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
-    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.id = ? AND u.approved = 1
     LIMIT 1
   `).bind(targetUserId).first();
@@ -1079,19 +1046,7 @@ function formatProfileRow(row) {
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
     media,
-    current_activity: formatPresenceRow(row)
-  };
-}
-
-function formatPresenceRow(row) {
-  if (!row?.presence_updated_at) return null;
-  return {
-    area: row.presence_area || '',
-    detail: row.presence_detail || '',
-    room_id: row.presence_room_id ? Number(row.presence_room_id) : null,
-    room_name: row.presence_room_name || '',
-    page_path: row.presence_page_path || '',
-    updated_at: row.presence_updated_at || null
+    current_activity: null
   };
 }
 
@@ -1118,16 +1073,9 @@ async function handleMembers(request, env) {
       p.bio,
       p.avatar_url,
       p.real_name,
-      p.motto,
-      up.area AS presence_area,
-      up.detail AS presence_detail,
-      up.room_id AS presence_room_id,
-      up.room_name AS presence_room_name,
-      up.page_path AS presence_page_path,
-      up.updated_at AS presence_updated_at
+      p.motto
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
-    LEFT JOIN user_presence up ON up.user_id = u.id
     WHERE u.approved = 1
     ORDER BY LOWER(u.username) ASC
   `).all();
@@ -1168,7 +1116,7 @@ async function handleMembers(request, env) {
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
       motto: row.motto || "",
-      current_activity: formatPresenceRow(row),
+      current_activity: null,
       ...caseSummary
     });
   }
@@ -1176,32 +1124,6 @@ async function handleMembers(request, env) {
   return json({ success: true, members }, 200, request);
 }
 
-
-async function handlePresenceUpdate(request, env) {
-  await ensureCoreTables(env);
-  const session = await getSessionUser(request, env);
-  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
-  const body = await safeJson(request);
-  const area = cleanShortText(body?.area, 80);
-  const detail = cleanShortText(body?.detail, 140);
-  const roomId = Number(body?.room_id || 0) || null;
-  const roomName = cleanShortText(body?.room_name, 120);
-  const pagePath = cleanShortText(body?.page_path, 240);
-  const now = isoNow();
-  await env.DB.prepare(`
-    INSERT INTO user_presence (user_id, area, detail, room_id, room_name, page_path, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET
-      area = excluded.area,
-      detail = excluded.detail,
-      room_id = excluded.room_id,
-      room_name = excluded.room_name,
-      page_path = excluded.page_path,
-      updated_at = excluded.updated_at
-  `).bind(session.id, area, detail, roomId, roomName, pagePath, now).run();
-  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE id = ?`).bind(now, session.id).run();
-  return json({ success: true, updated_at: now }, 200, request);
-}
 
 /* -------------------------------------------------------------------------- */
 /*                                GLOBAL CHAT                                 */
@@ -2328,7 +2250,6 @@ async function handleAdminDeleteUser(request, env) {
   await env.DB.prepare(`DELETE FROM forum_reactions WHERE post_id IN (SELECT id FROM forum_posts WHERE author_user_id = ? )`).bind(userId).run();
   await env.DB.prepare(`DELETE FROM forum_posts WHERE author_user_id = ?`).bind(userId).run();
   await env.DB.prepare(`DELETE FROM global_chat_messages WHERE author_user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM user_presence WHERE user_id = ?`).bind(userId).run();
   await env.DB.prepare(`DELETE FROM user_profiles WHERE user_id = ?`).bind(userId).run();
   await env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(userId).run();
 

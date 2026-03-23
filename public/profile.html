@@ -613,19 +613,6 @@
       }
     }
 
-    function renderActivity(profile) {
-      const activity = profile.current_activity;
-      if (!activity) {
-        return '<div class="info-card"><h3>Current activity</h3><p>Not currently sharing a live area.</p></div>';
-      }
-
-      const roomActions = activity.room_id && activity.area === 'Gambling - Blackjack'
-        ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><a class="btn btn-primary" href="/gambling/blackjack/index.html?room_id=${encodeURIComponent(activity.room_id)}">Join table</a><a class="btn" href="/gambling/blackjack/index.html?room_id=${encodeURIComponent(activity.room_id)}">Spectate</a></div>`
-        : '';
-
-      return `<div class="info-card"><h3>Current activity</h3><p>${escapeHtml(activity.area || 'Browsing')} — ${escapeHtml(activity.detail || 'around the site')}</p><p style="margin-top:8px;">Updated ${escapeHtml(formatDate(activity.updated_at))}</p>${roomActions}</div>`;
-    }
-
     function renderProfile(profile) {
       const firstLetter = (profile.username || "U").charAt(0).toUpperCase();
 
@@ -692,7 +679,6 @@
           <h3>Last seen</h3>
           <p>${escapeHtml(formatDate(profile.last_seen_at))}</p>
         </div>
-        ${renderActivity(profile)}
       `;
 
       updateProfileEditVisibility(profile);
