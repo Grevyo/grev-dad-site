@@ -1086,6 +1086,8 @@ function getCrashSprintRoundState(roundId, nowMs = Date.now()) {
   const crashAtMs = Math.min(roundEndMs, roundStartMs + Math.round(crashElapsedSeconds * 1000));
   const crashed = nowMs >= crashAtMs;
   const elapsedSeconds = Math.max(0, Math.min((Math.min(nowMs, crashAtMs) - roundStartMs) / 1000, crashElapsedSeconds));
+  const joinRoundId = crashed ? roundId + 1 : roundId;
+  const joinRoundStartMs = getCrashSprintRoundStartMs(joinRoundId);
   return {
     round_id: roundId,
     round_interval_ms: CRASH_SPRINT_ROUND_INTERVAL_MS,
@@ -1094,7 +1096,10 @@ function getCrashSprintRoundState(roundId, nowMs = Date.now()) {
     crash_at: new Date(crashAtMs).toISOString(),
     crash_multiplier: getCrashSprintRoundCrashMultiplier(roundId) / 100,
     live_multiplier: crashed ? getCrashSprintRoundCrashMultiplier(roundId) / 100 : getCrashSprintMultiplierAt(elapsedSeconds),
-    crashed
+    crashed,
+    joinable_round_id: joinRoundId,
+    joinable_round_starts_at: new Date(joinRoundStartMs).toISOString(),
+    joinable_now: !crashed
   };
 }
 
@@ -1147,6 +1152,7 @@ async function handleCasinoCrashSprintState(request, env) {
     ORDER BY id DESC
     LIMIT 10
   `).bind(session.id).all();
+  const playerRoundId = Number(table.crashed ? table.joinable_round_id : currentRoundId);
   const players = await env.DB.prepare(`
     SELECT e.id, e.user_id, e.round_id, e.stake_pence, e.cashout_multiplier, e.payout_pence, e.crash_multiplier, e.created_at, e.resolved_at, u.username, p.avatar_url
     FROM casino_crash_sprint_entries e
@@ -1155,7 +1161,7 @@ async function handleCasinoCrashSprintState(request, env) {
     WHERE e.round_id = ?
     ORDER BY e.created_at ASC, e.id ASC
     LIMIT 50
-  `).bind(currentRoundId).all();
+  `).bind(playerRoundId).all();
 
   return json({
     success: true,
@@ -1199,9 +1205,9 @@ async function handleCasinoCrashSprintJoin(request, env) {
   const currentRoundId = getCrashSprintRoundId(nowMs);
   await resolveCrashSprintEntries(env, casesDb, currentRoundId - 1);
   const table = getCrashSprintRoundState(currentRoundId, nowMs);
-  if (table.crashed) return json({ success: false, error: "This Crash Sprint round already crashed. Wait for the next 5-minute table." }, 400, request);
+  const joinRoundId = Number(table.joinable_round_id || currentRoundId);
 
-  const existing = await env.DB.prepare(`SELECT id FROM casino_crash_sprint_entries WHERE user_id = ? AND round_id = ? AND resolved_at IS NULL LIMIT 1`).bind(session.id, currentRoundId).first();
+  const existing = await env.DB.prepare(`SELECT id FROM casino_crash_sprint_entries WHERE user_id = ? AND round_id = ? AND resolved_at IS NULL LIMIT 1`).bind(session.id, joinRoundId).first();
   if (existing) return json({ success: false, error: "You already joined the live Crash Sprint round." }, 400, request);
 
   const profileRow = await casesDb.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(session.id).first();
@@ -1210,9 +1216,9 @@ async function handleCasinoCrashSprintJoin(request, env) {
 
   const now = isoNow();
   await casesDb.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(parsed.stakePence, now, session.id).run();
-  await env.DB.prepare(`INSERT INTO casino_crash_sprint_entries (user_id, round_id, stake_pence, created_at) VALUES (?, ?, ?, ?)`).bind(session.id, currentRoundId, parsed.stakePence, now).run();
+  await env.DB.prepare(`INSERT INTO casino_crash_sprint_entries (user_id, round_id, stake_pence, created_at) VALUES (?, ?, ?, ?)`).bind(session.id, joinRoundId, parsed.stakePence, now).run();
   const updatedProfile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
-  return json({ success: true, message: "You joined the live Crash Sprint table.", table, profile: formatCasinoProfile(updatedProfile, session.username) }, 200, request);
+  return json({ success: true, message: table.crashed ? `You joined Crash Sprint round ${joinRoundId}. It starts soon.` : "You joined the live Crash Sprint table.", table, joined_round_id: joinRoundId, profile: formatCasinoProfile(updatedProfile, session.username) }, 200, request);
 }
 
 async function handleCasinoCrashSprintCashout(request, env) {
