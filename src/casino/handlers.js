@@ -1,4 +1,5 @@
 import { ensureCasinoTables } from './schema.js';
+import { getCasesDb } from '../lib/cases-binding.js';
 
 function parseJsonSafe(value, fallback = {}) {
   try {
@@ -71,7 +72,7 @@ export async function handleCasinoRequest(request, env, deps) {
   const { pathname } = url;
   if (!pathname.startsWith('/api/casino')) return null;
   const db = await ensureCasinoTables(env);
-  if (!db) return json({ success: false, error: 'CASES_DB is not configured' }, 500, request);
+  if (!db) return json({ success: false, error: 'CASES-DB is not configured' }, 500, request);
 
   if (pathname === '/api/casino/catalog' && request.method === 'GET') {
     const sections = await buildCatalogPayload(db);

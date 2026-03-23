@@ -1,5 +1,7 @@
+import { getCasesDb } from '../lib/cases-binding.js';
+
 function getBlackjackDb(env) {
-  return env.BLACKJACK_DB || env.CASES_DB;
+  return getCasesDb(env);
 }
 
 export async function ensureBlackjackTables(env) {

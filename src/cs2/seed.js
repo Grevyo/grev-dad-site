@@ -1,4 +1,5 @@
 import { CS2_CASE_ITEM_DEFINITIONS, fallbackSkinValuePence, rarityColorHex, rarityWeight } from "./case-item-definitions.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 function isoNow() {
   return new Date().toISOString();
@@ -6,7 +7,7 @@ function isoNow() {
 
 async function insertSkinTemplate(env, item, now) {
   const itemName = item.item_name || `${item.weapon_name} | ${item.skin_name}`;
-  const result = await env.CASES_DB.prepare(`
+  const result = await getCasesDb(env).prepare(`
     INSERT INTO case_items (
       item_name,
       weapon_name,
@@ -38,9 +39,9 @@ async function insertSkinTemplate(env, item, now) {
 }
 
 export async function seedCs2CatalogIfEmpty(env) {
-  if (!env.CASES_DB) return { seeded: false, reason: "no_cases_db" };
+  if (!getCasesDb(env)) return { seeded: false, reason: "no_cases_db" };
 
-  const countRow = await env.CASES_DB.prepare(`SELECT COUNT(*) AS c FROM case_definitions`).first();
+  const countRow = await getCasesDb(env).prepare(`SELECT COUNT(*) AS c FROM case_definitions`).first();
   const existing = Number(countRow?.c || 0);
   if (existing > 0) {
     return { seeded: false, reason: "already_seeded", case_count: existing };
@@ -50,7 +51,7 @@ export async function seedCs2CatalogIfEmpty(env) {
   const now = isoNow();
 
   for (const section of seedCatalog) {
-    const ins = await env.CASES_DB.prepare(`
+    const ins = await getCasesDb(env).prepare(`
       INSERT INTO case_definitions (
         case_name,
         slug,
@@ -76,7 +77,7 @@ export async function seedCs2CatalogIfEmpty(env) {
     const caseId = Number(ins.meta?.last_row_id || 0);
     if (!caseId) continue;
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO case_items (
         item_name,
         weapon_name,
@@ -97,7 +98,7 @@ export async function seedCs2CatalogIfEmpty(env) {
     for (const item of section.items) {
       const itemId = await insertSkinTemplate(env, item, now);
       if (!itemId) continue;
-      await env.CASES_DB.prepare(`
+      await getCasesDb(env).prepare(`
         INSERT INTO case_drops (case_id, item_id, drop_weight)
         VALUES (?, ?, ?)
       `).bind(caseId, itemId, Number(item.drop_weight || rarityWeight(item.rarity))).run();

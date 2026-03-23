@@ -1,3 +1,5 @@
+import { getCasesDb } from '../lib/cases-binding.js';
+
 const DEFAULT_SECTIONS = [
   {
     slug: 'slot-games',
@@ -97,7 +99,7 @@ function nowIso() {
 }
 
 export async function ensureCasinoTables(env) {
-  const db = env?.CASES_DB;
+  const db = getCasesDb(env);
   if (!db) return null;
 
   await db.prepare(`

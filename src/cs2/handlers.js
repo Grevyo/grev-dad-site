@@ -7,10 +7,11 @@ import { pickWearTier } from "./wear.js";
 import { importPriceEmpireCatalog } from "./pricempire.js";
 import { importMasterCatalog } from "./master-import.js";
 import { getCachedValue, invalidateCachedPrefix } from "../lib/runtime-cache.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 
 async function ensureStructuredCaseCatalog(env) {
-  if (!env?.CASES_DB) return null;
+  if (!getCasesDb(env)) return null;
   return getCachedValue('casesdb:cs2:catalog:structured-sync', 300000, async () => {
     try {
       return await importMasterCatalog(env);
@@ -38,7 +39,7 @@ function pickWeighted(rows) {
 async function ensureUserCaseProfileById(env, userId, username, isoNowFn) {
   const now = isoNowFn();
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT OR IGNORE INTO case_profiles (
       user_id,
       display_name,
@@ -72,7 +73,7 @@ async function resolveUsernames(env, userIds) {
 }
 
 async function refreshInventoryValue(env, userId) {
-  const rows = await env.CASES_DB.prepare(`
+  const rows = await getCasesDb(env).prepare(`
     SELECT ci.market_hash_name, ci.market_value
     FROM inventory i
     INNER JOIN case_items ci ON ci.id = i.item_id
@@ -89,7 +90,7 @@ async function refreshInventoryValue(env, userId) {
     total += pence;
   }
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     UPDATE case_profiles
     SET total_inventory_value = ?, updated_at = ?
     WHERE user_id = ?
@@ -104,7 +105,7 @@ async function ensureCaseProfile(env, session, isoNowFn) {
 
 async function createSkinInstance(env, { resolvedItemId, marketHashName, ownerUserId, caseId, pendingDropId, createdAt }) {
   const now = createdAt || new Date().toISOString();
-  const result = await env.CASES_DB.prepare(`
+  const result = await getCasesDb(env).prepare(`
     INSERT INTO skin_instances (
       resolved_item_id,
       market_hash_name,
@@ -122,7 +123,7 @@ async function createSkinInstance(env, { resolvedItemId, marketHashName, ownerUs
 }
 
 async function pushToGraveyard(env, payload) {
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT INTO quick_sell_graveyard (
       skin_instance_id,
       user_id,
@@ -176,7 +177,7 @@ async function ensureCaseImageUrl(env, caseRow, options = {}) {
   if (!imageUrl) return "";
 
   if (caseRow.id) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_definitions
       SET image_url = ?
       WHERE id = ?
@@ -201,7 +202,7 @@ async function ensureItemImageUrl(env, itemRow, options = {}) {
   if (!imageUrl) return "";
 
   if (itemRow.id) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_items
       SET image_url = ?
       WHERE id = ?
@@ -217,7 +218,7 @@ async function getOwnerCountsByItemId(env, itemIds) {
   const map = new Map();
   if (!ids.length) return map;
   const placeholders = ids.map(() => '?').join(',');
-  const rows = await env.CASES_DB.prepare(`
+  const rows = await getCasesDb(env).prepare(`
     SELECT resolved_item_id, COUNT(*) AS c
     FROM skin_instances
     WHERE status = 'inventory' AND resolved_item_id IN (${placeholders})
@@ -230,21 +231,21 @@ async function getOwnerCountsByItemId(env, itemIds) {
 }
 
 async function upsertImageReport(env, payload) {
-  const existing = await env.CASES_DB.prepare(`
+  const existing = await getCasesDb(env).prepare(`
     SELECT id FROM cs2_image_reports
     WHERE item_type = ? AND target_id = ? AND status = 'open'
     LIMIT 1
   `).bind(payload.itemType, payload.targetId).first();
   const now = payload.now;
   if (existing?.id) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE cs2_image_reports
       SET report_reason = ?, current_image_url = ?, market_hash_name = ?, updated_at = ?
       WHERE id = ?
     `).bind(payload.reason || '', payload.currentImageUrl || '', payload.marketHashName || '', now, existing.id).run();
     return Number(existing.id);
   }
-  const result = await env.CASES_DB.prepare(`
+  const result = await getCasesDb(env).prepare(`
     INSERT INTO cs2_image_reports (
       item_type, target_id, target_name, market_hash_name, current_image_url,
       report_reason, status, reported_by_user_id, created_at, updated_at
@@ -265,7 +266,7 @@ async function upsertImageReport(env, payload) {
 
 async function buildCaseDropPreview(env, caseId) {
 
-  const rows = await env.CASES_DB.prepare(`
+  const rows = await getCasesDb(env).prepare(`
     SELECT ci.item_name, ci.rarity, ci.color_hex, ci.image_url, ci.market_hash_name, cd.drop_weight
     FROM case_drops cd
     INNER JOIN case_items ci ON ci.id = cd.item_id
@@ -309,7 +310,7 @@ async function formatCaseSummary(env, caseRow, options = {}) {
 
 async function buildAdminCasePayload(env, caseRow, options = {}) {
   const summary = await formatCaseSummary(env, caseRow, options);
-  const dropStats = await env.CASES_DB.prepare(`
+  const dropStats = await getCasesDb(env).prepare(`
     SELECT COUNT(*) AS drop_count, COALESCE(SUM(drop_weight), 0) AS total_weight
     FROM case_drops
     WHERE case_id = ?
@@ -395,13 +396,13 @@ async function ensureAdminCaseDefinition(env, caseName, isoNow) {
   const trimmedName = String(caseName || "").trim();
   if (!trimmedName) return null;
   const slug = slugifyCaseName(trimmedName);
-  let row = await env.CASES_DB.prepare(`SELECT * FROM case_definitions WHERE case_name = ? OR slug = ? LIMIT 1`)
+  let row = await getCasesDb(env).prepare(`SELECT * FROM case_definitions WHERE case_name = ? OR slug = ? LIMIT 1`)
     .bind(trimmedName, slug)
     .first();
   if (row) return { row, created: false };
 
   const now = isoNow();
-  const insert = await env.CASES_DB.prepare(`
+  const insert = await getCasesDb(env).prepare(`
     INSERT INTO case_definitions (
       case_name, slug, image_url, price, description, is_active, created_at, steam_market_hash_name, fallback_price_pence
     ) VALUES (?, ?, '', 100, ?, 1, ?, ?, 100)
@@ -409,13 +410,13 @@ async function ensureAdminCaseDefinition(env, caseName, isoNow) {
   const caseId = Number(insert.meta?.last_row_id || 0);
   if (!caseId) return null;
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT INTO case_items (
       item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
     ) VALUES (?, '', '', 'container', '', '', 0, '#9ea3b5', ?, 'case', ?, ?)
   `).bind(`${trimmedName} (Unopened)`, now, caseId, trimmedName).run();
 
-  row = await env.CASES_DB.prepare(`SELECT * FROM case_definitions WHERE id = ? LIMIT 1`).bind(caseId).first();
+  row = await getCasesDb(env).prepare(`SELECT * FROM case_definitions WHERE id = ? LIMIT 1`).bind(caseId).first();
   return { row, created: true };
 }
 
@@ -428,14 +429,14 @@ async function ensureAdminSkinItem(env, row, isoNow) {
   const wear = String(row.wear || "").trim();
   const now = isoNow();
 
-  let existing = await env.CASES_DB.prepare(`
+  let existing = await getCasesDb(env).prepare(`
     SELECT * FROM case_items
     WHERE item_kind = 'skin' AND weapon_name = ? AND skin_name = ?
     LIMIT 1
   `).bind(weaponName, skinName).first();
 
   if (existing) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_items
       SET item_name = ?, rarity = ?, wear = COALESCE(NULLIF(?, ''), wear), market_hash_name = COALESCE(NULLIF(?, ''), market_hash_name)
       WHERE id = ?
@@ -443,7 +444,7 @@ async function ensureAdminSkinItem(env, row, isoNow) {
     return Number(existing.id);
   }
 
-  const inserted = await env.CASES_DB.prepare(`
+  const inserted = await getCasesDb(env).prepare(`
     INSERT INTO case_items (
       item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
     ) VALUES (?, ?, ?, ?, ?, '', 0, '#4b69ff', ?, 'skin', NULL, ?)
@@ -453,13 +454,13 @@ async function ensureAdminSkinItem(env, row, isoNow) {
 }
 
 async function getCs2DiscountPercent(env) {
-  const row = await getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`SELECT is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, title, message, updated_at FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
+  const row = await getCachedValue('casesdb:event-config', 30000, async () => await getCasesDb(env).prepare(`SELECT is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, title, message, updated_at FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
   return row && Number(row.is_active) ? Math.max(0, Math.min(100, Number(row.cs2_discount_percent || 0))) : 0;
 }
 
 async function getPublicCatalogItems(env, options = {}) {
   const { limit = 400, offset = 0 } = options;
-  const rows = await env.CASES_DB.prepare(`
+  const rows = await getCasesDb(env).prepare(`
     SELECT
       id,
       item_name,
@@ -504,7 +505,7 @@ async function getPublicCatalogItems(env, options = {}) {
 }
 
 async function getPublicListingsSnapshot(env) {
-  const rows = await env.CASES_DB.prepare(`
+  const rows = await getCasesDb(env).prepare(`
     SELECT
       l.id,
       l.seller_user_id,
@@ -572,25 +573,25 @@ async function getPublicListingsSnapshot(env) {
 
 async function getCs2StoreVersionInfo(env) {
   const [casesAgg, itemsAgg, dropsAgg, listingsAgg, eventRow] = await Promise.all([
-    env.CASES_DB.prepare(`
+    getCasesDb(env).prepare(`
       SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(price + fallback_price_pence + is_active), 0) AS checksum, COALESCE(MAX(created_at), '') AS latest_created_at
       FROM case_definitions
     `).first(),
-    env.CASES_DB.prepare(`
+    getCasesDb(env).prepare(`
       SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(market_value), 0) AS checksum, COALESCE(MAX(created_at), '') AS latest_created_at
       FROM case_items
       WHERE item_kind = 'skin'
     `).first(),
-    env.CASES_DB.prepare(`
+    getCasesDb(env).prepare(`
       SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(drop_weight), 0) AS checksum
       FROM case_drops
     `).first(),
-    env.CASES_DB.prepare(`
+    getCasesDb(env).prepare(`
       SELECT COUNT(*) AS count_all, COALESCE(MAX(id), 0) AS max_id, COALESCE(SUM(asking_price_pence + COALESCE(current_bid_pence, 0)), 0) AS checksum, COALESCE(MAX(created_at), '') AS latest_created_at
       FROM market_listings
       WHERE status = 'active'
     `).first(),
-    env.CASES_DB.prepare(`
+    getCasesDb(env).prepare(`
       SELECT is_active, cs2_discount_percent, title, message, updated_at
       FROM gambling_event_config
       WHERE id = 1
@@ -630,7 +631,7 @@ async function buildCs2StoreBootstrap(env) {
   const [{ store_version, updated_at }, cases, catalog_items, listings, quickSellFeePercent, eventConfig] = await Promise.all([
     getCs2StoreVersionInfo(env),
     getCachedValue('casesdb:cs2:cases', 60000, async () => {
-      const rows = await env.CASES_DB.prepare(`
+      const rows = await getCasesDb(env).prepare(`
         SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
         FROM case_definitions
         ORDER BY case_name ASC
@@ -645,7 +646,7 @@ async function buildCs2StoreBootstrap(env) {
     getCachedValue('casesdb:cs2:catalog:bootstrap', 60000, async () => getPublicCatalogItems(env, { limit: 400, offset: 0 })),
     getCachedValue('casesdb:cs2:listings:bootstrap', 60000, async () => getPublicListingsSnapshot(env)),
     getQuickSellFeePercent(env),
-    getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`
+    getCachedValue('casesdb:event-config', 30000, async () => await getCasesDb(env).prepare(`
       SELECT is_active, cs2_discount_percent, title, message, updated_at
       FROM gambling_event_config
       WHERE id = 1
@@ -689,7 +690,7 @@ async function getCaseStorePricePence(env, caseRow, options = {}) {
  */
 async function executeCaseOpen(env, session, isoNow, inventoryId) {
   await ensureStructuredCaseCatalog(env);
-  const inv = await env.CASES_DB.prepare(`
+  const inv = await getCasesDb(env).prepare(`
       SELECT i.*, ci.item_kind, ci.case_def_id, cd.id AS case_def_pk, cd.case_name
       FROM inventory i
       INNER JOIN case_items ci ON ci.id = i.item_id
@@ -704,7 +705,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
     return { success: false, error: "That inventory item is not an unopened case", status: 400 };
   }
 
-  const profile = await env.CASES_DB.prepare(`
+  const profile = await getCasesDb(env).prepare(`
       SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `)
     .bind(session.id)
@@ -720,7 +721,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
   }
 
   const caseId = Number(inv.case_def_pk);
-  const drops = await env.CASES_DB.prepare(`
+  const drops = await getCasesDb(env).prepare(`
       SELECT
         cd.item_id,
         cd.drop_weight,
@@ -744,7 +745,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
   if (!picked) {
     return {
       success: false,
-      error: "No drops configured for this case — run /api/setup on a fresh CASES_DB",
+      error: "No drops configured for this case — run /api/setup on a fresh CASES-DB",
       status: 500
     };
   }
@@ -758,12 +759,12 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
   if (picked.item_kind === "skin_template") {
     const tier = pickWearTier();
     resolvedItemId = await getOrCreateResolvedSkinItem(env, picked, tier, now);
-    droppedRow = await env.CASES_DB.prepare(`SELECT * FROM case_items WHERE id = ? LIMIT 1`)
+    droppedRow = await getCasesDb(env).prepare(`SELECT * FROM case_items WHERE id = ? LIMIT 1`)
       .bind(resolvedItemId)
       .first();
   } else {
     resolvedItemId = Number(picked.item_id);
-    droppedRow = await env.CASES_DB.prepare(`SELECT * FROM case_items WHERE id = ? LIMIT 1`)
+    droppedRow = await getCasesDb(env).prepare(`SELECT * FROM case_items WHERE id = ? LIMIT 1`)
       .bind(resolvedItemId)
       .first();
   }
@@ -779,7 +780,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
   const feePct = await getQuickSellFeePercent(env);
   const quickSellPayout = quickSellPayoutFromMarket(marketPrice, feePct);
 
-  const pendingIns = await env.CASES_DB.prepare(`
+  const pendingIns = await getCasesDb(env).prepare(`
       INSERT INTO pending_drops (
         user_id,
         case_id,
@@ -805,10 +806,10 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
     createdAt: now
   });
 
-  await env.CASES_DB.batch([
-    env.CASES_DB.prepare(`UPDATE pending_drops SET skin_instance_id = ? WHERE id = ?`).bind(skinInstanceId, pendingDropId),
-    env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
-    env.CASES_DB.prepare(`
+  await getCasesDb(env).batch([
+    getCasesDb(env).prepare(`UPDATE pending_drops SET skin_instance_id = ? WHERE id = ?`).bind(skinInstanceId, pendingDropId),
+    getCasesDb(env).prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
+    getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET
           key_balance = key_balance - 1,
@@ -821,7 +822,7 @@ async function executeCaseOpen(env, session, isoNow, inventoryId) {
 
   await refreshInventoryValue(env, session.id);
 
-  const updated = await env.CASES_DB.prepare(`SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+  const updated = await getCasesDb(env).prepare(`SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
     .bind(session.id)
     .first();
 
@@ -857,9 +858,9 @@ export async function handleCs2Request(request, env, deps) {
   const url = new URL(request.url);
   const { pathname } = url;
 
-  if (!env.CASES_DB) {
+  if (!getCasesDb(env)) {
     if (pathname.startsWith("/api/cs2")) {
-      return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+      return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
     }
     return null;
   }
@@ -877,7 +878,7 @@ export async function handleCs2Request(request, env, deps) {
 
   if (pathname === "/api/cs2/cases" && request.method === "GET") {
     const cases = await getCachedValue('casesdb:cs2:cases', 60000, async () => {
-      const rows = await env.CASES_DB.prepare(`
+      const rows = await getCasesDb(env).prepare(`
         SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
         FROM case_definitions
         ORDER BY case_name ASC
@@ -908,7 +909,7 @@ export async function handleCs2Request(request, env, deps) {
     if (session instanceof Response) return session;
     await ensureCaseProfile(env, session, isoNow);
     await refreshInventoryValue(env, session.id);
-    const profile = await env.CASES_DB.prepare(`
+    const profile = await getCasesDb(env).prepare(`
       SELECT balance, total_inventory_value, key_balance
       FROM case_profiles
       WHERE user_id = ?
@@ -929,7 +930,7 @@ export async function handleCs2Request(request, env, deps) {
   /* ------------------------------ Feeds ----------------------------------- */
   if (pathname === "/api/cs2/feed/opens" && request.method === "GET") {
     const limit = Math.min(Number(url.searchParams.get("limit") || 40), 120);
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT h.id, h.user_id, h.case_id, h.item_id, h.price_paid, h.opened_at,
              c.case_name,
              i.item_name,
@@ -969,7 +970,7 @@ export async function handleCs2Request(request, env, deps) {
 
   if (pathname === "/api/cs2/feed/trades" && request.method === "GET") {
     const limit = Math.min(Number(url.searchParams.get("limit") || 40), 120);
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT id, buyer_user_id, seller_user_id, item_name, price_pence, trade_type, created_at
       FROM trade_history
       ORDER BY id DESC
@@ -1001,7 +1002,7 @@ export async function handleCs2Request(request, env, deps) {
     const limit = Math.min(Number(url.searchParams.get("limit") || 80), 200);
     const offset = Math.max(Number(url.searchParams.get("offset") || 0), 0);
 
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT id, buyer_user_id, seller_user_id, item_name, price_pence, trade_type, created_at
       FROM trade_history
       ORDER BY id DESC
@@ -1043,7 +1044,7 @@ export async function handleCs2Request(request, env, deps) {
     const minPrice = Number(url.searchParams.get("min_price_pence") || 0);
     const maxPrice = Number(url.searchParams.get("max_price_pence") || 0);
 
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         id,
         item_name,
@@ -1111,7 +1112,7 @@ export async function handleCs2Request(request, env, deps) {
     if (!Number.isInteger(itemId) || itemId <= 0) {
       return json({ success: false, error: "A valid item_id is required" }, 400, request);
     }
-    const row = await env.CASES_DB.prepare(`
+    const row = await getCasesDb(env).prepare(`
       SELECT id, item_name, rarity, wear, wear_code, market_hash_name, market_value, image_url, color_hex
       FROM case_items
       WHERE id = ? AND item_kind = 'skin'
@@ -1121,7 +1122,7 @@ export async function handleCs2Request(request, env, deps) {
 
     let live = await getCachedItemPricePence(env, row.market_hash_name);
     if (live == null || live <= 0) live = Number(row.market_value || 0);
-    const owners = await env.CASES_DB.prepare(`
+    const owners = await getCasesDb(env).prepare(`
       SELECT DISTINCT si.current_owner_user_id AS user_id
       FROM skin_instances si
       WHERE si.resolved_item_id = ? AND si.status = 'inventory' AND si.current_owner_user_id IS NOT NULL
@@ -1130,7 +1131,7 @@ export async function handleCs2Request(request, env, deps) {
     `).bind(itemId).all();
     const ownerIds = (owners.results || []).map((r) => Number(r.user_id));
     const names = await resolveUsernames(env, ownerIds);
-    const history = await env.CASES_DB.prepare(`
+    const history = await getCasesDb(env).prepare(`
       SELECT price_pence, bucket_started_at
       FROM market_price_history
       WHERE market_hash_name = ?
@@ -1175,8 +1176,8 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const row = itemType === 'skin'
-      ? await env.CASES_DB.prepare(`SELECT id, item_name AS target_name, market_hash_name, image_url FROM case_items WHERE id = ? LIMIT 1`).bind(targetId).first()
-      : await env.CASES_DB.prepare(`SELECT id, case_name AS target_name, steam_market_hash_name AS market_hash_name, image_url FROM case_definitions WHERE id = ? LIMIT 1`).bind(targetId).first();
+      ? await getCasesDb(env).prepare(`SELECT id, item_name AS target_name, market_hash_name, image_url FROM case_items WHERE id = ? LIMIT 1`).bind(targetId).first()
+      : await getCasesDb(env).prepare(`SELECT id, case_name AS target_name, steam_market_hash_name AS market_hash_name, image_url FROM case_definitions WHERE id = ? LIMIT 1`).bind(targetId).first();
     if (!row) return json({ success: false, error: `${itemType} not found` }, 404, request);
 
     const reportId = await upsertImageReport(env, {
@@ -1196,7 +1197,7 @@ export async function handleCs2Request(request, env, deps) {
   if (pathname === "/api/cs2/admin/image-reports" && request.method === "GET") {
     const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT * FROM cs2_image_reports
       ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, id DESC
       LIMIT 250
@@ -1218,20 +1219,20 @@ export async function handleCs2Request(request, env, deps) {
     let resolvedUrl = imageUrl;
     if (!resolvedUrl) {
       const source = itemType === 'skin'
-        ? await env.CASES_DB.prepare(`SELECT market_hash_name, item_name FROM case_items WHERE id = ? LIMIT 1`).bind(targetId).first()
-        : await env.CASES_DB.prepare(`SELECT steam_market_hash_name AS market_hash_name, case_name AS item_name FROM case_definitions WHERE id = ? LIMIT 1`).bind(targetId).first();
+        ? await getCasesDb(env).prepare(`SELECT market_hash_name, item_name FROM case_items WHERE id = ? LIMIT 1`).bind(targetId).first()
+        : await getCasesDb(env).prepare(`SELECT steam_market_hash_name AS market_hash_name, case_name AS item_name FROM case_definitions WHERE id = ? LIMIT 1`).bind(targetId).first();
       resolvedUrl = await fetchSteamIconUrl(source?.market_hash_name || source?.item_name || '');
     }
     if (!resolvedUrl) return json({ success: false, error: 'Could not resolve a replacement image.' }, 400, request);
 
     if (itemType === 'skin') {
-      await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE id = ?`).bind(resolvedUrl, targetId).run();
+      await getCasesDb(env).prepare(`UPDATE case_items SET image_url = ? WHERE id = ?`).bind(resolvedUrl, targetId).run();
     } else {
-      await env.CASES_DB.prepare(`UPDATE case_definitions SET image_url = ? WHERE id = ?`).bind(resolvedUrl, targetId).run();
-      await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE case_def_id = ? AND item_kind = 'case'`).bind(resolvedUrl, targetId).run();
+      await getCasesDb(env).prepare(`UPDATE case_definitions SET image_url = ? WHERE id = ?`).bind(resolvedUrl, targetId).run();
+      await getCasesDb(env).prepare(`UPDATE case_items SET image_url = ? WHERE case_def_id = ? AND item_kind = 'case'`).bind(resolvedUrl, targetId).run();
     }
     if (reportId > 0) {
-      await env.CASES_DB.prepare(`UPDATE cs2_image_reports SET status = 'resolved', resolved_at = ?, resolved_by_user_id = ?, updated_at = ? WHERE id = ?`).bind(isoNow(), admin.id, isoNow(), reportId).run();
+      await getCasesDb(env).prepare(`UPDATE cs2_image_reports SET status = 'resolved', resolved_at = ?, resolved_by_user_id = ?, updated_at = ? WHERE id = ?`).bind(isoNow(), admin.id, isoNow(), reportId).run();
     }
     return json({ success: true, image_url: resolvedUrl, message: 'Image updated.' }, 200, request);
   }
@@ -1246,9 +1247,9 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: 'item_type must be skin or case' }, 400, request);
     }
     const rows = itemType === 'skin'
-      ? await env.CASES_DB.prepare(`SELECT id, item_name AS label, market_hash_name AS market_name FROM case_items WHERE item_kind = 'skin' ${''}`).all()
-      : await env.CASES_DB.prepare(`SELECT id, case_name AS label, steam_market_hash_name AS market_name FROM case_definitions`).all();
-    const openReports = await env.CASES_DB.prepare(`SELECT DISTINCT target_id FROM cs2_image_reports WHERE item_type = ? AND status = 'open'`).bind(itemType).all();
+      ? await getCasesDb(env).prepare(`SELECT id, item_name AS label, market_hash_name AS market_name FROM case_items WHERE item_kind = 'skin' ${''}`).all()
+      : await getCasesDb(env).prepare(`SELECT id, case_name AS label, steam_market_hash_name AS market_name FROM case_definitions`).all();
+    const openReports = await getCasesDb(env).prepare(`SELECT DISTINCT target_id FROM cs2_image_reports WHERE item_type = ? AND status = 'open'`).bind(itemType).all();
     const targetIds = new Set((openReports.results || []).map((r) => Number(r.target_id)));
     let updated = 0;
     for (const row of rows.results || []) {
@@ -1256,15 +1257,15 @@ export async function handleCs2Request(request, env, deps) {
       const resolvedUrl = await fetchSteamIconUrl(row.market_name || row.label || '');
       if (!resolvedUrl) continue;
       if (itemType === 'skin') {
-        await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE id = ?`).bind(resolvedUrl, row.id).run();
+        await getCasesDb(env).prepare(`UPDATE case_items SET image_url = ? WHERE id = ?`).bind(resolvedUrl, row.id).run();
       } else {
-        await env.CASES_DB.prepare(`UPDATE case_definitions SET image_url = ? WHERE id = ?`).bind(resolvedUrl, row.id).run();
-        await env.CASES_DB.prepare(`UPDATE case_items SET image_url = ? WHERE case_def_id = ? AND item_kind = 'case'`).bind(resolvedUrl, row.id).run();
+        await getCasesDb(env).prepare(`UPDATE case_definitions SET image_url = ? WHERE id = ?`).bind(resolvedUrl, row.id).run();
+        await getCasesDb(env).prepare(`UPDATE case_items SET image_url = ? WHERE case_def_id = ? AND item_kind = 'case'`).bind(resolvedUrl, row.id).run();
       }
       updated += 1;
     }
     if (onlyReported) {
-      await env.CASES_DB.prepare(`UPDATE cs2_image_reports SET status = 'resolved', resolved_at = ?, resolved_by_user_id = ?, updated_at = ? WHERE item_type = ? AND status = 'open'`).bind(isoNow(), admin.id, isoNow(), itemType).run();
+      await getCasesDb(env).prepare(`UPDATE cs2_image_reports SET status = 'resolved', resolved_at = ?, resolved_by_user_id = ?, updated_at = ? WHERE item_type = ? AND status = 'open'`).bind(isoNow(), admin.id, isoNow(), itemType).run();
     }
     return json({ success: true, updated, message: `${updated} ${itemType} image(s) refreshed.` }, 200, request);
   }
@@ -1275,7 +1276,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid user id is required" }, 400, request);
     }
 
-    const profile = await env.CASES_DB.prepare(`
+    const profile = await getCasesDb(env).prepare(`
       SELECT * FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(userId).first();
 
@@ -1288,7 +1289,7 @@ export async function handleCs2Request(request, env, deps) {
       }, 200, request);
     }
 
-    const opens = await env.CASES_DB.prepare(`
+    const opens = await getCasesDb(env).prepare(`
       SELECT h.opened_at, h.price_paid, c.case_name, i.item_name, i.rarity, i.color_hex,
              i.image_url, i.wear, i.wear_code
       FROM case_open_history h
@@ -1299,7 +1300,7 @@ export async function handleCs2Request(request, env, deps) {
       LIMIT 30
     `).bind(userId).all();
 
-    const inv = await env.CASES_DB.prepare(`
+    const inv = await getCasesDb(env).prepare(`
       SELECT i.id, ci.item_name, ci.rarity, ci.color_hex, ci.item_kind, ci.image_url, ci.wear, i.acquired_at
       FROM inventory i
       INNER JOIN case_items ci ON ci.id = i.item_id
@@ -1308,7 +1309,7 @@ export async function handleCs2Request(request, env, deps) {
       LIMIT 40
     `).bind(userId).all();
 
-    const showcase = await env.CASES_DB.prepare(`
+    const showcase = await getCasesDb(env).prepare(`
       SELECT s.slot, s.inventory_id, ci.item_name, ci.image_url, ci.rarity, ci.wear, ci.color_hex
       FROM profile_showcase s
       INNER JOIN inventory inv ON inv.id = s.inventory_id AND inv.user_id = s.user_id
@@ -1334,7 +1335,7 @@ export async function handleCs2Request(request, env, deps) {
 
   if (pathname === "/api/cs2/listings" && request.method === "GET") {
     const search = (url.searchParams.get("search") || "").trim().toLowerCase();
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         l.id,
         l.seller_user_id,
@@ -1412,7 +1413,7 @@ export async function handleCs2Request(request, env, deps) {
     if (admin instanceof Response) return admin;
 
     const search = (url.searchParams.get("q") || "").trim().toLowerCase();
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
       FROM case_definitions
       ORDER BY case_name ASC
@@ -1454,7 +1455,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "fallback_price_pence must be a positive integer" }, 400, request);
     }
 
-    const existing = await env.CASES_DB.prepare(`
+    const existing = await getCasesDb(env).prepare(`
       SELECT id FROM case_definitions WHERE slug = ? OR case_name = ? LIMIT 1
     `).bind(slug, caseName).first();
     if (existing) return json({ success: false, error: "A case with that name or slug already exists" }, 400, request);
@@ -1463,20 +1464,20 @@ export async function handleCs2Request(request, env, deps) {
     let imageUrl = imageUrlInput;
     if (!imageUrl) imageUrl = await fetchSteamIconUrl(steamMarketHashName);
 
-    const insert = await env.CASES_DB.prepare(`
+    const insert = await getCasesDb(env).prepare(`
       INSERT INTO case_definitions (
         case_name, slug, image_url, price, description, is_active, created_at, steam_market_hash_name, fallback_price_pence
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(caseName, slug, imageUrl || "", fallbackPrice, description, isActive, now, steamMarketHashName || caseName, fallbackPrice).run();
 
     const caseId = Number(insert.meta?.last_row_id || 0);
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO case_items (
         item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
       ) VALUES (?, '', '', 'container', '', ?, 0, '#9ea3b5', ?, 'case', ?, ?)
     `).bind(`${caseName} (Unopened)`, imageUrl || "", now, caseId, steamMarketHashName || caseName).run();
 
-    const created = await env.CASES_DB.prepare(`
+    const created = await getCasesDb(env).prepare(`
       SELECT id, case_name, slug, image_url, price, description, is_active, steam_market_hash_name, fallback_price_pence
       FROM case_definitions WHERE id = ? LIMIT 1
     `).bind(caseId).first();
@@ -1497,7 +1498,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid case id is required" }, 400, request);
     }
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_definitions SET is_active = ? WHERE id = ?
     `).bind(isActive ? 1 : 0, caseId).run();
 
@@ -1521,7 +1522,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid fallback price in pence is required" }, 400, request);
     }
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_definitions
       SET price = ?, fallback_price_pence = ?
       WHERE id = ?
@@ -1541,10 +1542,10 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid case id is required" }, 400, request);
     }
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`DELETE FROM case_drops WHERE case_id = ?`).bind(caseId),
-      env.CASES_DB.prepare(`DELETE FROM case_items WHERE item_kind = 'case' AND case_def_id = ?`).bind(caseId),
-      env.CASES_DB.prepare(`DELETE FROM case_definitions WHERE id = ?`).bind(caseId)
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`DELETE FROM case_drops WHERE case_id = ?`).bind(caseId),
+      getCasesDb(env).prepare(`DELETE FROM case_items WHERE item_kind = 'case' AND case_def_id = ?`).bind(caseId),
+      getCasesDb(env).prepare(`DELETE FROM case_definitions WHERE id = ?`).bind(caseId)
     ]);
 
     invalidateCachedPrefix('casesdb:cs2:cases');
@@ -1556,7 +1557,7 @@ export async function handleCs2Request(request, env, deps) {
     if (admin instanceof Response) return admin;
 
     const search = (url.searchParams.get("q") || "").trim().toLowerCase();
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT id, item_name, weapon_name, skin_name, rarity, wear, market_hash_name
       FROM case_items
       WHERE item_kind = 'skin'
@@ -1583,16 +1584,16 @@ export async function handleCs2Request(request, env, deps) {
     if (!Number.isInteger(caseId) || caseId <= 0) return json({ success: false, error: "A valid case id is required" }, 400, request);
     if (!Number.isInteger(itemId) || itemId <= 0) return json({ success: false, error: "A valid skin item id is required" }, 400, request);
 
-    const caseRow = await env.CASES_DB.prepare(`SELECT id FROM case_definitions WHERE id = ? LIMIT 1`).bind(caseId).first();
-    const itemRow = await env.CASES_DB.prepare(`SELECT id FROM case_items WHERE id = ? AND item_kind = 'skin' LIMIT 1`).bind(itemId).first();
+    const caseRow = await getCasesDb(env).prepare(`SELECT id FROM case_definitions WHERE id = ? LIMIT 1`).bind(caseId).first();
+    const itemRow = await getCasesDb(env).prepare(`SELECT id FROM case_items WHERE id = ? AND item_kind = 'skin' LIMIT 1`).bind(itemId).first();
     if (!caseRow) return json({ success: false, error: "Case not found" }, 404, request);
     if (!itemRow) return json({ success: false, error: "Skin not found" }, 404, request);
 
-    const existingDrop = await env.CASES_DB.prepare(`SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1`).bind(caseId, itemId).first();
+    const existingDrop = await getCasesDb(env).prepare(`SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1`).bind(caseId, itemId).first();
     if (existingDrop) {
-      await env.CASES_DB.prepare(`UPDATE case_drops SET drop_weight = ? WHERE case_id = ? AND item_id = ?`).bind(dropWeight, caseId, itemId).run();
+      await getCasesDb(env).prepare(`UPDATE case_drops SET drop_weight = ? WHERE case_id = ? AND item_id = ?`).bind(dropWeight, caseId, itemId).run();
     } else {
-      await env.CASES_DB.prepare(`INSERT INTO case_drops (case_id, item_id, drop_weight) VALUES (?, ?, ?)`).bind(caseId, itemId, dropWeight).run();
+      await getCasesDb(env).prepare(`INSERT INTO case_drops (case_id, item_id, drop_weight) VALUES (?, ?, ?)`).bind(caseId, itemId, dropWeight).run();
     }
 
     invalidateCachedPrefix('casesdb:cs2:cases');
@@ -1609,7 +1610,7 @@ export async function handleCs2Request(request, env, deps) {
     if (!Number.isInteger(caseId) || caseId <= 0) return json({ success: false, error: "A valid case id is required" }, 400, request);
     if (!Number.isInteger(itemId) || itemId <= 0) return json({ success: false, error: "A valid skin item id is required" }, 400, request);
 
-    await env.CASES_DB.prepare(`DELETE FROM case_drops WHERE case_id = ? AND item_id = ?`).bind(caseId, itemId).run();
+    await getCasesDb(env).prepare(`DELETE FROM case_drops WHERE case_id = ? AND item_id = ?`).bind(caseId, itemId).run();
     invalidateCachedPrefix('casesdb:cs2:cases');
     return json({ success: true, message: "Skin removed from case" }, 200, request);
   }
@@ -1648,9 +1649,9 @@ export async function handleCs2Request(request, env, deps) {
       if (seenAssignments.has(assignmentKey)) continue;
       seenAssignments.add(assignmentKey);
 
-      const existingDrop = await env.CASES_DB.prepare(`SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1`).bind(caseRow.id, itemId).first();
+      const existingDrop = await getCasesDb(env).prepare(`SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1`).bind(caseRow.id, itemId).first();
       if (!existingDrop) {
-        await env.CASES_DB.prepare(`INSERT INTO case_drops (case_id, item_id, drop_weight) VALUES (?, ?, ?)` )
+        await getCasesDb(env).prepare(`INSERT INTO case_drops (case_id, item_id, drop_weight) VALUES (?, ?, ?)` )
           .bind(caseRow.id, itemId, 1)
           .run();
         assignmentsCreated += 1;
@@ -1707,7 +1708,7 @@ export async function handleCs2Request(request, env, deps) {
     const admin = await requireGamblingAdmin(request, env);
     if (admin instanceof Response) return admin;
 
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         g.id,
         g.skin_instance_id,
@@ -1748,34 +1749,34 @@ export async function handleCs2Request(request, env, deps) {
     if (!Number.isInteger(graveyardId) || graveyardId <= 0) {
       return json({ success: false, error: "A valid graveyard_id is required" }, 400, request);
     }
-    const entry = await env.CASES_DB.prepare(`
+    const entry = await getCasesDb(env).prepare(`
       SELECT * FROM quick_sell_graveyard WHERE id = ? LIMIT 1
     `).bind(graveyardId).first();
     if (!entry) return json({ success: false, error: "Graveyard entry not found" }, 404, request);
     if (entry.refunded_at) return json({ success: false, error: "That item has already been refunded" }, 400, request);
 
     const now = isoNow();
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         INSERT INTO inventory (user_id, item_id, skin_instance_id, source_case_id, acquired_at, locked)
         VALUES (?, ?, ?, NULL, ?, 0)
       `).bind(entry.user_id, entry.resolved_item_id, entry.skin_instance_id, now),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE quick_sell_graveyard
         SET refunded_at = ?, refunded_by_user_id = ?
         WHERE id = ?
       `).bind(now, admin.id, graveyardId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE skin_instances
         SET current_owner_user_id = ?, status = 'inventory', updated_at = ?
         WHERE id = ?
       `).bind(entry.user_id, now, entry.skin_instance_id)
     ]);
-    const inserted = await env.CASES_DB.prepare(`
+    const inserted = await getCasesDb(env).prepare(`
       SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND acquired_at = ? ORDER BY id DESC LIMIT 1
     `).bind(entry.user_id, entry.resolved_item_id, now).first();
     if (inserted?.id) {
-      await env.CASES_DB.prepare(`
+      await getCasesDb(env).prepare(`
         UPDATE skin_instances SET source_inventory_id = ?, updated_at = ? WHERE id = ?
       `).bind(inserted.id, now, entry.skin_instance_id).run();
     }
@@ -1802,7 +1803,7 @@ export async function handleCs2Request(request, env, deps) {
       if (!username) continue;
       if (search && !username.toLowerCase().includes(search)) continue;
       await ensureUserCaseProfileById(env, Number(user.id), username, isoNow);
-      const profile = await env.CASES_DB.prepare(`
+      const profile = await getCasesDb(env).prepare(`
         SELECT balance, key_balance, total_cases_opened, total_inventory_value
         FROM case_profiles
         WHERE user_id = ?
@@ -1845,13 +1846,13 @@ export async function handleCs2Request(request, env, deps) {
     await ensureUserCaseProfileById(env, userId, String(user.username || `user#${userId}`), isoNow);
 
     const balancePence = Math.round(balanceCoins * 100);
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_profiles
       SET balance = ?, updated_at = ?
       WHERE user_id = ?
     `).bind(balancePence, isoNow(), userId).run();
 
-    const profile = await env.CASES_DB.prepare(`
+    const profile = await getCasesDb(env).prepare(`
       SELECT balance, key_balance
       FROM case_profiles
       WHERE user_id = ?
@@ -1881,7 +1882,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "fee_percent must be an integer from 0 to 99" }, 400, request);
     }
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO cs2_sim_settings (key, value) VALUES ('quick_sell_fee_percent', ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `)
@@ -1904,7 +1905,7 @@ export async function handleCs2Request(request, env, deps) {
     await ensureCaseProfile(env, session, isoNow);
     await refreshInventoryValue(env, session.id);
 
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         i.id,
         i.item_id,
@@ -1953,10 +1954,10 @@ export async function handleCs2Request(request, env, deps) {
       });
     }
 
-    const keyMeta = await env.CASES_DB.prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    const keyMeta = await getCasesDb(env).prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(session.id)
       .first();
-    const showcaseRows = await env.CASES_DB.prepare(`SELECT slot, inventory_id FROM profile_showcase WHERE user_id = ? ORDER BY slot ASC`)
+    const showcaseRows = await getCasesDb(env).prepare(`SELECT slot, inventory_id FROM profile_showcase WHERE user_id = ? ORDER BY slot ASC`)
       .bind(session.id)
       .all();
 
@@ -1984,7 +1985,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid case id is required" }, 400, request);
     }
 
-    const caseRow = await env.CASES_DB.prepare(`
+    const caseRow = await getCasesDb(env).prepare(`
       SELECT * FROM case_definitions WHERE id = ? LIMIT 1
     `).bind(caseId).first();
 
@@ -2001,7 +2002,7 @@ export async function handleCs2Request(request, env, deps) {
 
     const totalCost = unitPrice * qty;
 
-    const profile = await env.CASES_DB.prepare(`
+    const profile = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2010,7 +2011,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Not enough Grev Coins" }, 400, request);
     }
 
-    const sku = await env.CASES_DB.prepare(`
+    const sku = await getCasesDb(env).prepare(`
       SELECT id FROM case_items
       WHERE case_def_id = ? AND item_kind = 'case'
       LIMIT 1
@@ -2024,12 +2025,12 @@ export async function handleCs2Request(request, env, deps) {
     const stamp = now;
 
     const batch = [
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET balance = balance - ?, total_spent = total_spent + ?, updated_at = ?
         WHERE user_id = ?
       `).bind(totalCost, totalCost, stamp, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (
           buyer_user_id,
           seller_user_id,
@@ -2045,18 +2046,18 @@ export async function handleCs2Request(request, env, deps) {
 
     for (let i = 0; i < qty; i += 1) {
       batch.push(
-        env.CASES_DB.prepare(`
+        getCasesDb(env).prepare(`
           INSERT INTO inventory (user_id, item_id, source_case_id, acquired_at, locked)
           VALUES (?, ?, NULL, ?, 0)
         `).bind(session.id, sku.id, now)
       );
     }
 
-    await env.CASES_DB.batch(batch);
+    await getCasesDb(env).batch(batch);
 
     await refreshInventoryValue(env, session.id);
 
-    const updated = await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    const updated = await getCasesDb(env).prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(session.id)
       .first();
 
@@ -2083,7 +2084,7 @@ export async function handleCs2Request(request, env, deps) {
 
     const totalCost = KEY_PRICE_PENCE * qty;
 
-    const profile = await env.CASES_DB.prepare(`
+    const profile = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2095,8 +2096,8 @@ export async function handleCs2Request(request, env, deps) {
     const now = isoNow();
     const stamp = now;
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET
           balance = balance - ?,
@@ -2105,7 +2106,7 @@ export async function handleCs2Request(request, env, deps) {
           updated_at = ?
         WHERE user_id = ?
       `).bind(totalCost, totalCost, qty, stamp, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (
           buyer_user_id,
           seller_user_id,
@@ -2119,7 +2120,7 @@ export async function handleCs2Request(request, env, deps) {
       `).bind(session.id, `Case keys ×${qty}`, totalCost, now)
     ]);
 
-    const updated = await env.CASES_DB.prepare(`
+    const updated = await getCasesDb(env).prepare(`
       SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `)
       .bind(session.id)
@@ -2146,7 +2147,7 @@ export async function handleCs2Request(request, env, deps) {
     if (!Number.isInteger(qty) || qty < 1) qty = 1;
     if (qty > 100) qty = 100;
 
-    const profile = await env.CASES_DB.prepare(`
+    const profile = await getCasesDb(env).prepare(`
       SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2156,19 +2157,19 @@ export async function handleCs2Request(request, env, deps) {
 
     const payout = keyRefundPayout(qty);
     const now = isoNow();
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET key_balance = key_balance - ?, balance = balance + ?, updated_at = ?
         WHERE user_id = ?
       `).bind(qty, payout, now, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (?, NULL, NULL, ?, ?, 'key_refund', ?)
       `).bind(session.id, `Key refund ×${qty}`, payout, now)
     ]);
 
-    const updated = await env.CASES_DB.prepare(`
+    const updated = await getCasesDb(env).prepare(`
       SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2190,7 +2191,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid inventory id is required" }, 400, request);
     }
 
-    const row = await env.CASES_DB.prepare(`
+    const row = await getCasesDb(env).prepare(`
       SELECT i.id, ci.item_kind, ci.case_def_id, cd.case_name, cd.fallback_price_pence, cd.price
       FROM inventory i
       INNER JOIN case_items ci ON ci.id = i.item_id
@@ -2208,20 +2209,20 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "That case does not have a valid refund price." }, 400, request);
     }
     const now = isoNow();
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET balance = balance + ?, updated_at = ?
         WHERE user_id = ?
       `).bind(payout, now, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (?, NULL, NULL, ?, ?, 'case_refund', ?)
       `).bind(session.id, `${row.case_name} refund`, payout, now)
     ]);
 
-    const updated = await env.CASES_DB.prepare(`
+    const updated = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2262,7 +2263,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Provide between 1 and 10 distinct case inventory ids" }, 400, request);
     }
 
-    const prof = await env.CASES_DB.prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    const prof = await getCasesDb(env).prepare(`SELECT key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(session.id)
       .first();
 
@@ -2294,7 +2295,7 @@ export async function handleCs2Request(request, env, deps) {
       opens.push(opened.data);
     }
 
-    const updated = await env.CASES_DB.prepare(`SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    const updated = await getCasesDb(env).prepare(`SELECT balance, key_balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(session.id)
       .first();
 
@@ -2319,7 +2320,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid pending_drop_id is required" }, 400, request);
     }
 
-    const pend = await env.CASES_DB.prepare(`
+    const pend = await getCasesDb(env).prepare(`
       SELECT * FROM pending_drops
       WHERE id = ? AND user_id = ? AND status = 'pending'
       LIMIT 1
@@ -2330,31 +2331,31 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const t = isoNow();
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         INSERT INTO inventory (user_id, item_id, skin_instance_id, source_case_id, acquired_at, locked)
         VALUES (?, ?, ?, ?, ?, 0)
       `).bind(session.id, pend.resolved_item_id, pend.skin_instance_id || null, pend.case_id, t),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO case_open_history (user_id, case_id, item_id, price_paid, opened_at)
         VALUES (?, ?, ?, ?, ?)
       `).bind(session.id, pend.case_id, pend.resolved_item_id, pend.key_paid, t),
-      env.CASES_DB.prepare(`UPDATE pending_drops SET status = 'claimed' WHERE id = ?`).bind(pendingDropId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`UPDATE pending_drops SET status = 'claimed' WHERE id = ?`).bind(pendingDropId),
+      getCasesDb(env).prepare(`
         UPDATE skin_instances
         SET current_owner_user_id = ?, status = 'inventory', updated_at = ?
         WHERE id = ?
       `).bind(session.id, t, pend.skin_instance_id || 0)
     ]);
 
-    const inserted = await env.CASES_DB.prepare(`
+    const inserted = await getCasesDb(env).prepare(`
       SELECT id FROM inventory
       WHERE user_id = ? AND item_id = ? AND acquired_at = ?
       ORDER BY id DESC
       LIMIT 1
     `).bind(session.id, pend.resolved_item_id, t).first();
     if (pend.skin_instance_id && inserted?.id) {
-      await env.CASES_DB.prepare(`
+      await getCasesDb(env).prepare(`
         UPDATE skin_instances
         SET source_inventory_id = ?, updated_at = ?
         WHERE id = ?
@@ -2375,7 +2376,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid pending_drop_id is required" }, 400, request);
     }
 
-    const pend = await env.CASES_DB.prepare(`
+    const pend = await getCasesDb(env).prepare(`
       SELECT * FROM pending_drops
       WHERE id = ? AND user_id = ? AND status = 'pending'
       LIMIT 1
@@ -2385,7 +2386,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Pending drop not found" }, 404, request);
     }
 
-    const row = await env.CASES_DB.prepare(`
+    const row = await getCasesDb(env).prepare(`
       SELECT * FROM case_items WHERE id = ? LIMIT 1
     `).bind(pend.resolved_item_id).first();
 
@@ -2410,17 +2411,17 @@ export async function handleCs2Request(request, env, deps) {
     }
     const t = isoNow();
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`UPDATE pending_drops SET status = 'sold' WHERE id = ?`).bind(pendingDropId),
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`UPDATE pending_drops SET status = 'sold' WHERE id = ?`).bind(pendingDropId),
+      getCasesDb(env).prepare(`
         UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?
       `).bind(payout, t, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE skin_instances
         SET current_owner_user_id = NULL, graveyard_ref = 'quick_sell_graveyard', status = 'graveyard', updated_at = ?
         WHERE id = ?
       `).bind(t, pend.skin_instance_id || 0),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (NULL, ?, ?, ?, ?, 'quick_sell', ?)
       `).bind(session.id, row.id, row.item_name, payout, t)
@@ -2441,7 +2442,7 @@ export async function handleCs2Request(request, env, deps) {
 
     await refreshInventoryValue(env, session.id);
 
-    const updated = await env.CASES_DB.prepare(`
+    const updated = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2463,7 +2464,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid pending_drop_id is required" }, 400, request);
     }
 
-    const pend = await env.CASES_DB.prepare(`
+    const pend = await getCasesDb(env).prepare(`
       SELECT id FROM pending_drops
       WHERE id = ? AND user_id = ? AND status = 'pending'
       LIMIT 1
@@ -2473,7 +2474,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Pending drop not found" }, 404, request);
     }
 
-    await env.CASES_DB.prepare(`UPDATE pending_drops SET status = 'discarded' WHERE id = ?`)
+    await getCasesDb(env).prepare(`UPDATE pending_drops SET status = 'discarded' WHERE id = ?`)
       .bind(pendingDropId)
       .run();
 
@@ -2482,7 +2483,7 @@ export async function handleCs2Request(request, env, deps) {
 
   if (pathname === "/api/cs2/pending" && request.method === "GET") {
     await ensureCaseProfile(env, session, isoNow);
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         p.id,
         p.case_id,
@@ -2525,7 +2526,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid inventory id is required" }, 400, request);
     }
 
-    const row = await env.CASES_DB.prepare(`
+    const row = await getCasesDb(env).prepare(`
       SELECT i.*, ci.item_kind, ci.item_name, ci.market_hash_name, ci.market_value
       FROM inventory i
       INNER JOIN case_items ci ON ci.id = i.item_id
@@ -2554,19 +2555,19 @@ export async function handleCs2Request(request, env, deps) {
     }
     const now = isoNow();
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`DELETE FROM inventory WHERE id = ?`).bind(inventoryId),
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET balance = balance + ?, updated_at = ?
         WHERE user_id = ?
       `).bind(payout, now, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE skin_instances
         SET current_owner_user_id = NULL, graveyard_ref = 'quick_sell_graveyard', status = 'graveyard', updated_at = ?
         WHERE id = ?
       `).bind(now, row.skin_instance_id || 0),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (
           buyer_user_id,
           seller_user_id,
@@ -2595,7 +2596,7 @@ export async function handleCs2Request(request, env, deps) {
 
     await refreshInventoryValue(env, session.id);
 
-    const updated = await env.CASES_DB.prepare(`
+    const updated = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2626,7 +2627,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid price in pence is required (starting bid or buy now)" }, 400, request);
     }
 
-    const inv = await env.CASES_DB.prepare(`
+    const inv = await getCasesDb(env).prepare(`
       SELECT i.*, ci.item_kind, ci.item_name
       FROM inventory i
       INNER JOIN case_items ci ON ci.id = i.item_id
@@ -2638,7 +2639,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Only skins can be listed" }, 400, request);
     }
 
-    const existing = await env.CASES_DB.prepare(`
+    const existing = await getCasesDb(env).prepare(`
       SELECT id FROM market_listings WHERE inventory_id = ? AND status = 'active' LIMIT 1
     `).bind(inventoryId).first();
 
@@ -2662,7 +2663,7 @@ export async function handleCs2Request(request, env, deps) {
       mode = "accept_offers";
     }
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO market_listings (
         seller_user_id, inventory_id, item_id, asking_price_pence, status, created_at,
         list_mode, auction_end_at, auction_start_bid_pence, current_bid_pence, current_high_bidder_id
@@ -2691,7 +2692,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid listing id is required" }, 400, request);
     }
 
-    const listing = await env.CASES_DB.prepare(`
+    const listing = await getCasesDb(env).prepare(`
       SELECT * FROM market_listings WHERE id = ? AND status = 'active' LIMIT 1
     `).bind(listingId).first();
 
@@ -2709,7 +2710,7 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const price = Number(listing.asking_price_pence || 0);
-    const buyerProfile = await env.CASES_DB.prepare(`
+    const buyerProfile = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2718,7 +2719,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Not enough Grev Coins" }, 400, request);
     }
 
-    const inv = await env.CASES_DB.prepare(`
+    const inv = await getCasesDb(env).prepare(`
       SELECT * FROM inventory WHERE id = ? LIMIT 1
     `).bind(listing.inventory_id).first();
 
@@ -2726,34 +2727,34 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Listing inventory mismatch" }, 400, request);
     }
 
-    const item = await env.CASES_DB.prepare(`
+    const item = await getCasesDb(env).prepare(`
       SELECT item_name FROM case_items WHERE id = ? LIMIT 1
     `).bind(listing.item_id).first();
 
     const now = isoNow();
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET balance = balance - ?, updated_at = ?
         WHERE user_id = ?
       `).bind(price, now, session.id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE case_profiles
         SET balance = balance + ?, updated_at = ?
         WHERE user_id = ?
       `).bind(price, now, listing.seller_user_id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE inventory
         SET user_id = ?
         WHERE id = ?
       `).bind(session.id, listing.inventory_id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE market_listings
         SET status = 'sold'
         WHERE id = ?
       `).bind(listingId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (
           buyer_user_id,
           seller_user_id,
@@ -2770,7 +2771,7 @@ export async function handleCs2Request(request, env, deps) {
     await refreshInventoryValue(env, session.id);
     await refreshInventoryValue(env, listing.seller_user_id);
 
-    const updated = await env.CASES_DB.prepare(`
+    const updated = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2789,7 +2790,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid listing id is required" }, 400, request);
     }
 
-    const listing = await env.CASES_DB.prepare(`
+    const listing = await getCasesDb(env).prepare(`
       SELECT * FROM market_listings WHERE id = ? AND status = 'active' LIMIT 1
     `).bind(listingId).first();
 
@@ -2801,7 +2802,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "You cannot cancel this listing" }, 403, request);
     }
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE market_listings SET status = 'cancelled' WHERE id = ?
     `).bind(listingId).run();
 
@@ -2822,7 +2823,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid bid in pence is required" }, 400, request);
     }
 
-    const listing = await env.CASES_DB.prepare(`
+    const listing = await getCasesDb(env).prepare(`
       SELECT * FROM market_listings WHERE id = ? AND status = 'active' LIMIT 1
     `).bind(listingId).first();
 
@@ -2849,7 +2850,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: `Minimum next bid is ${minBid} pence` }, 400, request);
     }
 
-    const buyer = await env.CASES_DB.prepare(`
+    const buyer = await getCasesDb(env).prepare(`
       SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1
     `).bind(session.id).first();
 
@@ -2858,13 +2859,13 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const now = isoNow();
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         UPDATE market_listings
         SET current_bid_pence = ?, current_high_bidder_id = ?
         WHERE id = ?
       `).bind(amount, session.id, listingId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         INSERT INTO auction_bids (listing_id, bidder_user_id, amount_pence, created_at)
         VALUES (?, ?, ?, ?)
       `).bind(listingId, session.id, amount, now)
@@ -2882,7 +2883,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid listing id is required" }, 400, request);
     }
 
-    const listing = await env.CASES_DB.prepare(`
+    const listing = await getCasesDb(env).prepare(`
       SELECT * FROM market_listings WHERE id = ? AND status = 'active' LIMIT 1
     `).bind(listingId).first();
 
@@ -2902,11 +2903,11 @@ export async function handleCs2Request(request, env, deps) {
     const winnerId = Number(listing.current_high_bidder_id || 0);
     const price = Number(listing.current_bid_pence || 0);
     if (!winnerId || !price) {
-      await env.CASES_DB.prepare(`UPDATE market_listings SET status = 'cancelled' WHERE id = ?`).bind(listingId).run();
+      await getCasesDb(env).prepare(`UPDATE market_listings SET status = 'cancelled' WHERE id = ?`).bind(listingId).run();
       return json({ success: true, message: "Auction ended with no bids" }, 200, request);
     }
 
-    const inv = await env.CASES_DB.prepare(`SELECT * FROM inventory WHERE id = ? LIMIT 1`)
+    const inv = await getCasesDb(env).prepare(`SELECT * FROM inventory WHERE id = ? LIMIT 1`)
       .bind(listing.inventory_id)
       .first();
 
@@ -2914,24 +2915,24 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Listing inventory mismatch" }, 400, request);
     }
 
-    const item = await env.CASES_DB.prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
+    const item = await getCasesDb(env).prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
       .bind(listing.item_id)
       .first();
 
     const now = isoNow();
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`
         UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?
       `).bind(price, now, winnerId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?
       `).bind(price, now, listing.seller_user_id),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`
         UPDATE inventory SET user_id = ? WHERE id = ?
       `).bind(winnerId, listing.inventory_id),
-      env.CASES_DB.prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (?, ?, ?, ?, ?, 'auction_win', ?)
       `).bind(winnerId, listing.seller_user_id, listing.item_id, item?.item_name || "Item", price, now)
@@ -2959,7 +2960,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid offer in pence is required" }, 400, request);
     }
 
-    const listing = await env.CASES_DB.prepare(`
+    const listing = await getCasesDb(env).prepare(`
       SELECT * FROM market_listings WHERE id = ? AND status = 'active' LIMIT 1
     `).bind(listingId).first();
 
@@ -2972,7 +2973,7 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const now = isoNow();
-    const ins = await env.CASES_DB.prepare(`
+    const ins = await getCasesDb(env).prepare(`
       INSERT INTO market_offers (
         listing_id,
         buyer_user_id,
@@ -2988,7 +2989,7 @@ export async function handleCs2Request(request, env, deps) {
 
     const offerId = ins.meta?.last_row_id;
     if (buyerComment && offerId) {
-      await env.CASES_DB.prepare(`
+      await getCasesDb(env).prepare(`
         INSERT INTO offer_messages (offer_id, author_user_id, body, created_at)
         VALUES (?, ?, ?, ?)
       `)
@@ -3008,7 +3009,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid offer id is required" }, 400, request);
     }
 
-    const offer = await env.CASES_DB.prepare(`
+    const offer = await getCasesDb(env).prepare(`
       SELECT o.*, l.seller_user_id, l.inventory_id, l.item_id, l.status AS list_status
       FROM market_offers o
       INNER JOIN market_listings l ON l.id = o.listing_id
@@ -3040,7 +3041,7 @@ export async function handleCs2Request(request, env, deps) {
     const buyerId = Number(offer.buyer_user_id);
     const listingId = Number(offer.listing_id);
 
-    const buyerBal = await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    const buyerBal = await getCasesDb(env).prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(buyerId)
       .first();
 
@@ -3048,23 +3049,23 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Buyer no longer has enough balance" }, 400, request);
     }
 
-    const item = await env.CASES_DB.prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
+    const item = await getCasesDb(env).prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
       .bind(offer.item_id)
       .first();
 
     const now = isoNow();
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`)
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`)
         .bind(price, now, buyerId),
-      env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`)
+      getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`)
         .bind(price, now, session.id),
-      env.CASES_DB.prepare(`UPDATE inventory SET user_id = ? WHERE id = ?`).bind(buyerId, offer.inventory_id),
-      env.CASES_DB.prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
-      env.CASES_DB.prepare(`UPDATE market_offers SET status = 'rejected' WHERE listing_id = ? AND id != ?`)
+      getCasesDb(env).prepare(`UPDATE inventory SET user_id = ? WHERE id = ?`).bind(buyerId, offer.inventory_id),
+      getCasesDb(env).prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
+      getCasesDb(env).prepare(`UPDATE market_offers SET status = 'rejected' WHERE listing_id = ? AND id != ?`)
         .bind(listingId, offerId),
-      env.CASES_DB.prepare(`UPDATE market_offers SET status = 'accepted' WHERE id = ?`).bind(offerId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`UPDATE market_offers SET status = 'accepted' WHERE id = ?`).bind(offerId),
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (?, ?, ?, ?, ?, 'offer_accept', ?)
       `).bind(buyerId, session.id, offer.item_id, item?.item_name || "Item", price, now)
@@ -3078,7 +3079,7 @@ export async function handleCs2Request(request, env, deps) {
 
   if (pathname === "/api/cs2/offers/incoming" && request.method === "GET") {
     await ensureCaseProfile(env, session, isoNow);
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         o.id,
         o.listing_id,
@@ -3129,7 +3130,7 @@ export async function handleCs2Request(request, env, deps) {
 
   if (pathname === "/api/cs2/offers/outgoing" && request.method === "GET") {
     await ensureCaseProfile(env, session, isoNow);
-    const rows = await env.CASES_DB.prepare(`
+    const rows = await getCasesDb(env).prepare(`
       SELECT
         o.id,
         o.listing_id,
@@ -3185,7 +3186,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "offer_id is required" }, 400, request);
     }
 
-    const offer = await env.CASES_DB.prepare(`
+    const offer = await getCasesDb(env).prepare(`
       SELECT o.*, l.seller_user_id, l.status AS list_status
       FROM market_offers o
       INNER JOIN market_listings l ON l.id = o.listing_id
@@ -3204,7 +3205,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Forbidden" }, 403, request);
     }
 
-    const msgs = await env.CASES_DB.prepare(`
+    const msgs = await getCasesDb(env).prepare(`
       SELECT id, author_user_id, body, created_at
       FROM offer_messages
       WHERE offer_id = ?
@@ -3260,7 +3261,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "message is required" }, 400, request);
     }
 
-    const offer = await env.CASES_DB.prepare(`
+    const offer = await getCasesDb(env).prepare(`
       SELECT o.id, o.buyer_user_id, o.status, l.seller_user_id, l.status AS list_status
       FROM market_offers o
       INNER JOIN market_listings l ON l.id = o.listing_id
@@ -3280,7 +3281,7 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const now = isoNow();
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO offer_messages (offer_id, author_user_id, body, created_at)
       VALUES (?, ?, ?, ?)
     `)
@@ -3304,7 +3305,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid counter price in pence is required" }, 400, request);
     }
 
-    const offer = await env.CASES_DB.prepare(`
+    const offer = await getCasesDb(env).prepare(`
       SELECT o.*, l.seller_user_id, l.status AS list_status
       FROM market_offers o
       INNER JOIN market_listings l ON l.id = o.listing_id
@@ -3323,7 +3324,7 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     const now = isoNow();
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE market_offers
       SET seller_counter_pence = ?, seller_counter_message = ?
       WHERE id = ?
@@ -3334,7 +3335,7 @@ export async function handleCs2Request(request, env, deps) {
     const line = msgRaw
       ? `Counter: ${counterPence} p — ${msgRaw}`
       : `Counter: ${counterPence} p`;
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO offer_messages (offer_id, author_user_id, body, created_at)
       VALUES (?, ?, ?, ?)
     `)
@@ -3353,7 +3354,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "A valid offer id is required" }, 400, request);
     }
 
-    const offer = await env.CASES_DB.prepare(`
+    const offer = await getCasesDb(env).prepare(`
       SELECT o.*, l.seller_user_id, l.inventory_id, l.item_id, l.status AS list_status
       FROM market_offers o
       INNER JOIN market_listings l ON l.id = o.listing_id
@@ -3380,7 +3381,7 @@ export async function handleCs2Request(request, env, deps) {
     const sellerId = Number(offer.seller_user_id);
     const listingId = Number(offer.listing_id);
 
-    const buyerBal = await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
+    const buyerBal = await getCasesDb(env).prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`)
       .bind(buyerId)
       .first();
 
@@ -3388,23 +3389,23 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "You no longer have enough balance" }, 400, request);
     }
 
-    const item = await env.CASES_DB.prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
+    const item = await getCasesDb(env).prepare(`SELECT item_name FROM case_items WHERE id = ? LIMIT 1`)
       .bind(offer.item_id)
       .first();
 
     const now = isoNow();
 
-    await env.CASES_DB.batch([
-      env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`)
+    await getCasesDb(env).batch([
+      getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`)
         .bind(price, now, buyerId),
-      env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`)
+      getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`)
         .bind(price, now, sellerId),
-      env.CASES_DB.prepare(`UPDATE inventory SET user_id = ? WHERE id = ?`).bind(buyerId, offer.inventory_id),
-      env.CASES_DB.prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
-      env.CASES_DB.prepare(`UPDATE market_offers SET status = 'rejected' WHERE listing_id = ? AND id != ?`)
+      getCasesDb(env).prepare(`UPDATE inventory SET user_id = ? WHERE id = ?`).bind(buyerId, offer.inventory_id),
+      getCasesDb(env).prepare(`UPDATE market_listings SET status = 'sold' WHERE id = ?`).bind(listingId),
+      getCasesDb(env).prepare(`UPDATE market_offers SET status = 'rejected' WHERE listing_id = ? AND id != ?`)
         .bind(listingId, offerId),
-      env.CASES_DB.prepare(`UPDATE market_offers SET status = 'accepted' WHERE id = ?`).bind(offerId),
-      env.CASES_DB.prepare(`
+      getCasesDb(env).prepare(`UPDATE market_offers SET status = 'accepted' WHERE id = ?`).bind(offerId),
+      getCasesDb(env).prepare(`
         INSERT INTO trade_history (buyer_user_id, seller_user_id, item_id, item_name, price_pence, trade_type, created_at)
         VALUES (?, ?, ?, ?, ?, 'offer_counter_accept', ?)
       `).bind(buyerId, sellerId, offer.item_id, item?.item_name || "Item", price, now)
@@ -3431,13 +3432,13 @@ export async function handleCs2Request(request, env, deps) {
     }
 
     if (inventoryId === 0) {
-      await env.CASES_DB.prepare(`
+      await getCasesDb(env).prepare(`
         DELETE FROM profile_showcase WHERE user_id = ? AND slot = ?
       `).bind(session.id, slot).run();
       return json({ success: true, message: "Showcase slot cleared" }, 200, request);
     }
 
-    const inv = await env.CASES_DB.prepare(`
+    const inv = await getCasesDb(env).prepare(`
       SELECT * FROM inventory WHERE id = ? AND user_id = ? LIMIT 1
     `).bind(inventoryId, session.id).first();
 
@@ -3445,7 +3446,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Inventory item not found" }, 404, request);
     }
 
-    const ci = await env.CASES_DB.prepare(`SELECT item_kind FROM case_items WHERE id = ? LIMIT 1`)
+    const ci = await getCasesDb(env).prepare(`SELECT item_kind FROM case_items WHERE id = ? LIMIT 1`)
       .bind(inv.item_id)
       .first();
 
@@ -3453,7 +3454,7 @@ export async function handleCs2Request(request, env, deps) {
       return json({ success: false, error: "Only skins can be showcased" }, 400, request);
     }
 
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO profile_showcase (user_id, slot, inventory_id)
       VALUES (?, ?, ?)
       ON CONFLICT(user_id, slot) DO UPDATE SET inventory_id = excluded.inventory_id

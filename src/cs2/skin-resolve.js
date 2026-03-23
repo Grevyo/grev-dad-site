@@ -1,5 +1,6 @@
 import { buildMarketHashName } from "./wear.js";
 import { fetchSteamIconUrl, getOrFetchItemPricePence } from "./steam.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 /**
  * Returns case_items.id for a concrete skin+wear row, creating it if needed.
@@ -12,7 +13,7 @@ export async function getOrCreateResolvedSkinItem(env, templateRow, wearTier, is
   const marketHashName = buildMarketHashName(weapon, skin, wearLabel);
   const displayName = marketHashName;
 
-  const existing = await env.CASES_DB.prepare(`
+  const existing = await getCasesDb(env).prepare(`
     SELECT id FROM case_items
     WHERE market_hash_name = ? AND item_kind = 'skin'
     LIMIT 1
@@ -32,7 +33,7 @@ export async function getOrCreateResolvedSkinItem(env, templateRow, wearTier, is
     imageUrl = String(templateRow.image_url || "").trim();
   }
 
-  const result = await env.CASES_DB.prepare(`
+  const result = await getCasesDb(env).prepare(`
     INSERT INTO case_items (
       item_name,
       weapon_name,
