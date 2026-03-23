@@ -3,6 +3,52 @@
 const AUTH_CACHE_KEY = "grevdad_auth_user";
 const AUTH_CACHE_EVENT = "grevdad-auth-changed";
 const PAGE_LOAD_BOX_ID = "global-page-load-indicator";
+const THEME_STORAGE_KEY = "grevdad_theme";
+
+function applyTheme(theme) {
+  const nextTheme = theme === "light" ? "light" : "dark";
+  document.body.dataset.theme = nextTheme;
+  document.documentElement.style.colorScheme = nextTheme;
+  const toggleBtn = document.getElementById("theme-toggle-btn");
+  if (toggleBtn) {
+    const isLight = nextTheme === "light";
+    toggleBtn.setAttribute("aria-pressed", String(isLight));
+    const icon = toggleBtn.querySelector(".theme-toggle-icon");
+    const label = toggleBtn.querySelector(".theme-toggle-label");
+    if (icon) icon.textContent = isLight ? "☀️" : "🌙";
+    if (label) label.textContent = isLight ? "Light mode" : "Dark mode";
+  }
+}
+
+function getInitialTheme() {
+  try {
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+  } catch (error) {
+    console.error("Failed to read theme preference:", error);
+  }
+
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
+}
+
+function setupThemeToggle() {
+  const toggleBtn = document.getElementById("theme-toggle-btn");
+  applyTheme(document.body.dataset.theme || getInitialTheme());
+  if (!toggleBtn) return;
+
+  toggleBtn.addEventListener("click", () => {
+    const nextTheme = document.body.dataset.theme === "light" ? "dark" : "light";
+    applyTheme(nextTheme);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    } catch (error) {
+      console.error("Failed to save theme preference:", error);
+    }
+  });
+}
+
 
 function ensurePageLoadIndicator() {
   if (document.getElementById(PAGE_LOAD_BOX_ID)) return;
@@ -65,6 +111,7 @@ async function loadSharedHeader() {
 
     const auth = await fetchCurrentUser({ preferCache: !cachedUser });
     applyHeaderAuthState(auth);
+    setupThemeToggle();
     setPageLoadStatus("Header ready…", 72);
 
     window.addEventListener(AUTH_CACHE_EVENT, () => {
@@ -184,7 +231,10 @@ window.addEventListener("unhandledrejection", () => {
   window.showPageLoadError("A request failed while loading this page.");
 });
 
-document.addEventListener("DOMContentLoaded", loadSharedHeader);
+document.addEventListener("DOMContentLoaded", () => {
+  applyTheme(getInitialTheme());
+  loadSharedHeader();
+});
 
 window.fetchCurrentUser = fetchCurrentUser;
 window.readCachedAuthUser = readCachedAuthUser;
