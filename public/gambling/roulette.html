@@ -10,6 +10,7 @@
   <style>
     .roulette-shell, .roulette-layout, .roulette-meta, .betting-grid, .history-list, .pending-bets, .round-result-strip { display: grid; gap: 20px; }
     .roulette-layout { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; }
+    .roulette-shell { gap: 24px; }
     .roulette-meta { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .betting-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
     .stat-card, .bettor-card, .history-item { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
@@ -90,6 +91,7 @@
     }
     .roulette-result-banner { margin-top: 20px; text-align: center; }
     .roulette-result-pill { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); font-weight: 800; }
+    .roulette-stage[data-spinning="true"] .roulette-result-pill { background: rgba(248,196,68,0.16); border-color: rgba(248,196,68,0.36); }
     .result-dot { width: 14px; height: 14px; border-radius: 50%; }
     .result-dot[data-color="red"] { background: #dc2626; }
     .result-dot[data-color="black"] { background: #111827; }
@@ -104,8 +106,19 @@
     @media (max-width: 900px) {
       .roulette-layout { grid-template-columns: 1fr; }
       .field-span-2 { grid-column: auto; }
-      .roulette-stage { min-height: 360px; }
+      .roulette-stage { min-height: 360px; padding: 24px 20px; }
       .roulette-ball { transform: rotate(var(--ball-angle)) translateY(-128px); }
+    }
+    @media (max-width: 640px) {
+      .roulette-shell { gap: 18px; }
+      .roulette-meta, .betting-grid, .pending-bets { grid-template-columns: 1fr; }
+      .round-result-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .roulette-stage { min-height: 300px; padding: 18px 14px 20px; }
+      .roulette-wheel { width: min(100%, 280px); border-width: 10px; }
+      .wheel-pointer { top: 8px; border-left-width: 12px; border-right-width: 12px; border-top-width: 24px; }
+      .roulette-ball { width: 14px; height: 14px; margin: -7px 0 0 -7px; transform: rotate(var(--ball-angle)) translateY(-96px); }
+      .bettor-card { align-items: flex-start; }
+      .roulette-result-pill { width: 100%; justify-content: center; }
     }
   </style>
 </head>
@@ -213,9 +226,11 @@
     const pendingBetsEl = document.getElementById("pending-bets");
     const wheelEl = document.getElementById("roulette-wheel");
     const ballEl = document.getElementById("roulette-ball");
+    const stageEl = document.querySelector(".roulette-stage");
     let state = null;
     let timer = null;
     let lastAnimatedRound = null;
+    let hasHydratedWheel = false;
 
     const betConfig = {
       red: { needsValue: false }, black: { needsValue: false }, even: { needsValue: false }, odd: { needsValue: false },
@@ -304,18 +319,42 @@
         return `<article class="history-item"><p><strong>Round ${bet.round_id}</strong> — ${bet.bet_label || bet.bet_type}</p><p class="muted">Stake: ${formatGc(bet.stake_coins)} · ${bet.resolved_at ? `Result ${bet.outcome_number} · Payout ${formatGc(bet.payout_coins)}` : "Waiting for spin"}</p><div class="settled-status" data-status="${result.status}">${result.label}</div></article>`;
       }).join("");
     }
-    function applyResult(previous) {
+    function getSpinAngles(previous, extraWheelTurns = 0, extraBallTurns = 0) {
+      const segment = 360 / 37;
+      const targetAngle = (previous.number * segment) + (segment / 2);
+      return {
+        wheelRotation: (extraWheelTurns * 360) - targetAngle,
+        ballRotation: -(extraBallTurns * 360) + targetAngle
+      };
+    }
+    function applyResult(previous, options = {}) {
       if (!previous) return;
+      const { immediate = false } = options;
+      const { wheelRotation, ballRotation } = getSpinAngles(previous, 0, 0);
+      if (immediate) {
+        wheelEl.style.transition = "none";
+        ballEl.style.transition = "none";
+      } else {
+        wheelEl.style.transition = "";
+        ballEl.style.transition = "";
+      }
+      wheelEl.style.setProperty("--wheel-rotation", `${wheelRotation}deg`);
+      ballEl.style.setProperty("--ball-angle", `${ballRotation}deg`);
+      if (immediate) {
+        requestAnimationFrame(() => {
+          wheelEl.style.transition = "";
+          ballEl.style.transition = "";
+        });
+      }
+      stageEl.dataset.spinning = "false";
       lastResultEl.textContent = `${previous.number} · ${previous.color}`;
       resultTextEl.textContent = `Winning pocket: ${previous.number} ${previous.color}`;
       resultDotEl.dataset.color = previous.color || "green";
     }
     function animateResult(previous, roundId) {
       if (!previous) return;
-      const segment = 360 / 37;
-      const targetAngle = (previous.number * segment) + (segment / 2);
-      const wheelRotation = 1440 - targetAngle;
-      const ballRotation = -2160 + targetAngle;
+      const { wheelRotation, ballRotation } = getSpinAngles(previous, 4, 6);
+      stageEl.dataset.spinning = "true";
       wheelEl.style.setProperty("--wheel-rotation", `${wheelRotation}deg`);
       ballEl.style.setProperty("--ball-angle", `${ballRotation}deg`);
       resultTextEl.textContent = "Ball in motion...";
@@ -333,8 +372,15 @@
       renderLatestBetResult(state.bets || []);
       updateCasinoBalance(state.profile?.grev_coin_balance || 0);
       const previous = state.table.previous_round;
-      if (previous && lastAnimatedRound !== previous.round_id) animateResult(previous, previous.round_id);
-      else applyResult(previous);
+      if (previous && !hasHydratedWheel) {
+        applyResult(previous, { immediate: true });
+        lastAnimatedRound = previous.round_id;
+        hasHydratedWheel = true;
+      } else if (previous && lastAnimatedRound !== previous.round_id) {
+        animateResult(previous, previous.round_id);
+      } else {
+        applyResult(previous);
+      }
     }
     function startCountdown() {
       if (timer) window.clearInterval(timer);

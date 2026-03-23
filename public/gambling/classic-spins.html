@@ -8,7 +8,7 @@
   <script src="/scripts/header.js" defer></script>
   <script src="/scripts/casino-chat-widget.js" defer></script>
   <style>
-    .classic-shell, .slot-layout, .machine, .machine-top, .reels, .controls, .payout-grid { display: grid; gap: 20px; }
+    .classic-shell, .slot-layout, .machine, .machine-top, .reels, .controls, .payout-grid, .machine-heading-card { display: grid; gap: 20px; }
     .slot-layout { grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); align-items: start; }
     .machine {
       padding: 24px;
@@ -19,7 +19,14 @@
         linear-gradient(180deg, #6b1010 0%, #3c0f13 38%, #16090c 100%);
       box-shadow: 0 28px 80px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.06);
     }
-    .machine-top { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+    .machine-top { grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+    .machine-heading-card {
+      padding: 18px 20px;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 215, 0, 0.18);
+      background: rgba(255,255,255,0.08);
+      align-content: start;
+    }
     .machine-title { margin: 0; font-size: clamp(1.8rem, 3vw, 2.4rem); }
     .machine-copy, .side-copy, .payout-card p, .result-copy { margin: 0; color: #f7d5d5; line-height: 1.7; }
     .jackpot-badge {
@@ -48,7 +55,22 @@
     .result-amount { margin: 0; font-size: 1.3rem; font-weight: 800; }
     .payout-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .payout-card strong { display: block; margin-bottom: 8px; }
-    @media (max-width: 900px) { .slot-layout { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) {
+      .slot-layout { grid-template-columns: 1fr; }
+      .machine-top { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .classic-shell { gap: 18px; }
+      .machine { padding: 20px 16px; border-radius: 24px; }
+      .machine-heading-card, .result-card, .payout-card { padding: 16px; }
+      .reels { grid-template-columns: repeat(3, minmax(72px, 1fr)); gap: 12px; }
+      .reel { min-height: 120px; padding: 12px; border-radius: 16px; }
+      .reel-window { height: 96px; }
+      .reel-strip { grid-auto-rows: 96px; }
+      .reel-symbol { font-size: clamp(2.3rem, 11vw, 3.4rem); }
+      .controls, .payout-grid { grid-template-columns: 1fr; }
+      .jackpot-badge { justify-self: start; }
+    }
   </style>
 </head>
 <body>
@@ -62,7 +84,7 @@
       <section class="slot-layout">
         <div class="machine">
           <div class="machine-top">
-            <div>
+            <div class="machine-heading-card">
               <p class="eyebrow">Classic Fruity</p>
               <h1 class="machine-title">Classic Fruity</h1>
               <p class="machine-copy">Line up lemons, cherries, grapes, watermelons, bells, and diamonds on this old-school cabinet.</p>

@@ -10,43 +10,68 @@
   <style>
     .casino-shell,
     .hero-actions,
-    .game-grid {
+    .game-grid,
+    .game-card-grid {
       display: grid;
       gap: 20px;
     }
     .casino-hero {
       padding: 32px 28px;
       border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
+      border: 1px solid color-mix(in srgb, #f87171 28%, var(--border));
       background:
-        radial-gradient(circle at top left, rgba(248, 196, 68, 0.2), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(104, 193, 255, 0.14), transparent 26%),
-        linear-gradient(135deg, color-mix(in srgb, #1f7a4c 22%, var(--bg-elevated)), color-mix(in srgb, var(--bg-soft) 80%, transparent));
+        radial-gradient(circle at top left, rgba(248, 196, 68, 0.24), transparent 28%),
+        radial-gradient(circle at top right, rgba(239, 68, 68, 0.28), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(127, 29, 29, 0.36), transparent 30%),
+        linear-gradient(135deg, rgba(90, 13, 17, 0.95), rgba(45, 8, 12, 0.98));
+      box-shadow: 0 30px 70px rgba(24, 4, 6, 0.48);
     }
-    .eyebrow { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 0.84rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: rgba(248, 196, 68, 0.14); border: 1px solid rgba(248, 196, 68, 0.24); margin-bottom: 16px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 0.84rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: rgba(248, 196, 68, 0.16); border: 1px solid rgba(248, 196, 68, 0.28); margin-bottom: 16px; }
     .casino-hero h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3rem); }
     .casino-hero p { color: var(--muted); line-height: 1.7; }
     .hero-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 24px; }
-    .game-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 280px)); }
+    .game-grid { grid-template-columns: 1fr; }
+    .game-card-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     .stat-card {
       padding: 18px;
       border-radius: var(--radius-md);
-      background: color-mix(in srgb, var(--surface) 92%, transparent);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(248, 196, 68, 0.18);
     }
+    .game-card {
+      padding: 22px;
+      border-radius: 18px;
+      border: 1px solid rgba(248, 196, 68, 0.2);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)),
+        rgba(39, 8, 11, 0.92);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .game-card h2 { margin: 0 0 8px; font-size: 1.3rem; }
+    .game-card p { margin: 0 0 18px; color: #f3caca; line-height: 1.6; }
     .game-button {
       display: inline-flex;
       justify-content: center;
       align-items: center;
-      min-height: 64px;
+      width: 100%;
+      min-height: 56px;
       padding: 0 24px;
       border-radius: var(--radius-md);
       font-size: 1.05rem;
       font-weight: 800;
       text-align: center;
+      background: linear-gradient(135deg, #fbbf24, #ef4444);
+      color: #2a090c;
     }
-    .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+    .game-button:hover { color: #2a090c; }
+    .stat-label { margin: 0 0 8px; color: #f5d0d0; font-size: 0.9rem; }
     .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
+    @media (max-width: 700px) {
+      .casino-shell { gap: 18px; }
+      .casino-hero { padding: 24px 18px; }
+      .hero-actions, .game-card-grid { grid-template-columns: 1fr; }
+      .game-card { padding: 18px; }
+    }
 
   </style>
 </head>
@@ -71,11 +96,28 @@
         </div>
       </section>
 
-      <section class="panel">
-        <div class="game-grid">
-          <a class="btn btn-primary game-button" href="/gambling/daily-spin.html">Daily Spin</a>
-          <a class="btn btn-primary game-button" href="/gambling/classic-spins.html">Classic Fruity</a>
-          <a class="btn btn-primary game-button" href="/gambling/roulette.html">Roulette Table</a>
+      <section class="panel game-grid">
+        <div>
+          <p class="eyebrow">♠ Table floor</p>
+          <h2 class="panel-title">Choose your game</h2>
+          <p class="stat-label">A warmer red casino look on the hub, with game cards that stack nicely on mobile while keeping desktop spacious.</p>
+        </div>
+        <div class="game-card-grid">
+          <article class="game-card">
+            <h2>Daily Spin</h2>
+            <p>Drop in for the quick freebie and take a daily shot at topping up your coin stack.</p>
+            <a class="btn game-button" href="/gambling/daily-spin.html">Open Daily Spin</a>
+          </article>
+          <article class="game-card">
+            <h2>Classic Fruity</h2>
+            <p>Pull up the retro fruit cabinet with a tidier title block and faster access on smaller screens.</p>
+            <a class="btn game-button" href="/gambling/classic-spins.html">Play Classic Fruity</a>
+          </article>
+          <article class="game-card">
+            <h2>Roulette Table</h2>
+            <p>Bet the next round and only watch the full wheel animation when a fresh result actually lands.</p>
+            <a class="btn game-button" href="/gambling/roulette.html">Visit Roulette</a>
+          </article>
         </div>
       </section>
 
