@@ -101,11 +101,7 @@
           <div class="controls">
             <label class="form-group">
               <span class="form-label">Bet size</span>
-              <select id="bet-size" class="form-select">
-                <option value="5">5 GC</option>
-                <option value="10" selected>10 GC</option>
-                <option value="25">25 GC</option>
-              </select>
+              <input id="bet-size" class="form-input" type="number" inputmode="decimal" min="1" step="1" value="10" />
             </label>
             <div class="button-row">
               <button id="classic-spin-btn" class="btn btn-primary" type="button">Spin</button>
@@ -140,6 +136,7 @@
     const reelEls = Array.from(document.querySelectorAll("[data-reel]"));
     const spinBtn = document.getElementById("classic-spin-btn");
     const betInput = document.getElementById("bet-size");
+    const BET_MIN = 1;
     const statusEl = document.getElementById("classic-spin-status");
     const copyEl = document.getElementById("classic-spin-copy");
     const SYMBOL_HEIGHT = 108;
@@ -158,28 +155,57 @@
     function startSpinSound() {
       const ctx = ensureAudioContext();
       if (!ctx) return;
-      const bufferSize = ctx.sampleRate * 2;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * 0.18;
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      const filter = ctx.createBiquadFilter();
-      filter.type = "bandpass";
-      filter.frequency.value = 900;
-      const gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      source.connect(filter).connect(gain).connect(ctx.destination);
+      stopSpinSound();
       const now = ctx.currentTime;
-      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
-      source.start();
-      spinNoiseNodes = { source, gain, filter, ctx };
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.linearRampToValueAtTime(0.04, now + 0.06);
+      master.connect(ctx.destination);
+
+      const motor = ctx.createOscillator();
+      motor.type = "square";
+      motor.frequency.setValueAtTime(48, now);
+      motor.frequency.linearRampToValueAtTime(76, now + 0.25);
+      motor.frequency.linearRampToValueAtTime(58, now + 1.4);
+
+      const whirr = ctx.createOscillator();
+      whirr.type = "triangle";
+      whirr.frequency.setValueAtTime(190, now);
+      whirr.frequency.exponentialRampToValueAtTime(340, now + 0.45);
+      whirr.frequency.exponentialRampToValueAtTime(220, now + 1.4);
+
+      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 2), ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.11;
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      noise.loop = true;
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.setValueAtTime(1300, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(700, now + 1.3);
+      noiseFilter.Q.value = 1.8;
+
+      const tremolo = ctx.createOscillator();
+      tremolo.type = "sine";
+      tremolo.frequency.setValueAtTime(9, now);
+      const tremoloGain = ctx.createGain();
+      tremoloGain.gain.value = 0.012;
+      tremolo.connect(tremoloGain).connect(master.gain);
+
+      motor.connect(master);
+      whirr.connect(master);
+      noise.connect(noiseFilter).connect(master);
+      motor.start(now);
+      whirr.start(now);
+      noise.start(now);
+      tremolo.start(now);
+      spinNoiseNodes = { source: noise, gain: master, filter: noiseFilter, ctx, extras: [motor, whirr, tremolo] };
     }
 
     function stopSpinSound(withLandingTail = false) {
       if (!spinNoiseNodes) return;
-      const { source, gain, filter, ctx } = spinNoiseNodes;
+      const { source, gain, filter, ctx, extras = [] } = spinNoiseNodes;
       const now = ctx.currentTime;
       gain.gain.cancelScheduledValues(now);
       filter.frequency.cancelScheduledValues(now);
@@ -190,9 +216,11 @@
         gain.gain.exponentialRampToValueAtTime(0.014, now + 0.09);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
         source.stop(now + 0.42);
+        extras.forEach((node) => node.stop(now + 0.42));
       } else {
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
         source.stop(now + 0.14);
+        extras.forEach((node) => node.stop(now + 0.16));
       }
       spinNoiseNodes = null;
     }
@@ -200,7 +228,7 @@
     function playWinSting(winnings) {
       const ctx = ensureAudioContext();
       if (!ctx || winnings <= 0) return;
-      [523.25, 659.25, 783.99].forEach((frequency, index) => {
+      [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
         const time = ctx.currentTime + (index * 0.07);
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -236,12 +264,20 @@
         window.writeCasinoBalance({ formatted, value: Number(balance || 0), updated_at: Date.now() });
       }
     }
+    function readBetValue() {
+      const bet = Math.round(Number(betInput.value || 0));
+      if (!Number.isFinite(bet) || bet < BET_MIN) {
+        throw new Error(`Enter a bet of at least ${BET_MIN} GC.`);
+      }
+      betInput.value = String(bet);
+      return bet;
+    }
     async function handleSpin() {
       if (spinning) return;
       spinning = true; spinBtn.disabled = true; statusEl.textContent = "Spinning..."; copyEl.textContent = "The old fruit machine is rattling away.";
       startSpinSound();
       try {
-        const bet = Number(betInput.value || 0);
+        const bet = readBetValue();
         const response = await fetch("/api/casino/classic-spin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bet_coins: bet }) });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) throw new Error(data?.error || "Classic Fruity spin failed");

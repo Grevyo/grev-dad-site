@@ -71,7 +71,7 @@
       <section class="panel-card">
         <div class="button-row"><p class="eyebrow">Play screen</p></div>
         <div class="control-grid">
-          <label class="form-group"><span class="form-label">Stake</span><select id="slot-bet" class="form-select"><option value="10">10 GC</option><option value="25" selected>25 GC</option><option value="50">50 GC</option><option value="100">100 GC</option></select></label>
+          <label class="form-group"><span class="form-label">Stake</span><input id="slot-bet" class="form-input" type="number" inputmode="decimal" min="1" step="1" value="25" /></label>
           <div class="button-row"><button id="slot-spin" class="btn btn-primary" type="button">Spin Neon Jackpot</button></div>
         </div>
         <div class="machine-shell mt-20">
@@ -118,6 +118,7 @@
     let multiplier = 1;
     let freeSpins = 0;
     let spinning = false;
+    const BET_MIN = 1;
 
     let audioCtx = null;
     let activeSpinSound = null;
@@ -168,29 +169,31 @@
       noiseFilter.frequency.exponentialRampToValueAtTime(620, now + 1.8);
       noiseFilter.Q.value = 2.4;
 
-      const delay = ctx.createDelay();
-      delay.delayTime.value = 0.12;
-      const feedback = ctx.createGain();
-      feedback.gain.value = 0.22;
-      delay.connect(feedback).connect(delay);
+      const wobble = ctx.createOscillator();
+      wobble.type = 'sine';
+      wobble.frequency.setValueAtTime(7, now);
+      const wobbleGain = ctx.createGain();
+      wobbleGain.gain.value = 34;
+      wobble.connect(wobbleGain);
+      wobbleGain.connect(toneA.frequency);
+      wobbleGain.connect(toneB.frequency);
 
       [toneA, toneB, shimmer].forEach((node) => node.connect(master));
       noise.connect(noiseFilter).connect(master);
-      master.connect(delay).connect(ctx.destination);
 
-      toneA.start(now); toneB.start(now); shimmer.start(now); noise.start(now);
-      activeSpinSound = { ctx, master, toneA, toneB, shimmer, noise };
+      toneA.start(now); toneB.start(now); shimmer.start(now); noise.start(now); wobble.start(now);
+      activeSpinSound = { ctx, master, toneA, toneB, shimmer, noise, wobble };
     }
 
     function stopSpinSound() {
       if (!activeSpinSound) return;
-      const { ctx, master, toneA, toneB, shimmer, noise } = activeSpinSound;
+      const { ctx, master, toneA, toneB, shimmer, noise, wobble } = activeSpinSound;
       const now = ctx.currentTime;
       master.gain.cancelScheduledValues(now);
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
       master.gain.exponentialRampToValueAtTime(0.018, now + 0.08);
       master.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
-      [toneA, toneB, shimmer, noise].forEach((node) => node.stop(now + 0.45));
+      [toneA, toneB, shimmer, noise, wobble].forEach((node) => node.stop(now + 0.45));
       activeSpinSound = null;
     }
 
@@ -292,9 +295,22 @@
 
     let bet = Number(betEl.value || 25);
 
+    function readBet() {
+      const nextBet = Math.round(Number(betEl.value || 0));
+      if (!Number.isFinite(nextBet) || nextBet < BET_MIN) throw new Error(`Enter a stake of at least ${BET_MIN} GC.`);
+      betEl.value = String(nextBet);
+      return nextBet;
+    }
+
     async function spin() {
       if (spinning) return;
-      bet = Number(betEl.value || 0);
+      try {
+        bet = readBet();
+      } catch (error) {
+        statusEl.textContent = 'Stake update failed.';
+        copyEl.textContent = error.message;
+        return;
+      }
       if (!freeSpins && credits < bet) {
         statusEl.textContent = 'Not enough Grev Coins.';
         copyEl.textContent = 'Your next spin needs more coins in the shared casino wallet.';
@@ -344,7 +360,7 @@
       refreshHud();
     });
 
-    betEl.addEventListener('change', () => { bet = Number(betEl.value || 25); });
+    betEl.addEventListener('change', () => { try { bet = readBet(); } catch (error) { statusEl.textContent = 'Stake update failed.'; copyEl.textContent = error.message; } });
     spinBtn.addEventListener('click', spin);
   </script>
 </body>
