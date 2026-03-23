@@ -34,6 +34,7 @@ const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const FOOTER_METADATA_TTL_MS = 5 * 60 * 1000;
 const GITHUB_REPO_FALLBACK = "Grevyo/grev-dad-site";
 const ROULETTE_ROUND_INTERVAL_MS = 15 * 60 * 1000;
+const CRASH_SPRINT_ROUND_INTERVAL_MS = 5 * 60 * 1000;
 const DAILY_SPIN_REWARDS = [
   { coins: 5, weight: 25 },
   { coins: 10, weight: 25 },
@@ -74,6 +75,18 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/casino/roulette/bet" && request.method === "POST") {
     return await handleCasinoRouletteBet(request, env);
+  }
+
+  if (pathname === "/api/casino/crash-sprint/state" && request.method === "GET") {
+    return await handleCasinoCrashSprintState(request, env);
+  }
+
+  if (pathname === "/api/casino/crash-sprint/join" && request.method === "POST") {
+    return await handleCasinoCrashSprintJoin(request, env);
+  }
+
+  if (pathname === "/api/casino/crash-sprint/cashout" && request.method === "POST") {
+    return await handleCasinoCrashSprintCashout(request, env);
   }
 
   const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
@@ -520,6 +533,31 @@ async function ensureCoreTablesOnce(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_chat_created_at ON casino_chat_messages (created_at)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_roulette_round ON casino_roulette_bets (round_id, resolved_at)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_roulette_user_round ON casino_roulette_bets (user_id, round_id)`).run();
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS casino_crash_sprint_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      round_id INTEGER NOT NULL,
+      stake_pence INTEGER NOT NULL,
+      cashout_multiplier INTEGER,
+      payout_pence INTEGER NOT NULL DEFAULT 0,
+      crash_multiplier INTEGER,
+      created_at TEXT NOT NULL,
+      resolved_at TEXT
+    )
+  `).run();
+
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "user_id", "INTEGER");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "round_id", "INTEGER");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "stake_pence", "INTEGER");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "cashout_multiplier", "INTEGER");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "payout_pence", "INTEGER");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "crash_multiplier", "INTEGER");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "created_at", "TEXT");
+  await ensureColumn(env.DB, "casino_crash_sprint_entries", "resolved_at", "TEXT");
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_crash_sprint_round ON casino_crash_sprint_entries (round_id, resolved_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_crash_sprint_user_round ON casino_crash_sprint_entries (user_id, round_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts (created_at)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id ON forum_comments (post_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id ON forum_reactions (post_id)`).run();
@@ -1015,6 +1053,194 @@ async function resolveRouletteBets(env, casesDb, roundId) {
       WHERE id = ?
     `).bind(payoutPence, outcomeNumber, resolvedAt, row.id).run();
   }
+}
+
+function getCrashSprintRoundId(nowMs = Date.now()) {
+  return Math.floor(Number(nowMs) / CRASH_SPRINT_ROUND_INTERVAL_MS);
+}
+
+function getCrashSprintRoundStartMs(roundId) {
+  return Number(roundId) * CRASH_SPRINT_ROUND_INTERVAL_MS;
+}
+
+function getCrashSprintRoundCrashMultiplier(roundId) {
+  const seed = (Number(roundId) * 48271 + 12820163) % 2147483647;
+  return 135 + (seed % 461);
+}
+
+function getCrashSprintMultiplierAt(elapsedSeconds) {
+  const elapsed = Math.max(0, Number(elapsedSeconds) || 0);
+  return 1 + elapsed * 0.55 + elapsed * elapsed * 0.08;
+}
+
+function getCrashSprintCrashElapsedSeconds(roundId) {
+  const target = getCrashSprintRoundCrashMultiplier(roundId) / 100;
+  const delta = Math.max(0, target - 1);
+  return (-0.55 + Math.sqrt((0.55 * 0.55) + (4 * 0.08 * delta))) / (2 * 0.08);
+}
+
+function getCrashSprintRoundState(roundId, nowMs = Date.now()) {
+  const roundStartMs = getCrashSprintRoundStartMs(roundId);
+  const roundEndMs = roundStartMs + CRASH_SPRINT_ROUND_INTERVAL_MS;
+  const crashElapsedSeconds = getCrashSprintCrashElapsedSeconds(roundId);
+  const crashAtMs = Math.min(roundEndMs, roundStartMs + Math.round(crashElapsedSeconds * 1000));
+  const crashed = nowMs >= crashAtMs;
+  const elapsedSeconds = Math.max(0, Math.min((Math.min(nowMs, crashAtMs) - roundStartMs) / 1000, crashElapsedSeconds));
+  return {
+    round_id: roundId,
+    round_interval_ms: CRASH_SPRINT_ROUND_INTERVAL_MS,
+    round_started_at: new Date(roundStartMs).toISOString(),
+    round_ends_at: new Date(roundEndMs).toISOString(),
+    crash_at: new Date(crashAtMs).toISOString(),
+    crash_multiplier: getCrashSprintRoundCrashMultiplier(roundId) / 100,
+    live_multiplier: crashed ? getCrashSprintRoundCrashMultiplier(roundId) / 100 : getCrashSprintMultiplierAt(elapsedSeconds),
+    crashed
+  };
+}
+
+function normaliseCrashSprintStake(body) {
+  const stakeCoins = Number(body?.stake_coins);
+  if (![10, 25, 50, 100].includes(stakeCoins)) return { error: "Stake must be 10, 25, 50, or 100 Grev Coins." };
+  return { stakeCoins, stakePence: Math.round(stakeCoins * 100) };
+}
+
+async function resolveCrashSprintEntries(env, casesDb, upToRoundId) {
+  await ensureCoreTables(env);
+  const rows = await env.DB.prepare(`
+    SELECT id, user_id, round_id, stake_pence
+    FROM casino_crash_sprint_entries
+    WHERE resolved_at IS NULL AND round_id <= ?
+    ORDER BY id ASC
+  `).bind(upToRoundId).all();
+
+  for (const row of (rows.results || [])) {
+    const crashMultiplierInt = getCrashSprintRoundCrashMultiplier(row.round_id);
+    const resolvedAt = isoNow();
+    await recordCasinoGameEarning(env, "crash-sprint", row.user_id, -Number(row.stake_pence || 0), resolvedAt);
+    await env.DB.prepare(`
+      UPDATE casino_crash_sprint_entries
+      SET payout_pence = 0, crash_multiplier = ?, resolved_at = ?
+      WHERE id = ?
+    `).bind(crashMultiplierInt, resolvedAt, row.id).run();
+  }
+}
+
+async function handleCasinoCrashSprintState(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  await ensureCoreTables(env);
+
+  const nowMs = Date.now();
+  const currentRoundId = getCrashSprintRoundId(nowMs);
+  await resolveCrashSprintEntries(env, casesDb, currentRoundId - 1);
+
+  const profile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  const table = getCrashSprintRoundState(currentRoundId, nowMs);
+  if (table.crashed) await resolveCrashSprintEntries(env, casesDb, currentRoundId);
+  const joined = await env.DB.prepare(`
+    SELECT id, round_id, stake_pence, cashout_multiplier, payout_pence, crash_multiplier, created_at, resolved_at
+    FROM casino_crash_sprint_entries
+    WHERE user_id = ?
+    ORDER BY id DESC
+    LIMIT 10
+  `).bind(session.id).all();
+  const players = await env.DB.prepare(`
+    SELECT e.id, e.user_id, e.round_id, e.stake_pence, e.cashout_multiplier, e.payout_pence, e.crash_multiplier, e.created_at, e.resolved_at, u.username, p.avatar_url
+    FROM casino_crash_sprint_entries e
+    INNER JOIN users u ON u.id = e.user_id
+    LEFT JOIN user_profiles p ON p.user_id = e.user_id
+    WHERE e.round_id = ?
+    ORDER BY e.created_at ASC, e.id ASC
+    LIMIT 50
+  `).bind(currentRoundId).all();
+
+  return json({
+    success: true,
+    profile: formatCasinoProfile(profile, session.username),
+    table,
+    players: (players.results || []).map((row) => ({
+      id: Number(row.id),
+      user_id: Number(row.user_id),
+      username: row.username || `User ${row.user_id}`,
+      avatar_url: row.avatar_url || '',
+      stake_coins: toCoinAmount(row.stake_pence),
+      joined_at: row.created_at,
+      status: row.resolved_at ? (Number(row.payout_pence || 0) > 0 ? 'cashed_out' : 'crashed') : 'live',
+      payout_coins: toCoinAmount(row.payout_pence),
+      cashout_multiplier: row.cashout_multiplier == null ? null : Number(row.cashout_multiplier) / 100
+    })),
+    entries: (joined.results || []).map((row) => ({
+      id: Number(row.id),
+      round_id: Number(row.round_id),
+      stake_coins: toCoinAmount(row.stake_pence),
+      payout_coins: toCoinAmount(row.payout_pence),
+      cashout_multiplier: row.cashout_multiplier == null ? null : Number(row.cashout_multiplier) / 100,
+      crash_multiplier: row.crash_multiplier == null ? null : Number(row.crash_multiplier) / 100,
+      created_at: row.created_at,
+      resolved_at: row.resolved_at
+    }))
+  }, 200, request);
+}
+
+async function handleCasinoCrashSprintJoin(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  await ensureCoreTables(env);
+  const parsed = normaliseCrashSprintStake(await safeJson(request));
+  if (parsed.error) return json({ success: false, error: parsed.error }, 400, request);
+
+  const nowMs = Date.now();
+  const currentRoundId = getCrashSprintRoundId(nowMs);
+  await resolveCrashSprintEntries(env, casesDb, currentRoundId - 1);
+  const table = getCrashSprintRoundState(currentRoundId, nowMs);
+  if (table.crashed) return json({ success: false, error: "This Crash Sprint round already crashed. Wait for the next 5-minute table." }, 400, request);
+
+  const existing = await env.DB.prepare(`SELECT id FROM casino_crash_sprint_entries WHERE user_id = ? AND round_id = ? AND resolved_at IS NULL LIMIT 1`).bind(session.id, currentRoundId).first();
+  if (existing) return json({ success: false, error: "You already joined the live Crash Sprint round." }, 400, request);
+
+  const profileRow = await casesDb.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(session.id).first();
+  const balancePence = Number(profileRow?.balance || 0);
+  if (balancePence < parsed.stakePence) return json({ success: false, error: "Not enough Grev Coins for that Crash Sprint stake." }, 400, request);
+
+  const now = isoNow();
+  await casesDb.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(parsed.stakePence, now, session.id).run();
+  await env.DB.prepare(`INSERT INTO casino_crash_sprint_entries (user_id, round_id, stake_pence, created_at) VALUES (?, ?, ?, ?)`).bind(session.id, currentRoundId, parsed.stakePence, now).run();
+  const updatedProfile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  return json({ success: true, message: "You joined the live Crash Sprint table.", table, profile: formatCasinoProfile(updatedProfile, session.username) }, 200, request);
+}
+
+async function handleCasinoCrashSprintCashout(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  await ensureCoreTables(env);
+
+  const nowMs = Date.now();
+  const currentRoundId = getCrashSprintRoundId(nowMs);
+  await resolveCrashSprintEntries(env, casesDb, currentRoundId - 1);
+  const table = getCrashSprintRoundState(currentRoundId, nowMs);
+  if (table.crashed) return json({ success: false, error: `Crash Sprint already crashed at ${table.crash_multiplier.toFixed(2)}×.` }, 400, request);
+
+  const entry = await env.DB.prepare(`SELECT id, stake_pence FROM casino_crash_sprint_entries WHERE user_id = ? AND round_id = ? AND resolved_at IS NULL LIMIT 1`).bind(session.id, currentRoundId).first();
+  if (!entry) return json({ success: false, error: "You do not have a live Crash Sprint run to cash out." }, 404, request);
+
+  const cashoutMultiplierInt = Math.max(100, Math.round(table.live_multiplier * 100));
+  const payoutPence = Math.round(Number(entry.stake_pence || 0) * (cashoutMultiplierInt / 100));
+  const now = isoNow();
+  await casesDb.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(payoutPence, now, session.id).run();
+  await recordCasinoGameEarning(env, "crash-sprint", session.id, payoutPence - Number(entry.stake_pence || 0), now);
+  await env.DB.prepare(`UPDATE casino_crash_sprint_entries SET cashout_multiplier = ?, payout_pence = ?, crash_multiplier = ?, resolved_at = ? WHERE id = ?`).bind(cashoutMultiplierInt, payoutPence, Math.round(table.crash_multiplier * 100), now, entry.id).run();
+
+  const updatedProfile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  return json({ success: true, message: `Cashed out at ${(cashoutMultiplierInt / 100).toFixed(2)}×.`, payout_coins: toCoinAmount(payoutPence), profile: formatCasinoProfile(updatedProfile, session.username) }, 200, request);
 }
 
 async function handleCasinoRouletteState(request, env) {

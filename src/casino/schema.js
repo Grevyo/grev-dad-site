@@ -77,7 +77,7 @@ const DEFAULT_GAMES = [
     settings: { enabled: true, min_bet_coins: 200, max_bet_coins: 5000, paylines: 25, bonus_round_enabled: true, jackpot_start_coins: 250000 }
   },
   {
-    section_slug: 'arcade-games', slug: 'crash-sprint', title: 'Crash Sprint', summary: 'A quick arcade cash-out game where admins tune the risk curve and maximum booster.', badge: 'arcade', sort_order: 1,
+    section_slug: 'arcade-games', slug: 'crash-sprint', title: 'Crash Sprint', summary: 'A shared global cash-out table where everyone races the same crash point every 5 minutes.', badge: 'global', sort_order: 1,
     settings: { enabled: true, min_entry_coins: 75, max_entry_coins: 2000, max_multiplier: 25, auto_cashout_enabled: true }
   },
   {

@@ -8,7 +8,7 @@
   <script src="/scripts/header.js" defer></script>
   <script src="/scripts/casino-chat-widget.js" defer></script>
   <style>
-    .game-shell,.hero-grid,.info-grid,.control-grid,.status-grid,.mini-grid,.board-grid { display:grid; gap:20px; }
+    .game-shell,.hero-grid,.info-grid,.control-grid,.status-grid,.mini-grid,.board-grid,.live-grid,.entry-list { display:grid; gap:20px; }
     .hero-grid { grid-template-columns:minmax(0, 1.2fr) minmax(280px, 0.8fr); align-items:start; }
     .hero-card { padding:28px; border-radius:28px; border:1px solid rgba(56,189,248,.34); background:radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 28%), radial-gradient(circle at top right, rgba(59,130,246,.18), transparent 34%), linear-gradient(160deg, #082f49, #111827 52%, #030712); box-shadow:0 26px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
     .feature-card,.panel-card,.status-card { padding:20px; border-radius:20px; border:1px solid var(--border); background:color-mix(in srgb, var(--surface) 92%, transparent); }
@@ -16,7 +16,7 @@
     .hero-copy,.muted-copy,.status-copy { color:var(--muted); line-height:1.7; margin:0; }
     .hero-title { margin:12px 0; font-size:clamp(2rem, 4vw, 3rem); }
     .control-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); align-items:end; }
-    .status-grid,.info-grid,.mini-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .status-grid,.info-grid,.mini-grid,.live-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
     .status-value { margin:0; font-size:1.35rem; font-weight:800; }
     .board-grid { grid-template-columns:minmax(0, 1.35fr) minmax(260px, .65fr); align-items:start; }
     .graph-card { min-height:360px; border-radius:22px; padding:20px; background:linear-gradient(180deg, rgba(14,116,144,.18), rgba(2,6,23,.6)); border:1px solid rgba(255,255,255,.12); }
@@ -25,13 +25,16 @@
     .graph-line { position:absolute; inset:0; width:100%; height:100%; }
     .graph-progress { fill:none; stroke:url(#crashGradient); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 10px rgba(56,189,248,.45)); }
     .graph-marker { position:absolute; width:18px; height:18px; border-radius:50%; background:#38bdf8; box-shadow:0 0 0 4px rgba(56,189,248,.16), 0 0 18px rgba(56,189,248,.8); transform:translate(-50%, 50%); transition:left .18s linear, bottom .18s linear; }
-    .event-feed { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
-    .event-feed li { padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); }
+    .event-feed,.entry-list { list-style:none; padding:0; margin:0; }
+    .event-feed { display:grid; gap:10px; }
+    .event-feed li,.entry-list li { padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); }
+    .entry-list { display:grid; gap:12px; }
+    .entry-list strong { display:block; margin-bottom:4px; }
     .board-cell { min-height:84px; border-radius:18px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg, rgba(14,116,144,.2), rgba(2,6,23,.45)); font-size:1.15rem; font-weight:800; text-align:center; padding:16px; }
     .risk-meter { height:14px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.08); }
     .risk-meter__fill { height:100%; width:0%; transition:width .18s linear, background .18s linear; background:linear-gradient(90deg, #38bdf8, #22c55e); }
     @media (max-width: 900px) { .hero-grid,.board-grid { grid-template-columns:1fr; } }
-    @media (max-width: 640px) { .game-shell { gap:18px; } .hero-card,.feature-card,.panel-card,.status-card,.graph-card { padding:18px; border-radius:22px; } .control-grid,.status-grid,.info-grid,.mini-grid { grid-template-columns:1fr; } }
+    @media (max-width: 640px) { .game-shell { gap:18px; } .hero-card,.feature-card,.panel-card,.status-card,.graph-card { padding:18px; border-radius:22px; } .control-grid,.status-grid,.info-grid,.mini-grid,.live-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -41,22 +44,22 @@
       <div class="button-row"><a class="btn" href="/gambling/index.html">← Back to Casino Hub</a></div>
       <section class="hero-grid">
         <div class="hero-card">
-          <span class="eyebrow-chip">🚀 Cash-out Run</span>
+          <span class="eyebrow-chip">🚀 Global Cash-out Run</span>
           <h1 class="hero-title">Crash Sprint</h1>
-          <p class="hero-copy">Now with a live multiplier graph, moving tracker, risk bar, and Grev Coin balance sync so every start and cash-out visibly affects your wallet.</p>
+          <p class="hero-copy">Crash Sprint now runs as one shared table like roulette. Everyone joins the same live 5-minute round, races the same hidden crash point, and can see who is still in or already banked out.</p>
           <div class="status-grid mt-20">
             <div class="status-card"><p class="stat-label">Grev Coin balance</p><p class="status-value" id="crash-balance-value">0.00 GC</p></div>
             <div class="status-card"><p class="stat-label">Live booster</p><p class="status-value" id="crash-multi-value">1.00×</p></div>
-            <div class="status-card"><p class="stat-label">Last cash-out</p><p class="status-value" id="crash-bank-value">0.00 GC</p></div>
+            <div class="status-card"><p class="stat-label">Round timer</p><p class="status-value" id="crash-round-timer">00:00</p></div>
           </div>
         </div>
         <div class="feature-card">
           <p class="eyebrow">How it plays</p>
-          <p class="muted-copy">Start a run, spend your selected Grev Coin stake, then watch the path climb toward the hidden crash point. The graph gives you a visual read on how fast the run is getting dangerous.</p>
+          <p class="muted-copy">Join the current live table, spend your chosen Grev Coin stake, then watch the shared multiplier climb. Cash out before the round crashes or lose the stake when the global crash point lands.</p>
           <div class="info-grid mt-16">
-            <div class="status-card"><p class="stat-label">Live chart</p><p class="status-copy">The route rises in real time so the multiplier feels trackable instead of abstract.</p></div>
-            <div class="status-card"><p class="stat-label">Risk pressure</p><p class="status-copy">The bar shifts from safe blue into dangerous red as the crash chance sharpens.</p></div>
-            <div class="status-card"><p class="stat-label">Wallet sync</p><p class="status-copy">Starting a run removes your stake from Grev Coins instantly; cashing out returns stake plus profit.</p></div>
+            <div class="status-card"><p class="stat-label">Shared table</p><p class="status-copy">Everyone joins the same live round instead of separate solo runs.</p></div>
+            <div class="status-card"><p class="stat-label">5-minute cycle</p><p class="status-copy">Each Crash Sprint table resets every 5 minutes so new lobbies open faster.</p></div>
+            <div class="status-card"><p class="stat-label">Visible field</p><p class="status-copy">You can see other players enter, cash out, or get caught by the crash.</p></div>
           </div>
         </div>
       </section>
@@ -64,11 +67,17 @@
         <div class="button-row"><p class="eyebrow">Play screen</p></div>
         <div class="control-grid">
           <label class="form-group"><span class="form-label">Stake</span><select id="crash-stake" class="form-select"><option value="10">10 GC</option><option value="25" selected>25 GC</option><option value="50">50 GC</option><option value="100">100 GC</option></select></label>
-          <div class="button-row"><button id="crash-start" class="btn btn-primary" type="button">Start Run</button><button id="crash-cashout" class="btn" type="button" disabled>Cash Out</button></div>
+          <div class="button-row"><button id="crash-start" class="btn btn-primary" type="button">Join Live Round</button><button id="crash-cashout" class="btn" type="button" disabled>Cash Out</button></div>
+        </div>
+        <div class="live-grid mt-20">
+          <div class="status-card"><p class="stat-label">Current round</p><p class="status-value" id="crash-round-id">--</p></div>
+          <div class="status-card"><p class="stat-label">Table status</p><p class="status-value" id="crash-status-text">Loading...</p></div>
+          <div class="status-card"><p class="stat-label">My live stake</p><p class="status-value" id="crash-stake-value">25.00 GC</p></div>
+          <div class="status-card"><p class="stat-label">Last payout</p><p class="status-value" id="crash-bank-value">0.00 GC</p></div>
         </div>
         <div class="board-grid mt-20">
           <div class="graph-card">
-            <div class="button-row" style="justify-content:space-between;align-items:center;"><p class="stat-label">Live multiplier graph</p><p id="crash-result" class="status-copy">Awaiting run</p></div>
+            <div class="button-row" style="justify-content:space-between;align-items:center;"><p class="stat-label">Shared multiplier graph</p><p id="crash-result" class="status-copy">Loading live round</p></div>
             <div class="graph-frame mt-16">
               <div class="graph-gridline" style="bottom:25%"></div>
               <div class="graph-gridline" style="bottom:50%"></div>
@@ -80,25 +89,26 @@
               <div id="crash-marker" class="graph-marker" style="left:0%;bottom:0%"></div>
             </div>
             <div class="mt-16">
-              <div class="button-row" style="justify-content:space-between;"><span class="muted-copy" id="crash-track">Run idle</span><span class="muted-copy" id="crash-timer">00.0s</span></div>
+              <div class="button-row" style="justify-content:space-between;"><span class="muted-copy" id="crash-track">Syncing live table</span><span class="muted-copy" id="crash-timer">00.0s</span></div>
               <div class="risk-meter mt-8"><div id="crash-risk-fill" class="risk-meter__fill"></div></div>
               <p id="crash-risk" class="status-copy mt-8">Risk band: Low</p>
             </div>
           </div>
           <div class="feature-card">
-            <p class="stat-label">Run telemetry</p>
-            <div class="status-grid mt-16">
-              <div class="board-cell"><span id="crash-stake-value">25.00 GC</span></div>
-              <div class="board-cell"><span id="crash-hidden">Crash point hidden</span></div>
+            <p class="stat-label">Live table</p>
+            <p id="crash-hidden" class="status-copy mt-8">Crash point hidden until the table pops.</p>
+            <ul id="crash-feed" class="event-feed mt-16"><li>The shared Crash Sprint table is warming up.</li></ul>
+            <div class="mt-20">
+              <p class="stat-label">Players in this round</p>
+              <ul id="crash-players" class="entry-list mt-8"><li>Loading players...</li></ul>
             </div>
-            <ul id="crash-feed" class="event-feed mt-16"><li>The track is clear. Start a run to draw the first line.</li></ul>
           </div>
         </div>
       </section>
       <section class="mini-grid">
-        <article class="feature-card"><h2 class="panel-title">Readable momentum</h2><p class="muted-copy">The moving dot and graph slope show how the multiplier is accelerating instead of just updating numbers.</p></article>
-        <article class="feature-card"><h2 class="panel-title">Cash-out timing</h2><p class="muted-copy">Leaving early protects your stake; staying in pushes higher returns but steeper danger.</p></article>
-        <article class="feature-card"><h2 class="panel-title">Visible danger</h2><p class="muted-copy">The risk meter changes color as the crash threshold gets closer so the round feels more alive.</p></article>
+        <article class="feature-card"><h2 class="panel-title">Global rounds</h2><p class="muted-copy">Crash Sprint now behaves like roulette: one shared table, one multiplier, and one crash point for everybody in the round.</p></article>
+        <article class="feature-card"><h2 class="panel-title">Faster turnover</h2><p class="muted-copy">The round cycle now refreshes every 5 minutes instead of every 15 so new entries open much sooner.</p></article>
+        <article class="feature-card"><h2 class="panel-title">Visible outcomes</h2><p class="muted-copy">You can track who is still live, who banked profits, and who got clipped by the crash.</p></article>
       </section>
     </main>
   </div>
@@ -119,116 +129,122 @@
     const markerEl = document.getElementById('crash-marker');
     const feedEl = document.getElementById('crash-feed');
     const hiddenEl = document.getElementById('crash-hidden');
+    const playersEl = document.getElementById('crash-players');
+    const roundIdEl = document.getElementById('crash-round-id');
+    const roundTimerEl = document.getElementById('crash-round-timer');
+    const statusTextEl = document.getElementById('crash-status-text');
 
-    let timer = null;
-    let booster = 1;
-    let elapsed = 0;
-    let crashPoint = null;
-    let liveStake = 25;
-    let balance = 0;
-    let pathPoints = [{ x: 0, y: 100 }];
+    let pollTimer = null;
+    let uiTimer = null;
+    let state = null;
 
     function formatGc(v) { return `${Number(v || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; }
-    function readBalance() { return typeof window.readCasinoBalance === 'function' && typeof window.readCasinoBalance()?.value === 'number' ? window.readCasinoBalance().value : 500; }
-    function writeBalance(next) { balance = Math.max(0, Number(next || 0)); if (typeof window.writeCasinoBalance === 'function') window.writeCasinoBalance({ formatted: formatGc(balance), value: balance, updated_at: Date.now() }); balanceEl.textContent = formatGc(balance); }
-    function addFeed(message) { const li = document.createElement('li'); li.textContent = message; feedEl.prepend(li); while (feedEl.children.length > 4) feedEl.removeChild(feedEl.lastElementChild); }
+    function addFeed(message) { const li = document.createElement('li'); li.textContent = message; feedEl.prepend(li); while (feedEl.children.length > 5) feedEl.removeChild(feedEl.lastElementChild); }
+    function readActiveEntry() { return state?.entries?.find((entry) => entry.round_id === state?.table?.round_id && !entry.resolved_at) || null; }
+    function formatCountdown(targetIso) { const delta = Math.max(0, new Date(targetIso).getTime() - Date.now()); const totalSeconds = Math.floor(delta / 1000); const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0'); const seconds = String(totalSeconds % 60).padStart(2, '0'); return `${minutes}:${seconds}`; }
 
-    function updateGraph() {
-      const x = Math.min(100, (elapsed / 7) * 100);
-      const y = Math.max(4, 100 - Math.min(96, ((booster - 1) / 5) * 100));
-      pathPoints.push({ x, y });
-      pathEl.setAttribute('d', pathPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' '));
-      markerEl.style.left = `${x}%`;
-      markerEl.style.bottom = `${100 - y}%`;
-    }
-
-    function resetRound(message = 'Awaiting run') {
-      if (timer) clearInterval(timer);
-      timer = null;
-      booster = 1;
-      elapsed = 0;
-      crashPoint = null;
-      pathPoints = [{ x: 0, y: 100 }];
-      pathEl.setAttribute('d', 'M 0 100');
-      markerEl.style.left = '0%';
-      markerEl.style.bottom = '0%';
-      multiEl.textContent = '1.00×';
-      timerEl.textContent = '00.0s';
-      trackEl.textContent = 'Run idle';
-      riskEl.textContent = 'Risk band: Low';
-      riskFillEl.style.width = '0%';
-      riskFillEl.style.background = 'linear-gradient(90deg, #38bdf8, #22c55e)';
-      resultEl.textContent = message;
-      hiddenEl.textContent = 'Crash point hidden';
-      cashoutBtn.disabled = true;
-      startBtn.disabled = false;
-    }
-
-    function startRun() {
-      liveStake = Number(stakeEl.value || 25);
-      if (balance < liveStake) {
-        resultEl.textContent = 'Not enough Grev Coins.';
-        addFeed('Run blocked — your casino wallet needs more coins for that stake.');
-        return;
-      }
-      writeBalance(balance - liveStake);
-      stakeValueEl.textContent = formatGc(liveStake);
-      booster = 1;
-      elapsed = 0;
-      crashPoint = 1.35 + Math.random() * 4.8;
-      pathPoints = [{ x: 0, y: 100 }];
-      pathEl.setAttribute('d', 'M 0 100');
-      startBtn.disabled = true;
-      cashoutBtn.disabled = false;
-      resultEl.textContent = 'Run live';
-      trackEl.textContent = 'Booster climbing';
-      hiddenEl.textContent = 'Crash point armed';
-      addFeed(`Run launched for ${formatGc(liveStake)}. Stake has left the wallet.`);
-      timer = setInterval(() => {
-        elapsed += 0.2;
-        booster += 0.11 + elapsed * 0.035;
-        multiEl.textContent = `${booster.toFixed(2)}×`;
-        timerEl.textContent = `${elapsed.toFixed(1).padStart(4,'0')}s`;
-        const risk = Math.min(100, Math.max(0, ((booster - 1) / Math.max(0.5, crashPoint - 1)) * 100));
-        const band = booster < 2 ? 'Low' : booster < 3.5 ? 'Medium' : 'High';
-        riskEl.textContent = `Risk band: ${band}`;
-        riskFillEl.style.width = `${risk}%`;
-        riskFillEl.style.background = risk < 45 ? 'linear-gradient(90deg, #38bdf8, #22c55e)' : risk < 75 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' : 'linear-gradient(90deg, #f59e0b, #ef4444)';
-        updateGraph();
-        if (booster >= crashPoint) {
-          hiddenEl.textContent = `Crash @ ${crashPoint.toFixed(2)}×`;
-          addFeed(`Crash hit at ${crashPoint.toFixed(2)}×. The stake was lost.`);
-          resetRound(`Crash at ${crashPoint.toFixed(2)}× — no payout.`);
+    function updateGraph(multiplier) {
+      const points = [];
+      const target = Math.max(1, Number(multiplier || 1));
+      for (let i = 0; i <= 24; i += 1) {
+        const progress = i / 24;
+        const pointMulti = 1 + ((target - 1) * progress);
+        const x = progress * 100;
+        const y = Math.max(4, 100 - Math.min(96, ((pointMulti - 1) / 5) * 100));
+        points.push(`${i === 0 ? 'M' : 'L'} ${x} ${y}`);
+        if (i === 24) {
+          markerEl.style.left = `${x}%`;
+          markerEl.style.bottom = `${100 - y}%`;
         }
-      }, 200);
+      }
+      pathEl.setAttribute('d', points.join(' '));
     }
 
-    function cashOut() {
-      if (!timer) return;
-      clearInterval(timer);
-      timer = null;
-      const payout = liveStake * booster;
-      writeBalance(balance + payout);
-      bankEl.textContent = formatGc(payout);
-      resultEl.textContent = `Cashed out at ${booster.toFixed(2)}×`;
-      trackEl.textContent = 'Bank secured';
-      hiddenEl.textContent = `Safe exit @ ${booster.toFixed(2)}×`;
-      addFeed(`Cashed out ${formatGc(payout)} from a ${booster.toFixed(2)}× run.`);
-      cashoutBtn.disabled = true;
-      startBtn.disabled = false;
+    function renderPlayers(players = []) {
+      if (!players.length) { playersEl.innerHTML = '<li>No one has joined this round yet.</li>'; return; }
+      playersEl.innerHTML = players.map((player) => {
+        const status = player.status === 'live' ? 'Still live' : player.status === 'cashed_out' ? `Cashed out @ ${Number(player.cashout_multiplier || 0).toFixed(2)}×` : 'Crashed';
+        return `<li><strong>${player.username}</strong><div>${formatGc(player.stake_coins)} · ${status}</div></li>`;
+      }).join('');
     }
 
-    function init() {
-      balance = readBalance();
-      writeBalance(balance);
-      bankEl.textContent = formatGc(0);
-      stakeValueEl.textContent = formatGc(Number(stakeEl.value || 25));
-      resetRound();
+    function renderState() {
+      const table = state?.table;
+      if (!table) return;
+      const activeEntry = readActiveEntry();
+      roundIdEl.textContent = String(table.round_id || '--');
+      roundTimerEl.textContent = formatCountdown(table.round_ends_at);
+      multiEl.textContent = `${Number(table.live_multiplier || 1).toFixed(2)}×`;
+      stakeValueEl.textContent = activeEntry ? formatGc(activeEntry.stake_coins) : formatGc(Number(stakeEl.value || 25));
+      statusTextEl.textContent = table.crashed ? 'Round crashed' : 'Live round open';
+      resultEl.textContent = table.crashed ? `Crash at ${Number(table.crash_multiplier || 1).toFixed(2)}×` : 'Shared round live';
+      trackEl.textContent = table.crashed ? 'Table popped' : 'Shared multiplier climbing';
+      timerEl.textContent = `${((Date.now() - new Date(table.round_started_at).getTime()) / 1000).toFixed(1).padStart(4,'0')}s`;
+      hiddenEl.textContent = table.crashed ? `Crash revealed at ${Number(table.crash_multiplier || 1).toFixed(2)}×` : 'Crash point hidden until the table pops.';
+      const risk = Math.min(100, Math.max(0, (((Number(table.live_multiplier || 1) - 1) / Math.max(0.5, Number(table.crash_multiplier || 1) - 1)) * 100)));
+      const band = risk < 45 ? 'Low' : risk < 75 ? 'Medium' : 'High';
+      riskEl.textContent = `Risk band: ${band}`;
+      riskFillEl.style.width = `${risk}%`;
+      riskFillEl.style.background = risk < 45 ? 'linear-gradient(90deg, #38bdf8, #22c55e)' : risk < 75 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' : 'linear-gradient(90deg, #f59e0b, #ef4444)';
+      updateGraph(Number(table.live_multiplier || 1));
+      cashoutBtn.disabled = !activeEntry || table.crashed;
+      startBtn.disabled = Boolean(activeEntry) || table.crashed;
+      renderPlayers(state.players || []);
+      if (state.profile?.grev_coin_balance != null) balanceEl.textContent = formatGc(state.profile.grev_coin_balance);
+      const latestEntry = state.entries?.[0];
+      if (latestEntry?.payout_coins != null && Number(latestEntry.payout_coins) > 0) bankEl.textContent = formatGc(latestEntry.payout_coins);
     }
 
-    stakeEl.addEventListener('change', () => { stakeValueEl.textContent = formatGc(Number(stakeEl.value || 25)); });
-    startBtn.addEventListener('click', startRun);
-    cashoutBtn.addEventListener('click', cashOut);
+    async function loadState(showFeed = false) {
+      const response = await fetch('/api/casino/crash-sprint/state', { credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load Crash Sprint state');
+      const previousRound = state?.table?.round_id;
+      const previousCrash = state?.table?.crashed;
+      state = data;
+      renderState();
+      if (showFeed && previousRound != null && previousRound !== state?.table?.round_id) addFeed(`Round ${previousRound} closed. Round ${state.table.round_id} is now open.`);
+      if (showFeed && previousCrash === false && state?.table?.crashed) addFeed(`Shared table crashed at ${Number(state.table.crash_multiplier || 1).toFixed(2)}×.`);
+    }
+
+    async function joinRound() {
+      const response = await fetch('/api/casino/crash-sprint/join', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stake_coins: Number(stakeEl.value || 25) }) });
+      const data = await response.json();
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to join Crash Sprint');
+      addFeed(`You joined round ${data.table.round_id} for ${formatGc(Number(stakeEl.value || 25))}.`);
+      await loadState();
+    }
+
+    async function cashOut() {
+      const response = await fetch('/api/casino/crash-sprint/cashout', { method: 'POST', credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to cash out');
+      addFeed(data.message || 'Cash out completed.');
+      bankEl.textContent = formatGc(Number(data.payout_coins || 0));
+      await loadState();
+    }
+
+    function startTimers() {
+      if (pollTimer) clearInterval(pollTimer);
+      if (uiTimer) clearInterval(uiTimer);
+      pollTimer = setInterval(() => loadState(true).catch((error) => { statusTextEl.textContent = error.message; }), 4000);
+      uiTimer = setInterval(() => { if (state?.table) renderState(); }, 250);
+    }
+
+    async function init() {
+      try {
+        await loadState();
+        startTimers();
+      } catch (error) {
+        statusTextEl.textContent = error.message || 'Failed to load Crash Sprint.';
+        resultEl.textContent = 'Crash Sprint unavailable';
+      }
+    }
+
+    stakeEl.addEventListener('change', () => { if (!readActiveEntry()) stakeValueEl.textContent = formatGc(Number(stakeEl.value || 25)); });
+    startBtn.addEventListener('click', () => joinRound().catch((error) => { addFeed(error.message || 'Join failed.'); statusTextEl.textContent = error.message || 'Join failed.'; }));
+    cashoutBtn.addEventListener('click', () => cashOut().catch((error) => { addFeed(error.message || 'Cash out failed.'); statusTextEl.textContent = error.message || 'Cash out failed.'; }));
+    window.addEventListener('beforeunload', () => { if (pollTimer) clearInterval(pollTimer); if (uiTimer) clearInterval(uiTimer); });
     window.addEventListener('load', init);
   </script>
 </body>
