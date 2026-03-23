@@ -170,9 +170,8 @@ body[data-theme="light"] .alert-error { color: #991b1b; }
   flex-wrap: wrap;
 }
 
-.brand { display: inline-flex; align-items: center; gap: 12px; color: var(--text); text-decoration: none; font-weight: 800; }
+.brand { display: inline-flex; align-items: center; color: var(--text); text-decoration: none; }
 .brand-logo { width: 42px; height: 42px; object-fit: contain; }
-.brand-wordmark { font-size: 1.05rem; letter-spacing: 0.02em; }
 .nav { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .nav-link {
   display: inline-flex;
@@ -199,7 +198,6 @@ body[data-theme="light"] .alert-error { color: #991b1b; }
   .topbar-inner { align-items: stretch; }
   .nav { width: 100%; justify-content: flex-start; }
   .nav-link, .theme-toggle, .nav .btn { flex: 1 1 auto; }
-  .brand-wordmark { display: none; }
 }
 
 @media (max-width: 560px) {
