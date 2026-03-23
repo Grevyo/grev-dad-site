@@ -7,130 +7,11 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .home-layout {
-      position: relative;
-      display: grid;
-      grid-template-columns: minmax(72px, 88px) minmax(0, 1fr);
-      gap: 24px;
-      align-items: start;
-      padding-left: 0;
-      transition: padding-left 0.24s ease;
-    }
-
-    .home-layout.sidebar-open {
-      padding-left: clamp(220px, 24vw, 300px);
-    }
-
-    .playground-rail,
-    .playground-sidebar {
-      position: sticky;
-      top: 118px;
-      align-self: start;
-    }
-
-    .playground-rail {
-      z-index: 4;
-    }
-
-    .playground-rail-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: 220px;
-      border-radius: 24px;
-      padding: 20px 10px;
-      gap: 14px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-    }
-
-    .playground-rail-btn .playground-rail-icon {
-      font-size: 1.35rem;
-      line-height: 1;
-    }
-
-    .playground-sidebar {
-      z-index: 3;
-      width: clamp(220px, 24vw, 300px);
-      margin-left: calc(clamp(220px, 24vw, 300px) * -1 - 24px);
-      transition: opacity 0.2s ease, transform 0.24s ease;
-    }
-
-    .home-layout:not(.sidebar-open) .playground-sidebar {
-      opacity: 0;
-      transform: translateX(calc(-100% - 24px));
-      pointer-events: none;
-    }
-
-    .playground-panel {
-      display: grid;
-      gap: 12px;
-      min-height: min(70vh, 760px);
-      padding: 20px;
-    }
-
-    .playground-panel-title-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .playground-panel-title-row .panel-title {
-      margin: 0;
-    }
-
-    .playground-close {
-      min-width: 44px;
-      padding-inline: 14px;
-    }
-
-    .playground-links {
-      display: grid;
-      gap: 10px;
-    }
-
-    .playground-link {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-      min-height: 54px;
-      padding: 0 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: var(--surface);
-      color: var(--text);
-      text-decoration: none;
-      font-weight: 700;
-      transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
-    }
-
-    .playground-link:hover {
-      border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
-      background: color-mix(in srgb, var(--surface) 35%, var(--bg-soft));
-      transform: translateX(2px);
-    }
-
-    .playground-icon {
-      width: 36px;
-      height: 36px;
-      display: grid;
-      place-items: center;
-      border-radius: 10px;
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      flex: 0 0 auto;
-    }
-
-    .playground-link.hidden-playground { display: none !important; }
-
     .main-stack {
       display: grid;
       gap: 18px;
+      width: min(100%, 1100px);
+      margin: 0 auto;
     }
 
     .intro-stack {
@@ -200,42 +81,6 @@
     .chat-form { display: grid; gap: 12px; }
     .chat-textarea { min-height: 100px; resize: vertical; }
     .guest-note { margin-top: 12px; }
-
-    @media (max-width: 900px) {
-      .home-layout,
-      .home-layout.sidebar-open {
-        grid-template-columns: 1fr;
-        padding-left: 0;
-      }
-
-      .playground-rail,
-      .playground-sidebar,
-      .home-layout:not(.sidebar-open) .playground-sidebar {
-        position: static;
-        top: auto;
-        margin-left: 0;
-        width: 100%;
-        opacity: 1;
-        transform: none;
-        pointer-events: auto;
-      }
-
-      .playground-rail-btn {
-        writing-mode: horizontal-tb;
-        transform: none;
-        min-height: 52px;
-        flex-direction: row;
-      }
-
-      .playground-panel {
-        display: none;
-        min-height: 0;
-      }
-
-      .playground-panel.open {
-        display: grid;
-      }
-    }
   </style>
 </head>
 <body>
@@ -243,54 +88,7 @@
     <div id="header-mount"></div>
 
     <main class="page-main">
-      <div class="home-layout">
-        <aside class="playground-rail">
-          <button class="btn playground-rail-btn" id="playground-toggle" type="button" aria-expanded="false" aria-controls="playground-panel">
-            <span class="playground-rail-icon">🎰</span>
-            <span id="playground-toggle-label">Playgrounds</span>
-          </button>
-        </aside>
-
-        <aside class="playground-sidebar" aria-label="Playground sidebar">
-          <section class="panel playground-panel" id="playground-panel">
-            <div class="playground-panel-title-row">
-              <h2 class="panel-title">Playgrounds</h2>
-              <button class="btn playground-close" id="playground-close" type="button" aria-label="Collapse playground sidebar">Hide</button>
-            </div>
-            <div class="playground-links">
-              <a class="playground-link" href="/gambling/index.html">
-                <span class="playground-icon">🎰</span>
-                <span>Casino</span>
-              </a>
-              <a class="playground-link" href="/j-playground/index.html">
-                <span class="playground-icon">🪐</span>
-                <span>Spaced Playground</span>
-              </a>
-              <a class="playground-link" href="/dkpg/index.html">
-                <span class="playground-icon">🧩</span>
-                <span>DontKnow Playground</span>
-              </a>
-              <a class="playground-link" href="/grev/index.html">
-                <span class="playground-icon">⚡</span>
-                <span>Grev Playground</span>
-              </a>
-              <a class="playground-link hidden-playground" href="/cpl/index.html" data-group-only="cpl">
-                <span class="playground-icon">🔒</span>
-                <span>CPL Playground</span>
-              </a>
-              <a class="playground-link hidden-playground" href="/admin/index.html" data-group-only="admin">
-                <span class="playground-icon">🛠️</span>
-                <span>Admin Playground</span>
-              </a>
-              <a class="playground-link hidden-playground" href="/vip/index.html" data-group-only="vip">
-                <span class="playground-icon">👑</span>
-                <span>VIP Playground</span>
-              </a>
-            </div>
-          </section>
-        </aside>
-
-        <div class="main-stack">
+      <div class="main-stack">
           <section class="panel">
             <div class="intro-stack">
               <p class="eyebrow">Welcome to Grev.dad</p>
@@ -343,7 +141,6 @@
             </div>
           </section>
         </div>
-      </div>
     </main>
 
     <footer class="footer">
@@ -356,8 +153,6 @@
   <script>
     let currentUser = null;
     let chatPollInterval = null;
-    const sidebarStorageKey = "grevdad_playground_sidebar_hidden";
-
     const guestActions = document.getElementById("guest-actions");
     const memberActions = document.getElementById("member-actions");
     const guestChatNote = document.getElementById("guest-chat-note");
@@ -379,34 +174,6 @@
         guestChatNote.classList.remove("hidden");
         globalChatForm.classList.add("hidden");
       }
-    }
-
-    function normaliseUserGroups(user) {
-      const groups = [];
-
-      if (!user) return groups;
-
-      if (user.is_admin) groups.push("admin");
-      if (Array.isArray(user.groups)) {
-        for (const group of user.groups) {
-          if (typeof group === "string") groups.push(group.toLowerCase());
-        }
-      }
-      if (typeof user.group === "string" && user.group.trim()) {
-        groups.push(user.group.trim().toLowerCase());
-      }
-
-      return [...new Set(groups)];
-    }
-
-    function applyGroupVisibility(user) {
-      const groups = normaliseUserGroups(user);
-      const lockedItems = document.querySelectorAll("[data-group-only]");
-
-      lockedItems.forEach((item) => {
-        const neededGroup = (item.getAttribute("data-group-only") || "").toLowerCase();
-        item.classList.toggle("hidden-playground", !groups.includes(neededGroup));
-      });
     }
 
     function formatTime(value) {
@@ -527,81 +294,9 @@
       }
     }
 
-    function setPlaygroundSidebarHidden(hidden) {
-      const layout = document.querySelector(".home-layout");
-      const panel = document.getElementById("playground-panel");
-      const toggle = document.getElementById("playground-toggle");
-      const closeBtn = document.getElementById("playground-close");
-      const label = document.getElementById("playground-toggle-label");
-      if (!layout || !panel || !toggle || !label) return;
-
-      layout.classList.toggle("sidebar-open", !hidden);
-      panel.classList.toggle("open", !hidden);
-      toggle.setAttribute("aria-expanded", String(!hidden));
-      toggle.setAttribute("aria-label", hidden ? "Open playground sidebar" : "Minimize playground sidebar");
-      label.textContent = hidden ? "🎰" : "Playgrounds";
-      if (closeBtn) closeBtn.classList.toggle("hidden", hidden);
-
-      try {
-        window.localStorage.setItem(sidebarStorageKey, hidden ? "1" : "0");
-      } catch (error) {
-        console.error("Failed to save sidebar preference:", error);
-      }
-    }
-
-    function getInitialSidebarHidden() {
-      try {
-        return window.localStorage.getItem(sidebarStorageKey) === "1";
-      } catch (error) {
-        console.error("Failed to read sidebar preference:", error);
-        return false;
-      }
-    }
-
-    function setupPlaygroundSidebar() {
-      const toggle = document.getElementById("playground-toggle");
-      const closeBtn = document.getElementById("playground-close");
-      const mediaQuery = window.matchMedia("(max-width: 900px)");
-      let isHidden = getInitialSidebarHidden();
-
-      const syncSidebar = () => {
-        if (mediaQuery.matches && window.localStorage.getItem(sidebarStorageKey) === null) {
-          isHidden = true;
-        }
-        setPlaygroundSidebarHidden(isHidden);
-      };
-
-      toggle?.addEventListener("click", () => {
-        isHidden = !isHidden;
-        syncSidebar();
-      });
-
-      closeBtn?.addEventListener("click", () => {
-        isHidden = true;
-        syncSidebar();
-      });
-
-      const handleMediaChange = () => {
-        if (!mediaQuery.matches && window.localStorage.getItem(sidebarStorageKey) === null) {
-          isHidden = false;
-        }
-        syncSidebar();
-      };
-
-      if (typeof mediaQuery.addEventListener === "function") {
-        mediaQuery.addEventListener("change", handleMediaChange);
-      } else if (typeof mediaQuery.addListener === "function") {
-        mediaQuery.addListener(handleMediaChange);
-      }
-
-      syncSidebar();
-    }
-
     async function initPage() {
       currentUser = await window.fetchCurrentUser();
       setAuthView(currentUser);
-      applyGroupVisibility(currentUser);
-      setupPlaygroundSidebar();
       await loadGlobalChat();
 
       if (currentUser) {
