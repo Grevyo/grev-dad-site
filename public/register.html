@@ -15,7 +15,7 @@
       <section class="auth-card">
         <h1 class="auth-title">Register</h1>
         <p class="auth-subtitle">
-          Create an account for Grev.dad. New accounts are created as pending and must be approved before login works.
+          Create an account for Grev.dad. You can log in right away after signing up, and member access unlocks once an admin approves you.
         </p>
 
         <div id="message-box" class="hidden"></div>
@@ -33,7 +33,7 @@
               required
             />
             <div class="form-help">
-              3 to 32 characters. Keep it simple and readable.
+              3 to 32 characters. This is your public username, not an email address. Email is not required anywhere on Grev.dad.
             </div>
           </div>
 
@@ -142,7 +142,7 @@
 
         showMessage(
           "success",
-          data?.message || "Account created. It now needs approval before you can log in."
+          data?.message || "Account created. You can log in right away, and member access unlocks after approval."
         );
 
         form.reset();

@@ -264,6 +264,10 @@ async function handleRequest(request, env, ctx) {
     return await handleAdminUpdateUser(request, env);
   }
 
+  if (pathname === "/api/admin/user/delete" && request.method === "POST") {
+    return await handleAdminDeleteUser(request, env);
+  }
+
   if (pathname === "/api/admin/pending-users" && request.method === "GET") {
     return await handleAdminPendingUsers(request, env);
   }
@@ -718,7 +722,7 @@ async function handleRegister(request, env) {
 
   return json({
     success: true,
-    message: "Registration submitted. Your account is awaiting approval."
+    message: "Account created. You can log in right away, and member access will unlock once an admin approves you."
   }, 200, request);
 }
 
@@ -749,10 +753,6 @@ async function handleLogin(request, env) {
     return json({ success: false, error: "Invalid username or password" }, 401, request);
   }
 
-  if (!Number(user.approved)) {
-    return json({ success: false, error: "Your account is still awaiting approval" }, 403, request);
-  }
-
   const sessionToken = crypto.randomUUID();
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
@@ -768,11 +768,13 @@ async function handleLogin(request, env) {
     WHERE id = ?
   `).bind(now.toISOString(), user.id).run();
 
-  const group = normaliseGroupName(user.group_name, Boolean(user.is_admin));
+  const group = resolveUserGroupName(user.group_name, Boolean(user.approved), Boolean(user.is_admin));
 
   const response = json({
     success: true,
-    message: "Login successful",
+    message: Boolean(user.approved)
+      ? "Login successful"
+      : "Login successful. Your account is waiting for approval before member actions unlock.",
     user: {
       id: user.id,
       username: user.username,
@@ -819,7 +821,7 @@ async function handleMe(request, env) {
     return json({ success: false, authenticated: false }, 401, request);
   }
 
-  const group = normaliseGroupName(session.group_name, Boolean(session.is_admin));
+  const group = resolveUserGroupName(session.group_name, Boolean(session.approved), Boolean(session.is_admin));
 
   return json({
     success: true,
@@ -1041,7 +1043,7 @@ async function handleProfileUpdate(request, env) {
 }
 
 function formatProfileRow(row) {
-  const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
+  const group = resolveUserGroupName(row.group_name, Boolean(row.approved), Boolean(row.is_admin));
 
   const media = [
     row.media_1_url || "",
@@ -1125,7 +1127,7 @@ async function handleMembers(request, env) {
   const members = [];
 
   for (const row of rows.results || []) {
-    const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
+    const group = resolveUserGroupName(row.group_name, Boolean(row.approved), Boolean(row.is_admin));
 
     let caseSummary = {
       case_money: 0,
@@ -1607,7 +1609,7 @@ async function handleForumRemovePost(request, env) {
   const session = await getApprovedUser(request, env);
   if (session instanceof Response) return session;
 
-  const group = normaliseGroupName(session.group_name, Boolean(session.is_admin));
+  const group = resolveUserGroupName(session.group_name, Boolean(session.approved), Boolean(session.is_admin));
   if (!canModerateForum(group, Boolean(session.is_admin))) {
     return json({ success: false, error: "You do not have permission to remove posts" }, 403, request);
   }
@@ -1949,7 +1951,11 @@ async function handleAdminUpdateUser(request, env) {
 
   const nextIsAdmin = Boolean(isAdmin) || requestedGroup === "admin";
   const nextApproved = approved === undefined ? true : Boolean(approved);
-  const nextGroup = requestedGroup === "admin" ? "admin" : requestedGroup;
+  let nextGroup = requestedGroup === "admin" ? "admin" : requestedGroup;
+
+  if (!nextIsAdmin && requestedGroup === "standard") {
+    nextGroup = nextApproved ? "member" : "standard";
+  }
 
   let nextBalance = null;
   if (gamblingBalanceDelta !== 0) {
@@ -2279,8 +2285,81 @@ function buildUserGroups(groupName, isAdmin = false) {
   return [...groups];
 }
 
-function displayGroupName(groupName, isAdmin = false) {
-  const finalGroup = normaliseGroupName(groupName, isAdmin);
+async function handleAdminDeleteUser(request, env) {
+  await ensureCoreTables(env);
+
+  const adminUser = await requireAdmin(request, env);
+  if (adminUser instanceof Response) return adminUser;
+
+  const body = await safeJson(request);
+  const userId = Number(body?.user_id);
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return json({ success: false, error: "A valid user id is required" }, 400, request);
+  }
+
+  if (userId === adminUser.id) {
+    return json({ success: false, error: "You cannot delete your own account" }, 400, request);
+  }
+
+  const existingUser = await env.DB.prepare(`
+    SELECT id, username
+    FROM users
+    WHERE id = ?
+    LIMIT 1
+  `).bind(userId).first();
+
+  if (!existingUser) {
+    return json({ success: false, error: "User not found" }, 404, request);
+  }
+
+  await env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM forum_reactions WHERE user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM forum_comments WHERE author_user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM forum_comments WHERE post_id IN (SELECT id FROM forum_posts WHERE author_user_id = ? )`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM forum_reactions WHERE post_id IN (SELECT id FROM forum_posts WHERE author_user_id = ? )`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM forum_posts WHERE author_user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM global_chat_messages WHERE author_user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM user_presence WHERE user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM user_profiles WHERE user_id = ?`).bind(userId).run();
+  await env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(userId).run();
+
+  if (getCasesDb(env)) {
+    try {
+      await getCasesDb(env).prepare(`DELETE FROM case_open_logs WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM case_battles WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM coinflip_games WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM case_inventory WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM case_profiles WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM ygo_pack_open_logs WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM ygo_inventory WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM blackjack_hands WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM blackjack_profiles WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM casino_towers_games WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM casino_coinflip_games WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM casino_rain_rewards WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM casino_bets WHERE user_id = ?`).bind(userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM casino_rps_matches WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
+      await getCasesDb(env).prepare(`DELETE FROM casino_profiles WHERE user_id = ?`).bind(userId).run();
+    } catch (error) {
+      console.error("Failed to fully clean gambling data during account deletion:", error);
+    }
+  }
+
+  return json({
+    success: true,
+    message: `Deleted account ${existingUser.username}.`
+  }, 200, request);
+}
+
+function resolveUserGroupName(groupName, approved = false, isAdmin = false) {
+  if (isAdmin) return "admin";
+  if (approved && sanitiseGroupName(groupName) === "standard") return "member";
+  return normaliseGroupName(groupName, isAdmin);
+}
+
+function displayGroupName(groupName, isAdmin = false, approved = false) {
+  const finalGroup = resolveUserGroupName(groupName, approved, isAdmin);
   if (finalGroup === "admin") return "Admin";
   if (finalGroup === "dev") return "Dev";
   if (finalGroup === "staff") return "Staff";
@@ -2296,7 +2375,7 @@ function canModerateForum(groupName, isAdmin = false) {
 }
 
 function formatAdminUserRow(row) {
-  const group = normaliseGroupName(row.group_name, Boolean(row.is_admin));
+  const group = resolveUserGroupName(row.group_name, Boolean(row.approved), Boolean(row.is_admin));
   return {
     id: row.id,
     username: row.username,

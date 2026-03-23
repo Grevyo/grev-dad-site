@@ -168,7 +168,7 @@
       <section class="panel">
         <h1 class="auth-title">Admin Panel</h1>
         <p class="auth-subtitle">
-          Search members, open any account, approve users, and assign roles.
+          Search members, open any account, approve users into member access, assign roles, or delete accounts.
         </p>
         <div id="page-message" class="hidden"></div>
       </section>
@@ -222,7 +222,7 @@
           <section class="panel">
             <h2 class="panel-title">Edit member</h2>
             <p class="panel-subtitle">
-              Select a user to approve them, make them admin, or assign a role.
+              Select a user to approve them into member access, make them admin, or assign a role.
             </p>
 
             <div id="editor-empty" class="empty-box">
@@ -265,6 +265,9 @@
                   <option value="true">Approved</option>
                   <option value="false">Pending / Unapproved</option>
                 </select>
+                <div class="form-help">
+                  Approving a standard account promotes it to the Member group automatically. Pending accounts stay Standard until approved.
+                </div>
               </div>
 
               <div class="form-group">
@@ -331,6 +334,7 @@
 
 	              <div class="button-row">
 	                <button id="save-user-btn" class="btn btn-primary" type="submit">Save changes</button>
+                  <button id="delete-user-btn" class="btn" type="button">Delete account</button>
 	              </div>
             </form>
           </section>
@@ -379,6 +383,7 @@
       const editMedia3 = document.getElementById("edit-media-3");
       const editMusicUrl = document.getElementById("edit-music-url");
 	    const saveUserBtn = document.getElementById("save-user-btn");
+    const deleteUserBtn = document.getElementById("delete-user-btn");
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -616,6 +621,7 @@
 	      };
 
       saveUserBtn.disabled = true;
+      deleteUserBtn.disabled = true;
       saveUserBtn.textContent = "Saving...";
 
       try {
@@ -643,7 +649,58 @@
         showMessage("error", "Could not save changes.");
       } finally {
         saveUserBtn.disabled = false;
+        deleteUserBtn.disabled = false;
         saveUserBtn.textContent = "Save changes";
+      }
+    }
+
+    async function deleteSelectedUser() {
+      clearMessage();
+
+      const userId = Number(editUserId.value);
+      const username = detailUsername.textContent || "this account";
+      if (!userId) {
+        showMessage("error", "Pick a user before deleting an account.");
+        return;
+      }
+
+      const confirmed = window.confirm(`Delete ${username}? This cannot be undone.`);
+      if (!confirmed) return;
+
+      deleteUserBtn.disabled = true;
+      saveUserBtn.disabled = true;
+      deleteUserBtn.textContent = "Deleting...";
+
+      try {
+        const response = await fetch("/api/admin/user/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ user_id: userId })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to delete user.");
+          return;
+        }
+
+        showMessage("success", data.message || "Account deleted.");
+        selectedUserId = null;
+        userEditorForm.classList.add("hidden");
+        editorEmpty.classList.remove("hidden");
+        userSelect.value = "";
+        await loadUsers(userSearch.value.trim());
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not delete that account.");
+      } finally {
+        deleteUserBtn.disabled = false;
+        saveUserBtn.disabled = false;
+        deleteUserBtn.textContent = "Delete account";
       }
     }
 
@@ -667,6 +724,7 @@
     });
 
     userEditorForm.addEventListener("submit", saveUserChanges);
+    deleteUserBtn.addEventListener("click", deleteSelectedUser);
 
     async function initPage() {
       renderGroupOptions();

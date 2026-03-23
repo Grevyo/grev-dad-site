@@ -9,21 +9,34 @@
   <style>
     .home-layout {
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
       gap: 20px;
       align-items: start;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .home-layout.sidebar-hidden {
+      grid-template-columns: 0 minmax(0, 1fr);
     }
 
     .playground-sidebar {
       position: sticky;
-      top: 92px;
+      top: 118px;
       display: grid;
       gap: 12px;
       align-self: start;
+      overflow: hidden;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .home-layout.sidebar-hidden .playground-sidebar {
+      opacity: 0;
+      transform: translateX(-12px);
+      pointer-events: none;
     }
 
     .playground-toggle {
-      display: none;
+      display: inline-flex;
       width: 100%;
     }
 
@@ -31,6 +44,22 @@
       display: grid;
       gap: 12px;
       padding: 20px;
+    }
+
+    .playground-panel-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .playground-panel-title-row .panel-title {
+      margin: 0;
+    }
+
+    .playground-close {
+      min-width: 44px;
+      padding-inline: 14px;
     }
 
     .playground-links {
@@ -77,10 +106,37 @@
       gap: 18px;
     }
 
+    .intro-stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--accent);
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
     .home-title {
       margin: 0;
       font-size: clamp(2rem, 4vw, 3.2rem);
       line-height: 1;
+    }
+
+    .home-subtitle {
+      margin: 0;
+      font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+      line-height: 1.2;
+    }
+
+    .home-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 70ch;
     }
 
     .home-actions {
@@ -125,17 +181,18 @@
     .guest-note { margin-top: 12px; }
 
     @media (max-width: 900px) {
-      .home-layout {
+      .home-layout,
+      .home-layout.sidebar-hidden {
         grid-template-columns: 1fr;
       }
 
-      .playground-sidebar {
+      .playground-sidebar,
+      .home-layout.sidebar-hidden .playground-sidebar {
         position: static;
         top: auto;
-      }
-
-      .playground-toggle {
-        display: inline-flex;
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
       }
 
       .playground-panel {
@@ -155,12 +212,15 @@
     <main class="page-main">
       <div class="home-layout">
         <aside class="playground-sidebar">
-          <button class="btn playground-toggle" id="playground-toggle" type="button" aria-expanded="false" aria-controls="playground-panel">
-            Playgrounds
+          <button class="btn playground-toggle" id="playground-toggle" type="button" aria-expanded="true" aria-controls="playground-panel">
+            Hide playgrounds
           </button>
 
-          <section class="panel playground-panel" id="playground-panel">
-            <h2 class="panel-title">Playgrounds</h2>
+          <section class="panel playground-panel open" id="playground-panel">
+            <div class="playground-panel-title-row">
+              <h2 class="panel-title">Playgrounds</h2>
+              <button class="btn playground-close" id="playground-close" type="button" aria-label="Hide playground sidebar">Hide</button>
+            </div>
             <div class="playground-links">
               <a class="playground-link" href="/gambling/index.html">
                 <span class="playground-icon">🎰</span>
@@ -196,7 +256,12 @@
 
         <div class="main-stack">
           <section class="panel">
-            <h1 class="home-title">Grev.dad</h1>
+            <div class="intro-stack">
+              <p class="eyebrow">Welcome to Grev.dad</p>
+              <h1 class="home-title">Grev.dad</h1>
+              <h2 class="home-subtitle">What is Grev.dad?</h2>
+              <p class="home-copy">Grev.dad is a goofy little community site full of playful experiments, profile customization, chats, forum posts, and side quests. Nothing here is especially serious on purpose — the whole thing is meant to feel fun, silly, and a bit chaotic in the best way.</p>
+            </div>
 
             <div class="home-actions" id="guest-actions">
               <a class="btn btn-primary" href="/register.html">Create account</a>
@@ -256,6 +321,7 @@
   <script>
     let currentUser = null;
     let chatPollInterval = null;
+    const sidebarStorageKey = "grevdad_playground_sidebar_hidden";
 
     const guestActions = document.getElementById("guest-actions");
     const memberActions = document.getElementById("member-actions");
@@ -265,8 +331,6 @@
     const chatStatus = document.getElementById("chat-status");
     const sendChatBtn = document.getElementById("send-chat-btn");
     const chatMessageInput = document.getElementById("chat-message");
-    const playgroundToggle = document.getElementById("playground-toggle");
-    const playgroundPanel = document.getElementById("playground-panel");
 
     function setAuthView(user) {
       if (user) {
@@ -428,20 +492,68 @@
       }
     }
 
-    function setupPlaygroundToggle() {
-      if (!playgroundToggle || !playgroundPanel) return;
-      playgroundToggle.addEventListener("click", () => {
-        const willOpen = !playgroundPanel.classList.contains("open");
-        playgroundPanel.classList.toggle("open", willOpen);
-        playgroundToggle.setAttribute("aria-expanded", String(willOpen));
+    function setPlaygroundSidebarHidden(hidden) {
+      const layout = document.querySelector(".home-layout");
+      const panel = document.getElementById("playground-panel");
+      const toggle = document.getElementById("playground-toggle");
+      const closeBtn = document.getElementById("playground-close");
+      if (!layout || !panel || !toggle) return;
+
+      const isMobile = window.matchMedia("(max-width: 900px)").matches;
+      layout.classList.toggle("sidebar-hidden", !isMobile && hidden);
+      panel.classList.toggle("open", isMobile ? !hidden : true);
+      toggle.setAttribute("aria-expanded", String(!hidden));
+      toggle.textContent = hidden ? "Show playgrounds" : "Hide playgrounds";
+      if (closeBtn) closeBtn.classList.toggle("hidden", hidden || isMobile);
+
+      try {
+        window.localStorage.setItem(sidebarStorageKey, hidden ? "1" : "0");
+      } catch (error) {
+        console.error("Failed to save sidebar preference:", error);
+      }
+    }
+
+    function getInitialSidebarHidden() {
+      try {
+        return window.localStorage.getItem(sidebarStorageKey) === "1";
+      } catch (error) {
+        console.error("Failed to read sidebar preference:", error);
+        return false;
+      }
+    }
+
+    function setupPlaygroundSidebar() {
+      const toggle = document.getElementById("playground-toggle");
+      const closeBtn = document.getElementById("playground-close");
+      const mediaQuery = window.matchMedia("(max-width: 900px)");
+      let isHidden = getInitialSidebarHidden();
+
+      const syncSidebar = () => setPlaygroundSidebarHidden(isHidden);
+
+      toggle?.addEventListener("click", () => {
+        isHidden = !isHidden;
+        syncSidebar();
       });
+
+      closeBtn?.addEventListener("click", () => {
+        isHidden = true;
+        syncSidebar();
+      });
+
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", syncSidebar);
+      } else if (typeof mediaQuery.addListener === "function") {
+        mediaQuery.addListener(syncSidebar);
+      }
+
+      syncSidebar();
     }
 
     async function initPage() {
       currentUser = await window.fetchCurrentUser();
       setAuthView(currentUser);
       applyGroupVisibility(currentUser);
-      setupPlaygroundToggle();
+      setupPlaygroundSidebar();
       await loadGlobalChat();
 
       if (currentUser) {
@@ -455,5 +567,6 @@
 
     document.addEventListener("DOMContentLoaded", initPage);
   </script>
+</script>
 </body>
 </html>
