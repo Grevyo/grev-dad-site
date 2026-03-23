@@ -19,16 +19,14 @@ function shouldShowPlaygroundNav(pathname = window.location.pathname) {
 function readPlaygroundNavPrefs() {
   try {
     const raw = window.localStorage.getItem(PLAYGROUND_NAV_STORAGE_KEY);
-    if (!raw) return { open: true, collapsed: false, pinned: false };
+    if (!raw) return { collapsed: false };
     const parsed = JSON.parse(raw);
     return {
-      open: parsed?.open !== false,
-      collapsed: Boolean(parsed?.collapsed),
-      pinned: Boolean(parsed?.pinned)
+      collapsed: Boolean(parsed?.collapsed)
     };
   } catch (error) {
     console.error("Failed to read playground nav prefs:", error);
-    return { open: true, collapsed: false, pinned: false };
+    return { collapsed: false };
   }
 }
 
@@ -42,11 +40,8 @@ function writePlaygroundNavPrefs(prefs) {
 
 function setupPlaygroundSideNav() {
   const nav = document.getElementById("playground-side-nav");
-  const expandBtn = document.getElementById("playground-side-nav-expand");
   const collapseBtn = document.getElementById("playground-side-nav-collapse");
-  const pinBtn = document.getElementById("playground-side-nav-pin");
-  const closeBtn = document.getElementById("playground-side-nav-close");
-  if (!nav || !expandBtn || !collapseBtn || !pinBtn || !closeBtn) return;
+  if (!nav || !collapseBtn) return;
 
   if (!shouldShowPlaygroundNav()) {
     nav.classList.add("hidden");
@@ -57,70 +52,17 @@ function setupPlaygroundSideNav() {
   let state = readPlaygroundNavPrefs();
 
   const applyState = () => {
-    nav.dataset.state = state.open ? "open" : "closed";
+    nav.dataset.state = "open";
     nav.dataset.collapsed = state.collapsed ? "true" : "false";
-    nav.dataset.pinned = state.pinned ? "true" : "false";
-    nav.setAttribute("aria-hidden", String(!state.open));
-    expandBtn.setAttribute("aria-label", state.open ? "Show minimized playground navigation" : "Expand playground navigation");
-    expandBtn.setAttribute("aria-expanded", String(state.open));
-    expandBtn.textContent = state.open ? "⇤" : "⇥";
-    collapseBtn.setAttribute("aria-label", state.collapsed ? "Expand playground navigation details" : "Minimize playground navigation");
+    nav.setAttribute("aria-hidden", "false");
+    collapseBtn.setAttribute("aria-label", state.collapsed ? "Expand playground navigation" : "Minimize playground navigation");
     collapseBtn.textContent = state.collapsed ? "⇥" : "⇤";
-    pinBtn.setAttribute("aria-pressed", String(state.pinned));
-    pinBtn.setAttribute("aria-label", state.pinned ? "Unpin playground navigation" : "Pin playground navigation");
-    pinBtn.textContent = state.pinned ? "📌" : "📍";
     writePlaygroundNavPrefs(state);
   };
 
-  const updateState = (patch) => {
-    state = { ...state, ...patch };
-    applyState();
-  };
-
-  expandBtn.addEventListener("click", () => {
-    if (state.open && !state.collapsed) {
-      updateState({ open: true, collapsed: true });
-      return;
-    }
-
-    updateState({ open: true, collapsed: false });
-  });
-
   collapseBtn.addEventListener("click", () => {
-    if (state.collapsed) {
-      updateState({ open: true, collapsed: false });
-      return;
-    }
-
-    updateState({ open: true, collapsed: true });
-  });
-
-  pinBtn.addEventListener("click", () => {
-    updateState({ pinned: !state.pinned, open: true });
-  });
-
-  closeBtn.addEventListener("click", () => {
-    updateState({ open: false, collapsed: true });
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && state.open && !state.pinned) {
-      updateState({ open: false, collapsed: true });
-    }
-  });
-
-  nav.querySelectorAll("a").forEach((link) => {
-    link.addEventListener("click", () => {
-      if (!state.pinned) {
-        updateState({ open: false, collapsed: true });
-      }
-    });
-  });
-
-  nav.addEventListener("mouseleave", () => {
-    if (!state.pinned && state.open && state.collapsed) {
-      updateState({ open: false, collapsed: true });
-    }
+    state = { ...state, collapsed: !state.collapsed };
+    applyState();
   });
 
   applyState();
