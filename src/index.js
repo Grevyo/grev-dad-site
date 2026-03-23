@@ -3,6 +3,7 @@
 import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
+import { handleCasinoRequest } from "./casino/handlers.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -67,6 +68,9 @@ async function handleRequest(request, env, ctx) {
   if (pathname === "/api/casino/roulette/bet" && request.method === "POST") {
     return await handleCasinoRouletteBet(request, env);
   }
+
+  const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
+  if (casinoRouteResponse) return casinoRouteResponse;
 
   if (isRetiredGamblingPath(pathname)) {
     return retiredGamblingResponse(request);
@@ -383,6 +387,7 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "user_profiles", "media_2_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "media_3_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "music_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "profile_accent_color", "TEXT");
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS global_chat_messages (
@@ -1342,9 +1347,12 @@ async function handleProfileMe(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      p.profile_accent_color,
+      c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN casino_profiles c ON c.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
   `).bind(session.id).first();
@@ -1392,9 +1400,12 @@ async function handleProfileView(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      p.profile_accent_color,
+      c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN casino_profiles c ON c.user_id = u.id
     WHERE u.id = ? AND u.approved = 1
     LIMIT 1
   `).bind(targetUserId).first();
@@ -1427,6 +1438,7 @@ async function handleProfileUpdate(request, env) {
   const media2 = cleanUrl(body?.media_2_url, 1200);
   const media3 = cleanUrl(body?.media_3_url, 1200);
   const musicUrl = cleanUrl(body?.music_url, 1200);
+  const profileAccentColor = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || "").trim()) ? String(body.profile_accent_color).trim() : "#1f2937";
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
@@ -1438,9 +1450,10 @@ async function handleProfileUpdate(request, env) {
       media_1_url,
       media_2_url,
       media_3_url,
-      music_url
+      music_url,
+      profile_accent_color
     )
-    VALUES (?, '', '', '', '', '', '', '', '')
+    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937')
   `).bind(session.id).run();
 
   await env.DB.prepare(`
@@ -1453,7 +1466,8 @@ async function handleProfileUpdate(request, env) {
       media_1_url = ?,
       media_2_url = ?,
       media_3_url = ?,
-      music_url = ?
+      music_url = ?,
+      profile_accent_color = ?
     WHERE user_id = ?
   `).bind(
     realName,
@@ -1464,6 +1478,7 @@ async function handleProfileUpdate(request, env) {
     media2,
     media3,
     musicUrl,
+    profileAccentColor,
     session.id
   ).run();
 
@@ -1484,9 +1499,12 @@ async function handleProfileUpdate(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      p.profile_accent_color,
+      c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN casino_profiles c ON c.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
   `).bind(session.id).first();
@@ -1526,6 +1544,9 @@ function formatProfileRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
+    profile_accent_color: row.profile_accent_color || "#1f2937",
+    casino_balance_pence: Number(row.grev_coin_balance || 0),
+    casino_balance: toCoinAmount(row.grev_coin_balance || 0),
     media,
     current_activity: null
   };
@@ -2114,9 +2135,12 @@ async function handleAdminUsers(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      p.profile_accent_color,
+      c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN casino_profiles c ON c.user_id = u.id
     ORDER BY LOWER(u.username) ASC
   `).all();
 
@@ -2167,9 +2191,12 @@ async function handleAdminUser(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      p.profile_accent_color,
+      c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN casino_profiles c ON c.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
   `).bind(userId).first();
@@ -2264,7 +2291,8 @@ async function handleAdminUpdateUser(request, env) {
     media_1_url: cleanUrl(body?.media_1_url, 1200),
     media_2_url: cleanUrl(body?.media_2_url, 1200),
     media_3_url: cleanUrl(body?.media_3_url, 1200),
-    music_url: cleanUrl(body?.music_url, 1200)
+    music_url: cleanUrl(body?.music_url, 1200),
+    profile_accent_color: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || '').trim()) ? String(body.profile_accent_color).trim() : '#1f2937'
   };
 
   if (!Number.isInteger(userId) || userId <= 0) {
@@ -2321,13 +2349,13 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
-      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url
-    ) VALUES (?, '', '', '', '', '', '', '', '')
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color
+    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937')
   `).bind(userId).run();
 
   await env.DB.prepare(`
     UPDATE user_profiles
-    SET real_name = ?, motto = ?, bio = ?, avatar_url = ?, media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = ?, media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?
     WHERE user_id = ?
   `).bind(
     profileFields.real_name,
@@ -2338,6 +2366,7 @@ async function handleAdminUpdateUser(request, env) {
     profileFields.media_2_url,
     profileFields.media_3_url,
     profileFields.music_url,
+    profileFields.profile_accent_color,
     userId
   ).run();
 
@@ -2374,9 +2403,12 @@ async function handleAdminUpdateUser(request, env) {
       p.media_1_url,
       p.media_2_url,
       p.media_3_url,
-      p.music_url
+      p.music_url,
+      p.profile_accent_color,
+      c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
+    LEFT JOIN casino_profiles c ON c.user_id = u.id
     WHERE u.id = ?
     LIMIT 1
   `).bind(userId).first();
@@ -2413,7 +2445,7 @@ async function requireGamblingAdmin(request, env) {
     return json({ success: false, error: "Not authenticated" }, 401, request);
   }
 
-  if (!Boolean(session.gambling_admin)) {
+  if (!Boolean(session.gambling_admin) && !Boolean(session.is_admin)) {
     return json({ success: false, error: "Gambling admin access required" }, 403, request);
   }
 
@@ -2723,7 +2755,8 @@ function formatAdminUserRow(row) {
     media_1_url: row.media_1_url || "",
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
-    music_url: row.music_url || ""
+    music_url: row.music_url || "",
+    profile_accent_color: row.profile_accent_color || "#1f2937"
   };
 }
 

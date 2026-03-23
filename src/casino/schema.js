@@ -91,6 +91,10 @@ const DEFAULT_GAMES = [
   {
     section_slug: 'custom-games', slug: 'event-lab', title: 'Event Lab', summary: 'Seasonal custom mode slot for limited-time experiences tied into Grev Coin progression.', badge: 'seasonal', sort_order: 2,
     settings: { enabled: true, entry_fee_coins: 100, featured_reward_coins: 500, live_event_enabled: true }
+  },
+  {
+    section_slug: 'custom-games', slug: 'texas-holdem', title: 'Texas Holdem', summary: 'Join a table, receive two hole cards, and play standard Texas Holdem streets with blinds, betting rounds, and showdowns.', badge: 'poker', sort_order: 3,
+    settings: { enabled: true, min_buy_in_coins: 500, max_seats: 6, small_blind_coins: 10, big_blind_coins: 20 }
   }
 ];
 

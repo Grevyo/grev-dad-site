@@ -7,904 +7,170 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .profile-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-      gap: 24px;
-      align-items: start;
-    }
-
-    .profile-stack {
-      display: grid;
-      gap: 24px;
-    }
-
-    .profile-hero {
-      display: grid;
-      grid-template-columns: 140px minmax(0, 1fr);
-      gap: 20px;
-      align-items: start;
-    }
-
-    .profile-avatar {
-      width: 140px;
-      height: 140px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      object-fit: cover;
-    }
-
-    .profile-avatar-placeholder {
-      width: 140px;
-      height: 140px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      display: grid;
-      place-items: center;
-      font-size: 2rem;
-      font-weight: 800;
-      color: var(--muted);
-    }
-
-    .profile-title {
-      margin: 0 0 8px;
-      font-size: 2rem;
-      line-height: 1.1;
-    }
-
-    .profile-subtitle {
-      margin: 0 0 8px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .profile-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .profile-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 30px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.04);
-      font-size: 0.9rem;
-    }
-
-    .profile-media-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .showcase-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
-
-    .showcase-slot { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.03); padding: 12px; }
-
-    .profile-media-grid img {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      object-fit: cover;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-    }
-
-    .profile-info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .info-card {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: rgba(255,255,255,0.02);
-      padding: 16px;
-    }
-
-    .info-card h3 {
-      margin: 0 0 6px;
-      font-size: 0.95rem;
-    }
-
-    .info-card p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.45;
-      word-break: break-word;
-    }
-
-    .profile-bio {
-      white-space: pre-wrap;
-      line-height: 1.65;
-      color: var(--text);
-    }
-
-    .empty-note {
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    .music-frame {
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: rgba(255,255,255,0.03);
-      overflow: hidden;
-    }
-
-    .music-frame iframe {
-      width: 100%;
-      border: 0;
-      display: block;
-    }
-
-    .music-link-note {
-      margin-top: 12px;
-      color: var(--muted);
-      font-size: 0.92rem;
-      line-height: 1.45;
-    }
-
-    .music-audio {
-      width: 100%;
-    }
-
-    .profile-load-indicator {
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      width: min(320px, calc(100vw - 36px));
-      padding: 14px;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.94);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-      z-index: 1200;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-
-    .profile-load-indicator.hidden {
-      display: block;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(10px);
-    }
-
-    .profile-load-title {
-      margin: 0 0 6px;
-      font-size: 0.95rem;
-      font-weight: 700;
-    }
-
-    .profile-load-text {
-      margin: 0 0 10px;
-      color: var(--muted);
-      font-size: 0.88rem;
-      line-height: 1.4;
-    }
-
-    .profile-load-bar {
-      height: 8px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
-      overflow: hidden;
-    }
-
-    .profile-load-bar-fill {
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #10a37f, #8ec5ff);
-      transition: width 0.25s ease;
-    }
-
-    @media (max-width: 980px) {
-      .profile-layout {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 700px) {
-      .profile-hero {
-        grid-template-columns: 1fr;
-      }
-
-      .profile-media-grid,
-      .profile-info-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    .profile-layout { display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(320px, .8fr); gap:24px; align-items:start; }
+    .profile-stack { display:grid; gap:24px; }
+    .profile-shell { border-radius:24px; border:1px solid color-mix(in srgb, var(--profile-accent, #1f2937) 45%, var(--border)); background:linear-gradient(135deg, color-mix(in srgb, var(--profile-accent, #1f2937) 55%, rgba(15,23,42,.96)), rgba(15,23,42,.95)); box-shadow:0 28px 60px rgba(0,0,0,.25); }
+    .profile-hero { display:grid; grid-template-columns:140px minmax(0,1fr); gap:20px; align-items:start; }
+    .profile-avatar,.profile-avatar-placeholder { width:140px; height:140px; border-radius:24px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); }
+    .profile-avatar { object-fit:cover; }
+    .profile-avatar-placeholder { display:grid; place-items:center; font-size:2rem; font-weight:800; color:#fff; }
+    .profile-title { margin:0 0 8px; font-size:clamp(2rem,4vw,2.6rem); }
+    .profile-subtitle,.muted-copy { color:rgba(255,255,255,.78); line-height:1.6; }
+    .profile-badges,.profile-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    .profile-badge { display:inline-flex; align-items:center; min-height:30px; padding:0 12px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.08); }
+    .profile-media-grid,.profile-info-grid { display:grid; gap:14px; }
+    .profile-media-grid { grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .profile-media-grid img { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:16px; border:1px solid var(--border); background:rgba(255,255,255,.03); }
+    .profile-info-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .info-card { border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); padding:16px; }
+    .info-card h3 { margin:0 0 6px; font-size:.95rem; }
+    .info-card p { margin:0; color:var(--muted); line-height:1.45; word-break:break-word; }
+    .profile-bio { white-space:pre-wrap; line-height:1.7; }
+    .music-frame { width:100%; border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); overflow:hidden; }
+    .music-frame iframe,.music-audio { width:100%; border:0; display:block; }
+    @media (max-width:980px){ .profile-layout{grid-template-columns:1fr;} }
+    @media (max-width:700px){ .profile-hero,.profile-media-grid,.profile-info-grid{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
-
     <main class="page-main">
       <p class="gambling-breadcrumb"><a href="/index.html">← Back to home</a></p>
       <div id="profile-message" class="hidden"></div>
-
-      <div class="profile-layout">
+      <div id="profile-root" class="profile-layout" style="--profile-accent:#1f2937;">
         <section class="profile-stack">
-          <section class="panel">
+          <section class="panel profile-shell">
             <div class="profile-hero">
               <div id="profile-avatar-wrap"></div>
-
               <div>
                 <h1 id="profile-title" class="profile-title">Loading profile...</h1>
                 <p id="profile-real-name" class="profile-subtitle"></p>
                 <p id="profile-motto" class="profile-subtitle"></p>
-
                 <div id="profile-badges" class="profile-badges"></div>
+                <div id="profile-actions" class="profile-actions"></div>
               </div>
             </div>
           </section>
-
-          <section class="panel">
-            <h2 class="panel-title">Bio</h2>
-            <div id="profile-bio" class="profile-bio empty-note">No bio set.</div>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel-title">Media</h2>
-            <div id="profile-media" class="profile-media-grid"></div>
-            <div id="profile-media-empty" class="empty-note mt-12">No profile media added.</div>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel-title">Music</h2>
-            <div id="profile-music-wrap">
-              <div class="empty-note">No music linked.</div>
-            </div>
-          </section>
+          <section class="panel"><h2 class="panel-title">Bio</h2><div id="profile-bio" class="profile-bio muted-copy">No bio set.</div></section>
+          <section class="panel"><h2 class="panel-title">Media</h2><div id="profile-media" class="profile-media-grid"></div><div id="profile-media-empty" class="muted-copy mt-12">No profile media added.</div></section>
+          <section class="panel"><h2 class="panel-title">Music</h2><div id="profile-music-wrap" class="muted-copy">No music saved.</div></section>
         </section>
-
         <aside class="profile-stack">
-          <section class="panel">
-            <h2 class="panel-title">Profile details</h2>
-            <div id="profile-info" class="profile-info-grid"></div>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel-title">CS2 simulator showcase</h2>
-            <p class="panel-subtitle">Simulated Grev Coins balance, opens, and recent drops (fake economy).</p>
-            <div id="cs2-profile-body" class="muted">Loading CS2 stats…</div>
-            <div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div>
-            <div class="mt-16" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
-              <a class="btn btn-primary" href="/gambling/index.html">Open gambling hub</a>
-              <a class="btn" href="/gambling/index.html">Casino</a>
-            </div>
-          </section>
-
-          <section class="panel" id="profile-edit-panel">
-            <h2 class="panel-title">Edit your profile</h2>
-            <p class="panel-subtitle">
-              Everything here is optional.
-            </p>
-
-            <form id="profile-form" class="form-grid">
-              <div class="form-group">
-                <label class="form-label" for="real-name">Real name</label>
-                <input id="real-name" class="form-input" type="text" maxlength="80" />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="motto">Motto</label>
-                <input id="motto" class="form-input" type="text" maxlength="140" />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="avatar-url">Avatar image URL</label>
-                <input id="avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="bio">Bio</label>
-                <textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height: 160px;"></textarea>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="media-1-url">Media 1 URL</label>
-                <input id="media-1-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="media-2-url">Media 2 URL</label>
-                <input id="media-2-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="media-3-url">Media 3 URL</label>
-                <input id="media-3-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="music-url">Music link</label>
-                <input id="music-url" class="form-input" type="url" maxlength="1200" placeholder="Spotify, SoundCloud, YouTube, or direct audio link" />
-                <div class="form-help">
-                  Supports Spotify, SoundCloud, YouTube, and direct audio files like mp3.
-                </div>
-              </div>
-
-              <div class="button-row">
-                <button id="save-profile-btn" class="btn btn-primary" type="submit">Save profile</button>
-              </div>
-            </form>
-          </section>
+          <section class="panel"><h2 class="panel-title">Profile details</h2><div id="profile-info" class="profile-info-grid"></div></section>
+          <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is now visible directly on your profile.</p><div id="casino-profile-balance" class="info-card"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
+          <section class="panel"><h2 class="panel-title">CS2 simulator showcase</h2><p class="panel-subtitle">Simulated Grev Coins balance, opens, and recent drops.</p><div id="cs2-profile-body" class="muted">Loading CS2 stats…</div><div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div><div class="mt-16" style="display:flex;flex-wrap:wrap;gap:10px;"><a class="btn btn-primary" href="/gambling/index.html">Open gambling hub</a><a class="btn" href="/gambling/index.html">Casino</a></div></section>
         </aside>
       </div>
     </main>
-
-    <footer class="footer">
-      <div class="footer-inner">Grev.dad — profile</div>
-    </footer>
-
-    <div id="profile-load-indicator" class="profile-load-indicator hidden" aria-live="polite">
-      <p class="profile-load-title">Loading profile data</p>
-      <p id="profile-load-text" class="profile-load-text">Starting…</p>
-      <div class="profile-load-bar">
-        <div id="profile-load-bar-fill" class="profile-load-bar-fill"></div>
-      </div>
-    </div>
   </div>
-
   <script>
+    const AUTH_CACHE_KEY = 'grevdad_auth_user';
     const params = new URLSearchParams(window.location.search);
-    const profileId = Number(params.get("id") || "");
-
-    const AUTH_CACHE_KEY = "grevdad_auth_user";
-
+    const profileId = Number(params.get('id') || '');
+    const isSpecificProfile = Number.isInteger(profileId) && profileId > 0;
     let currentUser = null;
     let loadedProfile = null;
-    let loadingIndicatorTimer = null;
+    const profileMessage = document.getElementById('profile-message');
+    const profileRoot = document.getElementById('profile-root');
+    const profileAvatarWrap = document.getElementById('profile-avatar-wrap');
+    const profileTitle = document.getElementById('profile-title');
+    const profileRealName = document.getElementById('profile-real-name');
+    const profileMotto = document.getElementById('profile-motto');
+    const profileBadges = document.getElementById('profile-badges');
+    const profileActions = document.getElementById('profile-actions');
+    const profileBio = document.getElementById('profile-bio');
+    const profileMedia = document.getElementById('profile-media');
+    const profileMediaEmpty = document.getElementById('profile-media-empty');
+    const profileMusicWrap = document.getElementById('profile-music-wrap');
+    const profileInfo = document.getElementById('profile-info');
+    const casinoProfileBalance = document.getElementById('casino-profile-balance');
+    const cs2ProfileBody = document.getElementById('cs2-profile-body');
+    const ygoProfileBody = document.getElementById('ygo-profile-body');
 
-    const profileMessage = document.getElementById("profile-message");
-    const profileAvatarWrap = document.getElementById("profile-avatar-wrap");
-    const profileTitle = document.getElementById("profile-title");
-    const profileRealName = document.getElementById("profile-real-name");
-    const profileMotto = document.getElementById("profile-motto");
-    const profileBadges = document.getElementById("profile-badges");
-    const profileBio = document.getElementById("profile-bio");
-    const profileMedia = document.getElementById("profile-media");
-    const profileMediaEmpty = document.getElementById("profile-media-empty");
-    const profileMusicWrap = document.getElementById("profile-music-wrap");
-    const profileInfo = document.getElementById("profile-info");
-    const cs2ProfileBody = document.getElementById("cs2-profile-body");
-    const ygoProfileBody = document.getElementById("ygo-profile-body");
-    const profileEditPanel = document.getElementById("profile-edit-panel");
-    const profileForm = document.getElementById("profile-form");
-    const saveProfileBtn = document.getElementById("save-profile-btn");
-    const profileLoadIndicator = document.getElementById("profile-load-indicator");
-    const profileLoadText = document.getElementById("profile-load-text");
-    const profileLoadBarFill = document.getElementById("profile-load-bar-fill");
+    function showMessage(type, text) { profileMessage.className = `alert alert-${type}`; profileMessage.textContent = text; }
+    function escapeHtml(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+    function formatDate(value) { if (!value) return '—'; const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    function formatGc(value) { return `${Number(value || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; }
+    function readCachedAuthUser() { try { const raw = sessionStorage.getItem(AUTH_CACHE_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } }
 
-    const realNameInput = document.getElementById("real-name");
-    const mottoInput = document.getElementById("motto");
-    const avatarUrlInput = document.getElementById("avatar-url");
-    const bioInput = document.getElementById("bio");
-    const media1Input = document.getElementById("media-1-url");
-    const media2Input = document.getElementById("media-2-url");
-    const media3Input = document.getElementById("media-3-url");
-    const musicUrlInput = document.getElementById("music-url");
-
-    function showMessage(type, text) {
-      profileMessage.className = `alert alert-${type}`;
-      profileMessage.textContent = text;
-    }
-
-    function clearMessage() {
-      profileMessage.className = "hidden";
-      profileMessage.textContent = "";
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-
-
-    function readCachedAuthUser() {
-      try {
-        const raw = window.sessionStorage.getItem(AUTH_CACHE_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (error) {
-        console.error(error);
-        return null;
-      }
-    }
-
-    function setLoadProgress(percent, text) {
-      if (!profileLoadIndicator) return;
-      window.clearTimeout(loadingIndicatorTimer);
-      profileLoadIndicator.classList.remove("hidden");
-      profileLoadBarFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-      profileLoadText.textContent = text;
-    }
-
-    function completeLoadProgress(text = "Profile ready.") {
-      if (!profileLoadIndicator) return;
-      setLoadProgress(100, text);
-      loadingIndicatorTimer = window.setTimeout(() => {
-        profileLoadIndicator.classList.add("hidden");
-      }, 700);
-    }
-
-    function formatDate(value) {
-      if (!value) return "—";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return "—";
-      return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-    }
-
-    function formatGbpPence(pence) {
-      const n = Number(pence || 0) / 100;
-      return `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    function formatCoins(value) {
-      const n = Number(value || 0);
-      return `${(n / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
-    }
-
-    async function loadCs2Profile(userId) {
-      if (!cs2ProfileBody) return;
-      cs2ProfileBody.textContent = "Loading CS2 stats…";
-      setLoadProgress(72, "Downloading CS2 profile data…");
-
-      try {
-        const response = await fetch(`/api/cs2/profile/public?user_id=${encodeURIComponent(userId)}`, {
-          method: "GET",
-          credentials: "same-origin"
-        });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          cs2ProfileBody.textContent = "CS2 stats are unavailable (database may not be configured).";
-          completeLoadProgress("Profile loaded with limited CS2 data.");
-          return;
-        }
-
-        if (!data.profile) {
-          cs2ProfileBody.textContent = "No CS2 profile yet — visit the CS2 hub after logging in.";
-          completeLoadProgress();
-          return;
-        }
-
-        const p = data.profile;
-        const opens = Array.isArray(data.opens) ? data.opens : [];
-        const recentOpens = opens.slice(0, 5).map((o) => `
-          <li>
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${escapeHtml(o.color_hex || "#999")};margin-right:6px;vertical-align:middle;"></span>
-            ${escapeHtml(o.item_name || "")} · ${escapeHtml(o.case_name || "")}
-          </li>
-        `).join("");
-
-        cs2ProfileBody.innerHTML = `
-          <div class="profile-info-grid">
-            <div class="info-card">
-              <h3>Balance</h3>
-              <p>${escapeHtml(formatGbpPence(p.balance_pence))} GC</p>
-            </div>
-            <div class="info-card">
-              <h3>Cases opened</h3>
-              <p>${escapeHtml(String(p.total_cases_opened || 0))}</p>
-            </div>
-            <div class="info-card">
-              <h3>Total spent</h3>
-              <p>${escapeHtml(formatGbpPence(p.total_spent_pence))}</p>
-            </div>
-            <div class="info-card">
-              <h3>Inventory value</h3>
-              <p>${escapeHtml(formatGbpPence(p.total_inventory_value_pence))}</p>
-            </div>
-          </div>
-          ${recentOpens ? `<ul class="mt-16" style="margin:0;padding-left:18px;line-height:1.6;">${recentOpens}</ul>` : `<p class="mt-16 empty-note">No opens recorded yet.</p>`}
-        `;
-        completeLoadProgress();
-      } catch (error) {
-        console.error(error);
-        cs2ProfileBody.textContent = "Could not load CS2 stats.";
-        completeLoadProgress("Profile loaded, but CS2 stats failed.");
-      }
-    }
-
-    async function fetchCurrentUser() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "same-origin"
-        });
-
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.authenticated) return null;
-        return data.user || null;
-      } catch (error) {
-        console.error(error);
-        return null;
-      }
-    }
-
-    async function loadYgoProfile(userId) {
-      setLoadProgress(84, "Downloading Yu-Gi-Oh showcase data…");
-      try {
-        const response = await fetch(`/api/ygo/profile/public?user_id=${encodeURIComponent(userId)}`, { credentials: "same-origin" });
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success || !data.profile) {
-          ygoProfileBody.textContent = "No Yu-Gi-Oh showcase yet — open packs to build one.";
-          return;
-        }
-        const cards = Array.isArray(data.showcase) ? data.showcase : [];
-        ygoProfileBody.innerHTML = `
-          <div class="profile-info-grid">
-            <div><h3 class="mt-0">Wallet</h3><p>${escapeHtml(formatCoins(data.profile.wallet_balance))}</p></div>
-            <div><h3 class="mt-0">Packs opened</h3><p>${escapeHtml(String(data.profile.packs_opened || 0))}</p></div>
-            <div><h3 class="mt-0">Cards owned</h3><p>${escapeHtml(String(data.profile.cards_owned || 0))}</p></div>
-            <div><h3 class="mt-0">Achievements</h3><p>${escapeHtml(String(data.profile.achievements_completed || 0))}</p></div>
-          </div>
-          <div class="showcase-grid" style="margin-top:16px">
-            ${[0,1,2,3,4].map((slot) => {
-              const card = cards.find((entry) => Number(entry.slot) === slot);
-              if (!card) return `<div class="showcase-slot"><strong>Card slot ${slot + 1}</strong><div class="muted">Empty</div></div>`;
-              return `<div class="showcase-slot"><strong>Card slot ${slot + 1}</strong>${card.image_url ? `<img src="${escapeHtml(card.image_url)}" alt="${escapeHtml(card.card_name)}" style="width:100%;border-radius:12px;margin:10px 0;aspect-ratio:0.72;object-fit:cover" />` : ''}<div>${escapeHtml(card.card_name)}</div><div class="muted">${escapeHtml(card.foil_label || card.rarity_code || '')} · ${escapeHtml(card.pack_slug || '')} · ${escapeHtml(formatCoins(card.estimated_price_coins || 0))}</div></div>`;
-            }).join('')}
-          </div>`;
-      } catch (error) {
-        console.error(error);
-        ygoProfileBody.textContent = "Could not load Yu-Gi-Oh showcase.";
-      }
-    }
-
-    async function loadProfile() {
-      clearMessage();
-      setLoadProgress(28, "Downloading profile data…");
-
-      const endpoint = Number.isInteger(profileId) && profileId > 0
-        ? `/api/profile/view?id=${encodeURIComponent(profileId)}`
-        : "/api/profile/me";
-
-      try {
-        const response = await fetch(endpoint, {
-          method: "GET",
-          credentials: "same-origin"
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          if (response.status === 401 && !(Number.isInteger(profileId) && profileId > 0)) {
-            window.location.href = "/login.html";
-            return;
-          }
-          showMessage("error", data?.error || "Failed to load profile.");
-          completeLoadProgress("Profile load failed.");
-          return;
-        }
-
-        loadedProfile = data.profile;
-        renderProfile(data.profile);
-        populateForm(data.profile);
-        setLoadProgress(58, "Rendering profile…");
-        await loadCs2Profile(data.profile.id);
-        await loadYgoProfile(data.profile.id);
-        setLoadProgress(100, "Done");
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not load profile.");
-        completeLoadProgress("Profile load failed.");
-      }
+    function renderMusic(url) {
+      if (!url) { profileMusicWrap.textContent = 'No music saved.'; return; }
+      if (url.includes('spotify.com')) { const embed = url.replace('/track/', '/embed/track/').replace('/playlist/', '/embed/playlist/').replace('/album/', '/embed/album/'); profileMusicWrap.innerHTML = `<div class="music-frame"><iframe src="${escapeHtml(embed)}" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe></div>`; return; }
+      if (url.includes('youtube.com') || url.includes('youtu.be')) { const match = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/); if (match) { profileMusicWrap.innerHTML = `<div class="music-frame"><iframe src="https://www.youtube.com/embed/${escapeHtml(match[1])}" height="315" allowfullscreen></iframe></div>`; return; } }
+      if (/\.(mp3|wav|ogg)(\?|#|$)/i.test(url)) { profileMusicWrap.innerHTML = `<audio class="music-audio" controls src="${escapeHtml(url)}"></audio>`; return; }
+      profileMusicWrap.innerHTML = `<div class="muted-copy">Saved link: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open music link</a></div>`;
     }
 
     function renderProfile(profile) {
-      const firstLetter = (profile.username || "U").charAt(0).toUpperCase();
-
-      if (profile.avatar_url) {
-        profileAvatarWrap.innerHTML = `
-          <img class="profile-avatar" src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(profile.username)} avatar" />
-        `;
-      } else {
-        profileAvatarWrap.innerHTML = `
-          <div class="profile-avatar-placeholder">${escapeHtml(firstLetter)}</div>
-        `;
-      }
-
-      profileTitle.textContent = profile.username || "Profile";
-
-      profileRealName.textContent = profile.real_name
-        ? `Real name: ${profile.real_name}`
-        : "No real name added.";
-
-      profileMotto.textContent = profile.motto
-        ? `“${profile.motto}”`
-        : "No motto added.";
-
-      profileBadges.innerHTML = `
-        <span class="profile-badge">${escapeHtml(profile.group_display || "Standard")}</span>
-        ${profile.is_admin ? `<span class="profile-badge">Admin Access</span>` : ""}
-      `;
-
-      if (profile.bio) {
-        profileBio.classList.remove("empty-note");
-        profileBio.textContent = profile.bio;
-      } else {
-        profileBio.classList.add("empty-note");
-        profileBio.textContent = "No bio set.";
-      }
-
-      const mediaItems = Array.isArray(profile.media) ? profile.media : [];
-      if (mediaItems.length) {
-        profileMedia.innerHTML = mediaItems.map((url) => `
-          <img src="${escapeHtml(url)}" alt="Profile media" loading="lazy" />
-        `).join("");
-        profileMediaEmpty.style.display = "none";
-      } else {
-        profileMedia.innerHTML = "";
-        profileMediaEmpty.style.display = "block";
-      }
-
-      renderMusic(profile.music_url || "");
-
-      profileInfo.innerHTML = `
-        <div class="info-card">
-          <h3>Username</h3>
-          <p>${escapeHtml(profile.username || "—")}</p>
-        </div>
-        <div class="info-card">
-          <h3>Role</h3>
-          <p>${escapeHtml(profile.group_display || "Standard")}</p>
-        </div>
-        <div class="info-card">
-          <h3>Created</h3>
-          <p>${escapeHtml(formatDate(profile.created_at))}</p>
-        </div>
-        <div class="info-card">
-          <h3>Last seen</h3>
-          <p>${escapeHtml(formatDate(profile.last_seen_at))}</p>
-        </div>
-      `;
-
-      updateProfileEditVisibility(profile);
-    }
-
-    function updateProfileEditVisibility(profile = loadedProfile) {
-      if (!profile) return;
+      const firstLetter = (profile.username || 'U').charAt(0).toUpperCase();
+      profileRoot.style.setProperty('--profile-accent', profile.profile_accent_color || '#1f2937');
+      profileAvatarWrap.innerHTML = profile.avatar_url ? `<img class="profile-avatar" src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(profile.username)} avatar" />` : `<div class="profile-avatar-placeholder">${escapeHtml(firstLetter)}</div>`;
+      profileTitle.textContent = profile.username || 'Profile';
+      profileRealName.textContent = profile.real_name ? `Real name: ${profile.real_name}` : 'No real name added.';
+      profileMotto.textContent = profile.motto ? `“${profile.motto}”` : 'No motto added.';
+      profileBadges.innerHTML = `<span class="profile-badge">${escapeHtml(profile.group_display || 'Standard')}</span>${profile.is_admin ? '<span class="profile-badge">Admin Access</span>' : ''}${profile.gambling_admin ? '<span class="profile-badge">Casino Admin</span>' : ''}`;
       const isOwnProfile = currentUser && Number(currentUser.id) === Number(profile.id);
-      profileEditPanel.classList.toggle("hidden", !isOwnProfile);
+      profileActions.innerHTML = isOwnProfile ? `<a class="btn btn-primary" href="/profile-edit.html">Edit your profile</a>` : '';
+      profileBio.textContent = profile.bio || 'No bio set.';
+      profileBio.classList.toggle('muted-copy', !profile.bio);
+      const media = Array.isArray(profile.media) ? profile.media : [];
+      profileMedia.innerHTML = media.map((url) => `<img src="${escapeHtml(url)}" alt="Profile media" loading="lazy" />`).join('');
+      profileMediaEmpty.style.display = media.length ? 'none' : 'block';
+      renderMusic(profile.music_url || '');
+      profileInfo.innerHTML = `
+        <div class="info-card"><h3>Username</h3><p>${escapeHtml(profile.username || '—')}</p></div>
+        <div class="info-card"><h3>Role</h3><p>${escapeHtml(profile.group_display || 'Standard')}</p></div>
+        <div class="info-card"><h3>Joined</h3><p>${escapeHtml(formatDate(profile.created_at))}</p></div>
+        <div class="info-card"><h3>Last seen</h3><p>${escapeHtml(formatDate(profile.last_seen_at))}</p></div>
+        <div class="info-card"><h3>Profile colour</h3><p>${escapeHtml(profile.profile_accent_color || '#1f2937')}</p></div>
+        <div class="info-card"><h3>Casino admin</h3><p>${profile.gambling_admin ? 'Yes' : 'No'}</p></div>`;
+      casinoProfileBalance.innerHTML = `<h3>Balance</h3><p>${escapeHtml(formatGc(profile.casino_balance || 0))}</p>`;
     }
 
-    function populateForm(profile) {
-      if (!profile) return;
-
-      realNameInput.value = profile.real_name || "";
-      mottoInput.value = profile.motto || "";
-      avatarUrlInput.value = profile.avatar_url || "";
-      bioInput.value = profile.bio || "";
-      media1Input.value = profile.media_1_url || "";
-      media2Input.value = profile.media_2_url || "";
-      media3Input.value = profile.media_3_url || "";
-      musicUrlInput.value = profile.music_url || "";
-    }
-
-    function getYouTubeId(url) {
+    async function loadCs2Profile(userId) {
       try {
-        const parsed = new URL(url);
-
-        if (parsed.hostname.includes("youtu.be")) {
-          return parsed.pathname.split("/").filter(Boolean)[0] || "";
-        }
-
-        if (parsed.hostname.includes("youtube.com")) {
-          if (parsed.pathname === "/watch") {
-            return parsed.searchParams.get("v") || "";
-          }
-
-          const parts = parsed.pathname.split("/").filter(Boolean);
-          if (parts[0] === "embed" && parts[1]) return parts[1];
-          if ((parts[0] === "shorts" || parts[0] === "live") && parts[1]) return parts[1];
-        }
-
-        return "";
-      } catch {
-        return "";
-      }
-    }
-
-    function getSpotifyEmbedUrl(url) {
-      try {
-        const parsed = new URL(url);
-        if (!parsed.hostname.includes("spotify.com")) return "";
-
-        const parts = parsed.pathname.split("/").filter(Boolean);
-        const allowed = ["track", "album", "playlist", "artist", "episode", "show"];
-
-        if (parts.length >= 2 && allowed.includes(parts[0])) {
-          return `https://open.spotify.com/embed/${parts[0]}/${parts[1]}`;
-        }
-
-        return "";
-      } catch {
-        return "";
-      }
-    }
-
-    function getSoundCloudEmbedUrl(url) {
-      try {
-        const parsed = new URL(url);
-        if (!parsed.hostname.includes("soundcloud.com")) return "";
-        return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2310a37f&auto_play=false&hide_related=false&show_comments=false&show_user=true&show_reposts=false&show_teaser=true`;
-      } catch {
-        return "";
-      }
-    }
-
-    function isDirectAudio(url) {
-      return /\.(mp3|ogg|wav|m4a|aac|flac)(\?|#|$)/i.test(url);
-    }
-
-    function renderMusic(url) {
-      if (!url) {
-        profileMusicWrap.innerHTML = `<div class="empty-note">No music linked.</div>`;
-        return;
-      }
-
-      const spotifyEmbed = getSpotifyEmbedUrl(url);
-      if (spotifyEmbed) {
-        profileMusicWrap.innerHTML = `
-          <div class="music-frame">
-            <iframe
-              src="${escapeHtml(spotifyEmbed)}"
-              height="152"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy">
-            </iframe>
-          </div>
-          <div class="music-link-note">Spotify embed</div>
-        `;
-        return;
-      }
-
-      const soundCloudEmbed = getSoundCloudEmbedUrl(url);
-      if (soundCloudEmbed) {
-        profileMusicWrap.innerHTML = `
-          <div class="music-frame">
-            <iframe
-              src="${escapeHtml(soundCloudEmbed)}"
-              height="166"
-              allow="autoplay"
-              loading="lazy">
-            </iframe>
-          </div>
-          <div class="music-link-note">SoundCloud embed</div>
-        `;
-        return;
-      }
-
-      const youtubeId = getYouTubeId(url);
-      if (youtubeId) {
-        profileMusicWrap.innerHTML = `
-          <div class="music-frame">
-            <iframe
-              src="https://www.youtube.com/embed/${escapeHtml(youtubeId)}"
-              height="315"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              loading="lazy">
-            </iframe>
-          </div>
-          <div class="music-link-note">YouTube embed</div>
-        `;
-        return;
-      }
-
-      if (isDirectAudio(url)) {
-        profileMusicWrap.innerHTML = `
-          <audio class="music-audio" controls preload="none">
-            <source src="${escapeHtml(url)}" />
-            Your browser does not support the audio element.
-          </audio>
-          <div class="music-link-note">Direct audio file</div>
-        `;
-        return;
-      }
-
-      profileMusicWrap.innerHTML = `
-        <div class="empty-note">This link type could not be embedded automatically.</div>
-        <div class="music-link-note">
-          Saved link: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open music link</a>
-        </div>
-      `;
-    }
-
-    async function saveProfile(event) {
-      event.preventDefault();
-      clearMessage();
-
-      saveProfileBtn.disabled = true;
-      saveProfileBtn.textContent = "Saving...";
-
-      try {
-        const response = await fetch("/api/profile/update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            real_name: realNameInput.value,
-            motto: mottoInput.value,
-            avatar_url: avatarUrlInput.value,
-            bio: bioInput.value,
-            media_1_url: media1Input.value,
-            media_2_url: media2Input.value,
-            media_3_url: media3Input.value,
-            music_url: musicUrlInput.value
-          })
-        });
-
+        const response = await fetch(`/api/cs2/profile/public?user_id=${encodeURIComponent(userId)}`, { credentials: 'same-origin' });
         const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.profile) { cs2ProfileBody.textContent = 'CS2 stats are unavailable.'; return; }
+        const p = data.profile;
+        cs2ProfileBody.innerHTML = `<div class="profile-info-grid"><div class="info-card"><h3>Balance</h3><p>${escapeHtml(`${Number((p.balance_pence || 0) / 100).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`)}</p></div><div class="info-card"><h3>Cases opened</h3><p>${escapeHtml(String(p.total_opened || 0))}</p></div></div>`;
+      } catch { cs2ProfileBody.textContent = 'Could not load CS2 stats.'; }
+    }
+    async function loadYgoProfile(userId) {
+      try {
+        const response = await fetch(`/api/ygo/profile/public?user_id=${encodeURIComponent(userId)}`, { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success || !data.profile) { ygoProfileBody.textContent = 'No Yu-Gi-Oh showcase yet.'; return; }
+        ygoProfileBody.innerHTML = `<div class="profile-info-grid"><div class="info-card"><h3>Wallet</h3><p>${escapeHtml(formatGc(data.profile.wallet_balance || 0))}</p></div><div class="info-card"><h3>Packs opened</h3><p>${escapeHtml(String(data.profile.packs_opened || 0))}</p></div></div>`;
+      } catch { ygoProfileBody.textContent = 'Could not load Yu-Gi-Oh showcase.'; }
+    }
 
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to save profile.");
-          return;
+    async function loadProfile() {
+      const endpoint = isSpecificProfile ? `/api/profile/view?id=${encodeURIComponent(profileId)}` : '/api/profile/me';
+      const response = await fetch(endpoint, { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        if (response.status === 401 && !isSpecificProfile) { window.location.href = '/login.html'; return; }
+        throw new Error(data?.error || 'Failed to load profile.');
+      }
+      loadedProfile = data.profile;
+      renderProfile(loadedProfile);
+      await Promise.all([loadCs2Profile(loadedProfile.id), loadYgoProfile(loadedProfile.id)]);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        currentUser = readCachedAuthUser();
+        if (isSpecificProfile) {
+          try { const me = await fetch('/api/auth/me', { credentials:'same-origin' }); const meData = await me.json().catch(() => null); if (me.ok && meData?.authenticated) currentUser = meData.user; } catch {}
         }
-
-        loadedProfile = data.profile;
-        renderProfile(data.profile);
-        populateForm(data.profile);
-        showMessage("success", "Profile updated.");
+        await loadProfile();
       } catch (error) {
         console.error(error);
-        showMessage("error", "Could not save profile.");
-      } finally {
-        saveProfileBtn.disabled = false;
-        saveProfileBtn.textContent = "Save profile";
+        showMessage('error', error.message || 'Could not load profile.');
       }
-    }
-
-    async function initPage() {
-      setLoadProgress(8, "Preparing profile page…");
-      currentUser = readCachedAuthUser();
-
-      const isViewingSpecificProfile = Number.isInteger(profileId) && profileId > 0;
-      const currentUserRefresh = isViewingSpecificProfile
-        ? fetchCurrentUser().then((user) => {
-            currentUser = user;
-            updateProfileEditVisibility();
-            return user;
-          })
-        : Promise.resolve(currentUser);
-
-      await loadProfile();
-
-      if (!isViewingSpecificProfile) {
-        currentUser = currentUser || loadedProfile;
-        updateProfileEditVisibility();
-        return;
-      }
-
-      await currentUserRefresh;
-    }
-
-    profileForm.addEventListener("submit", saveProfile);
-    document.addEventListener("DOMContentLoaded", initPage);
+    });
   </script>
 </body>
 </html>

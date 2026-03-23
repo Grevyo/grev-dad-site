@@ -1,5 +1,4 @@
 import { ensureCasinoTables } from './schema.js';
-import { getCasesDb } from '../lib/cases-binding.js';
 
 function parseJsonSafe(value, fallback = {}) {
   try {
@@ -37,6 +36,28 @@ function normalizeSettings(value) {
   return result;
 }
 
+
+
+async function buildCasinoBalanceRows(env, formatCoins) {
+  const users = await env.DB.prepare(`
+    SELECT u.id, u.username, u.approved, u.gambling_admin, c.grev_coin_balance, c.updated_at, c.refreshed_at
+    FROM casino_profiles c
+    INNER JOIN users u ON u.id = c.user_id
+    ORDER BY LOWER(u.username) ASC
+  `).all();
+
+  return (users.results || []).map((row) => ({
+    user_id: Number(row.id),
+    username: row.username || `User ${row.id}`,
+    approved: Boolean(row.approved),
+    gambling_admin: Boolean(row.gambling_admin),
+    balance: formatCoins(row.grev_coin_balance || 0),
+    balance_pence: Number(row.grev_coin_balance || 0),
+    updated_at: row.updated_at || null,
+    refreshed_at: row.refreshed_at || null
+  }));
+}
+
 async function buildCatalogPayload(db) {
   const [sectionRows, gameRows] = await Promise.all([
     db.prepare(`SELECT * FROM casino_sections ORDER BY sort_order ASC, title ASC`).all(),
@@ -67,7 +88,7 @@ async function buildCatalogPayload(db) {
 }
 
 export async function handleCasinoRequest(request, env, deps) {
-  const { json, requireGamblingAdmin, safeJson, isoNow } = deps;
+  const { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount } = deps;
   const url = new URL(request.url);
   const { pathname } = url;
   if (!pathname.startsWith('/api/casino')) return null;
@@ -77,6 +98,38 @@ export async function handleCasinoRequest(request, env, deps) {
   if (pathname === '/api/casino/catalog' && request.method === 'GET') {
     const sections = await buildCatalogPayload(db);
     return json({ success: true, sections }, 200, request);
+  }
+
+  if (pathname === '/api/casino/admin/balances' && request.method === 'GET') {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    return json({ success: true, balances: await buildCasinoBalanceRows(env, toCoinAmount) }, 200, request);
+  }
+
+  if (pathname === '/api/casino/admin/balance' && request.method === 'POST') {
+    const admin = await requireGamblingAdmin(request, env);
+    if (admin instanceof Response) return admin;
+    const body = await safeJson(request);
+    const userId = Number(body?.user_id);
+    const delta = Number(body?.balance_delta_pence ?? body?.gambling_balance_delta ?? 0);
+    if (!Number.isInteger(userId) || userId <= 0) return json({ success: false, error: 'A valid user id is required' }, 400, request);
+    if (!Number.isInteger(delta) || delta === 0) return json({ success: false, error: 'balance_delta_pence must be a non-zero integer' }, 400, request);
+
+    const user = await env.DB.prepare(`SELECT id, username FROM users WHERE id = ? LIMIT 1`).bind(userId).first();
+    if (!user) return json({ success: false, error: 'User not found' }, 404, request);
+
+    const profile = await ensureCasinoProfile(env, userId, user.username, { force: true });
+    const nextBalance = Number(profile?.grev_coin_balance || 0) + delta;
+    if (nextBalance < 0) return json({ success: false, error: 'Balance update would make the casino balance negative' }, 400, request);
+
+    const now = isoNow();
+    if (db) {
+      await db.prepare(`UPDATE case_profiles SET balance = ?, updated_at = ? WHERE user_id = ?`).bind(nextBalance, now, userId).run();
+    }
+    await env.DB.prepare(`UPDATE casino_profiles SET grev_coin_balance = ?, updated_at = ?, refreshed_at = ? WHERE user_id = ?`).bind(nextBalance, now, now, userId).run();
+
+    const updated = await ensureCasinoProfile(env, userId, user.username, { force: true });
+    return json({ success: true, message: 'Casino balance updated', profile: formatCasinoProfile(updated, user.username), daily_spin: await getCasinoDailySpinState(env, userId), balance_after: toCoinAmount(nextBalance), balance_after_pence: nextBalance }, 200, request);
   }
 
   if (pathname === '/api/casino/admin/catalog' && request.method === 'GET') {
