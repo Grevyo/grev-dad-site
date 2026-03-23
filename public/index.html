@@ -9,35 +9,58 @@
   <style>
     .home-layout {
       display: grid;
-      grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
-      gap: 20px;
+      grid-template-columns: minmax(72px, 88px) minmax(0, 320px) minmax(0, 1fr);
+      gap: 24px;
       align-items: start;
       transition: grid-template-columns 0.2s ease;
     }
 
     .home-layout.sidebar-hidden {
-      grid-template-columns: 0 minmax(0, 1fr);
+      grid-template-columns: minmax(72px, 88px) 0 minmax(0, 1fr);
     }
 
+    .playground-rail,
     .playground-sidebar {
       position: sticky;
       top: 118px;
+      align-self: start;
+    }
+
+    .playground-rail {
+      z-index: 2;
+    }
+
+    .playground-rail-btn {
+      display: inline-flex;
+      flex-direction: column;
+      width: 100%;
+      min-height: 180px;
+      border-radius: 28px;
+      padding: 20px 12px;
+      gap: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    .playground-rail-btn .playground-rail-icon {
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .playground-sidebar {
       display: grid;
       gap: 12px;
-      align-self: start;
       overflow: hidden;
       transition: opacity 0.2s ease, transform 0.2s ease;
     }
 
     .home-layout.sidebar-hidden .playground-sidebar {
       opacity: 0;
-      transform: translateX(-12px);
+      transform: translateX(-16px);
       pointer-events: none;
-    }
-
-    .playground-toggle {
-      display: inline-flex;
-      width: 100%;
     }
 
     .playground-panel {
@@ -126,17 +149,11 @@
       line-height: 1;
     }
 
-    .home-subtitle {
-      margin: 0;
-      font-size: clamp(1.3rem, 2.2vw, 1.8rem);
-      line-height: 1.2;
-    }
-
     .home-copy {
       margin: 0;
       color: var(--muted);
       line-height: 1.7;
-      max-width: 70ch;
+      max-width: 78ch;
     }
 
     .home-actions {
@@ -186,6 +203,7 @@
         grid-template-columns: 1fr;
       }
 
+      .playground-rail,
       .playground-sidebar,
       .home-layout.sidebar-hidden .playground-sidebar {
         position: static;
@@ -193,6 +211,13 @@
         opacity: 1;
         transform: none;
         pointer-events: auto;
+      }
+
+      .playground-rail-btn {
+        writing-mode: horizontal-tb;
+        transform: none;
+        min-height: 52px;
+        flex-direction: row;
       }
 
       .playground-panel {
@@ -210,16 +235,19 @@
     <div id="header-mount"></div>
 
     <main class="page-main">
-      <div class="home-layout">
-        <aside class="playground-sidebar">
-          <button class="btn playground-toggle" id="playground-toggle" type="button" aria-expanded="true" aria-controls="playground-panel">
-            Hide playgrounds
+      <div class="home-layout sidebar-hidden">
+        <aside class="playground-rail">
+          <button class="btn playground-rail-btn" id="playground-toggle" type="button" aria-expanded="false" aria-controls="playground-panel">
+            <span class="playground-rail-icon">☰</span>
+            <span id="playground-toggle-label">Playgrounds</span>
           </button>
+        </aside>
 
-          <section class="panel playground-panel open" id="playground-panel">
+        <aside class="playground-sidebar" aria-label="Playground sidebar">
+          <section class="panel playground-panel" id="playground-panel">
             <div class="playground-panel-title-row">
               <h2 class="panel-title">Playgrounds</h2>
-              <button class="btn playground-close" id="playground-close" type="button" aria-label="Hide playground sidebar">Hide</button>
+              <button class="btn playground-close" id="playground-close" type="button" aria-label="Collapse playground sidebar">Hide</button>
             </div>
             <div class="playground-links">
               <a class="playground-link" href="/gambling/index.html">
@@ -258,8 +286,7 @@
           <section class="panel">
             <div class="intro-stack">
               <p class="eyebrow">Welcome to Grev.dad</p>
-              <h1 class="home-title">Grev.dad</h1>
-              <h2 class="home-subtitle">What is Grev.dad?</h2>
+              <h1 class="home-title">What is Grev.dad?</h1>
               <p class="home-copy">Grev.dad is a goofy little community site full of playful experiments, profile customization, chats, forum posts, and side quests. Nothing here is especially serious on purpose — the whole thing is meant to feel fun, silly, and a bit chaotic in the best way.</p>
             </div>
 
@@ -497,14 +524,16 @@
       const panel = document.getElementById("playground-panel");
       const toggle = document.getElementById("playground-toggle");
       const closeBtn = document.getElementById("playground-close");
-      if (!layout || !panel || !toggle) return;
+      const label = document.getElementById("playground-toggle-label");
+      if (!layout || !panel || !toggle || !label) return;
 
       const isMobile = window.matchMedia("(max-width: 900px)").matches;
-      layout.classList.toggle("sidebar-hidden", !isMobile && hidden);
-      panel.classList.toggle("open", isMobile ? !hidden : true);
+      layout.classList.toggle("sidebar-hidden", hidden);
+      panel.classList.toggle("open", !hidden);
       toggle.setAttribute("aria-expanded", String(!hidden));
-      toggle.textContent = hidden ? "Show playgrounds" : "Hide playgrounds";
-      if (closeBtn) closeBtn.classList.toggle("hidden", hidden || isMobile);
+      toggle.setAttribute("aria-label", hidden ? "Open playground sidebar" : "Collapse playground sidebar");
+      label.textContent = hidden ? "Playgrounds" : "Hide playgrounds";
+      if (closeBtn) closeBtn.classList.toggle("hidden", hidden);
 
       try {
         window.localStorage.setItem(sidebarStorageKey, hidden ? "1" : "0");
@@ -528,7 +557,12 @@
       const mediaQuery = window.matchMedia("(max-width: 900px)");
       let isHidden = getInitialSidebarHidden();
 
-      const syncSidebar = () => setPlaygroundSidebarHidden(isHidden);
+      const syncSidebar = () => {
+        if (mediaQuery.matches && window.localStorage.getItem(sidebarStorageKey) === null) {
+          isHidden = true;
+        }
+        setPlaygroundSidebarHidden(isHidden);
+      };
 
       toggle?.addEventListener("click", () => {
         isHidden = !isHidden;
@@ -540,10 +574,17 @@
         syncSidebar();
       });
 
+      const handleMediaChange = () => {
+        if (!mediaQuery.matches && window.localStorage.getItem(sidebarStorageKey) === null) {
+          isHidden = false;
+        }
+        syncSidebar();
+      };
+
       if (typeof mediaQuery.addEventListener === "function") {
-        mediaQuery.addEventListener("change", syncSidebar);
+        mediaQuery.addEventListener("change", handleMediaChange);
       } else if (typeof mediaQuery.addListener === "function") {
-        mediaQuery.addListener(syncSidebar);
+        mediaQuery.addListener(handleMediaChange);
       }
 
       syncSidebar();
@@ -567,6 +608,5 @@
 
     document.addEventListener("DOMContentLoaded", initPage);
   </script>
-</script>
 </body>
 </html>
