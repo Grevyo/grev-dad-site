@@ -102,32 +102,46 @@ async function writeSnapshot(db, scopeType, scopeSlug, payload, refreshedAt, nex
   `).bind(scopeType, scopeSlug, JSON.stringify(payload), refreshedAt, nextRefreshAt, isoNow()).run();
 }
 
-function buildLeaderboardRows(rows) {
-  return rows.map((row, index) => ({
-    rank: index + 1,
-    user_id: Number(row.user_id),
-    username: row.username || `User ${row.user_id}`,
-    net_pence: Number(row.net_pence || 0),
-    net_coins: toCoinAmount(row.net_pence || 0),
-    updated_at: row.updated_at || null
-  }));
+async function getApprovedUsersById(env, userIds) {
+  const numericIds = [...new Set((userIds || []).map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0))];
+  if (!numericIds.length) return new Map();
+  const placeholders = numericIds.map(() => '?').join(', ');
+  const result = await env.DB.prepare(`
+    SELECT id, username
+    FROM users
+    WHERE approved = 1 AND id IN (${placeholders})
+  `).bind(...numericIds).all();
+  return new Map((result.results || []).map((row) => [Number(row.id), row.username || `User ${row.id}`]));
 }
 
-async function buildGameBoard(db, game) {
+function buildLeaderboardRows(rows, approvedUsers) {
+  return rows
+    .filter((row) => approvedUsers.has(Number(row.user_id)))
+    .sort((a, b) => Number(b.net_pence || 0) - Number(a.net_pence || 0) || approvedUsers.get(Number(a.user_id)).localeCompare(approvedUsers.get(Number(b.user_id)), undefined, { sensitivity: 'base' }))
+    .slice(0, 25)
+    .map((row, index) => ({
+      rank: index + 1,
+      user_id: Number(row.user_id),
+      username: approvedUsers.get(Number(row.user_id)) || `User ${row.user_id}`,
+      net_pence: Number(row.net_pence || 0),
+      net_coins: toCoinAmount(row.net_pence || 0),
+      updated_at: row.updated_at || null
+    }));
+}
+
+async function buildGameBoard(env, db, game) {
   const rows = await db.prepare(`
-    SELECT e.user_id, e.net_pence, e.updated_at, u.username
-    FROM casino_game_earnings e
-    INNER JOIN users u ON u.id = e.user_id
-    WHERE e.game_slug = ? AND u.approved = 1
-    ORDER BY e.net_pence DESC, LOWER(u.username) ASC
-    LIMIT 25
+    SELECT user_id, net_pence, updated_at
+    FROM casino_game_earnings
+    WHERE game_slug = ?
   `).bind(game.slug).all();
+  const approvedUsers = await getApprovedUsersById(env, (rows.results || []).map((row) => row.user_id));
   return {
     slug: game.slug,
     title: game.title,
     summary: game.summary,
     badge: game.badge || '',
-    entries: buildLeaderboardRows(rows.results || [])
+    entries: buildLeaderboardRows(rows.results || [], approvedUsers)
   };
 }
 
@@ -160,20 +174,17 @@ export async function getCasinoLeaderboards(env) {
       boards.push(gameCache);
       continue;
     }
-    const board = await buildGameBoard(db, game);
+    const board = await buildGameBoard(env, db, game);
     boards.push(board);
     await writeSnapshot(db, LEADERBOARD_SCOPE_GAME, game.slug, board, refreshWindow.refreshedAt, refreshWindow.nextRefreshAt);
   }
 
   const overallRows = await db.prepare(`
-    SELECT e.user_id, SUM(e.net_pence) AS net_pence, MAX(e.updated_at) AS updated_at, u.username
-    FROM casino_game_earnings e
-    INNER JOIN users u ON u.id = e.user_id
-    WHERE u.approved = 1
-    GROUP BY e.user_id, u.username
-    ORDER BY SUM(e.net_pence) DESC, LOWER(u.username) ASC
-    LIMIT 25
+    SELECT user_id, SUM(net_pence) AS net_pence, MAX(updated_at) AS updated_at
+    FROM casino_game_earnings
+    GROUP BY user_id
   `).all();
+  const overallApprovedUsers = await getApprovedUsersById(env, (overallRows.results || []).map((row) => row.user_id));
 
   const payload = {
     refreshed_at: refreshWindow.refreshedAt,
@@ -183,7 +194,7 @@ export async function getCasinoLeaderboards(env) {
       slug: LEADERBOARD_SCOPE_ALL,
       title: 'All Casino Games',
       summary: 'Combined Grev Coins earned across every casino game.',
-      entries: buildLeaderboardRows(overallRows.results || [])
+      entries: buildLeaderboardRows(overallRows.results || [], overallApprovedUsers)
     },
     games: boards
   };
