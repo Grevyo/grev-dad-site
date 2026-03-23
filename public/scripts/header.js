@@ -1,5 +1,6 @@
 const AUTH_CACHE_KEY = "grevdad_auth_user";
 const AUTH_CACHE_EVENT = "grevdad-auth-changed";
+const AUTH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const THEME_STORAGE_KEY = "grevdad_theme";
 const PLAYGROUND_NAV_STORAGE_KEY = "grevdad_playground_nav";
 
@@ -184,8 +185,17 @@ async function fetchCurrentUser({ preferCache = false } = {}) {
 
 function readCachedAuthUser() {
   try {
-    const raw = window.sessionStorage.getItem(AUTH_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = window.localStorage.getItem(AUTH_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const cachedAt = Number(parsed?.cached_at || 0);
+    if (!cachedAt || (Date.now() - cachedAt) > AUTH_CACHE_TTL_MS) {
+      window.localStorage.removeItem(AUTH_CACHE_KEY);
+      return null;
+    }
+
+    return parsed?.user || null;
   } catch (error) {
     console.error("Failed to read cached auth user:", error);
     return null;
@@ -195,9 +205,12 @@ function readCachedAuthUser() {
 function writeCachedAuthUser(user) {
   try {
     if (!user) {
-      window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+      window.localStorage.removeItem(AUTH_CACHE_KEY);
     } else {
-      window.sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(user));
+      window.localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({
+        user,
+        cached_at: Date.now()
+      }));
     }
   } catch (error) {
     console.error("Failed to cache auth user:", error);

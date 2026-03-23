@@ -236,7 +236,7 @@
           <div>
             <h1 class="auth-title">Members</h1>
             <p class="auth-subtitle">
-              Browse everyone on Grev.dad, see their role, profile details, and cases progression.
+              Browse everyone on Grev.dad, see their role, profile details, and recent activity.
             </p>
           </div>
 
@@ -266,15 +266,6 @@
         </section>
 
         <section class="panel">
-          <h2 class="panel-title">Leaderboards</h2>
-          <p class="panel-subtitle">
-            Cases leaderboards are placeholder-ready now and will fill properly once the case system is built.
-          </p>
-
-          <div id="leaderboard-grid" class="leaderboard-grid"></div>
-        </section>
-
-        <section class="panel">
           <h2 class="panel-title">All members</h2>
           <p class="panel-subtitle">
             Every approved member on the site.
@@ -298,7 +289,6 @@
     const memberFilter = document.getElementById("member-filter");
     const membersRefresh = document.getElementById("members-refresh");
     const membersGrid = document.getElementById("members-grid");
-    const leaderboardGrid = document.getElementById("leaderboard-grid");
 
     function showMessage(type, text) {
       membersMessage.className = `alert alert-${type}`;
@@ -338,50 +328,6 @@
       });
     }
 
-    function moneyFormat(value) {
-      if (value === null || value === undefined || value === "") {
-        return "—";
-      }
-      const num = Number(value);
-      if (Number.isNaN(num)) return "—";
-      return `£${(num / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    function renderLeaderboards(members) {
-      const byInventoryValue = [...members]
-        .sort((a, b) => Number(b.case_inventory_value || 0) - Number(a.case_inventory_value || 0))
-        .slice(0, 5);
-
-      const byRarest = [...members]
-        .sort((a, b) => Number(b.case_rarest_score || 0) - Number(a.case_rarest_score || 0))
-        .slice(0, 5);
-
-      const byMoney = [...members]
-        .sort((a, b) => Number(b.case_money || 0) - Number(a.case_money || 0))
-        .slice(0, 5);
-
-      leaderboardGrid.innerHTML = `
-        ${renderLeaderboardCard("Most Expensive Inventory", byInventoryValue, (m) => moneyFormat(m.case_inventory_value))}
-        ${renderLeaderboardCard("Rarest Item Owners", byRarest, (m) => m.case_rarest_item_name || "—")}
-        ${renderLeaderboardCard("Highest Case Balance", byMoney, (m) => moneyFormat(m.case_money))}
-      `;
-    }
-
-    function renderLeaderboardCard(title, rows, valueFn) {
-      return `
-        <article class="leaderboard-card">
-          <h3>${escapeHtml(title)}</h3>
-          <div class="leaderboard-list">
-            ${rows.length ? rows.map((member, index) => `
-              <div class="leaderboard-row">
-                <span><span class="leaderboard-rank">#${index + 1}</span> ${escapeHtml(member.username || "Unknown")}</span>
-                <span>${escapeHtml(valueFn(member))}</span>
-              </div>
-            `).join("") : `<div class="member-empty">No data yet.</div>`}
-          </div>
-        </article>
-      `;
-    }
 
     function renderMembers(members) {
       if (!members.length) {
@@ -424,26 +370,6 @@
                 <div class="member-stat">
                   <span class="member-stat-label">Last Seen</span>
                   <span class="member-stat-value">${escapeHtml(formatDate(member.last_seen_at))}</span>
-                </div>
-
-                <div class="member-stat">
-                  <span class="member-stat-label">Case Money</span>
-                  <span class="member-stat-value">${escapeHtml(moneyFormat(member.case_money))}</span>
-                </div>
-
-                <div class="member-stat">
-                  <span class="member-stat-label">Rarest Item</span>
-                  <span class="member-stat-value">${escapeHtml(member.case_rarest_item_name || "—")}</span>
-                </div>
-
-                <div class="member-stat">
-                  <span class="member-stat-label">Most Expensive Item</span>
-                  <span class="member-stat-value">${escapeHtml(member.case_most_expensive_item_name || "—")}</span>
-                </div>
-
-                <div class="member-stat">
-                  <span class="member-stat-label">Inventory Value</span>
-                  <span class="member-stat-value">${escapeHtml(moneyFormat(member.case_inventory_value))}</span>
                 </div>
 
                 <div class="member-stat">
@@ -492,7 +418,6 @@
       }
 
       renderMembers(filtered);
-      renderLeaderboards(filtered);
     }
 
     async function loadMembers() {
@@ -509,7 +434,6 @@
         if (!response.ok || !data?.success) {
           showMessage("error", data?.error || "Failed to load members.");
           renderMembers([]);
-          renderLeaderboards([]);
           return;
         }
 
@@ -519,7 +443,6 @@
         console.error(error);
         showMessage("error", "Could not load members.");
         renderMembers([]);
-        renderLeaderboards([]);
       }
     }
 
