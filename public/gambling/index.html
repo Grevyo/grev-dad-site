@@ -9,7 +9,6 @@
   <style>
     .casino-shell,
     .hero-actions,
-    .info-grid,
     .game-grid {
       display: grid;
       gap: 20px;
@@ -25,42 +24,28 @@
     }
     .eyebrow { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 0.84rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: rgba(248, 196, 68, 0.14); border: 1px solid rgba(248, 196, 68, 0.24); margin-bottom: 16px; }
     .casino-hero h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3rem); }
-    .casino-hero p, .feature-list li, .info-copy, .game-card__copy { color: var(--muted); line-height: 1.7; }
+    .casino-hero p { color: var(--muted); line-height: 1.7; }
     .hero-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 24px; }
-    .game-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    .stat-card, .game-card {
+    .game-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 280px)); }
+    .stat-card {
       padding: 18px;
       border-radius: var(--radius-md);
       background: color-mix(in srgb, var(--surface) 92%, transparent);
       border: 1px solid var(--border);
     }
-    .game-card {
-      display: grid;
-      gap: 12px;
-      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-    }
-    .game-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(248, 196, 68, 0.45);
-      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
-    }
-    .game-card__badge {
+    .game-button {
       display: inline-flex;
-      width: fit-content;
+      justify-content: center;
       align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: rgba(248, 196, 68, 0.14);
-      border: 1px solid rgba(248, 196, 68, 0.24);
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
+      min-height: 64px;
+      padding: 0 24px;
+      border-radius: var(--radius-md);
+      font-size: 1.05rem;
+      font-weight: 800;
+      text-align: center;
     }
-    .game-card__title { margin: 0; }
     .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
     .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
-    .feature-list { margin: 0; padding-left: 20px; }
   </style>
 </head>
 <body>
@@ -70,10 +55,7 @@
       <section class="panel casino-hero">
         <span class="eyebrow">🎰 Casino</span>
         <h1>Welcome to Grev.dad Casino</h1>
-        <p>
-          Pick a cabinet, spin something shiny, and keep your Grev Coin adventures moving. Each game now has
-          its own page, so you can jump straight into the one you want instead of digging around the main casino hub.
-        </p>
+        <p>Pick a game and spin something shiny.</p>
         <div class="hero-actions">
           <div class="stat-card">
             <p class="stat-label">Your balance</p>
@@ -83,39 +65,9 @@
       </section>
 
       <section class="panel">
-        <p class="eyebrow">Game lobby</p>
-        <h2 class="panel-title">Choose your machine</h2>
         <div class="game-grid">
-          <a class="game-card" href="/gambling/daily-spin.html">
-            <span class="game-card__badge">Daily reward</span>
-            <h3 class="game-card__title">Daily Free Spin</h3>
-            <p class="game-card__copy">Claim your once-a-day wheel spin with a brighter wheel and easier-to-read rewards.</p>
-            <span class="btn btn-primary">Open Daily Spin</span>
-          </a>
-          <a class="game-card" href="/gambling/classic-spins.html">
-            <span class="game-card__badge">New machine</span>
-            <h3 class="game-card__title">Classic Spins</h3>
-            <p class="game-card__copy">A retro fruit machine packed with lemons, cherries, and Triple 7s.</p>
-            <span class="btn btn-primary">Open Classic Spins</span>
-          </a>
-        </div>
-      </section>
-
-      <section class="panel info-grid">
-        <div>
-          <h2 class="panel-title">Grev Coin</h2>
-          <p class="info-copy">
-            Grev Coin is the shared currency for the whole gambling playground, and your casino balance stays visible
-            in the header while you move around the casino area.
-          </p>
-        </div>
-        <div>
-          <h2 class="panel-title">What’s live now</h2>
-          <ul class="feature-list">
-            <li>A single Grev Coin wallet shared across the whole casino playground.</li>
-            <li>A daily spin page with a cleaner, easier-to-read reward wheel.</li>
-            <li>A new Classic Spins fruit machine page for quick retro slot fun.</li>
-          </ul>
+          <a class="btn btn-primary game-button" href="/gambling/daily-spin.html">Daily Spin</a>
+          <a class="btn btn-primary game-button" href="/gambling/classic-spins.html">Classic Fruity</a>
         </div>
       </section>
     </main>

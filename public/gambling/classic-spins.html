@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classic Spins | Grev.dad Casino</title>
+  <title>Classic Fruity | Grev.dad Casino</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
@@ -59,6 +59,8 @@
     }
     .reel::before { top: 16px; }
     .reel::after { bottom: 16px; }
+    .reel-window { position: relative; width: 100%; height: 108px; overflow: hidden; }
+    .reel-strip { position: absolute; inset: 0; display: grid; grid-auto-rows: 108px; justify-items: center; align-items: center; will-change: transform; }
     .reel-symbol { font-size: clamp(3rem, 7vw, 4.4rem); line-height: 1; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.16)); }
     .controls { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
     .result-card, .payout-card { padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); }
@@ -76,24 +78,24 @@
     <main class="page-main classic-shell">
       <div class="button-row">
         <a class="btn" href="/gambling/index.html">← Back to Casino</a>
-        <a class="btn" href="/gambling/daily-spin.html">Go to Daily Spin</a>
+        <a class="btn" href="/gambling/daily-spin.html">Daily Spin</a>
       </div>
 
       <section class="slot-layout">
         <div class="machine">
           <div class="machine-top">
             <div>
-              <p class="eyebrow">Fruit machine</p>
-              <h1 class="machine-title">Classic Spins</h1>
-              <p class="machine-copy">Line up lemons, cherries, and Triple 7s on this old-school cabinet and see what kind of lucky streak you can fake into existence.</p>
+              <p class="eyebrow">Classic Fruity</p>
+              <h1 class="machine-title">Classic Fruity</h1>
+              <p class="machine-copy">Line up lemons, cherries, and Triple 7s on this old-school cabinet.</p>
             </div>
             <div class="jackpot-badge">🍒 Retro slots</div>
           </div>
 
           <div class="reels" aria-label="Classic fruit machine reels">
-            <div class="reel"><span class="reel-symbol" data-reel="0">🍋</span></div>
-            <div class="reel"><span class="reel-symbol" data-reel="1">🍒</span></div>
-            <div class="reel"><span class="reel-symbol" data-reel="2">7️⃣</span></div>
+            <div class="reel"><div class="reel-window"><div class="reel-strip" data-reel="0"></div></div></div>
+            <div class="reel"><div class="reel-window"><div class="reel-strip" data-reel="1"></div></div></div>
+            <div class="reel"><div class="reel-window"><div class="reel-strip" data-reel="2"></div></div></div>
           </div>
 
           <div class="controls">
@@ -106,7 +108,7 @@
               </select>
             </label>
             <div class="button-row">
-              <button id="classic-spin-btn" class="btn btn-primary" type="button">Pull lever</button>
+              <button id="classic-spin-btn" class="btn btn-primary" type="button">Spin</button>
             </div>
           </div>
         </div>
@@ -114,7 +116,7 @@
         <div class="result-card">
           <p class="eyebrow">Machine result</p>
           <p id="classic-spin-status" class="result-amount">Ready to spin.</p>
-          <p id="classic-spin-copy" class="result-copy">Classic Spins is a for-fun fruit machine for now, so it does not touch your real Grev Coin balance yet.</p>
+          <p id="classic-spin-copy" class="result-copy">Classic Fruity is a for-fun fruit machine for now, so it does not touch your real Grev Coin balance yet.</p>
         </div>
       </section>
 
@@ -137,10 +139,41 @@
     const betInput = document.getElementById("bet-size");
     const statusEl = document.getElementById("classic-spin-status");
     const copyEl = document.getElementById("classic-spin-copy");
+    const SYMBOL_HEIGHT = 108;
     let spinning = false;
 
     function randomSymbol() {
       return symbols[Math.floor(Math.random() * symbols.length)];
+    }
+
+    function buildSequence(finalSymbol, steps = 18) {
+      const sequence = Array.from({ length: steps }, () => randomSymbol());
+      sequence.push(finalSymbol);
+      return sequence;
+    }
+
+    function renderReel(stripEl, sequence) {
+      stripEl.innerHTML = sequence.map((symbol) => `<span class="reel-symbol">${symbol}</span>`).join("");
+      stripEl.style.transform = "translateY(0)";
+    }
+
+    function animateSingleReel(stripEl, finalSymbol, duration) {
+      const sequence = buildSequence(finalSymbol, 18 + Math.floor(Math.random() * 4));
+      renderReel(stripEl, sequence);
+
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          stripEl.style.transition = `transform ${duration}ms cubic-bezier(0.16, 0.84, 0.24, 1)`;
+          stripEl.style.transform = `translateY(-${(sequence.length - 1) * SYMBOL_HEIGHT}px)`;
+        });
+
+        window.setTimeout(() => {
+          stripEl.style.transition = "none";
+          stripEl.innerHTML = `<span class="reel-symbol">${finalSymbol}</span>`;
+          stripEl.style.transform = "translateY(0)";
+          resolve();
+        }, duration + 40);
+      });
     }
 
     function evaluateSpin(result, bet) {
@@ -163,16 +196,6 @@
       return { multiplier: 0, message: "No line win this time — give the lever another go." };
     }
 
-    async function animateReels() {
-      const frames = 12;
-      for (let frame = 0; frame < frames; frame += 1) {
-        reelEls.forEach((el) => {
-          el.textContent = randomSymbol();
-        });
-        await new Promise((resolve) => window.setTimeout(resolve, 90 + (frame * 8)));
-      }
-    }
-
     async function handleSpin() {
       if (spinning) return;
       spinning = true;
@@ -180,12 +203,8 @@
       statusEl.textContent = "Spinning...";
       copyEl.textContent = "The old fruit machine is rattling away.";
 
-      await animateReels();
-
       const finalResult = reelEls.map(() => randomSymbol());
-      reelEls.forEach((el, index) => {
-        el.textContent = finalResult[index];
-      });
+      await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
 
       const bet = Number(betInput.value || 0);
       const outcome = evaluateSpin(finalResult, bet);
