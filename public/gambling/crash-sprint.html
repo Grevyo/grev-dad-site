@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crash Sprint | Grev.dad Casino</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/casino-chat-widget.js" defer></script>
+  <style>
+    .game-shell,.hero-grid,.info-grid,.control-grid,.status-grid,.mini-grid,.board-grid { display:grid; gap:20px; }
+    .hero-grid { grid-template-columns:minmax(0, 1.2fr) minmax(280px, 0.8fr); align-items:start; }
+    .hero-card { padding:28px; border-radius:28px; border:1px solid rgba(56,189,248,.34); background:radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 28%), radial-gradient(circle at top right, rgba(59,130,246,.18), transparent 34%), linear-gradient(160deg, #082f49, #111827 52%, #030712); box-shadow:0 26px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
+    .feature-card,.panel-card,.status-card { padding:20px; border-radius:20px; border:1px solid var(--border); background:color-mix(in srgb, var(--surface) 92%, transparent); }
+    .eyebrow-chip { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 14px; border-radius:999px; background:rgba(56,189,248,.14); border:1px solid rgba(56,189,248,.3); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .hero-copy,.muted-copy,.status-copy { color:var(--muted); line-height:1.7; margin:0; }
+    .hero-title { margin:12px 0; font-size:clamp(2rem, 4vw, 3rem); }
+    .control-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); align-items:end; }
+    .status-grid,.info-grid,.mini-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .status-value { margin:0; font-size:1.35rem; font-weight:800; }
+    .board-grid { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+    .board-cell { min-height:96px; border-radius:18px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg, rgba(14,116,144,.2), rgba(2,6,23,.45)); font-size:1.3rem; font-weight:800; }
+    .board-cell.hit { border-color:#38bdf8; box-shadow:0 0 0 2px color-mix(in srgb, #38bdf8 28%, transparent) inset; }
+    .action-note { margin:0; font-size:.95rem; color:var(--muted); }
+    @media (max-width: 900px) { .hero-grid { grid-template-columns:1fr; } }
+    @media (max-width: 640px) { .game-shell { gap:18px; } .hero-card,.feature-card,.panel-card,.status-card { padding:18px; border-radius:22px; } .board-grid,.control-grid,.status-grid,.info-grid,.mini-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main game-shell">
+      <div class="button-row"><a class="btn" href="/gambling/index.html">← Back to Casino Hub</a></div>
+      <section class="hero-grid">
+        <div class="hero-card">
+          <span class="eyebrow-chip">🚀 Cash-out Run</span>
+          <h1 class="hero-title">Crash Sprint</h1>
+          <p class="hero-copy">Cash out before the run crashes and push for a bigger booster.</p>
+          <div class="status-grid mt-20">
+            <div class="status-card"><p class="stat-label">Stake</p><p class="status-value" id="crash-stake-value">25.00 GC</p></div><div class="status-card"><p class="stat-label">Live booster</p><p class="status-value" id="crash-multi-value">1.00×</p></div><div class="status-card"><p class="stat-label">Banked total</p><p class="status-value" id="crash-bank-value">0.00 GC</p></div>
+          </div>
+        </div>
+        <div class="feature-card">
+          <p class="eyebrow">How it plays</p>
+          <p class="muted-copy">Start a run, watch the booster climb in real time, and hit cash out before the crash lands. Waiting longer raises the payout, but losing the timing wipes the run.</p>
+          <div class="info-grid mt-16">
+            <div class="status-card"><p class="stat-label">Booster climb</p><p class="status-copy">The booster rises quickly, then becomes more dangerous the longer you stay in.</p></div><div class="status-card"><p class="stat-label">Cash-out window</p><p class="status-copy">Take profit early for safety or hold for the bigger score.</p></div><div class="status-card"><p class="stat-label">Round feel</p><p class="status-copy">This is a fast arcade loop built around split-second timing.</p></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel-card">
+        <div class="button-row"><p class="eyebrow">Play screen</p></div>
+        <div class="control-grid"><label class="form-group"><span class="form-label">Stake</span><select id="crash-stake" class="form-select"><option value="10">10 GC</option><option value="25" selected>25 GC</option><option value="50">50 GC</option></select></label><div class="button-row"><button id="crash-start" class="btn btn-primary" type="button">Start Run</button><button id="crash-cashout" class="btn" type="button" disabled>Cash Out</button></div></div><div class="board-grid mt-20"><div class="board-cell"><span id="crash-track">Preparing launch…</span></div><div class="board-cell"><span id="crash-risk">Risk band: Low</span></div><div class="board-cell"><span id="crash-timer">00.0s</span></div><div class="board-cell"><span id="crash-result">Awaiting run</span></div></div><p class="action-note mt-16">The booster accelerates every 200ms. If the hidden crash point hits before you cash out, the run is gone.</p>
+      </section>
+      <section class="mini-grid">
+        <article class="feature-card"><h2 class="panel-title">Low-risk cash out</h2><p class="muted-copy">Leaving in the first second usually protects the stake with a smaller gain.</p></article><article class="feature-card"><h2 class="panel-title">Mid-run greed</h2><p class="muted-copy">The second phase builds the higher booster the prompt called for.</p></article><article class="feature-card"><h2 class="panel-title">Crash tension</h2><p class="muted-copy">A hidden crash threshold resolves every run differently to keep the sprint feeling live.</p></article>
+      </section>
+    </main>
+  </div>
+  <script>
+    const stakeEl = document.getElementById("crash-stake"); const startBtn = document.getElementById("crash-start"); const cashoutBtn = document.getElementById("crash-cashout"); const multiEl = document.getElementById("crash-multi-value"); const bankEl = document.getElementById("crash-bank-value"); const stakeValueEl = document.getElementById("crash-stake-value"); const trackEl = document.getElementById("crash-track"); const riskEl = document.getElementById("crash-risk"); const timerEl = document.getElementById("crash-timer"); const resultEl = document.getElementById("crash-result"); let timer = null; let booster = 1; let elapsed = 0; let banked = 0; let crashPoint = null; let liveStake = 25; function formatGc(v) { return `${Number(v || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; } function resetRound(message = 'Awaiting run') { if (timer) clearInterval(timer); timer = null; booster = 1; elapsed = 0; crashPoint = null; multiEl.textContent = '1.00×'; timerEl.textContent = '00.0s'; trackEl.textContent = 'Run idle'; riskEl.textContent = 'Risk band: Low'; resultEl.textContent = message; cashoutBtn.disabled = true; startBtn.disabled = false; } function startRun() { liveStake = Number(stakeEl.value || 25); stakeValueEl.textContent = formatGc(liveStake); booster = 1; elapsed = 0; crashPoint = 1.35 + Math.random() * 4.5; startBtn.disabled = true; cashoutBtn.disabled = false; resultEl.textContent = 'Run live'; trackEl.textContent = 'Booster climbing'; timer = setInterval(() => { elapsed += 0.2; booster += 0.12 + elapsed * 0.03; multiEl.textContent = `${booster.toFixed(2)}×`; timerEl.textContent = `${elapsed.toFixed(1).padStart(4,'0')}s`; riskEl.textContent = `Risk band: ${booster < 2 ? 'Low' : booster < 3.5 ? 'Medium' : 'High'}`; if (booster >= crashPoint) { resultEl.textContent = `Crashed at ${crashPoint.toFixed(2)}×`; trackEl.textContent = 'Run wiped out'; resetRound(`Crash at ${crashPoint.toFixed(2)}× — no payout.`); } }, 200); } function cashOut() { if (!timer) return; clearInterval(timer); timer = null; const payout = liveStake * booster; banked += payout; bankEl.textContent = formatGc(banked); resultEl.textContent = `Cashed out at ${booster.toFixed(2)}×`; trackEl.textContent = 'Bank secured'; cashoutBtn.disabled = true; startBtn.disabled = false; } bankEl.textContent = formatGc(banked); stakeEl.addEventListener('change', () => { stakeValueEl.textContent = formatGc(Number(stakeEl.value || 25)); }); startBtn.addEventListener('click', startRun); cashoutBtn.addEventListener('click', cashOut); resetRound();
+  </script>
+</body>
+</html>

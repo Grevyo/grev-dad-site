@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Jackpot | Grev.dad Casino</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/casino-chat-widget.js" defer></script>
+  <style>
+    .game-shell,.hero-grid,.info-grid,.control-grid,.status-grid,.mini-grid,.board-grid { display:grid; gap:20px; }
+    .hero-grid { grid-template-columns:minmax(0, 1.2fr) minmax(280px, 0.8fr); align-items:start; }
+    .hero-card { padding:28px; border-radius:28px; border:1px solid rgba(248,196,68,.34); background:radial-gradient(circle at top left, rgba(251,191,36,.22), transparent 28%), radial-gradient(circle at top right, rgba(236,72,153,.18), transparent 34%), linear-gradient(160deg, #3b0764, #111827 55%, #2a090c); box-shadow:0 26px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
+    .feature-card,.panel-card,.status-card { padding:20px; border-radius:20px; border:1px solid var(--border); background:color-mix(in srgb, var(--surface) 92%, transparent); }
+    .eyebrow-chip { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 14px; border-radius:999px; background:rgba(251,191,36,.16); border:1px solid rgba(251,191,36,.3); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .hero-copy,.muted-copy,.status-copy { color:var(--muted); line-height:1.7; margin:0; }
+    .hero-title { margin:12px 0; font-size:clamp(2rem, 4vw, 3rem); }
+    .control-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); align-items:end; }
+    .status-grid,.info-grid,.mini-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .status-value { margin:0; font-size:1.35rem; font-weight:800; }
+    .board-grid { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+    .board-cell { min-height:96px; border-radius:18px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(224,231,255,.92)); font-size:2.4rem; font-weight:800; }
+    .board-cell.hit { border-color:#fbbf24; box-shadow:0 0 0 2px color-mix(in srgb, #fbbf24 28%, transparent) inset; }
+    .action-note { margin:0; font-size:.95rem; color:var(--muted); }
+    @media (max-width: 900px) { .hero-grid { grid-template-columns:1fr; } }
+    @media (max-width: 640px) { .game-shell { gap:18px; } .hero-card,.feature-card,.panel-card,.status-card { padding:18px; border-radius:22px; } .board-grid,.control-grid,.status-grid,.info-grid,.mini-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main game-shell">
+      <div class="button-row"><a class="btn" href="/gambling/index.html">← Back to Casino Hub</a></div>
+      <section class="hero-grid">
+        <div class="hero-card">
+          <span class="eyebrow-chip">🎰 Featured Slot</span>
+          <h1 class="hero-title">Neon Jackpot</h1>
+          <p class="hero-copy">Chase a bigger slot ladder with multipliers, free spins, and feature-heavy rounds.</p>
+          <div class="status-grid mt-20">
+            <div class="status-card"><p class="stat-label">Credits</p><p class="status-value" id="slot-credits">500.00 GC</p></div><div class="status-card"><p class="stat-label">Current multiplier</p><p class="status-value" id="slot-multi">1×</p></div><div class="status-card"><p class="stat-label">Free spins</p><p class="status-value" id="slot-freespins">0</p></div>
+          </div>
+        </div>
+        <div class="feature-card">
+          <p class="eyebrow">How it plays</p>
+          <p class="muted-copy">Spin a five-column neon cabinet, stack up multiplier hits, and trigger free-spin bursts that can snowball into a bigger jackpot ladder.</p>
+          <div class="info-grid mt-16">
+            <div class="status-card"><p class="stat-label">Jackpot ladder</p><p class="status-copy">Ladder tiers climb when premium symbols land together.</p></div><div class="status-card"><p class="stat-label">Feature rounds</p><p class="status-copy">Wild flashes, scatter hits, and re-spin boosts can chain together.</p></div><div class="status-card"><p class="stat-label">Bet flow</p><p class="status-copy">Select a stake, spin the cabinet, and bank any payout instantly.</p></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel-card">
+        <div class="button-row"><p class="eyebrow">Play screen</p></div>
+        <div class="control-grid"><label class="form-group"><span class="form-label">Stake</span><select id="slot-bet" class="form-select"><option value="10">10 GC</option><option value="25" selected>25 GC</option><option value="50">50 GC</option></select></label><div class="button-row"><button id="slot-spin" class="btn btn-primary" type="button">Spin Neon Jackpot</button></div></div><div id="slot-board" class="board-grid mt-20" aria-label="Neon Jackpot reels"></div><div class="feature-card mt-20"><p class="stat-label">Round result</p><p id="slot-status" class="status-value">Ready to spin.</p><p id="slot-copy" class="status-copy">Build your ladder with scatter stars, wild bars, and multiplier gems.</p></div>
+      </section>
+      <section class="mini-grid">
+        <article class="feature-card"><h2 class="panel-title">Multiplier lane</h2><p class="muted-copy">Multiplier gems push the active boost from 1× up to 5× before the next reset.</p></article><article class="feature-card"><h2 class="panel-title">Free-spin window</h2><p class="muted-copy">Three or more scatter stars open a free-spin run with improved premium hit odds.</p></article><article class="feature-card"><h2 class="panel-title">Feature-heavy rounds</h2><p class="muted-copy">Re-spins and flashing wilds create the more explosive rounds described in the lobby.</p></article>
+      </section>
+    </main>
+  </div>
+  <script>
+    const icons = ["7","★","💎","BAR","🍒","⚡","🟪","🟦"]; const boardEl = document.getElementById("slot-board"); const statusEl = document.getElementById("slot-status"); const copyEl = document.getElementById("slot-copy"); const creditsEl = document.getElementById("slot-credits"); const multiEl = document.getElementById("slot-multi"); const freeEl = document.getElementById("slot-freespins"); const spinBtn = document.getElementById("slot-spin"); const betEl = document.getElementById("slot-bet"); let credits = 500; let multiplier = 1; let freeSpins = 0; function renderBoard(cells = Array.from({ length: 15 }, () => icons[Math.floor(Math.random() * icons.length)]), hits = []) { boardEl.innerHTML = cells.map((icon, index) => `<div class="board-cell ${hits.includes(index) ? 'hit' : ''}">${icon}</div>`).join(''); } function formatGc(value) { return `${Number(value || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; } function refreshHud() { creditsEl.textContent = formatGc(credits); multiEl.textContent = `${multiplier}×`; freeEl.textContent = String(freeSpins); } function spin() { const bet = Number(betEl.value || 0); if (!freeSpins && credits < bet) { statusEl.textContent = 'Not enough credits.'; copyEl.textContent = 'Top up your casino balance before another Neon Jackpot spin.'; return; } if (freeSpins) freeSpins -= 1; else credits -= bet; const cells = Array.from({ length: 15 }, () => icons[Math.floor(Math.random() * icons.length)]); const stars = cells.filter((icon) => icon === '★').length; const gems = cells.filter((icon) => icon === '💎').length; const wilds = cells.filter((icon) => icon === 'BAR').length; const hits = cells.map((icon, index) => ['★','💎','BAR'].includes(icon) ? index : -1).filter((index) => index >= 0); let payout = 0; if (gems >= 3) { multiplier = Math.min(multiplier + 1, 5); payout += bet * multiplier; } if (stars >= 3) { freeSpins += 3; payout += bet * 2; } if (wilds >= 2) payout += bet * (multiplier + 1); credits += payout; renderBoard(cells, hits); refreshHud(); statusEl.textContent = payout ? `You banked ${formatGc(payout)}.` : 'No payout this round.'; copyEl.textContent = `${stars >= 3 ? 'Free spins triggered. ' : ''}${gems >= 3 ? 'Multiplier ladder advanced. ' : ''}${wilds >= 2 ? 'Wild bars juiced the hit.' : 'Keep climbing for a bigger feature round.'}`.trim(); } renderBoard(); refreshHud(); spinBtn.addEventListener('click', spin);
+  </script>
+</body>
+</html>
