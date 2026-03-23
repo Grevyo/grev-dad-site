@@ -1,3 +1,3 @@
-export function getCasesDb() {
-  return null;
+export function getCasesDb(env) {
+  return env?.["CASES-DB"] || env?.CASES_DB || env?.CASESDB || null;
 }

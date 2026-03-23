@@ -2,6 +2,7 @@
 
 import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
+import { getCasesDb } from "./lib/cases-binding.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -26,7 +27,15 @@ const SESSION_DAYS = 30;
 const DEFAULT_USER_GROUP = "standard";
 const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
-const CASINO_PROFILE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const DAILY_SPIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const DAILY_SPIN_REWARDS = [
+  { coins: 1, weight: 50 },
+  { coins: 5, weight: 28 },
+  { coins: 10, weight: 15 },
+  { coins: 50, weight: 5 },
+  { coins: 100, weight: 2 }
+];
 const ALLOWED_GROUPS = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
 const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
 let coreTablesReadyPromise = null;
@@ -41,6 +50,10 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/casino/profile" && request.method === "GET") {
     return await handleCasinoProfile(request, env);
+  }
+
+  if (pathname === "/api/casino/daily-spin" && request.method === "POST") {
+    return await handleCasinoDailySpin(request, env);
   }
 
   if (isRetiredGamblingPath(pathname)) {
@@ -159,6 +172,10 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/admin/pending-users" && request.method === "GET") {
     return await handleAdminPendingUsers(request, env);
+  }
+
+  if (pathname === "/api/admin/casino/read-database" && request.method === "POST") {
+    return await handleAdminReadCasinoDatabase(request, env);
   }
 
   // Future routes
@@ -442,6 +459,146 @@ async function ensureColumn(db, tableName, columnName, columnDefinition) {
   }
 }
 
+async function ensureCasesWalletTables(env) {
+  const db = getCasesDb(env);
+  if (!db) return null;
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS case_profiles (
+      user_id INTEGER PRIMARY KEY,
+      display_name TEXT,
+      balance INTEGER NOT NULL DEFAULT 50000,
+      key_balance INTEGER NOT NULL DEFAULT 0,
+      total_cases_opened INTEGER NOT NULL DEFAULT 0,
+      total_spent INTEGER NOT NULL DEFAULT 0,
+      total_inventory_value INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(db, "case_profiles", "display_name", "TEXT");
+  await ensureColumn(db, "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
+  await ensureColumn(db, "case_profiles", "key_balance", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "case_profiles", "created_at", "TEXT");
+  await ensureColumn(db, "case_profiles", "updated_at", "TEXT");
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS casino_daily_spins (
+      user_id INTEGER PRIMARY KEY,
+      last_free_spin_at TEXT,
+      last_reward_pence INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(db, "casino_daily_spins", "last_free_spin_at", "TEXT");
+  await ensureColumn(db, "casino_daily_spins", "last_reward_pence", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "casino_daily_spins", "updated_at", "TEXT NOT NULL DEFAULT ''");
+
+  return db;
+}
+
+function pickDailySpinRewardPence() {
+  const totalWeight = DAILY_SPIN_REWARDS.reduce((sum, entry) => sum + Number(entry.weight || 0), 0);
+  let roll = Math.random() * totalWeight;
+  for (const entry of DAILY_SPIN_REWARDS) {
+    roll -= Number(entry.weight || 0);
+    if (roll <= 0) return Math.round(Number(entry.coins || 0) * 100);
+  }
+  return Math.round(Number(DAILY_SPIN_REWARDS[DAILY_SPIN_REWARDS.length - 1]?.coins || 0) * 100);
+}
+
+function getNextDailySpinAt(lastFreeSpinAt) {
+  const lastMs = lastFreeSpinAt ? Date.parse(lastFreeSpinAt) : NaN;
+  if (!Number.isFinite(lastMs)) return null;
+  return new Date(lastMs + DAILY_SPIN_INTERVAL_MS).toISOString();
+}
+
+function canUseDailySpin(lastFreeSpinAt) {
+  const lastMs = lastFreeSpinAt ? Date.parse(lastFreeSpinAt) : NaN;
+  if (!Number.isFinite(lastMs)) return true;
+  return (Date.now() - lastMs) >= DAILY_SPIN_INTERVAL_MS;
+}
+
+async function syncCasinoProfileFromCasesDb(env, userId, username, options = {}) {
+  const { force = false } = options;
+  await ensureCoreTables(env);
+  const now = isoNow();
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO casino_profiles (user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(userId, username, await getStartingBalancePence(env), now, now, now).run();
+
+  const cached = await env.DB.prepare(`
+    SELECT user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at
+    FROM casino_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(userId).first();
+
+  const refreshedAtMs = cached?.refreshed_at ? Date.parse(cached.refreshed_at) : NaN;
+  const shouldRefresh = force || !Number.isFinite(refreshedAtMs) || (Date.now() - refreshedAtMs) >= CASINO_PROFILE_CACHE_TTL_MS;
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return cached;
+
+  await casesDb.prepare(`
+    INSERT OR IGNORE INTO case_profiles (user_id, display_name, balance, key_balance, total_cases_opened, total_spent, total_inventory_value, created_at, updated_at)
+    VALUES (?, ?, ?, 0, 0, 0, 0, ?, ?)
+  `).bind(userId, username, await getStartingBalancePence(env), now, now).run();
+
+  await casesDb.prepare(`
+    INSERT OR IGNORE INTO casino_daily_spins (user_id, last_free_spin_at, last_reward_pence, updated_at)
+    VALUES (?, NULL, 0, ?)
+  `).bind(userId, now).run();
+
+  if (shouldRefresh) {
+    const wallet = await casesDb.prepare(`
+      SELECT user_id, display_name, balance, created_at, updated_at
+      FROM case_profiles
+      WHERE user_id = ?
+      LIMIT 1
+    `).bind(userId).first();
+
+    await env.DB.prepare(`
+      UPDATE casino_profiles
+      SET display_name = ?, grev_coin_balance = ?, created_at = COALESCE(created_at, ?), updated_at = ?, refreshed_at = ?
+      WHERE user_id = ?
+    `).bind(
+      wallet?.display_name || username,
+      Number(wallet?.balance || 0),
+      wallet?.created_at || now,
+      wallet?.updated_at || now,
+      now,
+      userId
+    ).run();
+  } else {
+    await env.DB.prepare(`UPDATE casino_profiles SET display_name = ? WHERE user_id = ?`).bind(username, userId).run();
+  }
+
+  return await env.DB.prepare(`
+    SELECT user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at
+    FROM casino_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(userId).first();
+}
+
+async function getCasinoDailySpinState(env, userId) {
+  const db = await ensureCasesWalletTables(env);
+  if (!db) return { available: false, next_available_at: null, last_free_spin_at: null, last_reward: 0 };
+  const row = await db.prepare(`SELECT last_free_spin_at, last_reward_pence FROM casino_daily_spins WHERE user_id = ? LIMIT 1`).bind(userId).first();
+  return {
+    available: canUseDailySpin(row?.last_free_spin_at || null),
+    next_available_at: getNextDailySpinAt(row?.last_free_spin_at || null),
+    last_free_spin_at: row?.last_free_spin_at || null,
+    last_reward: toCoinAmount(row?.last_reward_pence || 0)
+  };
+}
+
 function toCoinAmount(pence) {
   const value = Number(pence || 0);
   return Number.isFinite(value) ? value / 100 : 0;
@@ -460,46 +617,8 @@ function formatCasinoProfile(row, fallbackUsername = "") {
   };
 }
 
-async function ensureCasinoProfile(env, userId, username) {
-  await ensureCoreTables(env);
-  const now = isoNow();
-  await env.DB.prepare(`
-    INSERT OR IGNORE INTO casino_profiles (
-      user_id,
-      display_name,
-      grev_coin_balance,
-      created_at,
-      updated_at,
-      refreshed_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(userId, username, await getStartingBalancePence(env), now, now, now).run();
-
-  let profile = await env.DB.prepare(`
-    SELECT user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at
-    FROM casino_profiles
-    WHERE user_id = ?
-    LIMIT 1
-  `).bind(userId).first();
-
-  const refreshedAtMs = profile?.refreshed_at ? Date.parse(profile.refreshed_at) : NaN;
-  if (!Number.isFinite(refreshedAtMs) || (Date.now() - refreshedAtMs) >= CASINO_PROFILE_CACHE_TTL_MS) {
-    const refreshedAt = isoNow();
-    await env.DB.prepare(`
-      UPDATE casino_profiles
-      SET display_name = ?, refreshed_at = ?
-      WHERE user_id = ?
-    `).bind(username, refreshedAt, userId).run();
-
-    profile = await env.DB.prepare(`
-      SELECT user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at
-      FROM casino_profiles
-      WHERE user_id = ?
-      LIMIT 1
-    `).bind(userId).first();
-  }
-
-  return profile;
+async function ensureCasinoProfile(env, userId, username, options = {}) {
+  return await syncCasinoProfileFromCasesDb(env, userId, username, options);
 }
 
 async function handleCasinoProfile(request, env) {
@@ -509,6 +628,7 @@ async function handleCasinoProfile(request, env) {
   }
 
   const profile = await ensureCasinoProfile(env, session.id, session.username);
+  const dailySpin = await getCasinoDailySpinState(env, session.id);
 
   return json({
     success: true,
@@ -517,9 +637,74 @@ async function handleCasinoProfile(request, env) {
       description: "Spin the free daily wheel, jump into blackjack or poker with your mates, chase classic slots, and keep an eye out for future Yu-Gi-Oh packs and Counter-Strike cases.",
       currency_name: "Grev Coin",
       currency_code: "GC",
-      starting_balance: toCoinAmount(await getStartingBalancePence(env))
+      starting_balance: toCoinAmount(await getStartingBalancePence(env)),
+      wallet_sync_interval_hours: 6,
+      daily_spin_rewards: DAILY_SPIN_REWARDS.map((entry) => ({
+        coins: entry.coins,
+        weight: entry.weight
+      }))
     },
-    profile: formatCasinoProfile(profile, session.username)
+    profile: formatCasinoProfile(profile, session.username),
+    daily_spin: dailySpin
+  }, 200, request);
+}
+
+async function handleCasinoDailySpin(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) {
+    return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  }
+
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+
+  const spinState = await casesDb.prepare(`
+    SELECT last_free_spin_at, last_reward_pence
+    FROM casino_daily_spins
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  if (!canUseDailySpin(spinState?.last_free_spin_at || null)) {
+    return json({
+      success: false,
+      error: "Daily spin already used.",
+      daily_spin: {
+        available: false,
+        last_free_spin_at: spinState?.last_free_spin_at || null,
+        next_available_at: getNextDailySpinAt(spinState?.last_free_spin_at || null),
+        last_reward: toCoinAmount(spinState?.last_reward_pence || 0)
+      }
+    }, 429, request);
+  }
+
+  const rewardPence = pickDailySpinRewardPence();
+  const now = isoNow();
+  await casesDb.batch([
+    casesDb.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(rewardPence, now, session.id),
+    casesDb.prepare(`
+      INSERT INTO casino_daily_spins (user_id, last_free_spin_at, last_reward_pence, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        last_free_spin_at = excluded.last_free_spin_at,
+        last_reward_pence = excluded.last_reward_pence,
+        updated_at = excluded.updated_at
+    `).bind(session.id, now, rewardPence, now)
+  ]);
+
+  const profile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  return json({
+    success: true,
+    reward: {
+      pence: rewardPence,
+      coins: toCoinAmount(rewardPence)
+    },
+    profile: formatCasinoProfile(profile, session.username),
+    daily_spin: await getCasinoDailySpinState(env, session.id)
   }, 200, request);
 }
 
@@ -1591,6 +1776,34 @@ async function handleAdminPendingUsers(request, env) {
   }, 200, request);
 }
 
+async function handleAdminReadCasinoDatabase(request, env) {
+  await ensureCoreTables(env);
+
+  const adminUser = await requireAdmin(request, env);
+  if (adminUser instanceof Response) return adminUser;
+
+  const body = await safeJson(request);
+  const userId = Number(body?.user_id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return json({ success: false, error: "A valid user id is required" }, 400, request);
+  }
+
+  const existingUser = await env.DB.prepare(`SELECT id, username FROM users WHERE id = ? LIMIT 1`).bind(userId).first();
+  if (!existingUser) {
+    return json({ success: false, error: "User not found" }, 404, request);
+  }
+
+  const profile = await ensureCasinoProfile(env, userId, existingUser.username, { force: true });
+  const dailySpin = await getCasinoDailySpinState(env, userId);
+
+  return json({
+    success: true,
+    message: "Casino wallet reloaded from CASES-DB",
+    profile: formatCasinoProfile(profile, existingUser.username),
+    daily_spin: dailySpin
+  }, 200, request);
+}
+
 async function handleAdminUpdateUser(request, env) {
   await ensureCoreTables(env);
 
@@ -1653,7 +1866,7 @@ async function handleAdminUpdateUser(request, env) {
 
   let nextBalance = null;
   if (gamblingBalanceDelta !== 0) {
-    const profile = await ensureCasinoProfile(env, userId, existingUser.username);
+    const profile = await ensureCasinoProfile(env, userId, existingUser.username, { force: true });
     const currentBalance = Number(profile?.grev_coin_balance || 0);
     nextBalance = currentBalance + gamblingBalanceDelta;
 
@@ -1692,11 +1905,16 @@ async function handleAdminUpdateUser(request, env) {
 
   let updatedBalance = null;
   if (nextBalance != null) {
+    const casesDb = await ensureCasesWalletTables(env);
+    const now = isoNow();
+    if (casesDb) {
+      await casesDb.prepare(`UPDATE case_profiles SET balance = ?, updated_at = ? WHERE user_id = ?`).bind(nextBalance, now, userId).run();
+    }
     await env.DB.prepare(`
       UPDATE casino_profiles
       SET grev_coin_balance = ?, updated_at = ?, refreshed_at = ?
       WHERE user_id = ?
-    `).bind(nextBalance, isoNow(), isoNow(), userId).run();
+    `).bind(nextBalance, now, now, userId).run();
 
     updatedBalance = nextBalance;
   }

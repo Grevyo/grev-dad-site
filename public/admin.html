@@ -220,6 +220,7 @@
               <div class="button-row">
                 <button id="refresh-users-btn" class="btn" type="button">Refresh users</button>
                 <button id="load-pending-btn" class="btn" type="button">Pending only</button>
+                <button id="read-database-btn" class="btn" type="button">READ DATABASE</button>
               </div>
             </div>
           </section>
@@ -378,6 +379,7 @@
     const userSelect = document.getElementById("user-select");
     const refreshUsersBtn = document.getElementById("refresh-users-btn");
     const loadPendingBtn = document.getElementById("load-pending-btn");
+    const readDatabaseBtn = document.getElementById("read-database-btn");
     const userList = document.getElementById("user-list");
 
     const editorEmpty = document.getElementById("editor-empty");
@@ -402,6 +404,8 @@
       const editMusicUrl = document.getElementById("edit-music-url");
 	    const saveUserBtn = document.getElementById("save-user-btn");
     const deleteUserBtn = document.getElementById("delete-user-btn");
+
+    readDatabaseBtn.disabled = true;
 
     function showMessage(type, text) {
       pageMessage.className = `alert alert-${type}`;
@@ -612,9 +616,52 @@
 
         renderUserList(allUsers);
         userSelect.value = String(user.id);
+        readDatabaseBtn.disabled = false;
       } catch (error) {
         console.error(error);
         showMessage("error", "Could not open that user.");
+      }
+    }
+
+
+    async function readCasinoDatabase() {
+      clearMessage();
+
+      const userId = Number(editUserId.value || selectedUserId);
+      if (!userId) {
+        showMessage("error", "Select a user before forcing a casino database read.");
+        return;
+      }
+
+      readDatabaseBtn.disabled = true;
+      readDatabaseBtn.textContent = "Reading...";
+
+      try {
+        const response = await fetch("/api/admin/casino/read-database", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ user_id: userId })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to read from CASES-DB.");
+          return;
+        }
+
+        showMessage("success", data.message || "Casino wallet refreshed from CASES-DB.");
+        await loadUsers(userSearch.value.trim());
+        await selectUserById(userId);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not force a CASES-DB read.");
+      } finally {
+        readDatabaseBtn.disabled = false;
+        readDatabaseBtn.textContent = "READ DATABASE";
       }
     }
 
@@ -711,6 +758,7 @@
         userEditorForm.classList.add("hidden");
         editorEmpty.classList.remove("hidden");
         userSelect.value = "";
+        readDatabaseBtn.disabled = true;
         await loadUsers(userSearch.value.trim());
       } catch (error) {
         console.error(error);
@@ -740,6 +788,8 @@
     loadPendingBtn.addEventListener("click", () => {
       loadPendingUsers();
     });
+
+    readDatabaseBtn.addEventListener("click", readCasinoDatabase);
 
     userEditorForm.addEventListener("submit", saveUserChanges);
     deleteUserBtn.addEventListener("click", deleteSelectedUser);
