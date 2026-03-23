@@ -2,44 +2,11 @@ const AUTH_CACHE_KEY = "grevdad_auth_user";
 const AUTH_CACHE_EVENT = "grevdad-auth-changed";
 const AUTH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const THEME_STORAGE_KEY = "grevdad_theme";
-const PLAYGROUND_NAV_STORAGE_KEY = "grevdad_playground_nav";
 const CASINO_BALANCE_STORAGE_KEY = "grevdad_casino_balance";
 const CASINO_BALANCE_EVENT = "grevdad-casino-balance-changed";
 
-const PLAYGROUND_PAGE_PREFIXES = [
-  "/gambling",
-  "/j-playground",
-  "/dkpg"
-];
-
 function isCasinoPage(pathname = window.location.pathname) {
   return pathname.startsWith("/gambling");
-}
-
-function shouldShowPlaygroundNav(pathname = window.location.pathname) {
-  return !PLAYGROUND_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-}
-
-function readPlaygroundNavPrefs() {
-  try {
-    const raw = window.localStorage.getItem(PLAYGROUND_NAV_STORAGE_KEY);
-    if (!raw) return { collapsed: false };
-    const parsed = JSON.parse(raw);
-    return {
-      collapsed: Boolean(parsed?.collapsed)
-    };
-  } catch (error) {
-    console.error("Failed to read playground nav prefs:", error);
-    return { collapsed: false };
-  }
-}
-
-function writePlaygroundNavPrefs(prefs) {
-  try {
-    window.localStorage.setItem(PLAYGROUND_NAV_STORAGE_KEY, JSON.stringify(prefs));
-  } catch (error) {
-    console.error("Failed to save playground nav prefs:", error);
-  }
 }
 
 function readCasinoBalance() {
@@ -92,36 +59,6 @@ async function refreshCasinoBalance() {
   } catch (error) {
     console.error(error);
   }
-}
-
-function setupPlaygroundSideNav() {
-  const nav = document.getElementById("playground-side-nav");
-  const collapseBtn = document.getElementById("playground-side-nav-collapse");
-  if (!nav || !collapseBtn) return;
-
-  if (!shouldShowPlaygroundNav()) {
-    nav.classList.add("hidden");
-    return;
-  }
-
-  nav.classList.remove("hidden");
-  let state = readPlaygroundNavPrefs();
-
-  const applyState = () => {
-    nav.dataset.state = "open";
-    nav.dataset.collapsed = state.collapsed ? "true" : "false";
-    nav.setAttribute("aria-hidden", "false");
-    collapseBtn.setAttribute("aria-label", state.collapsed ? "Expand playground navigation" : "Minimize playground navigation");
-    collapseBtn.textContent = state.collapsed ? "⇥" : "⇤";
-    writePlaygroundNavPrefs(state);
-  };
-
-  collapseBtn.addEventListener("click", () => {
-    state = { ...state, collapsed: !state.collapsed };
-    applyState();
-  });
-
-  applyState();
 }
 
 
@@ -183,7 +120,6 @@ async function loadSharedHeader() {
     const auth = await fetchCurrentUser({ preferCache: !cachedUser });
     applyHeaderAuthState(auth);
     setupThemeToggle();
-    setupPlaygroundSideNav();
     applyCasinoBalance();
     refreshCasinoBalance();
     window.addEventListener(AUTH_CACHE_EVENT, () => {

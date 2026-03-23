@@ -7,14 +7,31 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .main-stack {
+    .home-layout {
       display: grid;
-      gap: 18px;
-      width: min(100%, 1100px);
+      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+      gap: 24px;
+      width: min(100%, 1240px);
       margin: 0 auto;
+      align-items: start;
     }
 
-    .intro-stack {
+    .main-stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .intro-stack,
+    .playground-list,
+    .chat-shell,
+    .home-footer-note {
       display: grid;
       gap: 16px;
     }
@@ -34,11 +51,39 @@
       line-height: 1;
     }
 
-    .home-copy {
+    .home-copy,
+    .playground-card__copy,
+    .home-footer-copy {
       margin: 0;
       color: var(--muted);
       line-height: 1.7;
-      max-width: 78ch;
+    }
+
+    .playground-card {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 90%, transparent);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .playground-card:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+      background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
+    }
+
+    .playground-card__emoji {
+      font-size: 1.8rem;
+      line-height: 1;
+    }
+
+    .playground-card__title {
+      margin: 0;
+      color: var(--text);
+      font-size: 1rem;
     }
 
     .home-actions {
@@ -81,6 +126,25 @@
     .chat-form { display: grid; gap: 12px; }
     .chat-textarea { min-height: 100px; resize: vertical; }
     .guest-note { margin-top: 12px; }
+
+    .footer-status {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-weight: 700;
+    }
+
+    .footer-status time {
+      color: var(--accent);
+    }
+
+    @media (max-width: 980px) {
+      .home-layout,
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -88,64 +152,94 @@
     <div id="header-mount"></div>
 
     <main class="page-main">
-      <div class="main-stack">
-          <section class="panel">
-            <div class="intro-stack">
-              <p class="eyebrow">Welcome to Grev.dad</p>
-              <h1 class="home-title">What is Grev.dad?</h1>
-              <p class="home-copy">Grev.dad is a goofy little community site full of playful experiments, profile customization, chats, forum posts, and side quests. Nothing here is especially serious on purpose — the whole thing is meant to feel fun, silly, and a bit chaotic in the best way.</p>
-            </div>
+      <div class="home-layout">
+        <aside class="panel">
+          <p class="eyebrow">Playgrounds</p>
+          <h2 class="panel-title">Jump into the fun</h2>
+          <div class="playground-list">
+            <a class="playground-card" href="/gambling/index.html">
+              <span class="playground-card__emoji" aria-hidden="true">🎰</span>
+              <h3 class="playground-card__title">Casino</h3>
+              <p class="playground-card__copy">Daily spins, classic slots, and more Grev Coin chaos.</p>
+            </a>
+            <a class="playground-card" href="/j-playground/index.html">
+              <span class="playground-card__emoji" aria-hidden="true">🧪</span>
+              <h3 class="playground-card__title">J Playground</h3>
+              <p class="playground-card__copy">Prototype toys, experiments, and weird little ideas.</p>
+            </a>
+            <a class="playground-card" href="/dkpg/index.html">
+              <span class="playground-card__emoji" aria-hidden="true">🛝</span>
+              <h3 class="playground-card__title">DKPG</h3>
+              <p class="playground-card__copy">Extra side quests and playful nonsense for the crew.</p>
+            </a>
+          </div>
+        </aside>
 
-            <div class="home-actions" id="guest-actions">
-              <a class="btn btn-primary" href="/register.html">Create account</a>
-              <a class="btn" href="/login.html">Sign in</a>
-            </div>
-
-            <div class="home-actions hidden" id="member-actions">
-              <a class="btn btn-primary" href="/members.html">Browse members</a>
-              <a class="btn" href="/profile.html">Your profile</a>
-              <a class="btn" href="/forum.html">Open forum</a>
-            </div>
-          </section>
-
-          <section class="panel">
-            <h2 class="panel-title">Global Chat</h2>
-            <div id="chat-status" class="alert alert-info">Loading chat...</div>
-
-            <div class="mt-16">
-              <div id="global-chat-box" class="chat-box">
-                <div class="chat-empty">No messages yet.</div>
+        <div class="main-stack">
+          <div class="hero-grid">
+            <section class="panel">
+              <div class="intro-stack">
+                <p class="eyebrow">Welcome to Grev.dad</p>
+                <h1 class="home-title">What is Grev.dad?</h1>
+                <p class="home-copy">Grev.dad is a goofy little community site full of playful experiments, profile customization, chats, forum posts, and side quests. Nothing here is especially serious on purpose — the whole thing is meant to feel fun, silly, and a bit chaotic in the best way.</p>
               </div>
 
-              <div id="guest-chat-note" class="alert alert-info guest-note hidden">
-                You need to be logged in to send messages in global chat.
+              <div class="home-actions" id="guest-actions">
+                <a class="btn btn-primary" href="/register.html">Create account</a>
+                <a class="btn" href="/login.html">Sign in</a>
               </div>
 
-              <form id="global-chat-form" class="chat-form hidden mt-16">
-                <div class="form-group">
-                  <label class="form-label" for="chat-message">Say something</label>
-                  <textarea
-                    id="chat-message"
-                    class="form-input form-textarea chat-textarea"
-                    maxlength="1000"
-                    placeholder="Type a message to the global chat..."
-                  ></textarea>
+              <div class="home-actions hidden" id="member-actions">
+                <a class="btn btn-primary" href="/members.html">Browse members</a>
+                <a class="btn" href="/profile.html">Your profile</a>
+                <a class="btn" href="/forum.html">Open forum</a>
+              </div>
+            </section>
+
+            <section class="panel chat-shell">
+              <h2 class="panel-title">Global Chat</h2>
+              <div id="chat-status" class="alert alert-info">Loading chat...</div>
+
+              <div class="mt-16">
+                <div id="global-chat-box" class="chat-box">
+                  <div class="chat-empty">No messages yet.</div>
                 </div>
 
-                <div class="button-row">
-                  <button id="send-chat-btn" class="btn btn-primary" type="submit">
-                    Send message
-                  </button>
+                <div id="guest-chat-note" class="alert alert-info guest-note hidden">
+                  You need to be logged in to send messages in global chat.
                 </div>
-              </form>
-            </div>
-          </section>
+
+                <form id="global-chat-form" class="chat-form hidden mt-16">
+                  <div class="form-group">
+                    <label class="form-label" for="chat-message">Say something</label>
+                    <textarea
+                      id="chat-message"
+                      class="form-input form-textarea chat-textarea"
+                      maxlength="1000"
+                      placeholder="Type a message to the global chat..."
+                    ></textarea>
+                  </div>
+
+                  <div class="button-row">
+                    <button id="send-chat-btn" class="btn btn-primary" type="submit">
+                      Send message
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
         </div>
+      </div>
     </main>
 
     <footer class="footer">
-      <div class="footer-inner">
-        Grev.dad
+      <div class="footer-inner home-footer-note">
+        <div class="footer-status">
+          <span>Site Update —</span>
+          <time datetime="2026-03-23T16:28:34+00:00">23/03/2026, 16:28 UTC</time>
+        </div>
+        <p class="home-footer-copy">Latest GitHub main push visible from this workspace snapshot.</p>
       </div>
     </footer>
   </div>
