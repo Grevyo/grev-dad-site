@@ -118,7 +118,7 @@
             <p class="eyebrow">Daily reward</p>
             <h1 class="panel-title">Daily Free Spin</h1>
             <p class="info-copy">
-              One free spin every 24 hours. The wheel can land on 5, 10, 50, or 100 Grev Coin,
+              One free spin per day. As soon as the day ticks over at midnight UTC, your next spin is ready. The wheel can land on 5, 10, 50, or 100 Grev Coin,
               and every reward keeps the same 25% chance.
             </p>
           </div>
@@ -199,7 +199,7 @@
       spinButton.disabled = !available || isSpinning;
       spinStatusEl.textContent = available ? "Your free daily spin is ready." : "Daily spin already used.";
       spinMetaEl.textContent = available
-        ? "Come back after your next 24-hour cooldown once you spin."
+        ? "Once you spin, your next free go unlocks when the next UTC day starts."
         : `Next free spin: ${formatDate(data.next_available_at) || "waiting for timer"}`;
     }
 
@@ -260,7 +260,7 @@
         await animateWheelToReward(data.reward?.coins || 0);
         updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         spinStatusEl.textContent = `You won ${formatGc(data?.reward?.coins || 0)}.`;
-        spinMetaEl.textContent = `Next free spin: ${formatDate(data?.daily_spin?.next_available_at) || "in 24 hours"}`;
+        spinMetaEl.textContent = `Next free spin: ${formatDate(data?.daily_spin?.next_available_at) || "at the next UTC midnight"}`;
         setSpinState(data?.daily_spin || null);
       } catch (error) {
         console.error(error);

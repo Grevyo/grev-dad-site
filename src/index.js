@@ -29,7 +29,6 @@ const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
 const CASINO_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
 const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const DAILY_SPIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const ROULETTE_ROUND_INTERVAL_MS = 15 * 60 * 1000;
 const DAILY_SPIN_REWARDS = [
   { coins: 5, weight: 25 },
@@ -578,16 +577,24 @@ function pickDailySpinRewardPence() {
   return Math.round(Number(DAILY_SPIN_REWARDS[DAILY_SPIN_REWARDS.length - 1]?.coins || 0) * 100);
 }
 
+function getUtcDayKey(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
 function getNextDailySpinAt(lastFreeSpinAt) {
   const lastMs = lastFreeSpinAt ? Date.parse(lastFreeSpinAt) : NaN;
   if (!Number.isFinite(lastMs)) return null;
-  return new Date(lastMs + DAILY_SPIN_INTERVAL_MS).toISOString();
+  const lastDate = new Date(lastMs);
+  const nextUtcMidnight = Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), lastDate.getUTCDate() + 1, 0, 0, 0, 0);
+  return new Date(nextUtcMidnight).toISOString();
 }
 
 function canUseDailySpin(lastFreeSpinAt) {
-  const lastMs = lastFreeSpinAt ? Date.parse(lastFreeSpinAt) : NaN;
-  if (!Number.isFinite(lastMs)) return true;
-  return (Date.now() - lastMs) >= DAILY_SPIN_INTERVAL_MS;
+  const lastDayKey = getUtcDayKey(lastFreeSpinAt);
+  if (!lastDayKey) return true;
+  return lastDayKey !== getUtcDayKey();
 }
 
 async function syncCasinoProfileFromCasesDb(env, userId, username, options = {}) {
@@ -998,6 +1005,16 @@ async function handleCasinoRouletteState(request, env) {
 
   const profile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
   const upcomingRoundId = currentRoundId + 1;
+  const recentRoundResults = Array.from({ length: 10 }, (_, index) => {
+    const roundId = currentRoundId - 1 - index;
+    const number = getRouletteRoundNumber(roundId);
+    return {
+      round_id: roundId,
+      number,
+      color: getRouletteColor(number),
+      dozen: getRouletteDozen(number)
+    };
+  }).filter((round) => round.round_id >= 0);
   const recentRows = await env.DB.prepare(`
     SELECT id, round_id, bet_type, bet_value, stake_pence, payout_pence, outcome_number, created_at, resolved_at
     FROM casino_roulette_bets
@@ -1040,6 +1057,7 @@ async function handleCasinoRouletteState(request, env) {
         dozen: getRouletteDozen(getRouletteRoundNumber(currentRoundId - 1))
       }
     },
+    recent_round_results: recentRoundResults,
     pending_bets: (pendingBets.results || []).map((row) => ({
       id: Number(row.id),
       round_id: Number(row.round_id),
