@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token Drop | Grev.dad Casino</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/casino-chat-widget.js" defer></script>
+  <style>
+    .game-shell,.hero-grid,.info-grid,.control-grid,.status-grid,.mini-grid,.board-grid { display:grid; gap:20px; }
+    .hero-grid { grid-template-columns:minmax(0, 1.2fr) minmax(280px, 0.8fr); align-items:start; }
+    .hero-card { padding:28px; border-radius:28px; border:1px solid rgba(168,85,247,.34); background:radial-gradient(circle at top left, rgba(168,85,247,.18), transparent 28%), radial-gradient(circle at top right, rgba(236,72,153,.16), transparent 34%), linear-gradient(160deg, #3b0764, #111827 55%, #1f112b); box-shadow:0 26px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
+    .feature-card,.panel-card,.status-card { padding:20px; border-radius:20px; border:1px solid var(--border); background:color-mix(in srgb, var(--surface) 92%, transparent); }
+    .eyebrow-chip { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 14px; border-radius:999px; background:rgba(168,85,247,.16); border:1px solid rgba(168,85,247,.3); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .hero-copy,.muted-copy,.status-copy { color:var(--muted); line-height:1.7; margin:0; }
+    .hero-title { margin:12px 0; font-size:clamp(2rem, 4vw, 3rem); }
+    .control-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); align-items:end; }
+    .status-grid,.info-grid,.mini-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .status-value { margin:0; font-size:1.35rem; font-weight:800; }
+    .board-grid { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+    .board-cell { min-height:96px; border-radius:18px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg, rgba(88,28,135,.24), rgba(30,41,59,.42)); font-size:1.4rem; font-weight:800; }
+    .board-cell.hit { border-color:#a855f7; box-shadow:0 0 0 2px color-mix(in srgb, #a855f7 28%, transparent) inset; }
+    .action-note { margin:0; font-size:.95rem; color:var(--muted); }
+    @media (max-width: 900px) { .hero-grid { grid-template-columns:1fr; } }
+    @media (max-width: 640px) { .game-shell { gap:18px; } .hero-card,.feature-card,.panel-card,.status-card { padding:18px; border-radius:22px; } .board-grid,.control-grid,.status-grid,.info-grid,.mini-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main game-shell">
+      <div class="button-row"><a class="btn" href="/gambling/index.html">← Back to Casino Hub</a></div>
+      <section class="hero-grid">
+        <div class="hero-card">
+          <span class="eyebrow-chip">🪙 Timed Drop</span>
+          <h1 class="hero-title">Token Drop</h1>
+          <p class="hero-copy">Play timed coin-drop rounds with leaderboard-focused rewards.</p>
+          <div class="status-grid mt-20">
+            <div class="status-card"><p class="stat-label">Round clock</p><p class="status-value" id="drop-clock">20s</p></div><div class="status-card"><p class="stat-label">Tokens left</p><p class="status-value" id="drop-tokens">8</p></div><div class="status-card"><p class="stat-label">Round score</p><p class="status-value" id="drop-score">0 pts</p></div>
+          </div>
+        </div>
+        <div class="feature-card">
+          <p class="eyebrow">How it plays</p>
+          <p class="muted-copy">Drop tokens into different columns before the timer expires. Gold buckets score highest, purple buckets build combo points, and every round is about squeezing out a bigger score before time runs out.</p>
+          <div class="info-grid mt-16">
+            <div class="status-card"><p class="stat-label">Timed rounds</p><p class="status-copy">Each round is short and pushes quick choices instead of slow setup.</p></div><div class="status-card"><p class="stat-label">Reward focus</p><p class="status-copy">Score more by chaining gold and combo pockets in the same run.</p></div><div class="status-card"><p class="stat-label">Arcade feel</p><p class="status-copy">Simple controls, fast decisions, and visible score pressure define the page.</p></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel-card">
+        <div class="button-row"><p class="eyebrow">Play screen</p></div>
+        <div class="control-grid"><div class="button-row"><button id="drop-start" class="btn btn-primary" type="button">Start Round</button></div><div class="button-row"><button class="btn" type="button" data-drop="0">Drop Lane 1</button><button class="btn" type="button" data-drop="1">Drop Lane 2</button><button class="btn" type="button" data-drop="2">Drop Lane 3</button><button class="btn" type="button" data-drop="3">Drop Lane 4</button><button class="btn" type="button" data-drop="4">Drop Lane 5</button></div></div><div id="drop-board" class="board-grid mt-20"></div><div class="feature-card mt-20"><p class="stat-label">Round recap</p><p id="drop-status" class="status-value">Press start to begin a timed drop round.</p><p id="drop-copy" class="status-copy">Each lane has a hidden bucket value that changes every new round.</p></div>
+      </section>
+      <section class="mini-grid">
+        <article class="feature-card"><h2 class="panel-title">Combo lane</h2><p class="muted-copy">Purple combo buckets reward repeat hits when you learn the board quickly.</p></article><article class="feature-card"><h2 class="panel-title">Gold bucket</h2><p class="muted-copy">The best payouts come from finding the biggest gold bucket before time expires.</p></article><article class="feature-card"><h2 class="panel-title">Leaderboard pressure</h2><p class="muted-copy">The format is built around posting a bigger score in a short session.</p></article>
+      </section>
+    </main>
+  </div>
+  <script>
+    const boardEl = document.getElementById("drop-board"); const clockEl = document.getElementById("drop-clock"); const tokensEl = document.getElementById("drop-tokens"); const scoreEl = document.getElementById("drop-score"); const statusEl = document.getElementById("drop-status"); const copyEl = document.getElementById("drop-copy"); const startBtn = document.getElementById("drop-start"); const laneBtns = Array.from(document.querySelectorAll('[data-drop]')); let timer = null; let clock = 20; let tokens = 8; let score = 0; let buckets = []; function renderBoard(activeLane = -1) { boardEl.innerHTML = buckets.map((bucket, index) => `<div class="board-cell ${index === activeLane ? 'hit' : ''}">${bucket.label}</div>`).join(''); } function newBuckets() { buckets = Array.from({ length: 5 }, () => { const roll = Math.random(); if (roll > 0.78) return { label: 'Gold +120', points: 120 }; if (roll > 0.48) return { label: 'Combo +70', points: 70 }; return { label: 'Base +35', points: 35 }; }); } function refresh() { clockEl.textContent = `${clock}s`; tokensEl.textContent = String(tokens); scoreEl.textContent = `${score} pts`; } function endRound(message) { if (timer) clearInterval(timer); timer = null; laneBtns.forEach((btn) => { btn.disabled = true; }); startBtn.disabled = false; statusEl.textContent = message; copyEl.textContent = `Round finished with ${score} points. Start another run for a new board.`; } function startRound() { clock = 20; tokens = 8; score = 0; newBuckets(); refresh(); renderBoard(); statusEl.textContent = 'Round live'; copyEl.textContent = 'Find the best lanes before the clock and token count both run out.'; startBtn.disabled = true; laneBtns.forEach((btn) => { btn.disabled = false; }); if (timer) clearInterval(timer); timer = setInterval(() => { clock -= 1; refresh(); if (clock <= 0) endRound(`Time up — final score ${score} pts.`); }, 1000); } function dropToken(lane) { if (!timer || tokens <= 0) return; const bucket = buckets[lane]; tokens -= 1; score += bucket.points; refresh(); renderBoard(lane); statusEl.textContent = `Lane ${lane + 1} hit for ${bucket.points} pts.`; copyEl.textContent = bucket.points >= 120 ? 'Gold bucket found — that is the high-value drop.' : bucket.points >= 70 ? 'Combo pocket landed — chain those for bigger rounds.' : 'Base bucket landed — keep searching for a stronger lane.'; if (Math.random() > 0.65) buckets[lane] = { label: 'Shifted +90', points: 90 }; if (tokens <= 0) endRound(`Tokens spent — final score ${score} pts.`); } laneBtns.forEach((btn) => { btn.disabled = true; btn.addEventListener('click', () => dropToken(Number(btn.dataset.drop))); }); startBtn.addEventListener('click', startRound); newBuckets(); renderBoard(); refresh();
+  </script>
+</body>
+</html>

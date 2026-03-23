@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kraken Rush | Grev.dad Casino</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/casino-chat-widget.js" defer></script>
+  <style>
+    .game-shell,.hero-grid,.info-grid,.control-grid,.status-grid,.mini-grid,.board-grid { display:grid; gap:20px; }
+    .hero-grid { grid-template-columns:minmax(0, 1.2fr) minmax(280px, 0.8fr); align-items:start; }
+    .hero-card { padding:28px; border-radius:28px; border:1px solid rgba(239,68,68,.34); background:radial-gradient(circle at top left, rgba(239,68,68,.18), transparent 28%), radial-gradient(circle at top right, rgba(168,85,247,.18), transparent 34%), linear-gradient(160deg, #450a0a, #111827 52%, #020617); box-shadow:0 26px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06); }
+    .feature-card,.panel-card,.status-card { padding:20px; border-radius:20px; border:1px solid var(--border); background:color-mix(in srgb, var(--surface) 92%, transparent); }
+    .eyebrow-chip { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding:0 14px; border-radius:999px; background:rgba(239,68,68,.16); border:1px solid rgba(239,68,68,.32); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .hero-copy,.muted-copy,.status-copy { color:var(--muted); line-height:1.7; margin:0; }
+    .hero-title { margin:12px 0; font-size:clamp(2rem, 4vw, 3rem); }
+    .control-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); align-items:end; }
+    .status-grid,.info-grid,.mini-grid { grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); }
+    .status-value { margin:0; font-size:1.35rem; font-weight:800; }
+    .board-grid { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+    .board-cell { min-height:96px; border-radius:18px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg, rgba(127,29,29,.28), rgba(30,41,59,.45)); font-size:1.9rem; font-weight:800; }
+    .board-cell.hit { border-color:#ef4444; box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 28%, transparent) inset; }
+    .action-note { margin:0; font-size:.95rem; color:var(--muted); }
+    @media (max-width: 900px) { .hero-grid { grid-template-columns:1fr; } }
+    @media (max-width: 640px) { .game-shell { gap:18px; } .hero-card,.feature-card,.panel-card,.status-card { padding:18px; border-radius:22px; } .board-grid,.control-grid,.status-grid,.info-grid,.mini-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main game-shell">
+      <div class="button-row"><a class="btn" href="/gambling/index.html">← Back to Casino Hub</a></div>
+      <section class="hero-grid">
+        <div class="hero-card">
+          <span class="eyebrow-chip">🦑 Boss Waves</span>
+          <h1 class="hero-title">Kraken Rush</h1>
+          <p class="hero-copy">Take on the high-volatility fishing room built around dangerous boss waves.</p>
+          <div class="status-grid mt-20">
+            <div class="status-card"><p class="stat-label">Cannon charge</p><p class="status-value" id="kraken-charge">3</p></div><div class="status-card"><p class="stat-label">Danger level</p><p class="status-value" id="kraken-danger">High</p></div><div class="status-card"><p class="stat-label">Active wave</p><p class="status-value" id="kraken-wave">1</p></div>
+          </div>
+        </div>
+        <div class="feature-card">
+          <p class="eyebrow">How it plays</p>
+          <p class="muted-copy">This room is tuned for chaos: boss waves arrive fast, common fish matter less, and every blast is about surviving the volatility long enough to land a massive target.</p>
+          <div class="info-grid mt-16">
+            <div class="status-card"><p class="stat-label">Dangerous waves</p><p class="status-copy">Wave pressure rises quickly and throws boss targets into the room.</p></div><div class="status-card"><p class="stat-label">High volatility</p><p class="status-copy">Rounds swing hard between misses and huge catches.</p></div><div class="status-card"><p class="stat-label">Boss-focused room</p><p class="status-copy">The page centers the more dangerous fishing setup you requested.</p></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel-card">
+        <div class="button-row"><p class="eyebrow">Play screen</p></div>
+        <div class="control-grid"><div class="button-row"><button id="kraken-fire" class="btn btn-primary" type="button">Fire Cannon</button><button id="kraken-charge-btn" class="btn" type="button">Recharge</button></div></div><div id="kraken-board" class="board-grid mt-20"></div><div class="feature-card mt-20"><p class="stat-label">Battle feed</p><p id="kraken-status" class="status-value">Brace for the first wave.</p><p id="kraken-copy" class="status-copy">Boss markers are heavier here and misses hurt the rhythm of the run.</p></div>
+      </section>
+      <section class="mini-grid">
+        <article class="feature-card"><h2 class="panel-title">Boss wave spikes</h2><p class="muted-copy">Each new wave adds more dangerous targets to the room.</p></article><article class="feature-card"><h2 class="panel-title">Cannon management</h2><p class="muted-copy">You must choose when to spend the limited heavy shots and when to recharge.</p></article><article class="feature-card"><h2 class="panel-title">Volatility curve</h2><p class="muted-copy">The room is intentionally swingier than Harbor Hunt, matching the requested high-risk feel.</p></article>
+      </section>
+    </main>
+  </div>
+  <script>
+    const boardEl = document.getElementById("kraken-board"); const chargeEl = document.getElementById("kraken-charge"); const dangerEl = document.getElementById("kraken-danger"); const waveEl = document.getElementById("kraken-wave"); const statusEl = document.getElementById("kraken-status"); const copyEl = document.getElementById("kraken-copy"); const fireBtn = document.getElementById("kraken-fire"); const rechargeBtn = document.getElementById("kraken-charge-btn"); let charge = 3; let wave = 1; let cells = []; function render(hit = -1) { boardEl.innerHTML = cells.map((cell, index) => `<div class="board-cell ${index === hit ? 'hit' : ''}">${cell}</div>`).join(''); chargeEl.textContent = String(charge); waveEl.textContent = String(wave); dangerEl.textContent = wave < 3 ? 'High' : wave < 5 ? 'Severe' : 'Critical'; } function spawnWave() { const bossCount = Math.min(1 + Math.floor(wave / 2), 4); const pool = Array.from({ length: 8 }, (_, index) => index < bossCount ? '🦑' : Math.random() > 0.55 ? '🦈' : '💀'); cells = pool.sort(() => Math.random() - 0.5); render(); } function fire() { if (charge <= 0) { statusEl.textContent = 'Cannon dry.'; copyEl.textContent = 'Recharge before trying to survive the next dangerous boss wave.'; return; } charge -= 1; const lane = Math.floor(Math.random() * cells.length); const target = cells[lane]; if (target === '🦑') { statusEl.textContent = 'Direct boss hit!'; copyEl.textContent = `You punched through a boss target during wave ${wave}.`; wave += 1; } else if (target === '🦈') { statusEl.textContent = 'Heavy fish clipped.'; copyEl.textContent = 'A solid hit, but the real payout sits in the boss wave.'; if (Math.random() > 0.5) wave += 1; } else { statusEl.textContent = 'Shot lost in the churn.'; copyEl.textContent = 'That is the downside of a high-volatility room — not every blast connects.'; } spawnWave(); render(lane); } function recharge() { charge = Math.min(charge + 1, 5); statusEl.textContent = 'Cannon recharged.'; copyEl.textContent = 'One more heavy shot loaded for the next wave.'; render(); } fireBtn.addEventListener('click', fire); rechargeBtn.addEventListener('click', recharge); spawnWave();
+  </script>
+</body>
+</html>
