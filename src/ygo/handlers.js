@@ -1,10 +1,11 @@
 import { YGO_ACHIEVEMENTS, YGO_PACKS, YGO_RARITIES } from './data.js';
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from '../lib/runtime-cache.js';
 import { getStartingBalancePence } from '../lib/gambling.js';
+import { getCasesDb } from '../lib/cases-db.js';
 import { getYgoRarityMeta } from './schema.js';
 
 function getYgoDataDb(env) {
-  return env.YGO_DB || env.CASES_DB;
+  return getCasesDb(env);
 }
 
 function pickWeighted(rows) {
@@ -48,7 +49,7 @@ function suggestPackPriceFromRoi(expectedValue, roiTargetPercent = 70) {
 }
 
 async function getYgoDiscountPercent(env) {
-  const row = await getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`SELECT is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, title, message, updated_at FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
+  const row = await getCachedValue('casesdb:event-config', 30000, async () => await getCasesDb(env).prepare(`SELECT is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, title, message, updated_at FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
   return row && Number(row.is_active) ? Math.max(0, Math.min(100, Number(row.ygo_discount_percent || 0))) : 0;
 }
 
@@ -60,7 +61,7 @@ async function getSingleCardPriceCoins(env) {
 async function ensurePlayer(env, session, isoNow) {
   const now = isoNow();
   const ygoDb = getYgoDataDb(env);
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT OR IGNORE INTO case_profiles (
       user_id, display_name, balance, total_cases_opened, total_spent, total_inventory_value, created_at, updated_at
     ) VALUES (?, ?, 500000, 0, 0, 0, ?, ?)
@@ -82,7 +83,7 @@ async function ensurePlayer(env, session, isoNow) {
 }
 
 async function getWallet(env, userId) {
-  return await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(userId).first();
+  return await getCasesDb(env).prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(userId).first();
 }
 
 async function syncCardsOwned(env, userId, isoNow) {
@@ -119,7 +120,7 @@ async function evaluateAchievements(env, userId, isoNow) {
     if (row && !row.claimed_at && currentValue >= Number(row.target_value || achievement.target_value)) {
       const now = isoNow();
       await ygoDb.prepare(`UPDATE ygo_achievement_progress SET claimed_at = ?, updated_at = ? WHERE id = ?`).bind(now, now, row.id).run();
-      await env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(achievement.reward_coins, now, userId).run();
+      await getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(achievement.reward_coins, now, userId).run();
       await ygoDb.prepare(`UPDATE ygo_player_stats SET achievements_completed = achievements_completed + 1, updated_at = ? WHERE user_id = ?`).bind(now, userId).run();
       unlocked.push({ ...achievement, claimed_at: now });
     }
@@ -184,7 +185,7 @@ export async function handleYgoRequest(request, env, deps) {
   const { pathname } = url;
   if (!pathname.startsWith('/api/ygo')) return null;
   const ygoDb = getYgoDataDb(env);
-  if (!env.CASES_DB) return json({ success: false, error: 'CASES_DB is not configured' }, 500, request);
+  if (!getCasesDb(env)) return json({ success: false, error: 'CASES-DB is not configured' }, 500, request);
 
   if (pathname === '/api/ygo/packs' && request.method === 'GET') {
     const payload = await getCachedValue('casesdb:ygo:packs', 60000, async () => {
@@ -468,7 +469,7 @@ export async function handleYgoRequest(request, env, deps) {
     const pull = pickWeighted(weighted);
     const now = isoNow();
     const sellBack = calcSellBack(pull.estimated_price_coins, pull.rarity_code);
-    await env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(price, now, session.id).run();
+    await getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(price, now, session.id).run();
     await ygoDb.batch([
       ygoDb.prepare(`INSERT INTO ygo_inventory (user_id, pack_slug, card_id, card_name, rarity_code, foil_label, sell_back_coins, estimated_price_coins, image_url, acquired_at, source_pack_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`).bind(session.id, pull.pack_slug, pull.id, pull.card_name, pull.rarity_code, formatFoilLabel(pull.rarity_code), sellBack, Number(pull.estimated_price_coins || 0), pull.image_url || '', now),
       ygoDb.prepare(`UPDATE ygo_player_stats SET cards_owned = cards_owned + 1, updated_at = ? WHERE user_id = ?`).bind(now, session.id)
@@ -548,7 +549,7 @@ export async function handleYgoRequest(request, env, deps) {
     if (Number(lastOpenDateRow?.current_streak_days || 0) < 1) bonusCoins += Number(pack.streak_reward_coins || 0);
 
     await ygoDb.prepare(`UPDATE ygo_pack_open_history SET total_estimated_value_coins = ? WHERE id = ?`).bind(totalEstimated, packOpenId).run();
-    await env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance - ? + ?, updated_at = ? WHERE user_id = ?`).bind(price, bonusCoins, now, session.id).run();
+    await getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance - ? + ?, updated_at = ? WHERE user_id = ?`).bind(price, bonusCoins, now, session.id).run();
     await ygoDb.prepare(`
         UPDATE ygo_player_stats
         SET packs_opened = packs_opened + 1,
@@ -599,7 +600,7 @@ export async function handleYgoRequest(request, env, deps) {
     if (!item) return json({ success: false, error: 'Card not found in your active collection.' }, 404, request);
     const now = isoNow();
     await ygoDb.prepare(`UPDATE ygo_inventory SET sold_at = ? WHERE id = ?`).bind(now, inventoryId).run();
-    await env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(Number(item.sell_back_coins || 0), now, session.id).run();
+    await getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(Number(item.sell_back_coins || 0), now, session.id).run();
     await ygoDb.prepare(`UPDATE ygo_player_stats SET total_sellback_coins = total_sellback_coins + ?, updated_at = ? WHERE user_id = ?`).bind(Number(item.sell_back_coins || 0), now, session.id).run();
     await syncCardsOwned(env, session.id, isoNow);
     const unlocked = await evaluateAchievements(env, session.id, isoNow);

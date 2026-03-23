@@ -1,4 +1,5 @@
 import { STEAM_APPID_CS2, STEAM_CURRENCY_GBP } from "./constants.js";
+import { getCasesDb } from "../lib/cases-db.js";
 
 function normalizeMarketName(value) {
   return String(value || "")
@@ -58,7 +59,7 @@ function parseSteamGbpToPence(value) {
 }
 
 export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date.now()) {
-  if (!env.CASES_DB || !marketHashName) return null;
+  if (!getCasesDb(env) || !marketHashName) return null;
 
   const cached = await getCachedItemPrice(env, marketHashName);
   const currentBucket = getPriceBucketIso(nowMs);
@@ -70,14 +71,14 @@ export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date
   const stamp = currentBucket;
 
   if (live != null && live > 0) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO market_price_cache (market_hash_name, price_pence, updated_at)
       VALUES (?, ?, ?)
       ON CONFLICT(market_hash_name) DO UPDATE SET
         price_pence = excluded.price_pence,
         updated_at = excluded.updated_at
     `).bind(marketHashName, live, stamp).run();
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO market_price_history (market_hash_name, price_pence, bucket_started_at, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(market_hash_name, bucket_started_at) DO UPDATE SET
@@ -95,9 +96,9 @@ export async function getOrFetchItemPricePence(env, marketHashName, nowMs = Date
 }
 
 async function getCachedItemPrice(env, marketHashName) {
-  if (!env.CASES_DB || !marketHashName) return null;
+  if (!getCasesDb(env) || !marketHashName) return null;
 
-  return await env.CASES_DB.prepare(`
+  return await getCasesDb(env).prepare(`
     SELECT price_pence, updated_at
     FROM market_price_cache
     WHERE market_hash_name = ?

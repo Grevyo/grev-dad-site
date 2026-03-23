@@ -1,4 +1,5 @@
 import { DEFAULT_QUICK_SELL_FEE_PERCENT, STARTING_BALANCE_PENCE } from "./constants.js";
+import { getCasesDb } from "../lib/cases-db.js";
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
   const result = await db.prepare(`PRAGMA table_info(${tableName})`).all();
@@ -11,7 +12,7 @@ async function ensureColumn(db, tableName, columnName, columnDefinition) {
 }
 
 /**
- * Extends CASES_DB with CS2 marketplace / trading tables and columns.
+ * Extends CASES-DB with CS2 marketplace / trading tables and columns.
  */
 export async function ensureCs2Extensions(db) {
   await ensureColumn(db, "case_definitions", "steam_market_hash_name", "TEXT");

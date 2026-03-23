@@ -11,6 +11,7 @@ import { ensureBlackjackTables } from "./blackjack/schema.js";
 import { handleBlackjackRequest } from "./blackjack/handlers.js";
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
+import { getCasesDb } from "./lib/cases-db.js";
 import { handleCasinoRequest } from "./casino/handlers.js";
 
 export default {
@@ -147,7 +148,7 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/gambling/event" && request.method === "GET") {
     await ensureCs2CatalogReady(env);
-    const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await env.CASES_DB.prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
+    const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await getCasesDb(env).prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
     return json({ success: true, event }, 200, request);
   }
 
@@ -175,7 +176,7 @@ async function handleRequest(request, env, ctx) {
     const body = await safeJson(request);
     const now = isoNow();
     const event = { id: 1, title: String(body?.title || '').trim(), message: String(body?.message || '').trim(), is_active: Boolean(body?.is_active), cs2_discount_percent: Math.max(0, Math.min(100, Number(body?.cs2_discount_percent || 0))), ygo_discount_percent: Math.max(0, Math.min(100, Number(body?.ygo_discount_percent || 0))), blackjack_bonus_percent: Math.max(0, Math.min(500, Number(body?.blackjack_bonus_percent || 0))), updated_at: now };
-    await env.CASES_DB.prepare(`INSERT INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, message = excluded.message, is_active = excluded.is_active, cs2_discount_percent = excluded.cs2_discount_percent, ygo_discount_percent = excluded.ygo_discount_percent, blackjack_bonus_percent = excluded.blackjack_bonus_percent, updated_at = excluded.updated_at`).bind(event.title, event.message, event.is_active ? 1 : 0, event.cs2_discount_percent, event.ygo_discount_percent, event.blackjack_bonus_percent, now).run();
+    await getCasesDb(env).prepare(`INSERT INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, message = excluded.message, is_active = excluded.is_active, cs2_discount_percent = excluded.cs2_discount_percent, ygo_discount_percent = excluded.ygo_discount_percent, blackjack_bonus_percent = excluded.blackjack_bonus_percent, updated_at = excluded.updated_at`).bind(event.title, event.message, event.is_active ? 1 : 0, event.cs2_discount_percent, event.ygo_discount_percent, event.blackjack_bonus_percent, now).run();
     setCachedValue("casesdb:event-config", event, 30000);
     invalidateCachedPrefix("casesdb:cs2:cases");
     invalidateCachedPrefix("casesdb:ygo:packs");
@@ -337,32 +338,25 @@ async function handleSetup(env, request) {
 
 async function ensureCs2CatalogReady(env) {
   await ensureCasesTables(env);
-  await ensureCs2Extensions(env.CASES_DB);
+  await ensureCs2Extensions(getCasesDb(env));
   return await seedCs2CatalogIfEmpty(env);
 }
 
 async function ensureYgoReady(env) {
-  if (!env.CASES_DB && !env.YGO_DB) {
+  if (!getCasesDb(env)) {
     return { seeded: false, reason: 'no_ygo_db' };
   }
 
-  if (env.CASES_DB) {
-    await ensureCasesTables(env);
-  }
-
-  const ygoDb = env.YGO_DB || env.CASES_DB;
-  return await ensureYgoTables(ygoDb, env.CASES_DB || ygoDb);
+  await ensureCasesTables(env);
+  return await ensureYgoTables(getCasesDb(env), getCasesDb(env));
 }
 
 async function ensureBlackjackReady(env) {
-  if (!env.CASES_DB && !env.BLACKJACK_DB) {
+  if (!getCasesDb(env)) {
     return { seeded: false, reason: 'no_blackjack_db' };
   }
 
-  if (env.CASES_DB) {
-    await ensureCasesTables(env);
-  }
-
+  await ensureCasesTables(env);
   return await ensureBlackjackTables(env);
 }
 
@@ -554,11 +548,11 @@ async function ensureCoreTablesOnce(env) {
 }
 
 async function ensureCasesTables(env) {
-  if (!env.CASES_DB) {
+  if (!getCasesDb(env)) {
     return;
   }
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     CREATE TABLE IF NOT EXISTS case_profiles (
       user_id INTEGER PRIMARY KEY,
       display_name TEXT,
@@ -571,15 +565,15 @@ async function ensureCasesTables(env) {
     )
   `).run();
 
-  await ensureColumn(env.CASES_DB, "case_profiles", "display_name", "TEXT");
-  await ensureColumn(env.CASES_DB, "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
-  await ensureColumn(env.CASES_DB, "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn(env.CASES_DB, "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn(env.CASES_DB, "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn(env.CASES_DB, "case_profiles", "created_at", "TEXT");
-  await ensureColumn(env.CASES_DB, "case_profiles", "updated_at", "TEXT");
+  await ensureColumn(getCasesDb(env), "case_profiles", "display_name", "TEXT");
+  await ensureColumn(getCasesDb(env), "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
+  await ensureColumn(getCasesDb(env), "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(getCasesDb(env), "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(getCasesDb(env), "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(getCasesDb(env), "case_profiles", "created_at", "TEXT");
+  await ensureColumn(getCasesDb(env), "case_profiles", "updated_at", "TEXT");
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     CREATE TABLE IF NOT EXISTS case_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_name TEXT NOT NULL,
@@ -594,7 +588,7 @@ async function ensureCasesTables(env) {
     )
   `).run();
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     CREATE TABLE IF NOT EXISTS case_definitions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       case_name TEXT NOT NULL,
@@ -607,7 +601,7 @@ async function ensureCasesTables(env) {
     )
   `).run();
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     CREATE TABLE IF NOT EXISTS case_drops (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       case_id INTEGER NOT NULL,
@@ -616,7 +610,7 @@ async function ensureCasesTables(env) {
     )
   `).run();
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     CREATE TABLE IF NOT EXISTS inventory (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -627,7 +621,7 @@ async function ensureCasesTables(env) {
     )
   `).run();
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     CREATE TABLE IF NOT EXISTS case_open_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -638,14 +632,14 @@ async function ensureCasesTables(env) {
     )
   `).run();
 
-  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_profiles_user_id ON case_profiles (user_id)`).run();
-  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory (user_id)`).run();
-  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
-  await env.CASES_DB.prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
-  await env.CASES_DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
+  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_case_profiles_user_id ON case_profiles (user_id)`).run();
+  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory (user_id)`).run();
+  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
+  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
+  await getCasesDb(env).prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
 
-  await env.CASES_DB.prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
-  await env.CASES_DB.prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
+  await getCasesDb(env).prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
+  await getCasesDb(env).prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
 
 }
 
@@ -1141,8 +1135,8 @@ async function handleMembers(request, env) {
       case_inventory_value: 0
     };
 
-    if (env.CASES_DB) {
-      const profile = await env.CASES_DB.prepare(`
+    if (getCasesDb(env)) {
+      const profile = await getCasesDb(env).prepare(`
         SELECT balance, total_inventory_value
         FROM case_profiles
         WHERE user_id = ?
@@ -1651,8 +1645,8 @@ async function handleGamblingProfile(request, env) {
   await ensureCoreTables(env);
   await ensureCasesCatalogReady(env);
 
-  if (!env.CASES_DB) {
-    return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+  if (!getCasesDb(env)) {
+    return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
   }
 
   const session = await getSessionUser(request, env);
@@ -1662,7 +1656,7 @@ async function handleGamblingProfile(request, env) {
 
   const now = isoNow();
 
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT OR IGNORE INTO case_profiles (
       user_id,
       display_name,
@@ -1676,7 +1670,7 @@ async function handleGamblingProfile(request, env) {
     VALUES (?, ?, ?, 0, 0, 0, ?, ?)
   `).bind(session.id, session.username, await getStartingBalancePence(env), now, now).run();
 
-  const row = await env.CASES_DB.prepare(`
+  const row = await getCasesDb(env).prepare(`
     SELECT
       user_id,
       display_name,
@@ -1715,13 +1709,13 @@ async function handleGamblingProfile(request, env) {
 
 async function attachCaseAdminStats(env, users) {
   const list = Array.isArray(users) ? users : [];
-  if (!env.CASES_DB || !list.length) return list;
+  if (!getCasesDb(env) || !list.length) return list;
 
   const ids = [...new Set(list.map((user) => Number(user.id)).filter((id) => Number.isInteger(id) && id > 0))];
   if (!ids.length) return list;
 
   const placeholders = ids.map(() => "?").join(",");
-  const rows = await env.CASES_DB.prepare(`
+  const rows = await getCasesDb(env).prepare(`
     SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
     FROM case_profiles
     WHERE user_id IN (${placeholders})
@@ -1747,9 +1741,9 @@ async function attachCaseAdminStats(env, users) {
 }
 
 async function ensureAdminCaseProfile(env, userId, username) {
-  if (!env.CASES_DB) return null;
+  if (!getCasesDb(env)) return null;
   const now = isoNow();
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT OR IGNORE INTO case_profiles (
       user_id,
       display_name,
@@ -1763,7 +1757,7 @@ async function ensureAdminCaseProfile(env, userId, username) {
     VALUES (?, ?, ?, 0, 0, 0, ?, ?)
   `).bind(userId, username, await getStartingBalancePence(env), now, now).run();
 
-  return env.CASES_DB.prepare(`
+  return getCasesDb(env).prepare(`
     SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
     FROM case_profiles
     WHERE user_id = ?
@@ -1959,8 +1953,8 @@ async function handleAdminUpdateUser(request, env) {
 
   let nextBalance = null;
   if (gamblingBalanceDelta !== 0) {
-    if (!env.CASES_DB) {
-      return json({ success: false, error: "CASES_DB is not configured" }, 500, request);
+    if (!getCasesDb(env)) {
+      return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
     }
 
     const profile = await ensureAdminCaseProfile(env, userId, existingUser.username);
@@ -2002,7 +1996,7 @@ async function handleAdminUpdateUser(request, env) {
 
   let updatedBalance = null;
   if (nextBalance != null) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_profiles
       SET balance = ?, updated_at = ?
       WHERE user_id = ?

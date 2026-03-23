@@ -1,6 +1,7 @@
 import { getCachedValue, invalidateCachedPrefix } from '../lib/runtime-cache.js';
 import { ensureBlackjackTables } from './schema.js';
 import { getStartingBalancePence } from '../lib/gambling.js';
+import { getCasesDb } from '../lib/cases-db.js';
 
 const BOT_NAMES = [
   'Chippy McShuffle',
@@ -37,7 +38,7 @@ function scoreHand(cards = []) {
 }
 function getBoostMultiplier(boostPercent = 0) { return 1 + Math.max(0, Number(boostPercent || 0)) / 100; }
 async function getBoost(env) {
-  const row = await getCachedValue('casesdb:event-config', 30000, async () => await env.CASES_DB.prepare(`SELECT is_active, blackjack_bonus_percent FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
+  const row = await getCachedValue('casesdb:event-config', 30000, async () => await getCasesDb(env).prepare(`SELECT is_active, blackjack_bonus_percent FROM gambling_event_config WHERE id = 1 LIMIT 1`).first().catch(() => null));
   return row && Number(row.is_active) ? Number(row.blackjack_bonus_percent || 0) : 0;
 }
 function funnyBotName(index, difficulty) {
@@ -124,7 +125,7 @@ async function maybeFinishRound(env, db, room, now) {
     if (player.busted) payout = 0;
     else if (dealerScore > 21 || playerScore > dealerScore) payout = Math.round(player.bet_pence * 2 + player.bet_pence * getBoostMultiplier(boost) - player.bet_pence);
     else if (playerScore === dealerScore) payout = player.bet_pence;
-    if (payout > 0) await env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(payout, now, player.user_id).run();
+    if (payout > 0) await getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(payout, now, player.user_id).run();
     player.result = payout > player.bet_pence ? 'win' : payout === player.bet_pence ? 'push' : 'lose';
     player.payout_pence = payout;
     addLog(state, `${player.username} ${player.result}s${payout ? ` for ${payout} GC cents` : ''}.`, now);
@@ -140,10 +141,10 @@ export async function handleBlackjackRequest(request, env, deps) {
   const { pathname } = url;
   if (!pathname.startsWith('/api/blackjack')) return null;
   const db = await ensureBlackjackTables(env);
-  if (!db || !env.CASES_DB) return json({ success: false, error: 'BLACKJACK_DB/CASES_DB is not configured' }, 500, request);
+  if (!db || !getCasesDb(env)) return json({ success: false, error: 'CASES-DB is not configured' }, 500, request);
   const session = await getApprovedUser(request, env);
   if (session instanceof Response) return session;
-  await env.CASES_DB.prepare(`INSERT OR IGNORE INTO case_profiles (user_id, display_name, balance, total_cases_opened, total_spent, total_inventory_value, created_at, updated_at) VALUES (?, ?, ?, 0, 0, 0, ?, ?)`).bind(session.id, session.username, await getStartingBalancePence(env), isoNow(), isoNow()).run();
+  await getCasesDb(env).prepare(`INSERT OR IGNORE INTO case_profiles (user_id, display_name, balance, total_cases_opened, total_spent, total_inventory_value, created_at, updated_at) VALUES (?, ?, ?, 0, 0, 0, ?, ?)`).bind(session.id, session.username, await getStartingBalancePence(env), isoNow(), isoNow()).run();
 
   if (pathname === '/api/blackjack/rooms' && request.method === 'GET') {
     const rows = await db.prepare(`SELECT id, room_name, owner_user_id, bet_pence, status, max_players, room_state, updated_at FROM blackjack_rooms ORDER BY updated_at DESC LIMIT 50`).all();
@@ -232,10 +233,10 @@ export async function handleBlackjackRequest(request, env, deps) {
     if (Number(room.owner_user_id) !== Number(session.id)) return json({ success: false, error: 'Only the room owner can start the game' }, 403, request);
     const state = room.room_state; const betPence = Number(room.bet_pence || 100);
     for (const player of state.players.filter((p) => !p.is_bot)) {
-      const bal = await env.CASES_DB.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(player.user_id).first();
+      const bal = await getCasesDb(env).prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(player.user_id).first();
       if (Number(bal?.balance || 0) < betPence) return json({ success: false, error: `${player.username} does not have enough Grev Coins.` }, 400, request);
     }
-    for (const player of state.players.filter((p) => !p.is_bot)) await env.CASES_DB.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(betPence, isoNow(), player.user_id).run();
+    for (const player of state.players.filter((p) => !p.is_bot)) await getCasesDb(env).prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(betPence, isoNow(), player.user_id).run();
     state.deck = buildDeck(4);
     state.dealer = { cards: [state.deck.pop(), state.deck.pop()] };
     state.players = state.seats.filter(Boolean).map((p) => ({ ...p, cards: [state.deck.pop(), state.deck.pop()], standing: false, busted: false, bet_pence: betPence, result: null, payout_pence: 0 }));

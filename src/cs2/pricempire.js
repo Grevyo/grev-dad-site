@@ -1,3 +1,5 @@
+import { getCasesDb } from "../lib/cases-db.js";
+
 function wearCodeFromLabel(label) {
   const value = String(label || '').trim().toLowerCase();
   if (value === 'factory new') return 'FN';
@@ -67,7 +69,7 @@ async function ensureCaseDefinition(env, now, crate) {
   const caseName = String(crate?.name || '').trim();
   if (!caseName) return null;
   const slug = caseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120);
-  let existing = await env.CASES_DB.prepare(`
+  let existing = await getCasesDb(env).prepare(`
     SELECT id, case_name FROM case_definitions
     WHERE case_name = ? OR slug = ? OR steam_market_hash_name = ?
     LIMIT 1
@@ -76,7 +78,7 @@ async function ensureCaseDefinition(env, now, crate) {
   const imageUrl = normalizeImageUrl(crate?.image);
 
   if (!existing) {
-    const result = await env.CASES_DB.prepare(`
+    const result = await getCasesDb(env).prepare(`
       INSERT INTO case_definitions (
         case_name, slug, image_url, price, description, is_active, created_at, steam_market_hash_name, fallback_price_pence
       ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
@@ -91,7 +93,7 @@ async function ensureCaseDefinition(env, now, crate) {
       0
     ).run();
     const caseId = Number(result.meta?.last_row_id || 0);
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       INSERT INTO case_items (
         item_name, weapon_name, skin_name, rarity, wear, image_url, market_value, color_hex, created_at, item_kind, case_def_id, market_hash_name
       ) VALUES (?, '', '', 'container', '', ?, 0, '#9ea3b5', ?, 'case', ?, ?)
@@ -101,8 +103,8 @@ async function ensureCaseDefinition(env, now, crate) {
   }
 
   if (imageUrl) {
-    await env.CASES_DB.prepare(`UPDATE case_definitions SET image_url = CASE WHEN image_url = '' THEN ? ELSE image_url END WHERE id = ?`).bind(imageUrl, existing.id).run();
-    await env.CASES_DB.prepare(`UPDATE case_items SET image_url = CASE WHEN image_url = '' THEN ? ELSE image_url END WHERE case_def_id = ? AND item_kind = 'case'`).bind(imageUrl, existing.id).run();
+    await getCasesDb(env).prepare(`UPDATE case_definitions SET image_url = CASE WHEN image_url = '' THEN ? ELSE image_url END WHERE id = ?`).bind(imageUrl, existing.id).run();
+    await getCasesDb(env).prepare(`UPDATE case_items SET image_url = CASE WHEN image_url = '' THEN ? ELSE image_url END WHERE case_def_id = ? AND item_kind = 'case'`).bind(imageUrl, existing.id).run();
   }
 
   return { id: Number(existing.id), case_name: caseName, created: false };
@@ -119,7 +121,7 @@ async function upsertSkin(env, now, item) {
   const imageUrl = normalizeImageUrl(item?.image || item?.weapon?.image);
   if (!marketHashName || !weaponName || !skinName) return { inserted: false, updated: false, itemId: 0 };
 
-  const existing = await env.CASES_DB.prepare(`
+  const existing = await getCasesDb(env).prepare(`
     SELECT id, image_url, market_value
     FROM case_items
     WHERE market_hash_name = ? AND item_kind = 'skin'
@@ -127,7 +129,7 @@ async function upsertSkin(env, now, item) {
   `).bind(marketHashName).first();
 
   if (existing?.id) {
-    await env.CASES_DB.prepare(`
+    await getCasesDb(env).prepare(`
       UPDATE case_items
       SET item_name = ?, weapon_name = ?, skin_name = ?, rarity = ?, wear = ?, wear_code = ?, color_hex = ?, image_url = CASE WHEN ? <> '' THEN ? ELSE image_url END
       WHERE id = ?
@@ -146,7 +148,7 @@ async function upsertSkin(env, now, item) {
     return { inserted: false, updated: true, itemId: Number(existing.id) };
   }
 
-  const result = await env.CASES_DB.prepare(`
+  const result = await getCasesDb(env).prepare(`
     INSERT INTO case_items (
       item_name,
       weapon_name,
@@ -180,11 +182,11 @@ async function upsertSkin(env, now, item) {
 }
 
 async function ensureCaseDrop(env, caseId, itemId, rarity) {
-  const existing = await env.CASES_DB.prepare(`
+  const existing = await getCasesDb(env).prepare(`
     SELECT id FROM case_drops WHERE case_id = ? AND item_id = ? LIMIT 1
   `).bind(caseId, itemId).first();
   if (existing?.id) return false;
-  await env.CASES_DB.prepare(`
+  await getCasesDb(env).prepare(`
     INSERT INTO case_drops (case_id, item_id, drop_weight)
     VALUES (?, ?, ?)
   `).bind(caseId, itemId, rarityWeight(rarity)).run();
@@ -192,7 +194,7 @@ async function ensureCaseDrop(env, caseId, itemId, rarity) {
 }
 
 export async function importPriceEmpireCatalog(env, apiKey, options = {}) {
-  if (!env.CASES_DB) throw new Error('CASES_DB is not configured.');
+  if (!getCasesDb(env)) throw new Error('CASES-DB is not configured.');
   const key = String(apiKey || '').trim();
   if (!key) throw new Error('A PriceEmpire API key is required.');
   const now = new Date().toISOString();
