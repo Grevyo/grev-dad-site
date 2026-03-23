@@ -134,7 +134,7 @@
         <section class="panel">
           <p class="eyebrow">🎡 Roulette</p>
           <h1 class="panel-title">Roulette Table</h1>
-          <p class="muted">A live spin runs every 15 minutes. Place your bet for the next table close, then watch the wheel and ball land before the winning number is revealed.</p>
+          <p class="muted">A live spin runs every 5 minutes. Place your bet for the next table close, then watch the wheel and ball land before the winning number is revealed.</p>
           <div class="roulette-meta">
             <div class="stat-card"><p class="stat-label">Next round</p><p id="next-round-id" class="stat-value">--</p></div>
             <div class="stat-card"><p class="stat-label">Starts in</p><p id="next-round-countdown" class="stat-value">--</p></div>
@@ -231,6 +231,9 @@
     let timer = null;
     let lastAnimatedRound = null;
     let hasHydratedWheel = false;
+    let audioCtx = null;
+    let ambientStarted = false;
+    let countdownExpiredForRound = null;
 
     const betConfig = {
       red: { needsValue: false }, black: { needsValue: false }, even: { needsValue: false }, odd: { needsValue: false },
@@ -242,6 +245,74 @@
       basket: { needsValue: true, label: "Five numbers", help: "Enter 5 unique numbers like 0,1,2,3,4.", value: "0,1,2,3,4" },
       line: { needsValue: true, label: "Six numbers", help: "Enter 6 unique numbers like 1,2,3,4,5,6.", value: "1,2,3,4,5,6" }
     };
+
+
+    function ensureAudioContext() {
+      if (!window.AudioContext && !window.webkitAudioContext) return null;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function startCasinoMusic() {
+      if (ambientStarted) return;
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      ambientStarted = true;
+      const master = ctx.createGain();
+      master.gain.value = 0.015;
+      master.connect(ctx.destination);
+      [196, 246.94, 293.66].forEach((frequency, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = index === 0 ? "sine" : "triangle";
+        osc.frequency.value = frequency;
+        gain.gain.value = index === 0 ? 0.7 : 0.3;
+        osc.connect(gain).connect(master);
+        osc.start();
+      });
+    }
+
+    function playRouletteSpinSound() {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * 0.14;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(1200, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(380, ctx.currentTime + 3);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.035, ctx.currentTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 3);
+      source.connect(filter).connect(gain).connect(ctx.destination);
+      source.start();
+      source.stop(ctx.currentTime + 3.05);
+    }
+
+    function playTimerChime() {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const notes = [783.99, 1046.5, 1318.51];
+      notes.forEach((frequency, index) => {
+        const time = ctx.currentTime + (index * 0.09);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(frequency, time);
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.06, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.42);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + 0.45);
+      });
+    }
 
     function formatGc(value) { const amount = Number(value || 0); return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`; }
     function updateCasinoBalance(balance) { if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance({ formatted: formatGc(balance || 0), value: Number(balance || 0), updated_at: Date.now() }); }
@@ -354,6 +425,8 @@
     function animateResult(previous, roundId) {
       if (!previous) return;
       const { wheelRotation, ballRotation } = getSpinAngles(previous, 4, 6);
+      startCasinoMusic();
+      playRouletteSpinSound();
       stageEl.dataset.spinning = "true";
       wheelEl.style.setProperty("--wheel-rotation", `${wheelRotation}deg`);
       ballEl.style.setProperty("--ball-angle", `${ballRotation}deg`);
@@ -384,10 +457,18 @@
     }
     function startCountdown() {
       if (timer) window.clearInterval(timer);
+      countdownExpiredForRound = null;
       timer = window.setInterval(() => {
         nextRoundCountdownEl.textContent = formatCountdown(state?.table?.next_round_starts_at);
         const target = state?.table?.next_round_starts_at ? new Date(state.table.next_round_starts_at).getTime() : 0;
-        if (target && Date.now() >= target) loadState(false);
+        if (target && Date.now() >= target) {
+          if (countdownExpiredForRound !== state?.table?.next_round_id) {
+            startCasinoMusic();
+            playTimerChime();
+            countdownExpiredForRound = state?.table?.next_round_id;
+          }
+          loadState(false);
+        }
       }, 500);
     }
     async function loadState(showLoading = true) {

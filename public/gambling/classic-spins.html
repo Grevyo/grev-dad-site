@@ -144,6 +144,87 @@
     const copyEl = document.getElementById("classic-spin-copy");
     const SYMBOL_HEIGHT = 108;
     let spinning = false;
+    let audioCtx = null;
+    let ambientStarted = false;
+    let spinNoiseNodes = null;
+
+
+    function ensureAudioContext() {
+      if (!window.AudioContext && !window.webkitAudioContext) return null;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function startCasinoMusic() {
+      if (ambientStarted) return;
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      ambientStarted = true;
+      const master = ctx.createGain();
+      master.gain.value = 0.018;
+      master.connect(ctx.destination);
+      [220, 277.18, 329.63].forEach((frequency, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = index === 0 ? "sine" : "triangle";
+        osc.frequency.value = frequency;
+        gain.gain.value = index === 0 ? 0.7 : 0.35;
+        osc.connect(gain).connect(master);
+        osc.start();
+      });
+    }
+
+    function startSpinSound() {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * 0.18;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 900;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      source.connect(filter).connect(gain).connect(ctx.destination);
+      const now = ctx.currentTime;
+      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
+      source.start();
+      spinNoiseNodes = { source, gain, ctx };
+    }
+
+    function stopSpinSound() {
+      if (!spinNoiseNodes) return;
+      const { source, gain, ctx } = spinNoiseNodes;
+      const now = ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      source.stop(now + 0.14);
+      spinNoiseNodes = null;
+    }
+
+    function playWinSting(winnings) {
+      const ctx = ensureAudioContext();
+      if (!ctx || winnings <= 0) return;
+      [523.25, 659.25, 783.99].forEach((frequency, index) => {
+        const time = ctx.currentTime + (index * 0.07);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(frequency, time);
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.05, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + 0.3);
+      });
+    }
 
     function randomSymbol() { return symbols[Math.floor(Math.random() * symbols.length)]; }
     function buildSequence(finalSymbol, steps = 18) { const sequence = Array.from({ length: steps }, () => randomSymbol()); sequence.push(finalSymbol); return sequence; }
@@ -168,7 +249,9 @@
     }
     async function handleSpin() {
       if (spinning) return;
+      startCasinoMusic();
       spinning = true; spinBtn.disabled = true; statusEl.textContent = "Spinning..."; copyEl.textContent = "The old fruit machine is rattling away.";
+      startSpinSound();
       try {
         const bet = Number(betInput.value || 0);
         const response = await fetch("/api/casino/classic-spin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bet_coins: bet }) });
@@ -178,9 +261,12 @@
         await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
         updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         const winnings = Number(data?.outcome?.winnings_coins || 0);
+        stopSpinSound();
+        playWinSting(winnings);
         statusEl.textContent = winnings > 0 ? `${finalResult.join(" ")} — You won ${formatGc(winnings)}.` : `${finalResult.join(" ")} — No payout.`;
         copyEl.textContent = `${data?.outcome?.message || "Spin complete."} Balance now: ${formatGc(data?.profile?.grev_coin_balance || 0)}.`;
       } catch (error) {
+        stopSpinSound();
         console.error(error); statusEl.textContent = "Spin failed."; copyEl.textContent = error.message || "Classic Fruity spin failed.";
       } finally {
         spinning = false; spinBtn.disabled = false;
