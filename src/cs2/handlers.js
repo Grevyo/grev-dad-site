@@ -7,7 +7,7 @@ import { pickWearTier } from "./wear.js";
 import { importPriceEmpireCatalog } from "./pricempire.js";
 import { importMasterCatalog } from "./master-import.js";
 import { getCachedValue, invalidateCachedPrefix } from "../lib/runtime-cache.js";
-import { getCasesDb } from "../lib/cases-db.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 
 async function ensureStructuredCaseCatalog(env) {

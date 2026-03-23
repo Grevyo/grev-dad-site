@@ -1,5 +1,5 @@
 import { STEAM_APPID_CS2, STEAM_CURRENCY_GBP } from "./constants.js";
-import { getCasesDb } from "../lib/cases-db.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 function normalizeMarketName(value) {
   return String(value || "")

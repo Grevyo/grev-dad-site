@@ -1,6 +1,6 @@
 import { buildMarketHashName } from "./wear.js";
 import { fetchSteamIconUrl, getOrFetchItemPricePence } from "./steam.js";
-import { getCasesDb } from "../lib/cases-db.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 /**
  * Returns case_items.id for a concrete skin+wear row, creating it if needed.

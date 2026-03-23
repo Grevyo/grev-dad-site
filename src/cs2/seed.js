@@ -1,5 +1,5 @@
 import { CS2_CASE_ITEM_DEFINITIONS, fallbackSkinValuePence, rarityColorHex, rarityWeight } from "./case-item-definitions.js";
-import { getCasesDb } from "../lib/cases-db.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 function isoNow() {
   return new Date().toISOString();

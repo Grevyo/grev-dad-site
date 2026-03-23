@@ -1,4 +1,4 @@
-import { getCasesDb } from '../lib/cases-db.js';
+import { getCasesDb } from '../lib/cases-binding.js';
 
 function getBlackjackDb(env) {
   return getCasesDb(env);

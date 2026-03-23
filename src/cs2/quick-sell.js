@@ -1,5 +1,5 @@
 import { DEFAULT_QUICK_SELL_FEE_PERCENT } from "./constants.js";
-import { getCasesDb } from "../lib/cases-db.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 export async function getQuickSellFeePercent(env) {
   const row = await getCasesDb(env).prepare(`

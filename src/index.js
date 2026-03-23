@@ -11,7 +11,7 @@ import { ensureBlackjackTables } from "./blackjack/schema.js";
 import { handleBlackjackRequest } from "./blackjack/handlers.js";
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
-import { getCasesDb } from "./lib/cases-db.js";
+import { getCasesDb } from "./lib/cases-binding.js";
 import { handleCasinoRequest } from "./casino/handlers.js";
 
 export default {

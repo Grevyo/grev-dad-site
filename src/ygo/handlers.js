@@ -1,7 +1,7 @@
 import { YGO_ACHIEVEMENTS, YGO_PACKS, YGO_RARITIES } from './data.js';
 import { getCachedValue, invalidateCachedPrefix, setCachedValue } from '../lib/runtime-cache.js';
 import { getStartingBalancePence } from '../lib/gambling.js';
-import { getCasesDb } from '../lib/cases-db.js';
+import { getCasesDb } from '../lib/cases-binding.js';
 import { getYgoRarityMeta } from './schema.js';
 
 function getYgoDataDb(env) {

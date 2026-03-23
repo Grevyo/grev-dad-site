@@ -1,5 +1,5 @@
 import { DEFAULT_QUICK_SELL_FEE_PERCENT, STARTING_BALANCE_PENCE } from "./constants.js";
-import { getCasesDb } from "../lib/cases-db.js";
+import { getCasesDb } from "../lib/cases-binding.js";
 
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
   const result = await db.prepare(`PRAGMA table_info(${tableName})`).all();

@@ -1,6 +1,6 @@
 import { fetchSteamIconUrl } from './steam.js';
 import { CS2_CASE_ITEM_DEFINITIONS, rarityColorHex } from './case-item-definitions.js';
-import { getCasesDb } from '../lib/cases-db.js';
+import { getCasesDb } from '../lib/cases-binding.js';
 
 function slugify(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120);

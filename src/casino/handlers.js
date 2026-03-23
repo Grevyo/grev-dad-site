@@ -1,5 +1,5 @@
 import { ensureCasinoTables } from './schema.js';
-import { getCasesDb } from '../lib/cases-db.js';
+import { getCasesDb } from '../lib/cases-binding.js';
 
 function parseJsonSafe(value, fallback = {}) {
   try {

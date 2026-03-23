@@ -17,7 +17,7 @@
     },
     {
       "binding": "CASES-DB",
-      "database_name": "cases-db",
+      "database_name": "CASES-DB",
       "database_id": "be64a153-2af8-42b8-8d68-b877585ed102"
     }
   ],

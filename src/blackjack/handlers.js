@@ -1,7 +1,7 @@
 import { getCachedValue, invalidateCachedPrefix } from '../lib/runtime-cache.js';
 import { ensureBlackjackTables } from './schema.js';
 import { getStartingBalancePence } from '../lib/gambling.js';
-import { getCasesDb } from '../lib/cases-db.js';
+import { getCasesDb } from '../lib/cases-binding.js';
 
 const BOT_NAMES = [
   'Chippy McShuffle',
