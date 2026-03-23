@@ -9,7 +9,7 @@
   <style>
     .admin-layout {
       display: grid;
-      grid-template-columns: 340px minmax(0, 1fr);
+      grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
       gap: 24px;
       align-items: start;
     }
@@ -67,12 +67,17 @@
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      align-items: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
       margin-bottom: 6px;
     }
 
     .user-row-name {
       font-weight: 700;
+      flex: 1 1 220px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .user-row-badges {
@@ -114,6 +119,19 @@
       color: var(--muted);
       font-size: 0.88rem;
       line-height: 1.4;
+    }
+
+    #user-select {
+      max-width: 100%;
+    }
+
+    #user-select option {
+      white-space: normal;
+    }
+
+    #detail-username {
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .detail-grid {

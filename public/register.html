@@ -28,12 +28,12 @@
               id="username"
               name="username"
               type="text"
-              maxlength="32"
+              maxlength="30"
               autocomplete="username"
               required
             />
             <div class="form-help">
-              3 to 32 characters. This is your public username, not an email address. Email is not required anywhere on Grev.dad.
+              3 to 30 characters. This is your public username, not an email address. Email is not required anywhere on Grev.dad.
             </div>
           </div>
 
@@ -112,6 +112,16 @@
 
       if (!username || !password || !confirmPassword) {
         showMessage("error", "Please complete all fields.");
+        return;
+      }
+
+      if (username.includes("@")) {
+        showMessage("error", "Do not submit an email address!");
+        return;
+      }
+
+      if (username.length > 30) {
+        showMessage("error", "Username must be 30 characters or fewer.");
         return;
       }
 

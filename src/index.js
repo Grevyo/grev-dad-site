@@ -672,6 +672,14 @@ async function handleRegister(request, env) {
     return json({ success: false, error: "Username must be at least 3 characters" }, 400, request);
   }
 
+  if (username.includes("@")) {
+    return json({ success: false, error: "Do not submit an email address!" }, 400, request);
+  }
+
+  if (username.length > 30) {
+    return json({ success: false, error: "Username must be 30 characters or fewer" }, 400, request);
+  }
+
   if (password.length < 6) {
     return json({ success: false, error: "Password must be at least 6 characters" }, 400, request);
   }
@@ -2219,7 +2227,7 @@ function clearSessionCookie() {
 
 function cleanUsername(value) {
   if (typeof value !== "string") return "";
-  return value.trim().replace(/\s+/g, " ").slice(0, 32);
+  return value.trim().replace(/\s+/g, " ").slice(0, 30);
 }
 
 function cleanMessage(value) {
