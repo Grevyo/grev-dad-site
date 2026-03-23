@@ -813,6 +813,16 @@ function evaluateClassicSpin(result) {
   if (result.every((symbol) => symbol === firstSymbol) && CLASSIC_SPIN_PAYOUTS[firstSymbol]) {
     return CLASSIC_SPIN_PAYOUTS[firstSymbol];
   }
+
+  const symbolCounts = result.reduce((counts, symbol) => {
+    counts[symbol] = (counts[symbol] || 0) + 1;
+    return counts;
+  }, {});
+  const hasPair = Object.values(symbolCounts).some((count) => count === 2);
+  if (hasPair) {
+    return { multiplier: 1, message: "Any pair returns your bet — the cabinet gives you another go for free." };
+  }
+
   return { multiplier: 0, message: "No line win this time — give the lever another go." };
 }
 
