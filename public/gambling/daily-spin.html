@@ -63,28 +63,26 @@
     }
     .wheel-segment {
       position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 40%;
-      transform-origin: 0 0;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      clip-path: polygon(50% 50%, 100% 0, 100% 100%);
+      transform-origin: 50% 50%;
     }
     .wheel-segment span {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 92px;
-      padding: 8px 12px;
+      min-width: 100px;
+      padding: 8px 14px;
       border-radius: 999px;
-      background: rgba(10, 14, 24, 0.72);
+      background: rgba(10, 14, 24, 0.78);
       border: 1px solid rgba(255,255,255,0.14);
       color: #fff;
       font-size: 0.95rem;
       font-weight: 800;
       letter-spacing: 0.04em;
-      transform: translate(30px, -50%) rotate(90deg);
+      transform: rotate(45deg) translate(78px, 0);
       box-shadow: 0 10px 20px rgba(0,0,0,0.18);
     }
     .spin-card, .reward-card { display: grid; gap: 14px; padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); }
@@ -118,8 +116,7 @@
             <p class="eyebrow">Daily reward</p>
             <h1 class="panel-title">Daily Free Spin</h1>
             <p class="info-copy">
-              One free spin per day. As soon as the day ticks over at midnight UTC, your next spin is ready. The wheel can land on 5, 10, 50, or 100 Grev Coin,
-              and every reward keeps the same 25% chance.
+              One free spin per day. As soon as the day ticks over at midnight UTC, your next spin is ready. The wheel can land on 100, 250, 500, or 1,000 Grev Coin, and every reward keeps the same 25% chance.
             </p>
           </div>
           <div class="button-row">
@@ -128,10 +125,10 @@
           <p id="daily-spin-status" class="spin-result">Sign in to spin.</p>
           <p id="daily-spin-meta" class="spin-meta"></p>
           <div class="reward-grid" aria-label="Daily spin rewards">
-            <div class="reward-chip"><strong>5 GC</strong><span class="reward-chip__copy">Warm-up coins.</span></div>
-            <div class="reward-chip"><strong>10 GC</strong><span class="reward-chip__copy">A tidy little top-up.</span></div>
-            <div class="reward-chip"><strong>50 GC</strong><span class="reward-chip__copy">A very nice hit.</span></div>
-            <div class="reward-chip"><strong>100 GC</strong><span class="reward-chip__copy">Big daily jackpot vibes.</span></div>
+            <div class="reward-chip"><strong>100 GC</strong><span class="reward-chip__copy">Starter daily boost.</span></div>
+            <div class="reward-chip"><strong>250 GC</strong><span class="reward-chip__copy">A solid mid-tier hit.</span></div>
+            <div class="reward-chip"><strong>500 GC</strong><span class="reward-chip__copy">Big daily cash-out energy.</span></div>
+            <div class="reward-chip"><strong>1,000 GC</strong><span class="reward-chip__copy">Top wheel jackpot prize.</span></div>
           </div>
         </div>
       </section>
@@ -144,15 +141,43 @@
     const spinMetaEl = document.getElementById("daily-spin-meta");
     const wheelEl = document.getElementById("daily-spin-wheel");
 
-    const rewards = [5, 10, 50, 100];
+    const rewards = [100, 250, 500, 1000];
     const segmentAngle = 360 / rewards.length;
     let isSpinning = false;
     let currentRotation = 0;
     let latestSpinState = null;
+    let audioCtx = null;
 
     function formatGc(value) {
       const amount = Number(value || 0);
       return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
+
+    function ensureAudioContext() {
+      if (!window.AudioContext && !window.webkitAudioContext) return null;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function playWheelTickSweep(durationMs = 5200) {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const start = ctx.currentTime;
+      for (let i = 0; i < 18; i += 1) {
+        const time = start + (i * 0.16);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(520 - (i * 10), time);
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.04, time + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + 0.09);
+      }
     }
 
     function updateCasinoBalance(balance) {
@@ -182,7 +207,7 @@
     function buildWheel() {
       wheelEl.innerHTML = rewards.map((reward, index) => {
         const rotation = index * segmentAngle;
-        return `<div class="wheel-segment" style="transform: rotate(${rotation}deg)"><span>${reward} GC</span></div>`;
+        return `<div class="wheel-segment" style="transform: rotate(${rotation}deg)"><span style="transform: rotate(${segmentAngle / 2}deg) translate(78px, 0) rotate(90deg);">${reward.toLocaleString("en-GB")} GC</span></div>`;
       }).join("");
     }
 
@@ -244,6 +269,7 @@
       spinButton.disabled = true;
       spinStatusEl.textContent = "Spinning...";
       spinMetaEl.textContent = "Good luck.";
+      playWheelTickSweep();
 
       try {
         const response = await fetch("/api/casino/daily-spin", {

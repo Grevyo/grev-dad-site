@@ -8,12 +8,12 @@
   <script src="/scripts/header.js" defer></script>
   <script src="/scripts/casino-chat-widget.js" defer></script>
   <style>
-    .casino-shell,.hero-actions,.game-grid,.game-card-grid { display:grid; gap:20px; }
+    .casino-shell,.hero-actions,.game-grid,.game-card-grid,.timed-games-grid { display:grid; gap:20px; }
     .casino-hero { padding:32px 28px; border-radius:var(--radius-lg); border:1px solid color-mix(in srgb, #f87171 28%, var(--border)); background:radial-gradient(circle at top left, rgba(248,196,68,.24), transparent 28%), radial-gradient(circle at top right, rgba(239,68,68,.28), transparent 34%), radial-gradient(circle at bottom right, rgba(127,29,29,.36), transparent 30%), linear-gradient(135deg, rgba(90,13,17,.95), rgba(45,8,12,.98)); box-shadow:0 30px 70px rgba(24,4,6,.48); }
     .eyebrow { display:inline-flex; align-items:center; gap:8px; min-height:32px; padding:0 12px; border-radius:999px; font-size:.84rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; background:rgba(248,196,68,.16); border:1px solid rgba(248,196,68,.28); margin-bottom:16px; }
     .casino-hero h1 { margin:0 0 12px; font-size:clamp(2rem,4vw,3rem); } .casino-hero p { color:var(--muted); line-height:1.7; }
     .hero-actions { grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); margin-top:24px; }
-    .game-card-grid { grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); }
+    .game-card-grid,.timed-games-grid { grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); }
     .stat-card { padding:18px; background:rgba(255,255,255,.07); border:1px solid rgba(248,196,68,.18); }
     .game-card { padding:22px; border:1px solid rgba(248,196,68,.2); background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)), rgba(39,8,11,.92); box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
     .game-button { display:inline-flex; justify-content:center; align-items:center; width:100%; min-height:56px; padding:0 24px; border-radius:var(--radius-md); font-size:1.05rem; font-weight:800; text-align:center; background:linear-gradient(135deg, #fbbf24, #ef4444); color:#2a090c; }
@@ -30,20 +30,23 @@
         <div class="hero-actions">
           <div class="stat-card"><p class="stat-label">Your balance</p><p id="player-balance" class="stat-value">Sign in to view</p></div>
           <div class="stat-card"><p class="stat-label">Starting balance</p><p id="starting-balance" class="stat-value">500.00 GC</p></div>
-          <div class="stat-card"><p class="stat-label">Next roulette spin</p><p id="roulette-countdown" class="stat-value">--:--</p><p id="roulette-round-label" class="stat-label">Loading next table...</p></div>
+          <div class="stat-card"><p class="stat-label">House Timer</p><p id="roulette-countdown" class="stat-value">--:--</p><p id="roulette-round-label" class="stat-label">Loading next table...</p></div>
+        </div>
+        <div class="mt-24"><p class="eyebrow">⏱ Timed Games</p><h2 class="panel-title">Timed Games</h2><p class="stat-label">Jump into the shared timed tables that both refresh every 5 minutes.</p></div>
+        <div class="timed-games-grid">
+          <article class="game-card"><h2>Roulette Table</h2><p>Shared roulette spins every 5 minutes so everyone bets into the same live table.</p><a class="btn game-button" href="/gambling/roulette.html">Visit Roulette</a></article>
+          <article class="game-card"><h2>Crash Sprint</h2><p>Crash Sprint also resets every 5 minutes, letting everyone join the same timed round.</p><a class="btn game-button" href="/gambling/crash-sprint.html">View Crash Sprint</a></article>
         </div>
       </section>
       <section class="panel game-grid">
-        <div><p class="eyebrow">♠ Table floor</p><h2 class="panel-title">Choose your game</h2><p class="stat-label">Browse the current casino floor, including slots, arcade, fishing rooms, roulette, and the poker table.</p></div>
+        <div><p class="eyebrow">♠ Table floor</p><h2 class="panel-title">Choose your game</h2><p class="stat-label">Browse the rest of the casino floor, including slots, arcade, fishing rooms, and the poker table.</p></div>
         <div class="game-card-grid">
           <article class="game-card"><h2>Daily Spin</h2><p>Drop in for a free daily top-up.</p><a class="btn game-button" href="/gambling/daily-spin.html">Open Daily Spin</a></article>
           <article class="game-card"><h2>Classic Fruity</h2><p>Retro fruit cabinet with fast access.</p><a class="btn game-button" href="/gambling/classic-spins.html">Play Classic Fruity</a></article>
           <article class="game-card"><h2>Neon Jackpot</h2><p>Chase a bigger slot ladder with multipliers, free spins, and feature-heavy rounds.</p><a class="btn game-button" href="/gambling/neon-jackpot.html">View Neon Jackpot</a></article>
-          <article class="game-card"><h2>Crash Sprint</h2><p>Join the same global 5-minute crash table as everyone else and cash out before it pops.</p><a class="btn game-button" href="/gambling/crash-sprint.html">View Crash Sprint</a></article>
           <article class="game-card"><h2>Token Drop</h2><p>Play timed coin-drop rounds with leaderboard-focused rewards.</p><a class="btn game-button" href="/gambling/token-drop.html">View Token Drop</a></article>
           <article class="game-card"><h2>Harbor Hunt</h2><p>Join a standard fishing room with rotating tides and boss fish spawns.</p><a class="btn game-button" href="/gambling/harbor-hunt.html">View Harbor Hunt</a></article>
           <article class="game-card"><h2>Kraken Rush</h2><p>Take on the high-volatility fishing room built around dangerous boss waves.</p><a class="btn game-button" href="/gambling/kraken-rush.html">View Kraken Rush</a></article>
-          <article class="game-card"><h2>Roulette Table</h2><p>Bet the next round and watch the wheel.</p><a class="btn game-button" href="/gambling/roulette.html">Visit Roulette</a></article>
           <article class="game-card"><h2>Texas Holdem</h2><p>Use the join table button and play through standard pre-flop, flop, turn, river, and showdown rules.</p><a class="btn game-button" href="/gambling/texas-holdem.html">Join poker table</a></article>
         </div>
       </section>

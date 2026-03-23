@@ -33,13 +33,13 @@ const FORUM_POST_LIMIT = 100;
 const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const FOOTER_METADATA_TTL_MS = 5 * 60 * 1000;
 const GITHUB_REPO_FALLBACK = "Grevyo/grev-dad-site";
-const ROULETTE_ROUND_INTERVAL_MS = 15 * 60 * 1000;
+const ROULETTE_ROUND_INTERVAL_MS = 5 * 60 * 1000;
 const CRASH_SPRINT_ROUND_INTERVAL_MS = 5 * 60 * 1000;
 const DAILY_SPIN_REWARDS = [
-  { coins: 5, weight: 25 },
-  { coins: 10, weight: 25 },
-  { coins: 50, weight: 25 },
-  { coins: 100, weight: 25 }
+  { coins: 100, weight: 25 },
+  { coins: 250, weight: 25 },
+  { coins: 500, weight: 25 },
+  { coins: 1000, weight: 25 }
 ];
 const ALLOWED_GROUPS = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
 const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
