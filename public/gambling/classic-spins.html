@@ -116,7 +116,7 @@
         <div class="result-card">
           <p class="eyebrow">Machine result</p>
           <p id="classic-spin-status" class="result-amount">Ready to spin.</p>
-          <p id="classic-spin-copy" class="result-copy">Classic Fruity is a for-fun fruit machine for now, so it does not touch your real Grev Coin balance yet.</p>
+          <p id="classic-spin-copy" class="result-copy">Each spin now deducts your selected bet from your Grev Coin balance, and any payout is added straight back into your wallet.</p>
         </div>
       </section>
 
@@ -176,24 +176,20 @@
       });
     }
 
-    function evaluateSpin(result, bet) {
-      if (result.every((symbol) => symbol === "7️⃣")) {
-        return { multiplier: 12, message: "Jackpot! Triple 7s smashed the machine." };
+    function formatGc(value) {
+      const amount = Number(value || 0);
+      return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
+    function updateCasinoBalance(balance) {
+      const formatted = formatGc(balance || 0);
+      if (typeof window.writeCasinoBalance === "function") {
+        window.writeCasinoBalance({
+          formatted,
+          value: Number(balance || 0),
+          updated_at: Date.now()
+        });
       }
-      if (result.every((symbol) => symbol === "🍒")) {
-        return { multiplier: 6, message: "Cherry line! That one pays nicely." };
-      }
-      if (result.every((symbol) => symbol === "🍋")) {
-        return { multiplier: 4, message: "Lemon line! Sharp little payout." };
-      }
-      const counts = result.reduce((map, symbol) => {
-        map[symbol] = (map[symbol] || 0) + 1;
-        return map;
-      }, {});
-      if (Object.values(counts).some((count) => count >= 2)) {
-        return { multiplier: 2, message: "Nice, you landed a matching pair." };
-      }
-      return { multiplier: 0, message: "No line win this time — give the lever another go." };
     }
 
     async function handleSpin() {
@@ -203,20 +199,38 @@
       statusEl.textContent = "Spinning...";
       copyEl.textContent = "The old fruit machine is rattling away.";
 
-      const finalResult = reelEls.map(() => randomSymbol());
-      await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
+      try {
+        const bet = Number(betInput.value || 0);
+        const response = await fetch("/api/casino/classic-spin", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bet_coins: bet })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || "Classic Fruity spin failed");
+        }
 
-      const bet = Number(betInput.value || 0);
-      const outcome = evaluateSpin(finalResult, bet);
-      const winnings = outcome.multiplier * bet;
+        const finalResult = Array.isArray(data?.result) && data.result.length === 3
+          ? data.result
+          : reelEls.map(() => randomSymbol());
+        await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
 
-      statusEl.textContent = winnings > 0
-        ? `${finalResult.join(" ")} — You won ${winnings.toLocaleString("en-GB")} GC.`
-        : `${finalResult.join(" ")} — No payout.`;
-      copyEl.textContent = outcome.message;
-
-      spinning = false;
-      spinBtn.disabled = false;
+        updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
+        const winnings = Number(data?.outcome?.winnings_coins || 0);
+        statusEl.textContent = winnings > 0
+          ? `${finalResult.join(" ")} — You won ${formatGc(winnings)}.`
+          : `${finalResult.join(" ")} — No payout.`;
+        copyEl.textContent = `${data?.outcome?.message || "Spin complete."} Balance now: ${formatGc(data?.profile?.grev_coin_balance || 0)}.`;
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = "Spin failed.";
+        copyEl.textContent = error.message || "Classic Fruity spin failed.";
+      } finally {
+        spinning = false;
+        spinBtn.disabled = false;
+      }
     }
 
     spinBtn.addEventListener("click", handleSpin);
