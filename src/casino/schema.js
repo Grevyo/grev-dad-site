@@ -73,10 +73,6 @@ const DEFAULT_GAMES = [
     settings: { enabled: true, min_bet_coins: 5, max_bet_coins: 50, round_seconds: 30 }
   },
   {
-    section_slug: 'slot-games', slug: 'classic-reels', title: 'Classic Reels', summary: 'A retro 3-reel machine with fast spins, low-entry Grev Coin bets, and simple line wins.', badge: '3 reels', sort_order: 1,
-    settings: { enabled: true, min_bet_coins: 100, max_bet_coins: 1500, paylines: 3, hit_frequency_percent: 29, jackpot_start_coins: 50000 }
-  },
-  {
     section_slug: 'slot-games', slug: 'neon-jackpot', title: 'Neon Jackpot', summary: 'A 5-reel featured slot with multipliers, free spins, and a configurable jackpot ladder.', badge: '5 reels', sort_order: 2,
     settings: { enabled: true, min_bet_coins: 200, max_bet_coins: 5000, paylines: 25, bonus_round_enabled: true, jackpot_start_coins: 250000 }
   },
@@ -95,14 +91,6 @@ const DEFAULT_GAMES = [
   {
     section_slug: 'fishing-games', slug: 'kraken-rush', title: 'Kraken Rush', summary: 'High-volatility fishing map with big boss spawns and expensive Grev Coin cannons.', badge: 'boss mode', sort_order: 2,
     settings: { enabled: true, room_capacity: 4, ammo_cost_coins: 80, boss_spawn_rate_percent: 24, auto_fire_enabled: false }
-  },
-  {
-    section_slug: 'custom-games', slug: 'room-builder', title: 'Room Builder', summary: 'An admin-curated sandbox for new minigames, prototype rooms, and custom challenge rule sets.', badge: 'sandbox', sort_order: 1,
-    settings: { enabled: true, room_fee_coins: 150, template_limit: 8, plugin_slots: 4, moderation_required: true }
-  },
-  {
-    section_slug: 'custom-games', slug: 'event-lab', title: 'Event Lab', summary: 'Seasonal custom mode slot for limited-time experiences tied into Grev Coin progression.', badge: 'seasonal', sort_order: 2,
-    settings: { enabled: true, entry_fee_coins: 100, featured_reward_coins: 500, live_event_enabled: true }
   },
   {
     section_slug: 'custom-games', slug: 'texas-holdem', title: 'Texas Holdem', summary: 'Join a table, receive two hole cards, and play standard Texas Holdem streets with blinds, betting rounds, and showdowns.', badge: 'poker', sort_order: 3,
@@ -173,6 +161,12 @@ export async function ensureCasinoTables(env) {
       now,
       now
     ).run();
+  }
+
+  const defaultGameSlugs = DEFAULT_GAMES.map((game) => game.slug);
+  if (defaultGameSlugs.length) {
+    const placeholders = defaultGameSlugs.map(() => '?').join(', ');
+    await db.prepare(`DELETE FROM casino_games WHERE slug NOT IN (${placeholders})`).bind(...defaultGameSlugs).run();
   }
 
   for (const game of DEFAULT_GAMES) {
