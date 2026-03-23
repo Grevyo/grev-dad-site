@@ -46,6 +46,20 @@
     }
     .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
     .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
+
+    .chat-box { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-strong); min-height: 280px; max-height: 420px; overflow-y: auto; padding: 14px; display: grid; gap: 12px; }
+    .chat-form { display: grid; gap: 12px; }
+    .chat-textarea { min-height: 100px; resize: vertical; }
+    .chat-empty, .chat-time { color: var(--muted); }
+    .chat-message { padding: 12px 13px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--surface) 90%, transparent); }
+    .chat-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 0.86rem; }
+    .chat-author { display: inline-flex; align-items: center; gap: 10px; }
+    .chat-avatar, .chat-avatar-placeholder { width: 32px; height: 32px; border-radius: 999px; flex-shrink: 0; }
+    .chat-avatar { object-fit: cover; border: 1px solid var(--border); }
+    .chat-avatar-placeholder { display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); font-weight: 800; }
+    .chat-user { font-weight: 700; color: var(--text); }
+    .chat-group { color: var(--text); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius: 999px; padding: 2px 8px; }
+    .chat-text { color: var(--text); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -68,22 +82,95 @@
         <div class="game-grid">
           <a class="btn btn-primary game-button" href="/gambling/daily-spin.html">Daily Spin</a>
           <a class="btn btn-primary game-button" href="/gambling/classic-spins.html">Classic Fruity</a>
+          <a class="btn btn-primary game-button" href="/gambling/roulette.html">Roulette Table</a>
         </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Casino Chat</h2>
+        <p class="stat-label">Only available inside the gambling playground.</p>
+        <div id="casino-chat-status" class="alert alert-info">Loading casino chat...</div>
+        <div id="casino-chat-box" class="chat-box mt-16">
+          <div class="chat-empty">No messages yet.</div>
+        </div>
+        <div id="casino-chat-guest-note" class="alert alert-info mt-16 hidden">You need to be logged in to send messages in casino chat.</div>
+        <form id="casino-chat-form" class="chat-form hidden mt-16">
+          <div class="form-group">
+            <label class="form-label" for="casino-chat-message">Talk to the table</label>
+            <textarea id="casino-chat-message" class="form-input form-textarea chat-textarea" maxlength="1000" placeholder="Call your shot, celebrate, or complain about red hitting again..."></textarea>
+          </div>
+          <div class="button-row">
+            <button id="casino-chat-send-btn" class="btn btn-primary" type="submit">Send message</button>
+          </div>
+        </form>
       </section>
     </main>
   </div>
 
+
   <script>
     const balanceEl = document.getElementById("player-balance");
+    const casinoChatStatus = document.getElementById("casino-chat-status");
+    const casinoChatBox = document.getElementById("casino-chat-box");
+    const casinoChatForm = document.getElementById("casino-chat-form");
+    const casinoChatGuestNote = document.getElementById("casino-chat-guest-note");
+    const casinoChatInput = document.getElementById("casino-chat-message");
+    const casinoChatSendBtn = document.getElementById("casino-chat-send-btn");
+    let currentUser = null;
+    let casinoChatPoll = null;
 
     function formatGc(value) {
       const amount = Number(value || 0);
       return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    }
+
+    function renderChatMessages(messages) {
+      if (!Array.isArray(messages) || messages.length === 0) {
+        casinoChatBox.innerHTML = '<div class="chat-empty">No messages yet.</div>';
+        return;
+      }
+
+      casinoChatBox.innerHTML = messages.map((message) => {
+        const username = escapeHtml(message.author_username || "Unknown");
+        const group = escapeHtml(message.author_group || "Member");
+        const timestamp = escapeHtml(formatTime(message.created_at));
+        const text = escapeHtml(message.message || "");
+        const avatarUrl = typeof message.avatar_url === "string" ? message.avatar_url.trim() : "";
+        const firstLetter = escapeHtml((username || "?").charAt(0).toUpperCase());
+        const avatar = avatarUrl
+          ? `<img class="chat-avatar" src="${escapeHtml(avatarUrl)}" alt="${username} avatar" />`
+          : `<div class="chat-avatar-placeholder">${firstLetter}</div>`;
+        return `<article class="chat-message"><div class="chat-meta"><span class="chat-author">${avatar}<span class="chat-user">${username}</span></span><span class="chat-group">${group}</span><span class="chat-time">${timestamp}</span></div><div class="chat-text">${text}</div></article>`;
+      }).join("");
+      casinoChatBox.scrollTop = casinoChatBox.scrollHeight;
+    }
+
+    function setChatAuthState(user) {
+      const authed = Boolean(user);
+      casinoChatForm.classList.toggle("hidden", !authed);
+      casinoChatGuestNote.classList.toggle("hidden", authed);
+    }
+
     async function loadCasinoProfile() {
-      const user = await window.fetchCurrentUser({ preferCache: true });
-      if (!user) {
+      currentUser = await window.fetchCurrentUser({ preferCache: true });
+      setChatAuthState(currentUser);
+      if (!currentUser) {
         balanceEl.textContent = "Sign in to view";
         if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance(null);
         return;
@@ -97,11 +184,7 @@
         const formatted = formatGc(data?.profile?.grev_coin_balance || 0);
         balanceEl.textContent = formatted;
         if (typeof window.writeCasinoBalance === "function") {
-          window.writeCasinoBalance({
-            formatted,
-            value: Number(data?.profile?.grev_coin_balance || 0),
-            updated_at: Date.now()
-          });
+          window.writeCasinoBalance({ formatted, value: Number(data?.profile?.grev_coin_balance || 0), updated_at: Date.now() });
         }
       } catch (error) {
         console.error(error);
@@ -109,7 +192,45 @@
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadCasinoProfile);
+    async function loadCasinoChat(showLoading = false) {
+      try {
+        if (showLoading) { casinoChatStatus.textContent = "Loading casino chat..."; casinoChatStatus.className = "alert alert-info"; }
+        const response = await fetch("/api/chat/casino", { credentials: "same-origin" });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load casino chat");
+        renderChatMessages(data.messages || []);
+        casinoChatStatus.textContent = currentUser ? "Casino chat is live." : "Viewing casino chat as a guest.";
+        casinoChatStatus.className = "alert alert-success";
+      } catch (error) {
+        console.error(error); casinoChatStatus.textContent = error.message || "Could not load casino chat."; casinoChatStatus.className = "alert alert-error";
+      }
+    }
+
+    async function handleCasinoChatSubmit(event) {
+      event.preventDefault();
+      if (!currentUser) return;
+      const message = casinoChatInput.value.trim();
+      if (!message) return;
+      casinoChatSendBtn.disabled = true;
+      try {
+        const response = await fetch("/api/chat/casino", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ message }) });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to send message");
+        casinoChatInput.value = "";
+        await loadCasinoChat();
+      } catch (error) {
+        console.error(error); casinoChatStatus.textContent = error.message || "Could not send message."; casinoChatStatus.className = "alert alert-error";
+      } finally { casinoChatSendBtn.disabled = false; }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadCasinoProfile();
+      await loadCasinoChat(true);
+      casinoChatForm.addEventListener("submit", handleCasinoChatSubmit);
+      casinoChatPoll = window.setInterval(() => loadCasinoChat(false), 10000);
+    });
+
+    window.addEventListener("beforeunload", () => { if (casinoChatPoll) window.clearInterval(casinoChatPoll); });
   </script>
 </body>
 </html>

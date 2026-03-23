@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roulette | Grev.dad Casino</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .roulette-shell, .roulette-layout, .roulette-grid, .roulette-meta, .betting-grid, .history-list { display: grid; gap: 20px; }
+    .roulette-layout { grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr); align-items: start; }
+    .roulette-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .roulette-number { min-height: 76px; border-radius: 16px; border: 1px solid var(--border); display: grid; place-items: center; font-weight: 800; font-size: 1.1rem; }
+    .roulette-number--red { background: rgba(220, 38, 38, 0.2); }
+    .roulette-number--black { background: rgba(15, 23, 42, 0.7); }
+    .roulette-number--green { background: rgba(22, 163, 74, 0.28); }
+    .roulette-meta { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .betting-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .stat-card { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
+    .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+    .stat-value { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; }
+    .history-item { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); }
+    .history-item p { margin: 0; }
+    .muted { color: var(--muted); }
+    @media (max-width: 900px) { .roulette-layout { grid-template-columns: 1fr; } .roulette-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main roulette-shell">
+      <div class="button-row">
+        <a class="btn" href="/gambling/index.html">← Back to Casino</a>
+        <a class="btn" href="/gambling/classic-spins.html">Classic Fruity</a>
+        <a class="btn" href="/gambling/daily-spin.html">Daily Spin</a>
+      </div>
+
+      <section class="roulette-layout">
+        <section class="panel">
+          <p class="eyebrow">🎡 Roulette</p>
+          <h1 class="panel-title">Minute table</h1>
+          <p class="muted">A new round starts every minute. Bet on red, black, even, odd, a dozen, or an exact number before the next spin begins.</p>
+          <div class="roulette-meta">
+            <div class="stat-card"><p class="stat-label">Next round</p><p id="next-round-id" class="stat-value">--</p></div>
+            <div class="stat-card"><p class="stat-label">Starts in</p><p id="next-round-countdown" class="stat-value">--</p></div>
+            <div class="stat-card"><p class="stat-label">Last result</p><p id="last-result" class="stat-value">--</p></div>
+          </div>
+          <div class="roulette-grid mt-16">
+            <div class="roulette-number roulette-number--red">Red<br>1:1</div>
+            <div class="roulette-number roulette-number--black">Black<br>1:1</div>
+            <div class="roulette-number roulette-number--green">0<br>House green</div>
+            <div class="roulette-number roulette-number--black">Even<br>1:1</div>
+            <div class="roulette-number roulette-number--red">Odd<br>1:1</div>
+            <div class="roulette-number roulette-number--green">3rds<br>2:1</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <p class="eyebrow">Place bet</p>
+          <form id="roulette-bet-form" class="betting-grid">
+            <label class="form-group">
+              <span class="form-label">Bet type</span>
+              <select id="bet-type" class="form-select">
+                <option value="red">Red</option>
+                <option value="black">Black</option>
+                <option value="even">Even</option>
+                <option value="odd">Odd</option>
+                <option value="dozen">3rds</option>
+                <option value="number">Exact number</option>
+              </select>
+            </label>
+            <label class="form-group">
+              <span id="bet-value-label" class="form-label">3rds value</span>
+              <input id="bet-value" class="form-input" type="number" min="1" max="3" value="1" />
+            </label>
+            <label class="form-group">
+              <span class="form-label">Stake</span>
+              <select id="bet-stake" class="form-select">
+                <option value="5">5 GC</option>
+                <option value="10" selected>10 GC</option>
+                <option value="25">25 GC</option>
+                <option value="50">50 GC</option>
+              </select>
+            </label>
+            <div class="button-row"><button id="place-bet-btn" class="btn btn-primary" type="submit">Place next-round bet</button></div>
+          </form>
+          <div id="roulette-status" class="alert alert-info mt-16">Loading roulette table...</div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Recent bets</h2>
+        <div id="roulette-history" class="history-list"><div class="history-item"><p>No bets yet.</p></div></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const form = document.getElementById("roulette-bet-form");
+    const betTypeInput = document.getElementById("bet-type");
+    const betValueInput = document.getElementById("bet-value");
+    const betValueLabel = document.getElementById("bet-value-label");
+    const betStakeInput = document.getElementById("bet-stake");
+    const statusEl = document.getElementById("roulette-status");
+    const nextRoundIdEl = document.getElementById("next-round-id");
+    const nextRoundCountdownEl = document.getElementById("next-round-countdown");
+    const lastResultEl = document.getElementById("last-result");
+    const historyEl = document.getElementById("roulette-history");
+    let state = null;
+    let timer = null;
+
+    function formatGc(value) { const amount = Number(value || 0); return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`; }
+    function updateCasinoBalance(balance) { if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance({ formatted: formatGc(balance || 0), value: Number(balance || 0), updated_at: Date.now() }); }
+    function updateBetValueUi() {
+      const type = betTypeInput.value;
+      const requiresValue = type === "dozen" || type === "number";
+      betValueInput.disabled = !requiresValue;
+      if (type === "dozen") { betValueLabel.textContent = "3rds value"; betValueInput.min = "1"; betValueInput.max = "3"; betValueInput.value = "1"; }
+      else if (type === "number") { betValueLabel.textContent = "Exact number"; betValueInput.min = "0"; betValueInput.max = "36"; betValueInput.value = "0"; }
+      else { betValueLabel.textContent = "No extra value"; betValueInput.value = ""; }
+    }
+    function renderHistory(bets) {
+      if (!Array.isArray(bets) || !bets.length) { historyEl.innerHTML = '<div class="history-item"><p>No bets yet.</p></div>'; return; }
+      historyEl.innerHTML = bets.map((bet) => `<article class="history-item"><p><strong>Round ${bet.round_id}</strong> — ${bet.bet_type}${bet.bet_value ? ` (${bet.bet_value})` : ""}</p><p class="muted">Stake: ${formatGc(bet.stake_coins)} · ${bet.resolved_at ? `Result ${bet.outcome_number} · Payout ${formatGc(bet.payout_coins)}` : "Waiting for spin"}</p></article>`).join("");
+    }
+    function renderState() {
+      if (!state?.table) return;
+      nextRoundIdEl.textContent = String(state.table.next_round_id || "--");
+      const previous = state.table.previous_round;
+      lastResultEl.textContent = previous ? `${previous.number} · ${previous.color}` : "--";
+      renderHistory(state.bets || []);
+      updateCasinoBalance(state.profile?.grev_coin_balance || 0);
+    }
+    function startCountdown() {
+      if (timer) window.clearInterval(timer);
+      timer = window.setInterval(() => {
+        const target = state?.table?.next_round_starts_at ? new Date(state.table.next_round_starts_at).getTime() : 0;
+        const diff = Math.max(0, target - Date.now());
+        const seconds = Math.ceil(diff / 1000);
+        nextRoundCountdownEl.textContent = `${seconds}s`;
+        if (diff <= 1000) loadState(false);
+      }, 500);
+    }
+    async function loadState(showLoading = true) {
+      try {
+        if (showLoading) statusEl.textContent = "Loading roulette table...";
+        const response = await fetch("/api/casino/roulette/state", { credentials: "same-origin" });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load roulette state");
+        state = data;
+        renderState();
+        startCountdown();
+        statusEl.className = "alert alert-success mt-16";
+        statusEl.textContent = `Next round ${data.table.next_round_id} is open for bets.`;
+      } catch (error) {
+        console.error(error); statusEl.className = "alert alert-error mt-16"; statusEl.textContent = error.message || "Failed to load roulette state.";
+      }
+    }
+    async function handleSubmit(event) {
+      event.preventDefault();
+      const payload = { bet_type: betTypeInput.value, stake_coins: Number(betStakeInput.value) };
+      if (betTypeInput.value === "dozen" || betTypeInput.value === "number") payload.bet_value = Number(betValueInput.value);
+      const button = document.getElementById("place-bet-btn");
+      button.disabled = true;
+      try {
+        const response = await fetch("/api/casino/roulette/bet", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to place roulette bet");
+        statusEl.className = "alert alert-success mt-16";
+        statusEl.textContent = `Bet placed for round ${data.round_id}.`;
+        updateCasinoBalance(data.profile?.grev_coin_balance || 0);
+        await loadState(false);
+      } catch (error) {
+        console.error(error); statusEl.className = "alert alert-error mt-16"; statusEl.textContent = error.message || "Failed to place roulette bet.";
+      } finally { button.disabled = false; }
+    }
+    betTypeInput.addEventListener("change", updateBetValueUi);
+    form.addEventListener("submit", handleSubmit);
+    updateBetValueUi();
+    loadState(true);
+  </script>
+</body>
+</html>

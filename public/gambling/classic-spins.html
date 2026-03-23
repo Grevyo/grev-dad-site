@@ -22,40 +22,20 @@
     .machine-title { margin: 0; font-size: clamp(1.8rem, 3vw, 2.4rem); }
     .machine-copy, .side-copy, .payout-card p, .result-copy { margin: 0; color: #f7d5d5; line-height: 1.7; }
     .jackpot-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 40px;
-      padding: 0 14px;
-      border-radius: 999px;
-      background: rgba(255, 215, 0, 0.14);
-      border: 1px solid rgba(255, 215, 0, 0.34);
-      font-weight: 800;
-      color: #ffe69c;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px;
+      background: rgba(255, 215, 0, 0.14); border: 1px solid rgba(255, 215, 0, 0.34); font-weight: 800; color: #ffe69c;
+      text-transform: uppercase; letter-spacing: 0.08em;
     }
     .reels { grid-template-columns: repeat(3, minmax(90px, 1fr)); }
     .reel {
-      min-height: 150px;
-      display: grid;
-      place-items: center;
-      padding: 18px;
-      border-radius: 20px;
+      min-height: 150px; display: grid; place-items: center; padding: 18px; border-radius: 20px;
       border: 1px solid rgba(255,255,255,0.12);
       background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(245,236,220,0.92));
       box-shadow: inset 0 0 0 6px rgba(140, 19, 19, 0.08), 0 14px 30px rgba(0,0,0,0.24);
-      overflow: hidden;
-      position: relative;
+      overflow: hidden; position: relative;
     }
-    .reel::before,
-    .reel::after {
-      content: "";
-      position: absolute;
-      left: 12px;
-      right: 12px;
-      height: 2px;
-      background: rgba(124, 45, 18, 0.16);
+    .reel::before, .reel::after {
+      content: ""; position: absolute; left: 12px; right: 12px; height: 2px; background: rgba(124, 45, 18, 0.16);
     }
     .reel::before { top: 16px; }
     .reel::after { bottom: 16px; }
@@ -67,9 +47,7 @@
     .result-amount { margin: 0; font-size: 1.3rem; font-weight: 800; }
     .payout-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .payout-card strong { display: block; margin-bottom: 8px; }
-    @media (max-width: 900px) {
-      .slot-layout { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 900px) { .slot-layout { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -79,6 +57,7 @@
       <div class="button-row">
         <a class="btn" href="/gambling/index.html">← Back to Casino</a>
         <a class="btn" href="/gambling/daily-spin.html">Daily Spin</a>
+        <a class="btn" href="/gambling/roulette.html">Roulette</a>
       </div>
 
       <section class="slot-layout">
@@ -87,9 +66,9 @@
             <div>
               <p class="eyebrow">Classic Fruity</p>
               <h1 class="machine-title">Classic Fruity</h1>
-              <p class="machine-copy">Line up lemons, cherries, and Triple 7s on this old-school cabinet.</p>
+              <p class="machine-copy">Line up lemons, cherries, grapes, watermelons, bells, and diamonds on this old-school cabinet.</p>
             </div>
-            <div class="jackpot-badge">🍒 Retro slots</div>
+            <div class="jackpot-badge">💎 Retro slots</div>
           </div>
 
           <div class="reels" aria-label="Classic fruit machine reels">
@@ -116,24 +95,26 @@
         <div class="result-card">
           <p class="eyebrow">Machine result</p>
           <p id="classic-spin-status" class="result-amount">Ready to spin.</p>
-          <p id="classic-spin-copy" class="result-copy">Each spin now deducts your selected bet from your Grev Coin balance, and any payout is added straight back into your wallet.</p>
+          <p id="classic-spin-copy" class="result-copy">Each spin deducts your selected bet from your Grev Coin balance, and full line hits are added straight back into your wallet.</p>
         </div>
       </section>
 
       <section class="panel">
         <h2 class="panel-title">Payout table</h2>
         <div class="payout-grid">
-          <div class="payout-card"><strong>7️⃣ 7️⃣ 7️⃣</strong><p>Jackpot. Pays 12× your selected bet.</p></div>
+          <div class="payout-card"><strong>💎 💎 💎</strong><p>Diamond jackpot. Pays 14× your selected bet.</p></div>
+          <div class="payout-card"><strong>🔔 🔔 🔔</strong><p>Bell line. Pays 10× your selected bet.</p></div>
+          <div class="payout-card"><strong>🍉 🍉 🍉</strong><p>Watermelon line. Pays 8× your selected bet.</p></div>
           <div class="payout-card"><strong>🍒 🍒 🍒</strong><p>Sweet clean hit. Pays 6× your selected bet.</p></div>
+          <div class="payout-card"><strong>🍇 🍇 🍇</strong><p>Grape line. Pays 5× your selected bet.</p></div>
           <div class="payout-card"><strong>🍋 🍋 🍋</strong><p>Zesty line win. Pays 4× your selected bet.</p></div>
-          <div class="payout-card"><strong>Any pair</strong><p>Small line win. Pays 2× your selected bet.</p></div>
         </div>
       </section>
     </main>
   </div>
 
   <script>
-    const symbols = ["🍋", "🍒", "7️⃣"];
+    const symbols = ["🍋", "🍒", "🍇", "🍉", "🔔", "💎"];
     const reelEls = Array.from(document.querySelectorAll("[data-reel]"));
     const spinBtn = document.getElementById("classic-spin-btn");
     const betInput = document.getElementById("bet-size");
@@ -142,97 +123,47 @@
     const SYMBOL_HEIGHT = 108;
     let spinning = false;
 
-    function randomSymbol() {
-      return symbols[Math.floor(Math.random() * symbols.length)];
-    }
-
-    function buildSequence(finalSymbol, steps = 18) {
-      const sequence = Array.from({ length: steps }, () => randomSymbol());
-      sequence.push(finalSymbol);
-      return sequence;
-    }
-
-    function renderReel(stripEl, sequence) {
-      stripEl.innerHTML = sequence.map((symbol) => `<span class="reel-symbol">${symbol}</span>`).join("");
-      stripEl.style.transform = "translateY(0)";
-    }
-
+    function randomSymbol() { return symbols[Math.floor(Math.random() * symbols.length)]; }
+    function buildSequence(finalSymbol, steps = 18) { const sequence = Array.from({ length: steps }, () => randomSymbol()); sequence.push(finalSymbol); return sequence; }
+    function renderReel(stripEl, sequence) { stripEl.innerHTML = sequence.map((symbol) => `<span class="reel-symbol">${symbol}</span>`).join(""); stripEl.style.transform = "translateY(0)"; }
     function animateSingleReel(stripEl, finalSymbol, duration) {
       const sequence = buildSequence(finalSymbol, 18 + Math.floor(Math.random() * 4));
       renderReel(stripEl, sequence);
-
       return new Promise((resolve) => {
         requestAnimationFrame(() => {
           stripEl.style.transition = `transform ${duration}ms cubic-bezier(0.16, 0.84, 0.24, 1)`;
           stripEl.style.transform = `translateY(-${(sequence.length - 1) * SYMBOL_HEIGHT}px)`;
         });
-
-        window.setTimeout(() => {
-          stripEl.style.transition = "none";
-          stripEl.innerHTML = `<span class="reel-symbol">${finalSymbol}</span>`;
-          stripEl.style.transform = "translateY(0)";
-          resolve();
-        }, duration + 40);
+        window.setTimeout(() => { stripEl.style.transition = "none"; stripEl.innerHTML = `<span class="reel-symbol">${finalSymbol}</span>`; stripEl.style.transform = "translateY(0)"; resolve(); }, duration + 40);
       });
     }
-
-    function formatGc(value) {
-      const amount = Number(value || 0);
-      return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
-    }
-
+    function formatGc(value) { const amount = Number(value || 0); return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`; }
     function updateCasinoBalance(balance) {
       const formatted = formatGc(balance || 0);
       if (typeof window.writeCasinoBalance === "function") {
-        window.writeCasinoBalance({
-          formatted,
-          value: Number(balance || 0),
-          updated_at: Date.now()
-        });
+        window.writeCasinoBalance({ formatted, value: Number(balance || 0), updated_at: Date.now() });
       }
     }
-
     async function handleSpin() {
       if (spinning) return;
-      spinning = true;
-      spinBtn.disabled = true;
-      statusEl.textContent = "Spinning...";
-      copyEl.textContent = "The old fruit machine is rattling away.";
-
+      spinning = true; spinBtn.disabled = true; statusEl.textContent = "Spinning..."; copyEl.textContent = "The old fruit machine is rattling away.";
       try {
         const bet = Number(betInput.value || 0);
-        const response = await fetch("/api/casino/classic-spin", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bet_coins: bet })
-        });
+        const response = await fetch("/api/casino/classic-spin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bet_coins: bet }) });
         const data = await response.json().catch(() => null);
-        if (!response.ok || !data?.success) {
-          throw new Error(data?.error || "Classic Fruity spin failed");
-        }
-
-        const finalResult = Array.isArray(data?.result) && data.result.length === 3
-          ? data.result
-          : reelEls.map(() => randomSymbol());
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Classic Fruity spin failed");
+        const finalResult = Array.isArray(data?.result) && data.result.length === 3 ? data.result : reelEls.map(() => randomSymbol());
         await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
-
         updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         const winnings = Number(data?.outcome?.winnings_coins || 0);
-        statusEl.textContent = winnings > 0
-          ? `${finalResult.join(" ")} — You won ${formatGc(winnings)}.`
-          : `${finalResult.join(" ")} — No payout.`;
+        statusEl.textContent = winnings > 0 ? `${finalResult.join(" ")} — You won ${formatGc(winnings)}.` : `${finalResult.join(" ")} — No payout.`;
         copyEl.textContent = `${data?.outcome?.message || "Spin complete."} Balance now: ${formatGc(data?.profile?.grev_coin_balance || 0)}.`;
       } catch (error) {
-        console.error(error);
-        statusEl.textContent = "Spin failed.";
-        copyEl.textContent = error.message || "Classic Fruity spin failed.";
+        console.error(error); statusEl.textContent = "Spin failed."; copyEl.textContent = error.message || "Classic Fruity spin failed.";
       } finally {
-        spinning = false;
-        spinBtn.disabled = false;
+        spinning = false; spinBtn.disabled = false;
       }
     }
-
     spinBtn.addEventListener("click", handleSpin);
   </script>
 </body>

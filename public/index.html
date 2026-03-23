@@ -112,6 +112,11 @@
       background: color-mix(in srgb, var(--surface) 90%, transparent);
     }
     .chat-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 0.86rem; }
+    .chat-author { display: inline-flex; align-items: center; gap: 10px; }
+    .chat-avatar,
+    .chat-avatar-placeholder { width: 32px; height: 32px; border-radius: 999px; flex-shrink: 0; }
+    .chat-avatar { object-fit: cover; border: 1px solid var(--border); }
+    .chat-avatar-placeholder { display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); font-weight: 800; }
     .chat-user { font-weight: 700; color: var(--text); }
     .chat-group {
       color: var(--text);
@@ -296,11 +301,16 @@
         const group = escapeHtml(message.author_group || message.group || "Member");
         const timestamp = escapeHtml(formatTime(message?.created_at));
         const text = escapeHtml(message?.message || "");
+        const avatarUrl = typeof message?.avatar_url === "string" ? message.avatar_url.trim() : "";
+        const firstLetter = escapeHtml((username || "?").charAt(0).toUpperCase());
+        const avatar = avatarUrl
+          ? `<img class="chat-avatar" src="${escapeHtml(avatarUrl)}" alt="${username} avatar" />`
+          : `<div class="chat-avatar-placeholder">${firstLetter}</div>`;
 
         return `
           <article class="chat-message">
             <div class="chat-meta">
-              <span class="chat-user">${username}</span>
+              <span class="chat-author">${avatar}<span class="chat-user">${username}</span></span>
               <span class="chat-group">${group}</span>
               <span class="chat-time">${timestamp}</span>
             </div>
