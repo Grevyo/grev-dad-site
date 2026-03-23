@@ -4,6 +4,68 @@ const AUTH_CACHE_KEY = "grevdad_auth_user";
 const AUTH_CACHE_EVENT = "grevdad-auth-changed";
 const THEME_STORAGE_KEY = "grevdad_theme";
 
+const PLAYGROUND_PAGE_PREFIXES = [
+  "/gambling/cs-cases",
+  "/gambling/blackjack",
+  "/gambling/casino",
+  "/gambling/yugioh",
+  "/j-playground",
+  "/dkpg"
+];
+
+function shouldShowPlaygroundNav(pathname = window.location.pathname) {
+  return !PLAYGROUND_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function setupPlaygroundSideNav() {
+  const toggleBtn = document.getElementById("playground-nav-toggle");
+  const nav = document.getElementById("playground-side-nav");
+  const backdrop = document.getElementById("playground-side-nav-backdrop");
+  const closeBtn = document.getElementById("playground-side-nav-close");
+  const collapseBtn = document.getElementById("playground-side-nav-collapse");
+  if (!toggleBtn || !nav || !backdrop || !closeBtn || !collapseBtn) return;
+
+  if (!shouldShowPlaygroundNav()) {
+    toggleBtn.classList.add("hidden");
+    nav.classList.add("hidden");
+    backdrop.classList.add("hidden");
+    return;
+  }
+
+  toggleBtn.classList.remove("hidden");
+
+  const setNavState = ({ open, collapsed = nav.dataset.collapsed === "true" }) => {
+    nav.dataset.state = open ? "open" : "closed";
+    nav.dataset.collapsed = collapsed ? "true" : "false";
+    nav.classList.toggle("hidden", !open);
+    nav.setAttribute("aria-hidden", String(!open));
+    backdrop.classList.toggle("hidden", !open);
+    toggleBtn.setAttribute("aria-expanded", String(open));
+    collapseBtn.setAttribute("aria-label", collapsed ? "Expand playground navigation" : "Minimize playground navigation");
+    collapseBtn.textContent = collapsed ? "⇥" : "⇤";
+  };
+
+  toggleBtn.addEventListener("click", () => setNavState({ open: true }));
+  closeBtn.addEventListener("click", () => setNavState({ open: false }));
+  backdrop.addEventListener("click", () => setNavState({ open: false }));
+  collapseBtn.addEventListener("click", () => {
+    setNavState({ open: true, collapsed: nav.dataset.collapsed !== "true" });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && nav.dataset.state === "open") {
+      setNavState({ open: false });
+    }
+  });
+
+  nav.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => setNavState({ open: false }));
+  });
+
+  setNavState({ open: false, collapsed: false });
+}
+
+
 function applyTheme(theme) {
   const nextTheme = theme === "light" ? "light" : "dark";
   document.body.dataset.theme = nextTheme;
@@ -62,6 +124,7 @@ async function loadSharedHeader() {
     const auth = await fetchCurrentUser({ preferCache: !cachedUser });
     applyHeaderAuthState(auth);
     setupThemeToggle();
+    setupPlaygroundSideNav();
     window.addEventListener(AUTH_CACHE_EVENT, () => {
       applyHeaderAuthState(readCachedAuthUser());
     });
