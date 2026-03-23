@@ -879,6 +879,26 @@ function getRouletteColor(number) {
   return redNumbers.has(number) ? "red" : "black";
 }
 
+function parseRouletteNumbers(betValue) {
+  const values = String(betValue || "")
+    .split(/[^0-9]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => Number(part));
+  if (!values.length) return null;
+  if (values.some((value) => !Number.isInteger(value) || value < 0 || value > 36)) return null;
+  const uniqueValues = [...new Set(values)];
+  return uniqueValues;
+}
+
+function getRouletteBetLabel(betType, betValue) {
+  if (betType === "dozen") return `Dozen ${betValue}`;
+  if (["number", "split", "street", "corner", "basket", "line"].includes(betType)) {
+    return `${betType}: ${betValue}`;
+  }
+  return betType;
+}
+
 function evaluateRouletteBet(number, betType, betValue, stakePence) {
   const numericValue = Number(betValue);
   if (betType === "red") return number !== 0 && getRouletteColor(number) === "red" ? stakePence * 2 : 0;
@@ -887,11 +907,26 @@ function evaluateRouletteBet(number, betType, betValue, stakePence) {
   if (betType === "odd") return number % 2 === 1 ? stakePence * 2 : 0;
   if (betType === "dozen") return [1,2,3].includes(numericValue) && getRouletteDozen(number) === numericValue ? stakePence * 3 : 0;
   if (betType === "number") return Number.isInteger(numericValue) && numericValue >= 0 && numericValue <= 36 && number === numericValue ? stakePence * 36 : 0;
+
+  const numberSets = {
+    split: { size: 2, payout: 18 },
+    street: { size: 3, payout: 12 },
+    corner: { size: 4, payout: 9 },
+    basket: { size: 5, payout: 7 },
+    line: { size: 6, payout: 6 }
+  };
+  const setConfig = numberSets[betType];
+  if (setConfig) {
+    const numbers = parseRouletteNumbers(betValue);
+    if (!numbers || numbers.length !== setConfig.size) return 0;
+    return numbers.includes(number) ? stakePence * setConfig.payout : 0;
+  }
+
   return 0;
 }
 
 function normaliseRouletteBet(body) {
-  const allowedTypes = new Set(["red", "black", "even", "odd", "dozen", "number"]);
+  const allowedTypes = new Set(["red", "black", "even", "odd", "dozen", "number", "split", "street", "corner", "basket", "line"]);
   const betType = String(body?.bet_type || "").trim().toLowerCase();
   const stakeCoins = Number(body?.stake_coins);
   const allowedStakeCoins = new Set([5, 10, 25, 50]);
@@ -902,10 +937,16 @@ function normaliseRouletteBet(body) {
   if (betType === "dozen") {
     betValue = Number(body?.bet_value);
     if (![1,2,3].includes(betValue)) return { error: "Dozen bets must be 1, 2, or 3." };
-  }
-  if (betType === "number") {
+  } else if (betType === "number") {
     betValue = Number(body?.bet_value);
-    if (!Number.isInteger(betValue) || betValue < 0 || betValue > 36) return { error: "Exact number bets must be from 0 to 36." };
+    if (!Number.isInteger(betValue) || betValue < 0 || betValue > 36) return { error: "Single number bets must be from 0 to 36." };
+  } else if (["split", "street", "corner", "basket", "line"].includes(betType)) {
+    const expectedSizes = { split: 2, street: 3, corner: 4, basket: 5, line: 6 };
+    const parsedNumbers = parseRouletteNumbers(body?.bet_value);
+    if (!parsedNumbers || parsedNumbers.length !== expectedSizes[betType]) {
+      return { error: `Enter exactly ${expectedSizes[betType]} unique numbers between 0 and 36 for this bet.` };
+    }
+    betValue = parsedNumbers.join(",");
   }
 
   return { betType, betValue: betValue == null ? null : String(betValue), stakeCoins, stakePence: Math.round(stakeCoins * 100) };
@@ -976,6 +1017,7 @@ async function handleCasinoRouletteState(request, env) {
       round_id: Number(row.round_id),
       bet_type: row.bet_type,
       bet_value: row.bet_value,
+      bet_label: getRouletteBetLabel(row.bet_type, row.bet_value),
       stake_coins: toCoinAmount(row.stake_pence),
       payout_coins: toCoinAmount(row.payout_pence),
       outcome_number: row.outcome_number == null ? null : Number(row.outcome_number),
