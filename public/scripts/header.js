@@ -1,8 +1,7 @@
-// public/scripts/header.js
-
 const AUTH_CACHE_KEY = "grevdad_auth_user";
 const AUTH_CACHE_EVENT = "grevdad-auth-changed";
 const THEME_STORAGE_KEY = "grevdad_theme";
+const PLAYGROUND_NAV_STORAGE_KEY = "grevdad_playground_nav";
 
 const PLAYGROUND_PAGE_PREFIXES = [
   "/gambling/cs-cases",
@@ -17,52 +16,114 @@ function shouldShowPlaygroundNav(pathname = window.location.pathname) {
   return !PLAYGROUND_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+function readPlaygroundNavPrefs() {
+  try {
+    const raw = window.localStorage.getItem(PLAYGROUND_NAV_STORAGE_KEY);
+    if (!raw) return { open: true, collapsed: false, pinned: false };
+    const parsed = JSON.parse(raw);
+    return {
+      open: parsed?.open !== false,
+      collapsed: Boolean(parsed?.collapsed),
+      pinned: Boolean(parsed?.pinned)
+    };
+  } catch (error) {
+    console.error("Failed to read playground nav prefs:", error);
+    return { open: true, collapsed: false, pinned: false };
+  }
+}
+
+function writePlaygroundNavPrefs(prefs) {
+  try {
+    window.localStorage.setItem(PLAYGROUND_NAV_STORAGE_KEY, JSON.stringify(prefs));
+  } catch (error) {
+    console.error("Failed to save playground nav prefs:", error);
+  }
+}
+
 function setupPlaygroundSideNav() {
-  const toggleBtn = document.getElementById("playground-nav-toggle");
   const nav = document.getElementById("playground-side-nav");
-  const backdrop = document.getElementById("playground-side-nav-backdrop");
-  const closeBtn = document.getElementById("playground-side-nav-close");
+  const expandBtn = document.getElementById("playground-side-nav-expand");
   const collapseBtn = document.getElementById("playground-side-nav-collapse");
-  if (!toggleBtn || !nav || !backdrop || !closeBtn || !collapseBtn) return;
+  const pinBtn = document.getElementById("playground-side-nav-pin");
+  const closeBtn = document.getElementById("playground-side-nav-close");
+  if (!nav || !expandBtn || !collapseBtn || !pinBtn || !closeBtn) return;
 
   if (!shouldShowPlaygroundNav()) {
-    toggleBtn.classList.add("hidden");
     nav.classList.add("hidden");
-    backdrop.classList.add("hidden");
     return;
   }
 
-  toggleBtn.classList.remove("hidden");
+  nav.classList.remove("hidden");
+  let state = readPlaygroundNavPrefs();
 
-  const setNavState = ({ open, collapsed = nav.dataset.collapsed === "true" }) => {
-    nav.dataset.state = open ? "open" : "closed";
-    nav.dataset.collapsed = collapsed ? "true" : "false";
-    nav.classList.toggle("hidden", !open);
-    nav.setAttribute("aria-hidden", String(!open));
-    backdrop.classList.toggle("hidden", !open);
-    toggleBtn.setAttribute("aria-expanded", String(open));
-    collapseBtn.setAttribute("aria-label", collapsed ? "Expand playground navigation" : "Minimize playground navigation");
-    collapseBtn.textContent = collapsed ? "⇥" : "⇤";
+  const applyState = () => {
+    nav.dataset.state = state.open ? "open" : "closed";
+    nav.dataset.collapsed = state.collapsed ? "true" : "false";
+    nav.dataset.pinned = state.pinned ? "true" : "false";
+    nav.setAttribute("aria-hidden", String(!state.open));
+    expandBtn.setAttribute("aria-label", state.open ? "Show minimized playground navigation" : "Expand playground navigation");
+    expandBtn.setAttribute("aria-expanded", String(state.open));
+    expandBtn.textContent = state.open ? "⇤" : "⇥";
+    collapseBtn.setAttribute("aria-label", state.collapsed ? "Expand playground navigation details" : "Minimize playground navigation");
+    collapseBtn.textContent = state.collapsed ? "⇥" : "⇤";
+    pinBtn.setAttribute("aria-pressed", String(state.pinned));
+    pinBtn.setAttribute("aria-label", state.pinned ? "Unpin playground navigation" : "Pin playground navigation");
+    pinBtn.textContent = state.pinned ? "📌" : "📍";
+    writePlaygroundNavPrefs(state);
   };
 
-  toggleBtn.addEventListener("click", () => setNavState({ open: true }));
-  closeBtn.addEventListener("click", () => setNavState({ open: false }));
-  backdrop.addEventListener("click", () => setNavState({ open: false }));
+  const updateState = (patch) => {
+    state = { ...state, ...patch };
+    applyState();
+  };
+
+  expandBtn.addEventListener("click", () => {
+    if (state.open && !state.collapsed) {
+      updateState({ open: true, collapsed: true });
+      return;
+    }
+
+    updateState({ open: true, collapsed: false });
+  });
+
   collapseBtn.addEventListener("click", () => {
-    setNavState({ open: true, collapsed: nav.dataset.collapsed !== "true" });
+    if (state.collapsed) {
+      updateState({ open: true, collapsed: false });
+      return;
+    }
+
+    updateState({ open: true, collapsed: true });
+  });
+
+  pinBtn.addEventListener("click", () => {
+    updateState({ pinned: !state.pinned, open: true });
+  });
+
+  closeBtn.addEventListener("click", () => {
+    updateState({ open: false, collapsed: true });
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && nav.dataset.state === "open") {
-      setNavState({ open: false });
+    if (event.key === "Escape" && state.open && !state.pinned) {
+      updateState({ open: false, collapsed: true });
     }
   });
 
   nav.querySelectorAll("a").forEach((link) => {
-    link.addEventListener("click", () => setNavState({ open: false }));
+    link.addEventListener("click", () => {
+      if (!state.pinned) {
+        updateState({ open: false, collapsed: true });
+      }
+    });
   });
 
-  setNavState({ open: false, collapsed: false });
+  nav.addEventListener("mouseleave", () => {
+    if (!state.pinned && state.open && state.collapsed) {
+      updateState({ open: false, collapsed: true });
+    }
+  });
+
+  applyState();
 }
 
 
