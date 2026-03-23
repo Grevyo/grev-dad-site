@@ -6,6 +6,14 @@
   <title>Edit Profile | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
+  <style>
+    .avatar-builder,.avatar-controls,.avatar-palette { display:grid; gap:16px; }
+    .avatar-builder { grid-template-columns:minmax(180px,220px) minmax(0,1fr); align-items:start; }
+    .avatar-preview-card { border:1px solid var(--border); border-radius:20px; padding:20px; background:rgba(255,255,255,.03); display:grid; place-items:center; }
+    .avatar-preview-card img { width:160px; height:160px; border-radius:24px; border:1px solid rgba(255,255,255,.12); }
+    .avatar-palette { grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); }
+    @media (max-width: 760px) { .avatar-builder { grid-template-columns:1fr; } }
+  </style>
 </head>
 <body>
   <div class="page-shell">
@@ -14,15 +22,33 @@
       <p class="gambling-breadcrumb"><a href="/profile.html">← Back to profile</a></p>
       <section class="panel">
         <h1 class="auth-title">Edit your profile</h1>
-        <p class="auth-subtitle">Update your profile details, media, music, and personal background colour.</p>
+        <p class="auth-subtitle">Update your profile details, media, music, personal background colour, and build an avatar directly on Grev.dad.</p>
         <div id="profile-message" class="hidden"></div>
         <form id="profile-form" class="form-grid mt-24">
+          <input id="avatar-data-url" type="hidden" />
           <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
             <div class="form-group"><label class="form-label" for="real-name">Real name</label><input id="real-name" class="form-input" type="text" maxlength="80" /></div>
             <div class="form-group"><label class="form-label" for="motto">Motto</label><input id="motto" class="form-input" type="text" maxlength="140" /></div>
-            <div class="form-group"><label class="form-label" for="avatar-url">Avatar image URL</label><input id="avatar-url" class="form-input" type="url" maxlength="1200" /></div>
             <div class="form-group"><label class="form-label" for="profile-accent-color">Profile background colour</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
           </div>
+
+          <section class="panel" style="padding:20px;">
+            <h2 class="panel-title">Avatar builder</h2>
+            <p class="muted-copy">External profile picture URLs are disabled. Create an avatar here instead, then save it to your profile.</p>
+            <div class="avatar-builder mt-16">
+              <div class="avatar-preview-card"><img id="avatar-preview" alt="Generated avatar preview" /></div>
+              <div class="avatar-controls">
+                <div class="avatar-palette">
+                  <div class="form-group"><label class="form-label" for="avatar-initials">Initials</label><input id="avatar-initials" class="form-input" type="text" maxlength="2" placeholder="GD" /></div>
+                  <div class="form-group"><label class="form-label" for="avatar-bg">Background</label><input id="avatar-bg" class="form-input" type="color" value="#f59e0b" /></div>
+                  <div class="form-group"><label class="form-label" for="avatar-fg">Text colour</label><input id="avatar-fg" class="form-input" type="color" value="#111827" /></div>
+                  <div class="form-group"><label class="form-label" for="avatar-shape">Shape</label><select id="avatar-shape" class="form-select"><option value="24">Rounded square</option><option value="80">Soft circle</option><option value="0">Square</option></select></div>
+                </div>
+                <div class="button-row"><button id="avatar-randomize-btn" class="btn" type="button">Randomize avatar</button><button id="avatar-reset-btn" class="btn" type="button">Reset avatar</button></div>
+              </div>
+            </div>
+          </section>
+
           <div class="form-group"><label class="form-label" for="bio">Bio</label><textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height:160px;"></textarea></div>
           <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
             <div class="form-group"><label class="form-label" for="media-1-url">Media 1 URL</label><input id="media-1-url" class="form-input" type="url" maxlength="1200" /></div>
@@ -34,25 +60,58 @@
         </form>
       </section>
     </main>
+    <footer class="footer"><div class="footer-inner"></div></footer>
   </div>
   <script>
     const messageEl = document.getElementById('profile-message');
     const form = document.getElementById('profile-form');
     const saveBtn = document.getElementById('save-profile-btn');
+    const avatarPreview = document.getElementById('avatar-preview');
+    const avatarField = document.getElementById('avatar-data-url');
+    const avatarInitials = document.getElementById('avatar-initials');
+    const avatarBg = document.getElementById('avatar-bg');
+    const avatarFg = document.getElementById('avatar-fg');
+    const avatarShape = document.getElementById('avatar-shape');
     const fields = {
-      real_name: document.getElementById('real-name'), motto: document.getElementById('motto'), avatar_url: document.getElementById('avatar-url'), profile_accent_color: document.getElementById('profile-accent-color'), bio: document.getElementById('bio'), media_1_url: document.getElementById('media-1-url'), media_2_url: document.getElementById('media-2-url'), media_3_url: document.getElementById('media-3-url'), music_url: document.getElementById('music-url')
+      real_name: document.getElementById('real-name'), motto: document.getElementById('motto'), avatar_url: avatarField, profile_accent_color: document.getElementById('profile-accent-color'), bio: document.getElementById('bio'), media_1_url: document.getElementById('media-1-url'), media_2_url: document.getElementById('media-2-url'), media_3_url: document.getElementById('media-3-url'), music_url: document.getElementById('music-url')
     };
     function showMessage(type, text) { messageEl.className = `alert alert-${type}`; messageEl.textContent = text; }
+    function makeAvatarDataUrl() {
+      const initials = (avatarInitials.value || 'GD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2) || 'GD';
+      const bg = avatarBg.value || '#f59e0b';
+      const fg = avatarFg.value || '#111827';
+      const radius = Number(avatarShape.value || 24);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="${radius}" fill="${bg}"/><circle cx="80" cy="58" r="28" fill="rgba(255,255,255,0.16)"/><text x="80" y="98" text-anchor="middle" font-family="Arial, sans-serif" font-size="56" font-weight="800" fill="${fg}">${initials}</text></svg>`;
+      return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+    }
+    function updateAvatarPreview() {
+      const dataUrl = makeAvatarDataUrl();
+      avatarField.value = dataUrl;
+      avatarPreview.src = dataUrl;
+    }
+    function randomColor() { return `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`; }
+    function syncAvatarInitials(profile) {
+      const fallback = (fields.real_name.value || profile?.username || 'GD').split(/\s+/).filter(Boolean).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+      if (!avatarInitials.value.trim()) avatarInitials.value = fallback || 'GD';
+    }
     async function loadProfile() {
       const response = await fetch('/api/profile/me', { credentials:'same-origin' });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.success) { if (response.status === 401) window.location.href = '/login.html'; throw new Error(data?.error || 'Failed to load profile'); }
       Object.entries(fields).forEach(([key, input]) => { input.value = data.profile?.[key] || (key === 'profile_accent_color' ? '#1f2937' : ''); });
+      syncAvatarInitials(data.profile);
+      if (typeof data.profile?.avatar_url === 'string' && data.profile.avatar_url.startsWith('data:image/svg+xml;base64,')) avatarField.value = data.profile.avatar_url;
+      if (avatarField.value) avatarPreview.src = avatarField.value;
+      else updateAvatarPreview();
     }
+    [avatarInitials, avatarBg, avatarFg, avatarShape, fields.real_name].forEach((input) => input.addEventListener('input', updateAvatarPreview));
+    document.getElementById('avatar-randomize-btn').addEventListener('click', () => { avatarBg.value = randomColor(); avatarFg.value = randomColor(); avatarShape.value = ['24','80','0'][Math.floor(Math.random() * 3)]; syncAvatarInitials(); updateAvatarPreview(); });
+    document.getElementById('avatar-reset-btn').addEventListener('click', () => { avatarInitials.value = ''; syncAvatarInitials(); avatarBg.value = '#f59e0b'; avatarFg.value = '#111827'; avatarShape.value = '24'; updateAvatarPreview(); });
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       try {
         saveBtn.disabled = true;
+        updateAvatarPreview();
         const payload = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
         const response = await fetch('/api/profile/update', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(payload) });
         const data = await response.json().catch(() => null);

@@ -224,6 +224,9 @@ body[data-theme="light"] .alert-error { color: #991b1b; }
 
 .footer { margin-top: auto; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 88%, transparent); }
 .footer-inner { width: min(100%, calc(var(--max-width) + 80px)); max-width: none; margin: 0 auto; padding: 18px 40px 30px; color: var(--muted); font-size: 0.92rem; }
+.footer-auto { display:grid; gap:8px; }
+.footer-status { display:inline-flex; flex-wrap:wrap; gap:8px; align-items:center; font-weight:700; }
+.footer-status time { color: var(--accent); }
 
 .mt-16 { margin-top: 16px; }
 .mt-24 { margin-top: 24px; }

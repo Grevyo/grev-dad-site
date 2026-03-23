@@ -1,4 +1,5 @@
 import { ensureCasinoTables } from './schema.js';
+import { getCasinoLeaderboards } from './leaderboards.js';
 
 function parseJsonSafe(value, fallback = {}) {
   try {
@@ -98,6 +99,12 @@ export async function handleCasinoRequest(request, env, deps) {
   if (pathname === '/api/casino/catalog' && request.method === 'GET') {
     const sections = await buildCatalogPayload(db);
     return json({ success: true, sections }, 200, request);
+  }
+
+  if (pathname === '/api/casino/leaderboards' && request.method === 'GET') {
+    const leaderboards = await getCasinoLeaderboards(env);
+    if (!leaderboards) return json({ success: false, error: 'CASES-DB is not configured' }, 500, request);
+    return json({ success: true, leaderboards }, 200, request);
   }
 
   if (pathname === '/api/casino/admin/balances' && request.method === 'GET') {

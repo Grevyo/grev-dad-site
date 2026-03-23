@@ -4,6 +4,47 @@ const AUTH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const THEME_STORAGE_KEY = "grevdad_theme";
 const CASINO_BALANCE_STORAGE_KEY = "grevdad_casino_balance";
 const CASINO_BALANCE_EVENT = "grevdad-casino-balance-changed";
+const SITE_META_EVENT = "grevdad-site-meta-changed";
+
+function formatFooterTimestamp(value) {
+  if (!value) return "Unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unavailable";
+  return `${date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}, ${date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false })} UTC`;
+}
+
+function applyAutomaticFooter(meta) {
+  const footerInner = document.querySelector(".footer-inner");
+  if (!footerInner) return;
+  const github = meta?.github || {};
+  const committedAt = github.committed_at || null;
+  const commitText = github.commit_sha ? `${github.commit_sha.slice(0, 7)}` : "unknown";
+  const repoLabel = github.repository || "GitHub repository";
+  const sourceLabel = meta?.source === "github" ? "Live GitHub metadata" : "Workspace snapshot fallback";
+  footerInner.innerHTML = `
+    <div class="footer-auto">
+      <div class="footer-status">
+        <span>GitHub last updated —</span>
+        <time datetime="${committedAt || ""}">${formatFooterTimestamp(committedAt)}</time>
+      </div>
+      <p class="home-footer-copy">${repoLabel} · ${sourceLabel} · Commit ${commitText}${github.commit_url ? ` · <a href="${github.commit_url}" target="_blank" rel="noopener noreferrer">view commit</a>` : ""}</p>
+    </div>
+  `;
+  window.dispatchEvent(new Event(SITE_META_EVENT));
+}
+
+async function refreshSiteMeta() {
+  try {
+    const response = await fetch("/api/site/meta", { credentials: "same-origin" });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load footer metadata");
+    applyAutomaticFooter(data);
+  } catch (error) {
+    console.error("Failed to refresh footer metadata:", error);
+    applyAutomaticFooter(null);
+  }
+}
+
 
 function isCasinoPage(pathname = window.location.pathname) {
   return pathname.startsWith("/gambling");
@@ -122,6 +163,7 @@ async function loadSharedHeader() {
     setupThemeToggle();
     applyCasinoBalance();
     refreshCasinoBalance();
+    refreshSiteMeta();
     window.addEventListener(AUTH_CACHE_EVENT, () => {
       applyHeaderAuthState(readCachedAuthUser());
       applyCasinoBalance();

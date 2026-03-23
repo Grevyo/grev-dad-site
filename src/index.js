@@ -4,6 +4,7 @@ import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
 import { handleCasinoRequest } from "./casino/handlers.js";
+import { recordCasinoGameEarning } from "./casino/leaderboards.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -30,6 +31,8 @@ const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
 const CASINO_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
 const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const FOOTER_METADATA_TTL_MS = 5 * 60 * 1000;
+const GITHUB_REPO_FALLBACK = "Grevyo/grev-dad-site";
 const ROULETTE_ROUND_INTERVAL_MS = 15 * 60 * 1000;
 const DAILY_SPIN_REWARDS = [
   { coins: 5, weight: 25 },
@@ -51,6 +54,10 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/casino/profile" && request.method === "GET") {
     return await handleCasinoProfile(request, env);
+  }
+
+  if (pathname === "/api/site/meta" && request.method === "GET") {
+    return await handleSiteMeta(request, env);
   }
 
   if (pathname === "/api/casino/daily-spin" && request.method === "POST") {
@@ -774,6 +781,7 @@ async function handleCasinoDailySpin(request, env) {
     `).bind(session.id, now, rewardPence, now)
   ]);
 
+  await recordCasinoGameEarning(env, "daily-spin", session.id, rewardPence, now);
   const profile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
   return json({
     success: true,
@@ -853,6 +861,7 @@ async function handleCasinoClassicSpin(request, env) {
     WHERE user_id = ?
   `).bind(netChangePence, now, session.id).run();
 
+  await recordCasinoGameEarning(env, "classic-fruity", session.id, netChangePence, now);
   const updatedProfile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
   return json({
     success: true,
@@ -989,6 +998,7 @@ async function resolveRouletteBets(env, casesDb, roundId) {
     if (payoutPence > 0) {
       await casesDb.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(payoutPence, resolvedAt, row.user_id).run();
     }
+    await recordCasinoGameEarning(env, "roulette", row.user_id, payoutPence - Number(row.stake_pence || 0), resolvedAt);
     await env.DB.prepare(`
       UPDATE casino_roulette_bets
       SET payout_pence = ?, outcome_number = ?, resolved_at = ?
@@ -1122,6 +1132,64 @@ async function handleCasinoRouletteBet(request, env) {
     round_id: upcomingRoundId,
     profile: formatCasinoProfile(updatedProfile, session.username)
   }, 200, request);
+}
+
+let footerMetaCache = null;
+let footerMetaCacheExpiresAt = 0;
+
+async function fetchLatestGithubMeta(env) {
+  const repo = String(env.GITHUB_REPO || GITHUB_REPO_FALLBACK).trim();
+  const response = await fetch(`https://api.github.com/repos/${repo}/commits?per_page=1`, {
+    headers: { "User-Agent": "grev-dad-site" }
+  });
+  if (!response.ok) throw new Error(`GitHub metadata request failed with ${response.status}`);
+  const payload = await response.json().catch(() => []);
+  const commit = Array.isArray(payload) ? payload[0] : null;
+  const committedAt = commit?.commit?.committer?.date || null;
+  return {
+    provider: "github",
+    repository: repo,
+    branch: "main",
+    committed_at: committedAt,
+    commit_sha: commit?.sha || null,
+    commit_message: commit?.commit?.message || null,
+    commit_url: commit?.html_url || `https://github.com/${repo}/commits/main`
+  };
+}
+
+async function getSiteMeta(env) {
+  const now = Date.now();
+  if (footerMetaCache && now < footerMetaCacheExpiresAt) return footerMetaCache;
+  let source = "github";
+  let latest = null;
+  try {
+    latest = await fetchLatestGithubMeta(env);
+  } catch (error) {
+    console.error("Failed to fetch GitHub metadata:", error);
+    source = "snapshot";
+    latest = {
+      provider: "snapshot",
+      repository: String(env.GITHUB_REPO || GITHUB_REPO_FALLBACK).trim(),
+      branch: "main",
+      committed_at: "2026-03-23T19:56:54+00:00",
+      commit_sha: "6f43417710dbdf801f0b4a67de78ac68d024180d",
+      commit_message: "Workspace snapshot metadata fallback",
+      commit_url: null
+    };
+  }
+
+  footerMetaCache = {
+    success: true,
+    source,
+    updated_at: isoNow(),
+    github: latest
+  };
+  footerMetaCacheExpiresAt = now + FOOTER_METADATA_TTL_MS;
+  return footerMetaCache;
+}
+
+async function handleSiteMeta(request, env) {
+  return json(await getSiteMeta(env), 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1433,7 +1501,7 @@ async function handleProfileUpdate(request, env) {
   const realName = cleanShortText(body?.real_name, 80);
   const motto = cleanShortText(body?.motto, 140);
   const bio = cleanLongText(body?.bio, 3000);
-  const avatarUrl = cleanUrl(body?.avatar_url, 1200);
+  const avatarUrl = cleanAvatarDataUrl(body?.avatar_url);
   const media1 = cleanUrl(body?.media_1_url, 1200);
   const media2 = cleanUrl(body?.media_2_url, 1200);
   const media3 = cleanUrl(body?.media_3_url, 1200);
@@ -2287,7 +2355,7 @@ async function handleAdminUpdateUser(request, env) {
     real_name: typeof body?.real_name === "string" ? body.real_name.trim().slice(0, 80) : "",
     motto: typeof body?.motto === "string" ? body.motto.trim().slice(0, 140) : "",
     bio: typeof body?.bio === "string" ? body.bio.trim().slice(0, 3000) : "",
-    avatar_url: cleanUrl(body?.avatar_url, 1200),
+    avatar_url: Object.prototype.hasOwnProperty.call(body || {}, "avatar_url") ? cleanAvatarDataUrl(body?.avatar_url) : null,
     media_1_url: cleanUrl(body?.media_1_url, 1200),
     media_2_url: cleanUrl(body?.media_2_url, 1200),
     media_3_url: cleanUrl(body?.media_3_url, 1200),
@@ -2355,7 +2423,7 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     UPDATE user_profiles
-    SET real_name = ?, motto = ?, bio = ?, avatar_url = ?, media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?
     WHERE user_id = ?
   `).bind(
     profileFields.real_name,
@@ -2636,6 +2704,13 @@ function cleanUrl(value, maxLen = 1200) {
   if (!cleaned) return "";
   if (/^https?:\/\//i.test(cleaned)) return cleaned;
   return "";
+}
+
+function cleanAvatarDataUrl(value) {
+  if (typeof value !== "string") return "";
+  const cleaned = value.trim().slice(0, 16000);
+  if (!cleaned) return "";
+  return /^data:image\/svg\+xml;base64,[a-z0-9+/=]+$/i.test(cleaned) ? cleaned : "";
 }
 
 function normaliseReactionType(value) {
