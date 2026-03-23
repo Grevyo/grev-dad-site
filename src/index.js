@@ -26,6 +26,7 @@ const SESSION_COOKIE_NAME = "grevdad_session";
 const SESSION_DAYS = 30;
 const DEFAULT_USER_GROUP = "standard";
 const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
+const CASINO_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
 const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DAILY_SPIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -57,6 +58,14 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/casino/classic-spin" && request.method === "POST") {
     return await handleCasinoClassicSpin(request, env);
+  }
+
+  if (pathname === "/api/casino/roulette/state" && request.method === "GET") {
+    return await handleCasinoRouletteState(request, env);
+  }
+
+  if (pathname === "/api/casino/roulette/bet" && request.method === "POST") {
+    return await handleCasinoRouletteBet(request, env);
   }
 
   if (isRetiredGamblingPath(pathname)) {
@@ -124,6 +133,14 @@ async function handleRequest(request, env, ctx) {
 
   if (pathname === "/api/chat/global" && request.method === "POST") {
     return await handlePostGlobalChat(request, env);
+  }
+
+  if (pathname === "/api/chat/casino" && request.method === "GET") {
+    return await handleGetCasinoChat(request, env);
+  }
+
+  if (pathname === "/api/chat/casino" && request.method === "POST") {
+    return await handlePostCasinoChat(request, env);
   }
 
   // Forum
@@ -378,11 +395,53 @@ async function ensureCoreTablesOnce(env) {
     )
   `).run();
 
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS casino_chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      author_user_id INTEGER NOT NULL,
+      author_username TEXT NOT NULL,
+      author_group TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `).run();
+
   await ensureColumn(env.DB, "global_chat_messages", "author_user_id", "INTEGER");
   await ensureColumn(env.DB, "global_chat_messages", "author_username", "TEXT");
   await ensureColumn(env.DB, "global_chat_messages", "author_group", "TEXT");
   await ensureColumn(env.DB, "global_chat_messages", "message", "TEXT");
   await ensureColumn(env.DB, "global_chat_messages", "created_at", "TEXT");
+
+  await ensureColumn(env.DB, "casino_chat_messages", "author_user_id", "INTEGER");
+  await ensureColumn(env.DB, "casino_chat_messages", "author_username", "TEXT");
+  await ensureColumn(env.DB, "casino_chat_messages", "author_group", "TEXT");
+  await ensureColumn(env.DB, "casino_chat_messages", "message", "TEXT");
+  await ensureColumn(env.DB, "casino_chat_messages", "created_at", "TEXT");
+
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS casino_roulette_bets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      round_id INTEGER NOT NULL,
+      bet_type TEXT NOT NULL,
+      bet_value TEXT,
+      stake_pence INTEGER NOT NULL,
+      payout_pence INTEGER NOT NULL DEFAULT 0,
+      outcome_number INTEGER,
+      created_at TEXT NOT NULL,
+      resolved_at TEXT
+    )
+  `).run();
+
+  await ensureColumn(env.DB, "casino_roulette_bets", "user_id", "INTEGER");
+  await ensureColumn(env.DB, "casino_roulette_bets", "round_id", "INTEGER");
+  await ensureColumn(env.DB, "casino_roulette_bets", "bet_type", "TEXT");
+  await ensureColumn(env.DB, "casino_roulette_bets", "bet_value", "TEXT");
+  await ensureColumn(env.DB, "casino_roulette_bets", "stake_pence", "INTEGER");
+  await ensureColumn(env.DB, "casino_roulette_bets", "payout_pence", "INTEGER");
+  await ensureColumn(env.DB, "casino_roulette_bets", "outcome_number", "INTEGER");
+  await ensureColumn(env.DB, "casino_roulette_bets", "created_at", "TEXT");
+  await ensureColumn(env.DB, "casino_roulette_bets", "resolved_at", "TEXT");
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS forum_posts (
@@ -446,6 +505,9 @@ async function ensureCoreTablesOnce(env) {
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_users_group_name ON users (group_name)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_users_approved ON users (approved)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_global_chat_created_at ON global_chat_messages (created_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_chat_created_at ON casino_chat_messages (created_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_roulette_round ON casino_roulette_bets (round_id, resolved_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_casino_roulette_user_round ON casino_roulette_bets (user_id, round_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_posts_created_at ON forum_posts (created_at)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_comments_post_id ON forum_comments (post_id)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_forum_reactions_post_id ON forum_reactions (post_id)`).run();
@@ -711,27 +773,24 @@ async function handleCasinoDailySpin(request, env) {
   }, 200, request);
 }
 
+const CLASSIC_SPIN_SYMBOLS = ["🍋", "🍒", "🍇", "🍉", "🔔", "💎"];
+const CLASSIC_SPIN_PAYOUTS = {
+  "💎": { multiplier: 14, message: "Diamond line! The cabinet flashes with the big one." },
+  "🔔": { multiplier: 10, message: "Bell line! Loud old-school payout." },
+  "🍉": { multiplier: 8, message: "Watermelon line! Heavy juicy win." },
+  "🍒": { multiplier: 6, message: "Cherry line! That one pays nicely." },
+  "🍇": { multiplier: 5, message: "Grape line! A tidy fruity payout." },
+  "🍋": { multiplier: 4, message: "Lemon line! Sharp little payout." }
+};
+
 function pickClassicSpinResult() {
-  const symbols = ["🍋", "🍒", "7️⃣"];
-  return Array.from({ length: 3 }, () => symbols[Math.floor(Math.random() * symbols.length)]);
+  return Array.from({ length: 3 }, () => CLASSIC_SPIN_SYMBOLS[Math.floor(Math.random() * CLASSIC_SPIN_SYMBOLS.length)]);
 }
 
 function evaluateClassicSpin(result) {
-  if (result.every((symbol) => symbol === "7️⃣")) {
-    return { multiplier: 12, message: "Jackpot! Triple 7s smashed the machine." };
-  }
-  if (result.every((symbol) => symbol === "🍒")) {
-    return { multiplier: 6, message: "Cherry line! That one pays nicely." };
-  }
-  if (result.every((symbol) => symbol === "🍋")) {
-    return { multiplier: 4, message: "Lemon line! Sharp little payout." };
-  }
-  const counts = result.reduce((map, symbol) => {
-    map[symbol] = (map[symbol] || 0) + 1;
-    return map;
-  }, {});
-  if (Object.values(counts).some((count) => count >= 2)) {
-    return { multiplier: 2, message: "Nice, you landed a matching pair." };
+  const firstSymbol = result[0];
+  if (result.every((symbol) => symbol === firstSymbol) && CLASSIC_SPIN_PAYOUTS[firstSymbol]) {
+    return CLASSIC_SPIN_PAYOUTS[firstSymbol];
   }
   return { multiplier: 0, message: "No line win this time — give the lever another go." };
 }
@@ -796,6 +855,170 @@ async function handleCasinoClassicSpin(request, env) {
   }, 200, request);
 }
 
+
+
+function getRouletteRoundId(date = Date.now()) {
+  return Math.floor(Number(date) / 60000);
+}
+
+function getRouletteRoundNumber(roundId) {
+  const seed = (Number(roundId) * 9301 + 49297) % 233280;
+  return seed % 37;
+}
+
+function getRouletteDozen(number) {
+  if (number >= 1 && number <= 12) return 1;
+  if (number >= 13 && number <= 24) return 2;
+  if (number >= 25 && number <= 36) return 3;
+  return null;
+}
+
+function getRouletteColor(number) {
+  if (number === 0) return "green";
+  const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  return redNumbers.has(number) ? "red" : "black";
+}
+
+function evaluateRouletteBet(number, betType, betValue, stakePence) {
+  const numericValue = Number(betValue);
+  if (betType === "red") return number !== 0 && getRouletteColor(number) === "red" ? stakePence * 2 : 0;
+  if (betType === "black") return number !== 0 && getRouletteColor(number) === "black" ? stakePence * 2 : 0;
+  if (betType === "even") return number !== 0 && number % 2 === 0 ? stakePence * 2 : 0;
+  if (betType === "odd") return number % 2 === 1 ? stakePence * 2 : 0;
+  if (betType === "dozen") return [1,2,3].includes(numericValue) && getRouletteDozen(number) === numericValue ? stakePence * 3 : 0;
+  if (betType === "number") return Number.isInteger(numericValue) && numericValue >= 0 && numericValue <= 36 && number === numericValue ? stakePence * 36 : 0;
+  return 0;
+}
+
+function normaliseRouletteBet(body) {
+  const allowedTypes = new Set(["red", "black", "even", "odd", "dozen", "number"]);
+  const betType = String(body?.bet_type || "").trim().toLowerCase();
+  const stakeCoins = Number(body?.stake_coins);
+  const allowedStakeCoins = new Set([5, 10, 25, 50]);
+  if (!allowedTypes.has(betType)) return { error: "Choose a valid roulette bet type." };
+  if (!allowedStakeCoins.has(stakeCoins)) return { error: "Stake must be 5, 10, 25, or 50 Grev Coins." };
+
+  let betValue = null;
+  if (betType === "dozen") {
+    betValue = Number(body?.bet_value);
+    if (![1,2,3].includes(betValue)) return { error: "Dozen bets must be 1, 2, or 3." };
+  }
+  if (betType === "number") {
+    betValue = Number(body?.bet_value);
+    if (!Number.isInteger(betValue) || betValue < 0 || betValue > 36) return { error: "Exact number bets must be from 0 to 36." };
+  }
+
+  return { betType, betValue: betValue == null ? null : String(betValue), stakeCoins, stakePence: Math.round(stakeCoins * 100) };
+}
+
+async function resolveRouletteBets(env, casesDb, roundId) {
+  await ensureCoreTables(env);
+  const rows = await env.DB.prepare(`
+    SELECT id, user_id, round_id, bet_type, bet_value, stake_pence
+    FROM casino_roulette_bets
+    WHERE resolved_at IS NULL AND round_id <= ?
+    ORDER BY id ASC
+  `).bind(roundId).all();
+
+  for (const row of (rows.results || [])) {
+    const outcomeNumber = getRouletteRoundNumber(row.round_id);
+    const payoutPence = evaluateRouletteBet(outcomeNumber, row.bet_type, row.bet_value, Number(row.stake_pence || 0));
+    const resolvedAt = isoNow();
+    if (payoutPence > 0) {
+      await casesDb.prepare(`UPDATE case_profiles SET balance = balance + ?, updated_at = ? WHERE user_id = ?`).bind(payoutPence, resolvedAt, row.user_id).run();
+    }
+    await env.DB.prepare(`
+      UPDATE casino_roulette_bets
+      SET payout_pence = ?, outcome_number = ?, resolved_at = ?
+      WHERE id = ?
+    `).bind(payoutPence, outcomeNumber, resolvedAt, row.id).run();
+  }
+}
+
+async function handleCasinoRouletteState(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+
+  const nowMs = Date.now();
+  const currentRoundId = getRouletteRoundId(nowMs);
+  await resolveRouletteBets(env, casesDb, currentRoundId - 1);
+
+  const profile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  const upcomingRoundId = currentRoundId + 1;
+  const recentRows = await env.DB.prepare(`
+    SELECT id, round_id, bet_type, bet_value, stake_pence, payout_pence, outcome_number, created_at, resolved_at
+    FROM casino_roulette_bets
+    WHERE user_id = ?
+    ORDER BY id DESC
+    LIMIT 20
+  `).bind(session.id).all();
+
+  return json({
+    success: true,
+    profile: formatCasinoProfile(profile, session.username),
+    table: {
+      current_round_id: currentRoundId,
+      current_round_started_at: new Date(currentRoundId * 60000).toISOString(),
+      next_round_id: upcomingRoundId,
+      next_round_starts_at: new Date(upcomingRoundId * 60000).toISOString(),
+      previous_round: {
+        round_id: currentRoundId - 1,
+        number: getRouletteRoundNumber(currentRoundId - 1),
+        color: getRouletteColor(getRouletteRoundNumber(currentRoundId - 1)),
+        dozen: getRouletteDozen(getRouletteRoundNumber(currentRoundId - 1))
+      }
+    },
+    bets: (recentRows.results || []).map((row) => ({
+      id: Number(row.id),
+      round_id: Number(row.round_id),
+      bet_type: row.bet_type,
+      bet_value: row.bet_value,
+      stake_coins: toCoinAmount(row.stake_pence),
+      payout_coins: toCoinAmount(row.payout_pence),
+      outcome_number: row.outcome_number == null ? null : Number(row.outcome_number),
+      created_at: row.created_at,
+      resolved_at: row.resolved_at
+    }))
+  }, 200, request);
+}
+
+async function handleCasinoRouletteBet(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  await ensureCoreTables(env);
+
+  const parsed = normaliseRouletteBet(await safeJson(request));
+  if (parsed.error) return json({ success: false, error: parsed.error }, 400, request);
+
+  const nowMs = Date.now();
+  const upcomingRoundId = getRouletteRoundId(nowMs) + 1;
+  await resolveRouletteBets(env, casesDb, upcomingRoundId - 1);
+
+  const profileRow = await casesDb.prepare(`SELECT balance FROM case_profiles WHERE user_id = ? LIMIT 1`).bind(session.id).first();
+  const balancePence = Number(profileRow?.balance || 0);
+  if (balancePence < parsed.stakePence) return json({ success: false, error: "Not enough Grev Coins for that roulette bet." }, 400, request);
+
+  const now = isoNow();
+  await casesDb.prepare(`UPDATE case_profiles SET balance = balance - ?, updated_at = ? WHERE user_id = ?`).bind(parsed.stakePence, now, session.id).run();
+  await env.DB.prepare(`
+    INSERT INTO casino_roulette_bets (user_id, round_id, bet_type, bet_value, stake_pence, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(session.id, upcomingRoundId, parsed.betType, parsed.betValue, parsed.stakePence, now).run();
+
+  const updatedProfile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  return json({
+    success: true,
+    message: "Roulette bet placed for the next round.",
+    round_id: upcomingRoundId,
+    profile: formatCasinoProfile(updatedProfile, session.username)
+  }, 200, request);
+}
 
 /* -------------------------------------------------------------------------- */
 /*                                   AUTH                                     */
@@ -1267,23 +1490,28 @@ async function handleMembers(request, env) {
 /*                                GLOBAL CHAT                                 */
 /* -------------------------------------------------------------------------- */
 
-async function handleGetGlobalChat(request, env) {
-  await ensureCoreTables(env);
 
-  const rows = await env.DB.prepare(`
-    SELECT id, author_user_id, author_username, author_group, message, created_at
-    FROM global_chat_messages
-    ORDER BY id DESC
-    LIMIT ?
-  `).bind(GLOBAL_CHAT_MESSAGE_LIMIT).all();
-
-  return json({
-    success: true,
-    messages: (rows.results || []).reverse()
-  }, 200, request);
+function getChatMessagesTable(scope) {
+  return scope === "casino" ? "casino_chat_messages" : "global_chat_messages";
 }
 
-async function handlePostGlobalChat(request, env) {
+async function fetchChatMessages(env, scope, limit) {
+  const tableName = getChatMessagesTable(scope);
+  const rows = await env.DB.prepare(`
+    SELECT m.id, m.author_user_id, m.author_username, m.author_group, m.message, m.created_at, p.avatar_url
+    FROM ${tableName} m
+    LEFT JOIN user_profiles p ON p.user_id = m.author_user_id
+    ORDER BY m.id DESC
+    LIMIT ?
+  `).bind(limit).all();
+
+  return (rows.results || []).reverse().map((row) => ({
+    ...row,
+    avatar_url: row.avatar_url || ""
+  }));
+}
+
+async function postChatMessage(request, env, scope) {
   await ensureCoreTables(env);
 
   const session = await getSessionUser(request, env);
@@ -1304,9 +1532,10 @@ async function handlePostGlobalChat(request, env) {
   );
 
   const now = isoNow();
+  const tableName = getChatMessagesTable(scope);
 
   const result = await env.DB.prepare(`
-    INSERT INTO global_chat_messages (
+    INSERT INTO ${tableName} (
       author_user_id,
       author_username,
       author_group,
@@ -1322,6 +1551,8 @@ async function handlePostGlobalChat(request, env) {
     WHERE id = ?
   `).bind(now, session.id).run();
 
+  const avatar = await env.DB.prepare(`SELECT avatar_url FROM user_profiles WHERE user_id = ? LIMIT 1`).bind(session.id).first();
+
   return json({
     success: true,
     message: "Message sent",
@@ -1330,10 +1561,29 @@ async function handlePostGlobalChat(request, env) {
       author_user_id: session.id,
       author_username: session.username,
       author_group: authorGroup,
+      avatar_url: avatar?.avatar_url || "",
       message,
       created_at: now
     }
   }, 200, request);
+}
+
+async function handleGetGlobalChat(request, env) {
+  await ensureCoreTables(env);
+  return json({ success: true, messages: await fetchChatMessages(env, "global", GLOBAL_CHAT_MESSAGE_LIMIT) }, 200, request);
+}
+
+async function handlePostGlobalChat(request, env) {
+  return postChatMessage(request, env, "global");
+}
+
+async function handleGetCasinoChat(request, env) {
+  await ensureCoreTables(env);
+  return json({ success: true, messages: await fetchChatMessages(env, "casino", CASINO_CHAT_MESSAGE_LIMIT) }, 200, request);
+}
+
+async function handlePostCasinoChat(request, env) {
+  return postChatMessage(request, env, "casino");
 }
 
 /* -------------------------------------------------------------------------- */
