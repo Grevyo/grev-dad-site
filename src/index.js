@@ -1501,7 +1501,7 @@ async function handleProfileUpdate(request, env) {
   const realName = cleanShortText(body?.real_name, 80);
   const motto = cleanShortText(body?.motto, 140);
   const bio = cleanLongText(body?.bio, 3000);
-  const avatarUrl = cleanAvatarDataUrl(body?.avatar_url);
+  const avatarUrl = cleanAvatarUrl(body?.avatar_url);
   const media1 = cleanUrl(body?.media_1_url, 1200);
   const media2 = cleanUrl(body?.media_2_url, 1200);
   const media3 = cleanUrl(body?.media_3_url, 1200);
@@ -2355,7 +2355,7 @@ async function handleAdminUpdateUser(request, env) {
     real_name: typeof body?.real_name === "string" ? body.real_name.trim().slice(0, 80) : "",
     motto: typeof body?.motto === "string" ? body.motto.trim().slice(0, 140) : "",
     bio: typeof body?.bio === "string" ? body.bio.trim().slice(0, 3000) : "",
-    avatar_url: Object.prototype.hasOwnProperty.call(body || {}, "avatar_url") ? cleanAvatarDataUrl(body?.avatar_url) : null,
+    avatar_url: Object.prototype.hasOwnProperty.call(body || {}, "avatar_url") ? cleanAvatarUrl(body?.avatar_url) : null,
     media_1_url: cleanUrl(body?.media_1_url, 1200),
     media_2_url: cleanUrl(body?.media_2_url, 1200),
     media_3_url: cleanUrl(body?.media_3_url, 1200),
@@ -2706,11 +2706,8 @@ function cleanUrl(value, maxLen = 1200) {
   return "";
 }
 
-function cleanAvatarDataUrl(value) {
-  if (typeof value !== "string") return "";
-  const cleaned = value.trim().slice(0, 16000);
-  if (!cleaned) return "";
-  return /^data:image\/svg\+xml;base64,[a-z0-9+/=]+$/i.test(cleaned) ? cleaned : "";
+function cleanAvatarUrl(value) {
+  return cleanUrl(value, 1200);
 }
 
 function normaliseReactionType(value) {
