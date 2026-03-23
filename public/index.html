@@ -8,15 +8,17 @@
   <script src="/scripts/header.js" defer></script>
   <style>
     .home-layout {
+      position: relative;
       display: grid;
-      grid-template-columns: minmax(72px, 88px) minmax(0, 320px) minmax(0, 1fr);
+      grid-template-columns: minmax(72px, 88px) minmax(0, 1fr);
       gap: 24px;
       align-items: start;
-      transition: grid-template-columns 0.2s ease;
+      padding-left: 0;
+      transition: padding-left 0.24s ease;
     }
 
-    .home-layout.sidebar-hidden {
-      grid-template-columns: minmax(72px, 88px) 0 minmax(0, 1fr);
+    .home-layout.sidebar-open {
+      padding-left: clamp(220px, 24vw, 300px);
     }
 
     .playground-rail,
@@ -27,16 +29,17 @@
     }
 
     .playground-rail {
-      z-index: 2;
+      z-index: 4;
     }
 
     .playground-rail-btn {
       display: inline-flex;
-      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       width: 100%;
-      min-height: 180px;
-      border-radius: 28px;
-      padding: 20px 12px;
+      min-height: 220px;
+      border-radius: 24px;
+      padding: 20px 10px;
       gap: 14px;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -46,26 +49,27 @@
     }
 
     .playground-rail-btn .playground-rail-icon {
-      font-size: 1.2rem;
+      font-size: 1.35rem;
       line-height: 1;
     }
 
     .playground-sidebar {
-      display: grid;
-      gap: 12px;
-      overflow: hidden;
-      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 3;
+      width: clamp(220px, 24vw, 300px);
+      margin-left: calc(clamp(220px, 24vw, 300px) * -1 - 24px);
+      transition: opacity 0.2s ease, transform 0.24s ease;
     }
 
-    .home-layout.sidebar-hidden .playground-sidebar {
+    .home-layout:not(.sidebar-open) .playground-sidebar {
       opacity: 0;
-      transform: translateX(-16px);
+      transform: translateX(calc(-100% - 24px));
       pointer-events: none;
     }
 
     .playground-panel {
       display: grid;
       gap: 12px;
+      min-height: min(70vh, 760px);
       padding: 20px;
     }
 
@@ -199,15 +203,18 @@
 
     @media (max-width: 900px) {
       .home-layout,
-      .home-layout.sidebar-hidden {
+      .home-layout.sidebar-open {
         grid-template-columns: 1fr;
+        padding-left: 0;
       }
 
       .playground-rail,
       .playground-sidebar,
-      .home-layout.sidebar-hidden .playground-sidebar {
+      .home-layout:not(.sidebar-open) .playground-sidebar {
         position: static;
         top: auto;
+        margin-left: 0;
+        width: 100%;
         opacity: 1;
         transform: none;
         pointer-events: auto;
@@ -222,6 +229,7 @@
 
       .playground-panel {
         display: none;
+        min-height: 0;
       }
 
       .playground-panel.open {
@@ -235,10 +243,10 @@
     <div id="header-mount"></div>
 
     <main class="page-main">
-      <div class="home-layout sidebar-hidden">
+      <div class="home-layout">
         <aside class="playground-rail">
           <button class="btn playground-rail-btn" id="playground-toggle" type="button" aria-expanded="false" aria-controls="playground-panel">
-            <span class="playground-rail-icon">☰</span>
+            <span class="playground-rail-icon">🎰</span>
             <span id="playground-toggle-label">Playgrounds</span>
           </button>
         </aside>
@@ -527,12 +535,11 @@
       const label = document.getElementById("playground-toggle-label");
       if (!layout || !panel || !toggle || !label) return;
 
-      const isMobile = window.matchMedia("(max-width: 900px)").matches;
-      layout.classList.toggle("sidebar-hidden", hidden);
+      layout.classList.toggle("sidebar-open", !hidden);
       panel.classList.toggle("open", !hidden);
       toggle.setAttribute("aria-expanded", String(!hidden));
-      toggle.setAttribute("aria-label", hidden ? "Open playground sidebar" : "Collapse playground sidebar");
-      label.textContent = hidden ? "Playgrounds" : "Hide playgrounds";
+      toggle.setAttribute("aria-label", hidden ? "Open playground sidebar" : "Minimize playground sidebar");
+      label.textContent = hidden ? "🎰" : "Playgrounds";
       if (closeBtn) closeBtn.classList.toggle("hidden", hidden);
 
       try {
