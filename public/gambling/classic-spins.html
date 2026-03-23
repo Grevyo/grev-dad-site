@@ -145,7 +145,6 @@
     const SYMBOL_HEIGHT = 108;
     let spinning = false;
     let audioCtx = null;
-    let ambientStarted = false;
     let spinNoiseNodes = null;
 
 
@@ -154,25 +153,6 @@
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
       return audioCtx;
-    }
-
-    function startCasinoMusic() {
-      if (ambientStarted) return;
-      const ctx = ensureAudioContext();
-      if (!ctx) return;
-      ambientStarted = true;
-      const master = ctx.createGain();
-      master.gain.value = 0.018;
-      master.connect(ctx.destination);
-      [220, 277.18, 329.63].forEach((frequency, index) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = index === 0 ? "sine" : "triangle";
-        osc.frequency.value = frequency;
-        gain.gain.value = index === 0 ? 0.7 : 0.35;
-        osc.connect(gain).connect(master);
-        osc.start();
-      });
     }
 
     function startSpinSound() {
@@ -194,17 +174,26 @@
       const now = ctx.currentTime;
       gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
       source.start();
-      spinNoiseNodes = { source, gain, ctx };
+      spinNoiseNodes = { source, gain, filter, ctx };
     }
 
-    function stopSpinSound() {
+    function stopSpinSound(withLandingTail = false) {
       if (!spinNoiseNodes) return;
-      const { source, gain, ctx } = spinNoiseNodes;
+      const { source, gain, filter, ctx } = spinNoiseNodes;
       const now = ctx.currentTime;
       gain.gain.cancelScheduledValues(now);
+      filter.frequency.cancelScheduledValues(now);
       gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-      source.stop(now + 0.14);
+      if (withLandingTail) {
+        filter.frequency.setValueAtTime(520, now);
+        filter.frequency.exponentialRampToValueAtTime(180, now + 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.014, now + 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+        source.stop(now + 0.42);
+      } else {
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+        source.stop(now + 0.14);
+      }
       spinNoiseNodes = null;
     }
 
@@ -249,7 +238,6 @@
     }
     async function handleSpin() {
       if (spinning) return;
-      startCasinoMusic();
       spinning = true; spinBtn.disabled = true; statusEl.textContent = "Spinning..."; copyEl.textContent = "The old fruit machine is rattling away.";
       startSpinSound();
       try {
@@ -261,7 +249,7 @@
         await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
         updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         const winnings = Number(data?.outcome?.winnings_coins || 0);
-        stopSpinSound();
+        stopSpinSound(true);
         playWinSting(winnings);
         statusEl.textContent = winnings > 0 ? `${finalResult.join(" ")} — You won ${formatGc(winnings)}.` : `${finalResult.join(" ")} — No payout.`;
         copyEl.textContent = `${data?.outcome?.message || "Spin complete."} Balance now: ${formatGc(data?.profile?.grev_coin_balance || 0)}.`;

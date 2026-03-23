@@ -140,7 +140,10 @@
 
     function formatGc(v) { return `${Number(v || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; }
     function addFeed(message) { const li = document.createElement('li'); li.textContent = message; feedEl.prepend(li); while (feedEl.children.length > 5) feedEl.removeChild(feedEl.lastElementChild); }
-    function readActiveEntry() { return state?.entries?.find((entry) => entry.round_id === state?.table?.round_id && !entry.resolved_at) || null; }
+    function readActiveEntry() {
+      const targetRoundId = state?.table?.crashed ? state?.table?.joinable_round_id : state?.table?.round_id;
+      return state?.entries?.find((entry) => entry.round_id === targetRoundId && !entry.resolved_at) || null;
+    }
     function formatCountdown(targetIso) { const delta = Math.max(0, new Date(targetIso).getTime() - Date.now()); const totalSeconds = Math.floor(delta / 1000); const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0'); const seconds = String(totalSeconds % 60).padStart(2, '0'); return `${minutes}:${seconds}`; }
 
     function updateGraph(multiplier) {
@@ -176,11 +179,11 @@
       roundTimerEl.textContent = formatCountdown(table.round_ends_at);
       multiEl.textContent = `${Number(table.live_multiplier || 1).toFixed(2)}×`;
       stakeValueEl.textContent = activeEntry ? formatGc(activeEntry.stake_coins) : formatGc(Number(stakeEl.value || 25));
-      statusTextEl.textContent = table.crashed ? 'Round crashed' : 'Live round open';
-      resultEl.textContent = table.crashed ? `Crash at ${Number(table.crash_multiplier || 1).toFixed(2)}×` : 'Shared round live';
-      trackEl.textContent = table.crashed ? 'Table popped' : 'Shared multiplier climbing';
+      statusTextEl.textContent = table.crashed ? 'Next round open for joins' : 'Live round open';
+      resultEl.textContent = table.crashed ? `Crash at ${Number(table.crash_multiplier || 1).toFixed(2)}× · queueing round ${Number(table.joinable_round_id || (table.round_id + 1))}` : 'Shared round live';
+      trackEl.textContent = table.crashed ? `Next round starts ${formatCountdown(table.joinable_round_starts_at)}` : 'Shared multiplier climbing';
       timerEl.textContent = `${((Date.now() - new Date(table.round_started_at).getTime()) / 1000).toFixed(1).padStart(4,'0')}s`;
-      hiddenEl.textContent = table.crashed ? `Crash revealed at ${Number(table.crash_multiplier || 1).toFixed(2)}×` : 'Crash point hidden until the table pops.';
+      hiddenEl.textContent = table.crashed ? `Crash revealed at ${Number(table.crash_multiplier || 1).toFixed(2)}×. You can already queue for round ${Number(table.joinable_round_id || (table.round_id + 1))}.` : 'Crash point hidden until the table pops.';
       const risk = Math.min(100, Math.max(0, (((Number(table.live_multiplier || 1) - 1) / Math.max(0.5, Number(table.crash_multiplier || 1) - 1)) * 100)));
       const band = risk < 45 ? 'Low' : risk < 75 ? 'Medium' : 'High';
       riskEl.textContent = `Risk band: ${band}`;
@@ -188,7 +191,8 @@
       riskFillEl.style.background = risk < 45 ? 'linear-gradient(90deg, #38bdf8, #22c55e)' : risk < 75 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' : 'linear-gradient(90deg, #f59e0b, #ef4444)';
       updateGraph(Number(table.live_multiplier || 1));
       cashoutBtn.disabled = !activeEntry || table.crashed;
-      startBtn.disabled = Boolean(activeEntry) || table.crashed;
+      startBtn.disabled = Boolean(activeEntry);
+      startBtn.textContent = table.crashed ? `Join Round ${Number(table.joinable_round_id || (table.round_id + 1))}` : 'Join Live Round';
       renderPlayers(state.players || []);
       if (state.profile?.grev_coin_balance != null) balanceEl.textContent = formatGc(state.profile.grev_coin_balance);
       const latestEntry = state.entries?.[0];
@@ -211,7 +215,7 @@
       const response = await fetch('/api/casino/crash-sprint/join', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stake_coins: Number(stakeEl.value || 25) }) });
       const data = await response.json();
       if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to join Crash Sprint');
-      addFeed(`You joined round ${data.table.round_id} for ${formatGc(Number(stakeEl.value || 25))}.`);
+      addFeed(`You joined round ${Number(data.joined_round_id || data.table?.joinable_round_id || data.table?.round_id)} for ${formatGc(Number(stakeEl.value || 25))}.`);
       await loadState();
     }
 

@@ -118,6 +118,100 @@
     let multiplier = 1;
     let freeSpins = 0;
     let spinning = false;
+
+    let audioCtx = null;
+    let activeSpinSound = null;
+
+    function ensureAudioContext() {
+      if (!window.AudioContext && !window.webkitAudioContext) return null;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function startSpinSound() {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      stopSpinSound();
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.linearRampToValueAtTime(0.04, now + 0.08);
+      master.connect(ctx.destination);
+
+      const toneA = ctx.createOscillator();
+      toneA.type = 'sawtooth';
+      toneA.frequency.setValueAtTime(180, now);
+      toneA.frequency.exponentialRampToValueAtTime(420, now + 0.6);
+      toneA.frequency.exponentialRampToValueAtTime(260, now + 1.4);
+
+      const toneB = ctx.createOscillator();
+      toneB.type = 'triangle';
+      toneB.frequency.setValueAtTime(260, now);
+      toneB.frequency.exponentialRampToValueAtTime(620, now + 0.9);
+      toneB.frequency.exponentialRampToValueAtTime(340, now + 1.6);
+
+      const shimmer = ctx.createOscillator();
+      shimmer.type = 'square';
+      shimmer.frequency.setValueAtTime(920, now);
+      shimmer.frequency.exponentialRampToValueAtTime(1320, now + 1.2);
+
+      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 2.2), ctx.sampleRate);
+      const noiseData = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < noiseData.length; i += 1) noiseData[i] = (Math.random() * 2 - 1) * 0.12;
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      noise.loop = true;
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.setValueAtTime(1600, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(620, now + 1.8);
+      noiseFilter.Q.value = 2.4;
+
+      const delay = ctx.createDelay();
+      delay.delayTime.value = 0.12;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.22;
+      delay.connect(feedback).connect(delay);
+
+      [toneA, toneB, shimmer].forEach((node) => node.connect(master));
+      noise.connect(noiseFilter).connect(master);
+      master.connect(delay).connect(ctx.destination);
+
+      toneA.start(now); toneB.start(now); shimmer.start(now); noise.start(now);
+      activeSpinSound = { ctx, master, toneA, toneB, shimmer, noise };
+    }
+
+    function stopSpinSound() {
+      if (!activeSpinSound) return;
+      const { ctx, master, toneA, toneB, shimmer, noise } = activeSpinSound;
+      const now = ctx.currentTime;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
+      master.gain.exponentialRampToValueAtTime(0.018, now + 0.08);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      [toneA, toneB, shimmer, noise].forEach((node) => node.stop(now + 0.45));
+      activeSpinSound = null;
+    }
+
+    function playStopAccent(payout = 0) {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const notes = payout > 0 ? [740, 988, 1318] : [340, 280];
+      notes.forEach((frequency, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = payout > 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(frequency, now + (index * 0.07));
+        gain.gain.setValueAtTime(0.0001, now + (index * 0.07));
+        gain.gain.linearRampToValueAtTime(payout > 0 ? 0.05 : 0.028, now + 0.03 + (index * 0.07));
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24 + (index * 0.07));
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + (index * 0.07));
+        osc.stop(now + 0.28 + (index * 0.07));
+      });
+    }
     let currentCells = Array.from({ length: 15 }, () => icons[Math.floor(Math.random() * icons.length)]);
 
     function formatGc(value) {
@@ -221,6 +315,7 @@
 
       const reelEls = Array.from(boardEl.querySelectorAll('.reel-column'));
       reelEls.forEach((reel) => reel.classList.add('spinning'));
+      startSpinSound();
 
       const outcome = makeSpinOutcome();
       for (let reelIndex = 0; reelIndex < reelEls.length; reelIndex += 1) {
@@ -236,6 +331,8 @@
       refreshHud();
       statusEl.textContent = outcome.payout ? `You banked ${formatGc(outcome.payout)}.` : 'No payout this round.';
       copyEl.textContent = outcome.events.length ? `Feature hits: ${outcome.events.join(', ')}.` : 'No line this time — keep pressing for a hotter reel set.';
+      stopSpinSound();
+      playStopAccent(outcome.payout);
       addLog(outcome.payout ? `Paid ${formatGc(outcome.payout)} from ${outcome.events.join(', ') || 'base line'}.` : 'Dead spin — no feature connected.');
       spinning = false;
       spinBtn.disabled = false;
