@@ -6,23 +6,33 @@
   <title>Roulette | Grev.dad Casino</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
+  <script src="/scripts/casino-chat-widget.js" defer></script>
   <style>
-    .roulette-shell, .roulette-layout, .roulette-grid, .roulette-meta, .betting-grid, .history-list { display: grid; gap: 20px; }
-    .roulette-layout { grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr); align-items: start; }
+    .roulette-shell, .roulette-layout, .roulette-grid, .roulette-meta, .betting-grid, .history-list, .payout-grid { display: grid; gap: 20px; }
+    .roulette-layout { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; }
     .roulette-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .roulette-number { min-height: 76px; border-radius: 16px; border: 1px solid var(--border); display: grid; place-items: center; font-weight: 800; font-size: 1.1rem; }
+    .roulette-number { min-height: 88px; border-radius: 16px; border: 1px solid var(--border); display: grid; place-items: center; font-weight: 800; font-size: 1.02rem; text-align: center; padding: 12px; }
     .roulette-number--red { background: rgba(220, 38, 38, 0.2); }
     .roulette-number--black { background: rgba(15, 23, 42, 0.7); }
     .roulette-number--green { background: rgba(22, 163, 74, 0.28); }
+    .roulette-number--gold { background: rgba(248, 196, 68, 0.18); }
     .roulette-meta { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .betting-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-    .stat-card { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
+    .payout-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .stat-card, .payout-card { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
     .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
     .stat-value { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; }
     .history-item { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); }
-    .history-item p { margin: 0; }
+    .history-item p, .payout-card p { margin: 0; }
     .muted { color: var(--muted); }
-    @media (max-width: 900px) { .roulette-layout { grid-template-columns: 1fr; } .roulette-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .roulette-help { margin: 0; color: var(--muted); line-height: 1.6; }
+    .field-span-2 { grid-column: span 2; }
+    .hidden { display: none !important; }
+    @media (max-width: 900px) {
+      .roulette-layout { grid-template-columns: 1fr; }
+      .roulette-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .field-span-2 { grid-column: auto; }
+    }
   </style>
 </head>
 <body>
@@ -30,28 +40,29 @@
     <div id="header-mount"></div>
     <main class="page-main roulette-shell">
       <div class="button-row">
-        <a class="btn" href="/gambling/index.html">← Back to Casino</a>
-        <a class="btn" href="/gambling/classic-spins.html">Classic Fruity</a>
-        <a class="btn" href="/gambling/daily-spin.html">Daily Spin</a>
+        <a class="btn" href="/gambling/index.html">← Back to Casino Hub</a>
       </div>
 
       <section class="roulette-layout">
         <section class="panel">
           <p class="eyebrow">🎡 Roulette</p>
-          <h1 class="panel-title">Minute table</h1>
-          <p class="muted">A new round starts every minute. Bet on red, black, even, odd, a dozen, or an exact number before the next spin begins.</p>
+          <h1 class="panel-title">Roulette Table</h1>
+          <p class="muted">A new round starts every minute. Mix simple even-money bets with straight-up, split, street, corner, basket, line, and dozen coverage before the next spin begins.</p>
           <div class="roulette-meta">
             <div class="stat-card"><p class="stat-label">Next round</p><p id="next-round-id" class="stat-value">--</p></div>
             <div class="stat-card"><p class="stat-label">Starts in</p><p id="next-round-countdown" class="stat-value">--</p></div>
             <div class="stat-card"><p class="stat-label">Last result</p><p id="last-result" class="stat-value">--</p></div>
           </div>
           <div class="roulette-grid mt-16">
-            <div class="roulette-number roulette-number--red">Red<br>1:1</div>
-            <div class="roulette-number roulette-number--black">Black<br>1:1</div>
-            <div class="roulette-number roulette-number--green">0<br>House green</div>
-            <div class="roulette-number roulette-number--black">Even<br>1:1</div>
-            <div class="roulette-number roulette-number--red">Odd<br>1:1</div>
-            <div class="roulette-number roulette-number--green">3rds<br>2:1</div>
+            <div class="roulette-number roulette-number--red">Single number<br />35 to 1</div>
+            <div class="roulette-number roulette-number--black">Split 2 numbers<br />17 to 1</div>
+            <div class="roulette-number roulette-number--green">Street 3 numbers<br />11 to 1</div>
+            <div class="roulette-number roulette-number--gold">Corner 4 numbers<br />8 to 1</div>
+            <div class="roulette-number roulette-number--green">Basket 5 numbers<br />6 to 1</div>
+            <div class="roulette-number roulette-number--red">Line 6 numbers<br />5 to 1</div>
+            <div class="roulette-number roulette-number--black">Dozen 12 numbers<br />2 to 1</div>
+            <div class="roulette-number roulette-number--red">Red / Black<br />1 to 1</div>
+            <div class="roulette-number roulette-number--black">Odd / Even<br />1 to 1</div>
           </div>
         </section>
 
@@ -65,13 +76,19 @@
                 <option value="black">Black</option>
                 <option value="even">Even</option>
                 <option value="odd">Odd</option>
-                <option value="dozen">3rds</option>
-                <option value="number">Exact number</option>
+                <option value="dozen">Dozen (12 numbers)</option>
+                <option value="number">Single number</option>
+                <option value="split">Double number / split</option>
+                <option value="street">Three number / street</option>
+                <option value="corner">Four number / corner</option>
+                <option value="basket">Five number basket</option>
+                <option value="line">Six number line</option>
               </select>
             </label>
-            <label class="form-group">
-              <span id="bet-value-label" class="form-label">3rds value</span>
-              <input id="bet-value" class="form-input" type="number" min="1" max="3" value="1" />
+            <label id="bet-value-group" class="form-group field-span-2 hidden">
+              <span id="bet-value-label" class="form-label">Bet value</span>
+              <input id="bet-value" class="form-input" type="text" inputmode="numeric" value="" />
+              <span id="bet-value-help" class="roulette-help">Add the required numbers for this bet.</span>
             </label>
             <label class="form-group">
               <span class="form-label">Stake</span>
@@ -89,6 +106,19 @@
       </section>
 
       <section class="panel">
+        <h2 class="panel-title">Payout guide</h2>
+        <div class="payout-grid">
+          <article class="payout-card"><p><strong>Single number</strong><br />Pick 1 exact number. Pays 35 to 1.</p></article>
+          <article class="payout-card"><p><strong>Double number</strong><br />Pick 2 numbers. Pays 17 to 1.</p></article>
+          <article class="payout-card"><p><strong>Three number</strong><br />Pick 3 numbers. Pays 11 to 1.</p></article>
+          <article class="payout-card"><p><strong>Four number</strong><br />Pick 4 numbers. Pays 8 to 1.</p></article>
+          <article class="payout-card"><p><strong>Five number basket</strong><br />Pick 5 numbers, like 0,1,2,3,4. Pays 6 to 1.</p></article>
+          <article class="payout-card"><p><strong>Six number line</strong><br />Pick 6 numbers. Pays 5 to 1.</p></article>
+          <article class="payout-card"><p><strong>Dozens</strong><br />Choose 1st, 2nd, or 3rd dozen. Pays 2 to 1.</p></article>
+        </div>
+      </section>
+
+      <section class="panel">
         <h2 class="panel-title">Recent bets</h2>
         <div id="roulette-history" class="history-list"><div class="history-item"><p>No bets yet.</p></div></div>
       </section>
@@ -98,8 +128,10 @@
   <script>
     const form = document.getElementById("roulette-bet-form");
     const betTypeInput = document.getElementById("bet-type");
+    const betValueGroup = document.getElementById("bet-value-group");
     const betValueInput = document.getElementById("bet-value");
     const betValueLabel = document.getElementById("bet-value-label");
+    const betValueHelp = document.getElementById("bet-value-help");
     const betStakeInput = document.getElementById("bet-stake");
     const statusEl = document.getElementById("roulette-status");
     const nextRoundIdEl = document.getElementById("next-round-id");
@@ -109,19 +141,37 @@
     let state = null;
     let timer = null;
 
+    const betConfig = {
+      red: { needsValue: false },
+      black: { needsValue: false },
+      even: { needsValue: false },
+      odd: { needsValue: false },
+      dozen: { needsValue: true, label: "Dozen number", help: "Enter 1, 2, or 3 for the dozen you want.", value: "1" },
+      number: { needsValue: true, label: "Single number", help: "Enter one number from 0 to 36.", value: "0" },
+      split: { needsValue: true, label: "Two numbers", help: "Enter 2 unique numbers like 7,8.", value: "7,8" },
+      street: { needsValue: true, label: "Three numbers", help: "Enter 3 unique numbers like 1,2,3.", value: "1,2,3" },
+      corner: { needsValue: true, label: "Four numbers", help: "Enter 4 unique numbers like 1,2,4,5.", value: "1,2,4,5" },
+      basket: { needsValue: true, label: "Five numbers", help: "Enter 5 unique numbers like 0,1,2,3,4.", value: "0,1,2,3,4" },
+      line: { needsValue: true, label: "Six numbers", help: "Enter 6 unique numbers like 1,2,3,4,5,6.", value: "1,2,3,4,5,6" }
+    };
+
     function formatGc(value) { const amount = Number(value || 0); return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`; }
     function updateCasinoBalance(balance) { if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance({ formatted: formatGc(balance || 0), value: Number(balance || 0), updated_at: Date.now() }); }
     function updateBetValueUi() {
-      const type = betTypeInput.value;
-      const requiresValue = type === "dozen" || type === "number";
-      betValueInput.disabled = !requiresValue;
-      if (type === "dozen") { betValueLabel.textContent = "3rds value"; betValueInput.min = "1"; betValueInput.max = "3"; betValueInput.value = "1"; }
-      else if (type === "number") { betValueLabel.textContent = "Exact number"; betValueInput.min = "0"; betValueInput.max = "36"; betValueInput.value = "0"; }
-      else { betValueLabel.textContent = "No extra value"; betValueInput.value = ""; }
+      const config = betConfig[betTypeInput.value] || { needsValue: false };
+      betValueGroup.classList.toggle("hidden", !config.needsValue);
+      betValueInput.disabled = !config.needsValue;
+      if (config.needsValue) {
+        betValueLabel.textContent = config.label;
+        betValueHelp.textContent = config.help;
+        betValueInput.value = config.value;
+      } else {
+        betValueInput.value = "";
+      }
     }
     function renderHistory(bets) {
       if (!Array.isArray(bets) || !bets.length) { historyEl.innerHTML = '<div class="history-item"><p>No bets yet.</p></div>'; return; }
-      historyEl.innerHTML = bets.map((bet) => `<article class="history-item"><p><strong>Round ${bet.round_id}</strong> — ${bet.bet_type}${bet.bet_value ? ` (${bet.bet_value})` : ""}</p><p class="muted">Stake: ${formatGc(bet.stake_coins)} · ${bet.resolved_at ? `Result ${bet.outcome_number} · Payout ${formatGc(bet.payout_coins)}` : "Waiting for spin"}</p></article>`).join("");
+      historyEl.innerHTML = bets.map((bet) => `<article class="history-item"><p><strong>Round ${bet.round_id}</strong> — ${bet.bet_label || bet.bet_type}</p><p class="muted">Stake: ${formatGc(bet.stake_coins)} · ${bet.resolved_at ? `Result ${bet.outcome_number} · Payout ${formatGc(bet.payout_coins)}` : "Waiting for spin"}</p></article>`).join("");
     }
     function renderState() {
       if (!state?.table) return;
@@ -159,7 +209,7 @@
     async function handleSubmit(event) {
       event.preventDefault();
       const payload = { bet_type: betTypeInput.value, stake_coins: Number(betStakeInput.value) };
-      if (betTypeInput.value === "dozen" || betTypeInput.value === "number") payload.bet_value = Number(betValueInput.value);
+      if (betConfig[betTypeInput.value]?.needsValue) payload.bet_value = betValueInput.value.trim();
       const button = document.getElementById("place-bet-btn");
       button.disabled = true;
       try {
