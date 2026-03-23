@@ -1,18 +1,8 @@
 // src/index.js
 
 import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
-import { getQuickSellFeePercent } from "./cs2/quick-sell.js";
-import { handleCs2Request } from "./cs2/handlers.js";
-import { seedCs2CatalogIfEmpty } from "./cs2/seed.js";
-import { ensureCs2Extensions } from "./cs2/schema.js";
-import { ensureYgoTables } from "./ygo/schema.js";
-import { handleYgoRequest } from "./ygo/handlers.js";
-import { ensureBlackjackTables } from "./blackjack/schema.js";
-import { handleBlackjackRequest } from "./blackjack/handlers.js";
-import { getCachedValue, invalidateCachedPrefix, setCachedValue } from "./lib/runtime-cache.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
-import { handleCasinoRequest } from "./casino/handlers.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -49,8 +39,8 @@ async function handleRequest(request, env, ctx) {
     return handleOptions(request);
   }
 
-  if (isCasesDbFeaturePath(pathname)) {
-    return casesDbDisconnectedResponse(request);
+  if (isRetiredGamblingPath(pathname)) {
+    return retiredGamblingResponse(request);
   }
 
   if (pathname === "/api/health" && request.method === "GET") {
@@ -145,115 +135,6 @@ async function handleRequest(request, env, ctx) {
     return await handleForumRemovePost(request, env);
   }
 
-  // Gambling / Cases
-  if (pathname === "/api/gambling/profile" && request.method === "GET") {
-    return await handleGamblingProfile(request, env);
-  }
-
-  if (pathname === "/api/gambling/event" && request.method === "GET") {
-    await ensureCs2CatalogReady(env);
-    const event = await getCachedValue("casesdb:event-config", 30000, async () => { const eventRow = await getCasesDb(env).prepare(`SELECT * FROM gambling_event_config WHERE id = 1 LIMIT 1`).first(); return eventRow ? { ...eventRow, cs2_discount_percent: Number(eventRow.cs2_discount_percent || 0), ygo_discount_percent: Number(eventRow.ygo_discount_percent || 0), blackjack_bonus_percent: Number(eventRow.blackjack_bonus_percent || 0), is_active: Boolean(eventRow.is_active) } : null; });
-    return json({ success: true, event }, 200, request);
-  }
-
-  if (pathname === "/api/gambling/admin/settings" && request.method === "GET") {
-    const adminUser = await requireGamblingAdmin(request, env);
-    if (adminUser instanceof Response) return adminUser;
-    await ensureCoreTables(env);
-    return json({ success: true, settings: { starting_balance_pence: await getStartingBalancePence(env) } }, 200, request);
-  }
-
-  if (pathname === "/api/gambling/admin/settings" && request.method === "POST") {
-    const adminUser = await requireGamblingAdmin(request, env);
-    if (adminUser instanceof Response) return adminUser;
-    await ensureCoreTables(env);
-    const body = await safeJson(request);
-    const startingBalancePence = Math.max(0, Math.round(Number(body?.starting_balance_pence || 0)));
-    await env.DB.prepare(`INSERT INTO gambling_settings (key, value, updated_at) VALUES ('starting_balance_pence', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`).bind(String(startingBalancePence), isoNow()).run();
-    return json({ success: true, message: "Starting balance updated", settings: { starting_balance_pence: startingBalancePence } }, 200, request);
-  }
-
-  if (pathname === "/api/gambling/admin/event" && request.method === "POST") {
-    const adminUser = await requireGamblingAdmin(request, env);
-    if (adminUser instanceof Response) return adminUser;
-    await ensureCs2CatalogReady(env);
-    const body = await safeJson(request);
-    const now = isoNow();
-    const event = { id: 1, title: String(body?.title || '').trim(), message: String(body?.message || '').trim(), is_active: Boolean(body?.is_active), cs2_discount_percent: Math.max(0, Math.min(100, Number(body?.cs2_discount_percent || 0))), ygo_discount_percent: Math.max(0, Math.min(100, Number(body?.ygo_discount_percent || 0))), blackjack_bonus_percent: Math.max(0, Math.min(500, Number(body?.blackjack_bonus_percent || 0))), updated_at: now };
-    await getCasesDb(env).prepare(`INSERT INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, message = excluded.message, is_active = excluded.is_active, cs2_discount_percent = excluded.cs2_discount_percent, ygo_discount_percent = excluded.ygo_discount_percent, blackjack_bonus_percent = excluded.blackjack_bonus_percent, updated_at = excluded.updated_at`).bind(event.title, event.message, event.is_active ? 1 : 0, event.cs2_discount_percent, event.ygo_discount_percent, event.blackjack_bonus_percent, now).run();
-    setCachedValue("casesdb:event-config", event, 30000);
-    invalidateCachedPrefix("casesdb:cs2:cases");
-    invalidateCachedPrefix("casesdb:ygo:packs");
-    invalidateCachedPrefix("casesdb:ygo:single-price");
-    return json({ success: true, message: 'Gambling event saved' }, 200, request);
-  }
-
-
-  let cs2Request = request;
-  if (pathname === "/api/cases" && request.method === "GET") {
-    const aliasUrl = new URL(request.url);
-    aliasUrl.pathname = "/api/cs2/cases";
-    cs2Request = new Request(aliasUrl.toString(), request);
-  } else if (pathname === "/api/cases/catalog" && request.method === "GET") {
-    const aliasUrl = new URL(request.url);
-    aliasUrl.pathname = "/api/cs2/catalog";
-    cs2Request = new Request(aliasUrl.toString(), request);
-  } else if (pathname === "/api/admin/cases" && request.method === "GET") {
-    const aliasUrl = new URL(request.url);
-    aliasUrl.pathname = "/api/cs2/admin/cases";
-    cs2Request = new Request(aliasUrl.toString(), request);
-  } else if (pathname === "/api/admin/cases/create" && request.method === "POST") {
-    const aliasUrl = new URL(request.url);
-    aliasUrl.pathname = "/api/cs2/admin/cases/create";
-    cs2Request = new Request(aliasUrl.toString(), request);
-  }
-
-  if (pathname.startsWith("/api/cs2") || cs2Request !== request) {
-    await ensureCs2CatalogReady(env);
-    const cs2Response = await handleCs2Request(cs2Request, env, {
-      json,
-      getApprovedUser,
-      requireAdmin,
-      requireGamblingAdmin,
-      isoNow,
-      safeJson
-    });
-    if (cs2Response) return cs2Response;
-  }
-
-  if (pathname.startsWith("/api/ygo")) {
-    await ensureYgoReady(env);
-    const ygoResponse = await handleYgoRequest(request, env, {
-      json,
-      getApprovedUser,
-      requireGamblingAdmin,
-      isoNow,
-      safeJson
-    });
-    if (ygoResponse) return ygoResponse;
-  }
-
-  if (pathname.startsWith("/api/blackjack")) {
-    await ensureBlackjackReady(env);
-    const blackjackResponse = await handleBlackjackRequest(request, env, {
-      json,
-      getApprovedUser,
-      isoNow,
-      safeJson
-    });
-    if (blackjackResponse) return blackjackResponse;
-  }
-
-  if (pathname.startsWith("/api/casino")) {
-    await ensureCasesCatalogReady(env);
-    const casinoResponse = await handleCasinoRequest(request, env, {
-      json,
-      requireGamblingAdmin,
-      isoNow,
-      safeJson
-    });
-    if (casinoResponse) return casinoResponse;
-  }
 
   // Admin
   if (pathname === "/api/admin/users" && request.method === "GET") {
@@ -335,47 +216,14 @@ async function handleSetup(env, request) {
   return json(
     {
       success: true,
-      message: "Core database tables applied; cases-db integrations remain disconnected",
-      cs2_seed: { seeded: false, reason: "cases_db_disconnected" }
+      message: "Core database tables applied; gambling playground reset remains in effect"
     },
     200,
     request
   );
 }
 
-async function ensureCs2CatalogReady(env) {
-  if (!getCasesDb(env)) {
-    return { seeded: false, reason: "cases_db_disconnected" };
-  }
-
-  await ensureCasesTables(env);
-  await ensureCs2Extensions(getCasesDb(env));
-  return await seedCs2CatalogIfEmpty(env);
-}
-
-async function ensureYgoReady(env) {
-  if (!getCasesDb(env)) {
-    return { seeded: false, reason: 'no_ygo_db' };
-  }
-
-  await ensureCasesTables(env);
-  return await ensureYgoTables(getCasesDb(env), getCasesDb(env));
-}
-
-async function ensureBlackjackReady(env) {
-  if (!getCasesDb(env)) {
-    return { seeded: false, reason: 'no_blackjack_db' };
-  }
-
-  await ensureCasesTables(env);
-  return await ensureBlackjackTables(env);
-}
-
-async function ensureCasesCatalogReady(env) {
-  return await ensureCs2CatalogReady(env);
-}
-
-function isCasesDbFeaturePath(pathname) {
+function isRetiredGamblingPath(pathname) {
   return pathname === "/api/gambling/profile"
     || pathname === "/api/gambling/event"
     || pathname.startsWith("/api/gambling/admin/")
@@ -388,13 +236,13 @@ function isCasesDbFeaturePath(pathname) {
     || pathname.startsWith("/api/casino");
 }
 
-function casesDbDisconnectedResponse(request) {
+function retiredGamblingResponse(request) {
   return json(
     {
       success: false,
-      error: "cases-db integrations have been disconnected"
+      error: "The gambling playground has been cleared out and is being rebuilt from scratch."
     },
-    503,
+    410,
     request
   );
 }

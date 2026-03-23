@@ -4,10 +4,7 @@ const THEME_STORAGE_KEY = "grevdad_theme";
 const PLAYGROUND_NAV_STORAGE_KEY = "grevdad_playground_nav";
 
 const PLAYGROUND_PAGE_PREFIXES = [
-  "/gambling/cs-cases",
-  "/gambling/blackjack",
-  "/gambling/casino",
-  "/gambling/yugioh",
+  "/gambling",
   "/j-playground",
   "/dkpg"
 ];
