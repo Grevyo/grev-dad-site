@@ -61,6 +61,18 @@ const DEFAULT_SECTIONS = [
 
 const DEFAULT_GAMES = [
   {
+    section_slug: 'slot-games', slug: 'classic-fruity', title: 'Classic Fruity', summary: 'Retro fruit cabinet with quick Grev Coin spins, simple line wins, and fast result reveals.', badge: 'slots', sort_order: 0,
+    settings: { enabled: true, min_bet_coins: 5, max_bet_coins: 25, paylines: 1, hit_frequency_percent: 29 }
+  },
+  {
+    section_slug: 'arcade-games', slug: 'daily-spin', title: 'Daily Spin', summary: 'Free reward wheel that gives every player a fresh Grev Coin bump.', badge: 'freebie', sort_order: 0,
+    settings: { enabled: true, refresh_interval_hours: 6, free_play: true }
+  },
+  {
+    section_slug: 'custom-games', slug: 'roulette', title: 'Roulette', summary: 'Place bets on the next wheel result, then watch the table settle when the round closes.', badge: 'table', sort_order: 0,
+    settings: { enabled: true, min_bet_coins: 5, max_bet_coins: 50, round_seconds: 30 }
+  },
+  {
     section_slug: 'slot-games', slug: 'classic-reels', title: 'Classic Reels', summary: 'A retro 3-reel machine with fast spins, low-entry Grev Coin bets, and simple line wins.', badge: '3 reels', sort_order: 1,
     settings: { enabled: true, min_bet_coins: 100, max_bet_coins: 1500, paylines: 3, hit_frequency_percent: 29, jackpot_start_coins: 50000 }
   },

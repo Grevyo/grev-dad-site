@@ -91,7 +91,6 @@
                 <div class="detail-grid">
                   <div class="form-group"><label class="form-label" for="edit-real-name">Real name</label><input id="edit-real-name" class="form-input" type="text" maxlength="80" /></div>
                   <div class="form-group"><label class="form-label" for="edit-motto">Motto</label><input id="edit-motto" class="form-input" type="text" maxlength="140" /></div>
-                  <div class="form-group"><label class="form-label" for="edit-avatar-url">Avatar URL</label><input id="edit-avatar-url" class="form-input" type="url" maxlength="1200" /></div>
                   <div class="form-group"><label class="form-label" for="edit-accent-color">Profile colour</label><input id="edit-accent-color" class="form-input" type="color" value="#1f2937" /></div>
                 </div>
                 <div class="form-group"><label class="form-label" for="edit-bio">Bio</label><textarea id="edit-bio" class="form-input form-textarea" maxlength="3000"></textarea></div>
@@ -170,7 +169,6 @@
     const editGamblingAdmin = document.getElementById('edit-gambling-admin');
     const editRealName = document.getElementById('edit-real-name');
     const editMotto = document.getElementById('edit-motto');
-    const editAvatarUrl = document.getElementById('edit-avatar-url');
     const editAccentColor = document.getElementById('edit-accent-color');
     const editBio = document.getElementById('edit-bio');
     const editMedia1 = document.getElementById('edit-media-1');
@@ -277,7 +275,6 @@
       editGamblingAdmin.value = String(Boolean(user.gambling_admin));
       editRealName.value = user.real_name || '';
       editMotto.value = user.motto || '';
-      editAvatarUrl.value = user.avatar_url || '';
       editAccentColor.value = user.profile_accent_color || '#1f2937';
       editBio.value = user.bio || '';
       editMedia1.value = user.media_1_url || '';
@@ -306,7 +303,7 @@
       event.preventDefault();
       const payload = {
         user_id: Number(editUserId.value), group_name: editGroup.value, approved: editApproved.value === 'true', is_admin: editIsAdmin.value === 'true', gambling_admin: editGamblingAdmin.value === 'true',
-        real_name: editRealName.value, motto: editMotto.value, avatar_url: editAvatarUrl.value, profile_accent_color: editAccentColor.value,
+        real_name: editRealName.value, motto: editMotto.value, profile_accent_color: editAccentColor.value,
         bio: editBio.value, media_1_url: editMedia1.value, media_2_url: editMedia2.value, media_3_url: editMedia3.value, music_url: editMusicUrl.value
       };
       const response = await fetch('/api/admin/user/update', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(payload) });
