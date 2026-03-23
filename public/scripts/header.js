@@ -3,12 +3,18 @@ const AUTH_CACHE_EVENT = "grevdad-auth-changed";
 const AUTH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const THEME_STORAGE_KEY = "grevdad_theme";
 const PLAYGROUND_NAV_STORAGE_KEY = "grevdad_playground_nav";
+const CASINO_BALANCE_STORAGE_KEY = "grevdad_casino_balance";
+const CASINO_BALANCE_EVENT = "grevdad-casino-balance-changed";
 
 const PLAYGROUND_PAGE_PREFIXES = [
   "/gambling",
   "/j-playground",
   "/dkpg"
 ];
+
+function isCasinoPage(pathname = window.location.pathname) {
+  return pathname.startsWith("/gambling");
+}
 
 function shouldShowPlaygroundNav(pathname = window.location.pathname) {
   return !PLAYGROUND_PAGE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -33,6 +39,58 @@ function writePlaygroundNavPrefs(prefs) {
     window.localStorage.setItem(PLAYGROUND_NAV_STORAGE_KEY, JSON.stringify(prefs));
   } catch (error) {
     console.error("Failed to save playground nav prefs:", error);
+  }
+}
+
+function readCasinoBalance() {
+  try {
+    const raw = window.localStorage.getItem(CASINO_BALANCE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.formatted !== "string") return null;
+    return parsed;
+  } catch (error) {
+    console.error("Failed to read casino balance:", error);
+    return null;
+  }
+}
+
+function writeCasinoBalance(balance) {
+  try {
+    if (!balance?.formatted) window.localStorage.removeItem(CASINO_BALANCE_STORAGE_KEY);
+    else window.localStorage.setItem(CASINO_BALANCE_STORAGE_KEY, JSON.stringify(balance));
+  } catch (error) {
+    console.error("Failed to save casino balance:", error);
+  }
+
+  window.dispatchEvent(new Event(CASINO_BALANCE_EVENT));
+}
+
+function applyCasinoBalance() {
+  const balanceWrap = document.getElementById("header-casino-balance");
+  const balanceValue = document.getElementById("header-casino-balance-value");
+  if (!balanceWrap || !balanceValue) return;
+
+  const balance = readCasinoBalance();
+  const visible = isCasinoPage() && Boolean(balance?.formatted);
+  balanceWrap.classList.toggle("hidden", !visible);
+  if (visible) balanceValue.textContent = balance.formatted;
+}
+
+async function refreshCasinoBalance() {
+  if (!isCasinoPage()) return;
+
+  try {
+    const response = await fetch("/api/casino/profile", { credentials: "same-origin" });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load casino balance");
+    writeCasinoBalance({
+      formatted: `${Number(data?.profile?.grev_coin_balance || 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`,
+      value: Number(data?.profile?.grev_coin_balance || 0),
+      updated_at: Date.now()
+    });
+  } catch (error) {
+    console.error(error);
   }
 }
 
@@ -126,9 +184,13 @@ async function loadSharedHeader() {
     applyHeaderAuthState(auth);
     setupThemeToggle();
     setupPlaygroundSideNav();
+    applyCasinoBalance();
+    refreshCasinoBalance();
     window.addEventListener(AUTH_CACHE_EVENT, () => {
       applyHeaderAuthState(readCachedAuthUser());
+      applyCasinoBalance();
     });
+    window.addEventListener(CASINO_BALANCE_EVENT, applyCasinoBalance);
 
     const logoutBtn = document.getElementById("header-logout-btn");
     if (logoutBtn) {
@@ -221,6 +283,7 @@ function writeCachedAuthUser(user) {
 
 function clearCachedAuthUser() {
   writeCachedAuthUser(null);
+  writeCasinoBalance(null);
 }
 
 function applyHeaderAuthState(user) {
@@ -250,3 +313,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
 window.fetchCurrentUser = fetchCurrentUser;
 window.readCachedAuthUser = readCachedAuthUser;
+window.writeCasinoBalance = writeCasinoBalance;
