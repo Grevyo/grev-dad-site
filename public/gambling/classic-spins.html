@@ -51,6 +51,7 @@
     .reel-strip { position: absolute; inset: 0; display: grid; grid-auto-rows: 108px; justify-items: center; align-items: center; will-change: transform; }
     .reel-symbol { font-size: clamp(3rem, 7vw, 4.4rem); line-height: 1; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.16)); }
     .controls { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+    .bet-control-stack { display:grid; gap:10px; }
     .result-card, .payout-card { padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, transparent); }
     .result-amount { margin: 0; font-size: 1.3rem; font-weight: 800; }
     .payout-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
@@ -101,7 +102,17 @@
           <div class="controls">
             <label class="form-group">
               <span class="form-label">Bet size</span>
-              <input id="bet-size" class="form-input" type="number" inputmode="decimal" min="1" step="1" value="10" />
+              <div class="bet-control-stack">
+                <select id="bet-presets" class="form-input">
+                  <option value="5">5 GC</option>
+                  <option value="10" selected>10 GC</option>
+                  <option value="25">25 GC</option>
+                  <option value="50">50 GC</option>
+                  <option value="100">100 GC</option>
+                  <option value="custom">Custom amount</option>
+                </select>
+                <input id="bet-size" class="form-input" type="number" inputmode="decimal" min="1" step="1" value="10" />
+              </div>
             </label>
             <div class="button-row">
               <button id="classic-spin-btn" class="btn btn-primary" type="button">Spin</button>
@@ -136,6 +147,7 @@
     const reelEls = Array.from(document.querySelectorAll("[data-reel]"));
     const spinBtn = document.getElementById("classic-spin-btn");
     const betInput = document.getElementById("bet-size");
+    const betPresetEl = document.getElementById("bet-presets");
     const BET_MIN = 1;
     const statusEl = document.getElementById("classic-spin-status");
     const copyEl = document.getElementById("classic-spin-copy");
@@ -159,48 +171,44 @@
       const now = ctx.currentTime;
       const master = ctx.createGain();
       master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.04, now + 0.06);
+      master.gain.linearRampToValueAtTime(0.05, now + 0.04);
       master.connect(ctx.destination);
 
-      const motor = ctx.createOscillator();
-      motor.type = "square";
-      motor.frequency.setValueAtTime(48, now);
-      motor.frequency.linearRampToValueAtTime(76, now + 0.25);
-      motor.frequency.linearRampToValueAtTime(58, now + 1.4);
+      const chug = ctx.createOscillator();
+      chug.type = "sawtooth";
+      chug.frequency.setValueAtTime(82, now);
+      chug.frequency.exponentialRampToValueAtTime(126, now + 0.32);
+      chug.frequency.exponentialRampToValueAtTime(92, now + 1.1);
 
-      const whirr = ctx.createOscillator();
-      whirr.type = "triangle";
-      whirr.frequency.setValueAtTime(190, now);
-      whirr.frequency.exponentialRampToValueAtTime(340, now + 0.45);
-      whirr.frequency.exponentialRampToValueAtTime(220, now + 1.4);
+      const bell = ctx.createOscillator();
+      bell.type = "triangle";
+      bell.frequency.setValueAtTime(420, now);
+      bell.frequency.exponentialRampToValueAtTime(640, now + 0.2);
+      bell.frequency.exponentialRampToValueAtTime(360, now + 1.1);
 
-      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 2), ctx.sampleRate);
+      const flutter = ctx.createOscillator();
+      flutter.type = "square";
+      flutter.frequency.setValueAtTime(12, now);
+      const flutterGain = ctx.createGain();
+      flutterGain.gain.value = 0.018;
+      flutter.connect(flutterGain).connect(master.gain);
+
+      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 1.8), ctx.sampleRate);
       const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.11;
+      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.08;
       const noise = ctx.createBufferSource();
       noise.buffer = noiseBuffer;
       noise.loop = true;
       const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = "bandpass";
-      noiseFilter.frequency.setValueAtTime(1300, now);
-      noiseFilter.frequency.exponentialRampToValueAtTime(700, now + 1.3);
-      noiseFilter.Q.value = 1.8;
+      noiseFilter.type = "highpass";
+      noiseFilter.frequency.setValueAtTime(900, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(450, now + 1);
 
-      const tremolo = ctx.createOscillator();
-      tremolo.type = "sine";
-      tremolo.frequency.setValueAtTime(9, now);
-      const tremoloGain = ctx.createGain();
-      tremoloGain.gain.value = 0.012;
-      tremolo.connect(tremoloGain).connect(master.gain);
-
-      motor.connect(master);
-      whirr.connect(master);
+      chug.connect(master);
+      bell.connect(master);
       noise.connect(noiseFilter).connect(master);
-      motor.start(now);
-      whirr.start(now);
-      noise.start(now);
-      tremolo.start(now);
-      spinNoiseNodes = { source: noise, gain: master, filter: noiseFilter, ctx, extras: [motor, whirr, tremolo] };
+      [chug, bell, noise, flutter].forEach((node) => node.start(now));
+      spinNoiseNodes = { source: noise, gain: master, filter: noiseFilter, ctx, extras: [chug, bell, flutter] };
     }
 
     function stopSpinSound(withLandingTail = false) {
@@ -227,19 +235,21 @@
 
     function playWinSting(winnings) {
       const ctx = ensureAudioContext();
-      if (!ctx || winnings <= 0) return;
-      [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
-        const time = ctx.currentTime + (index * 0.07);
+      if (!ctx) return;
+      const won = winnings > 0;
+      const notes = won ? [392, 523.25, 659.25, 784] : [220, 196, 174.61];
+      notes.forEach((frequency, index) => {
+        const time = ctx.currentTime + (index * 0.08);
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "triangle";
+        osc.type = won ? "square" : "triangle";
         osc.frequency.setValueAtTime(frequency, time);
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.linearRampToValueAtTime(0.05, time + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
+        gain.gain.linearRampToValueAtTime(won ? 0.06 : 0.035, time + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + (won ? 0.26 : 0.22));
         osc.connect(gain).connect(ctx.destination);
         osc.start(time);
-        osc.stop(time + 0.3);
+        osc.stop(time + (won ? 0.28 : 0.24));
       });
     }
 
@@ -264,12 +274,19 @@
         window.writeCasinoBalance({ formatted, value: Number(balance || 0), updated_at: Date.now() });
       }
     }
+    function syncBetPreset(value) {
+      if (!betPresetEl) return;
+      const rounded = Math.round(Number(value || 0));
+      const option = Array.from(betPresetEl.options).find((entry) => Number(entry.value) === rounded);
+      betPresetEl.value = option ? String(rounded) : "custom";
+    }
     function readBetValue() {
       const bet = Math.round(Number(betInput.value || 0));
       if (!Number.isFinite(bet) || bet < BET_MIN) {
         throw new Error(`Enter a bet of at least ${BET_MIN} GC.`);
       }
       betInput.value = String(bet);
+      syncBetPreset(bet);
       return bet;
     }
     async function handleSpin() {
@@ -296,6 +313,9 @@
         spinning = false; spinBtn.disabled = false;
       }
     }
+    betPresetEl?.addEventListener("change", () => { if (betPresetEl.value !== "custom") betInput.value = betPresetEl.value; });
+    betInput.addEventListener("input", () => syncBetPreset(betInput.value));
+    syncBetPreset(betInput.value);
     spinBtn.addEventListener("click", handleSpin);
   </script>
 </body>

@@ -57,6 +57,10 @@ async function handleRequest(request, env, ctx) {
     return await handleCasinoProfile(request, env);
   }
 
+  if (pathname === "/api/casino/profile/balance" && request.method === "POST") {
+    return await handleCasinoProfileBalanceUpdate(request, env);
+  }
+
   if (pathname === "/api/site/meta" && request.method === "GET") {
     return await handleSiteMeta(request, env);
   }
@@ -772,6 +776,28 @@ async function handleCasinoProfile(request, env) {
   }, 200, request);
 }
 
+async function handleCasinoProfileBalanceUpdate(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) return json({ success: false, error: "Not authenticated" }, 401, request);
+
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+
+  const body = await safeJson(request);
+  const balanceCoins = Number(body?.balance_coins);
+  if (!Number.isFinite(balanceCoins) || balanceCoins < 0) {
+    return json({ success: false, error: "balance_coins must be a non-negative number" }, 400, request);
+  }
+
+  const balancePence = Math.round(balanceCoins * 100);
+  const now = isoNow();
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  await casesDb.prepare(`UPDATE case_profiles SET balance = ?, updated_at = ? WHERE user_id = ?`).bind(balancePence, now, session.id).run();
+  await env.DB.prepare(`UPDATE casino_profiles SET grev_coin_balance = ?, updated_at = ?, refreshed_at = ? WHERE user_id = ?`).bind(balancePence, now, now, session.id).run();
+  const profile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  return json({ success: true, profile: formatCasinoProfile(profile, session.username) }, 200, request);
+}
+
 async function handleCasinoDailySpin(request, env) {
   const session = await getSessionUser(request, env);
   if (!session) {
@@ -876,10 +902,9 @@ async function handleCasinoClassicSpin(request, env) {
   }
 
   const body = await safeJson(request);
-  const betCoins = Number(body?.bet_coins);
-  const allowedBetCoins = new Set([5, 10, 25]);
-  if (!allowedBetCoins.has(betCoins)) {
-    return json({ success: false, error: "Bet must be 5, 10, or 25 Grev Coins." }, 400, request);
+  const betCoins = Math.round(Number(body?.bet_coins));
+  if (!Number.isFinite(betCoins) || betCoins < 1) {
+    return json({ success: false, error: "Bet must be at least 1 Grev Coin." }, 400, request);
   }
 
   const betPence = Math.round(betCoins * 100);
