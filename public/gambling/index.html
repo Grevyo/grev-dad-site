@@ -7,7 +7,13 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .casino-shell { display: grid; gap: 20px; }
+    .casino-shell,
+    .hero-actions,
+    .info-grid,
+    .game-grid {
+      display: grid;
+      gap: 20px;
+    }
     .casino-hero {
       padding: 32px 28px;
       border-radius: var(--radius-lg);
@@ -19,86 +25,28 @@
     }
     .eyebrow { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 0.84rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: rgba(248, 196, 68, 0.14); border: 1px solid rgba(248, 196, 68, 0.24); margin-bottom: 16px; }
     .casino-hero h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3rem); }
-    .casino-hero p, .feature-list li, .info-copy, .spin-meta, .casino-action__copy { color: var(--muted); line-height: 1.7; }
-    .hero-actions, .info-grid, .casino-actions { display: grid; gap: 16px; }
+    .casino-hero p, .feature-list li, .info-copy, .game-card__copy { color: var(--muted); line-height: 1.7; }
     .hero-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 24px; }
-    .casino-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .stat-card, .spin-card, .casino-action {
+    .game-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .stat-card, .game-card {
       padding: 18px;
       border-radius: var(--radius-md);
       background: color-mix(in srgb, var(--surface) 92%, transparent);
       border: 1px solid var(--border);
     }
-    .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
-    .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
-    .feature-list { margin: 0; padding-left: 20px; }
-    .daily-spin-layout { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
-    .wheel-wrap { display: grid; place-items: center; gap: 14px; }
-    .wheel-pointer { width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 26px solid #f8c444; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35)); }
-    .wheel {
-      --rotation: 0deg;
-      width: min(320px, 72vw);
-      aspect-ratio: 1;
-      border-radius: 50%;
-      border: 8px solid rgba(255,255,255,0.12);
-      box-shadow: 0 22px 50px rgba(0,0,0,0.28), inset 0 0 0 6px rgba(0,0,0,0.16);
-      background: conic-gradient(
-        #ef4444 0deg 90deg,
-        #facc15 90deg 180deg,
-        #22c55e 180deg 270deg,
-        #3b82f6 270deg 360deg
-      );
-      position: relative;
-      transform: rotate(var(--rotation));
-      transition: transform 5.2s cubic-bezier(0.12, 0.8, 0.18, 1);
-    }
-    .wheel::after {
-      content: "GC";
-      position: absolute;
-      inset: 50%;
-      width: 88px;
-      height: 88px;
-      transform: translate(-50%, -50%);
+    .game-card {
       display: grid;
-      place-items: center;
-      border-radius: 50%;
-      background: rgba(10, 14, 24, 0.92);
-      border: 4px solid rgba(255,255,255,0.12);
-      font-weight: 800;
-      letter-spacing: 0.08em;
-    }
-    .wheel-segment {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 46%;
-      transform-origin: 0 0;
-      font-weight: 800;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.32);
-    }
-    .wheel-segment span { display: inline-block; transform: translate(22px, -50%) rotate(90deg); }
-    .spin-card { display: grid; gap: 14px; }
-    .spin-result { min-height: 28px; font-weight: 700; }
-    .spin-reward-list { margin: 0; padding-left: 18px; }
-    .spin-reward-list li + li { margin-top: 6px; }
-    .casino-action {
-      width: 100%;
-      text-align: left;
-      display: grid;
-      gap: 10px;
-      cursor: pointer;
+      gap: 12px;
       transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
     }
-    .casino-action:hover,
-    .casino-action:focus-visible {
+    .game-card:hover {
       transform: translateY(-2px);
       border-color: rgba(248, 196, 68, 0.45);
       box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
-      outline: none;
     }
-    .casino-action__title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .casino-action__badge {
+    .game-card__badge {
       display: inline-flex;
+      width: fit-content;
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
@@ -109,10 +57,10 @@
       font-weight: 700;
       text-transform: uppercase;
     }
-    .hidden { display: none !important; }
-    @media (max-width: 860px) {
-      .daily-spin-layout { grid-template-columns: 1fr; }
-    }
+    .game-card__title { margin: 0; }
+    .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+    .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
+    .feature-list { margin: 0; padding-left: 20px; }
   </style>
 </head>
 <body>
@@ -123,9 +71,8 @@
         <span class="eyebrow">🎰 Casino</span>
         <h1>Welcome to Grev.dad Casino</h1>
         <p>
-          Take a spin through the Grev.dad Casino, where free daily wheel rewards, table games with your mates,
-          classic slots, and future drops like Yu-Gi-Oh packs and Counter-Strike cases all live under one roof.
-          Have a poke around, stack some Grev Coin, and see what chaos is waiting for you.
+          Pick a cabinet, spin something shiny, and keep your Grev Coin adventures moving. Each game now has
+          its own page, so you can jump straight into the one you want instead of digging around the main casino hub.
         </p>
         <div class="hero-actions">
           <div class="stat-card">
@@ -135,40 +82,22 @@
         </div>
       </section>
 
-      <section class="casino-actions" aria-label="Casino actions">
-        <button class="casino-action" type="button" data-scroll-target="daily-free-spin">
-          <div class="casino-action__title-row">
-            <h2 class="panel-title">DAILY FREE SPIN</h2>
-            <span class="casino-action__badge">Play now</span>
-          </div>
-          <p class="casino-action__copy">Jump straight to the wheel and claim today’s free casino spin.</p>
-        </button>
-      </section>
-
-      <section id="daily-free-spin" class="panel daily-spin-layout">
-        <div class="wheel-wrap">
-          <div class="wheel-pointer" aria-hidden="true"></div>
-          <div id="daily-spin-wheel" class="wheel" aria-label="Daily Grev Coin spin wheel"></div>
-        </div>
-        <div class="spin-card">
-          <div>
-            <h2 class="panel-title">Daily Free Spin</h2>
-            <p class="info-copy">
-              One free spin every 24 hours. The wheel can land on 5, 10, 50, or 100 Grev Coin,
-              and each reward now has an even 25% chance.
-            </p>
-          </div>
-          <div class="button-row">
-            <button id="daily-spin-btn" class="btn btn-primary" type="button">Spin the wheel</button>
-          </div>
-          <p id="daily-spin-status" class="spin-result">Sign in to spin.</p>
-          <p id="daily-spin-meta" class="spin-meta"></p>
-          <ul class="spin-reward-list feature-list">
-            <li>5 GC — 25% chance.</li>
-            <li>10 GC — 25% chance.</li>
-            <li>50 GC — 25% chance.</li>
-            <li>100 GC — 25% chance.</li>
-          </ul>
+      <section class="panel">
+        <p class="eyebrow">Game lobby</p>
+        <h2 class="panel-title">Choose your machine</h2>
+        <div class="game-grid">
+          <a class="game-card" href="/gambling/daily-spin.html">
+            <span class="game-card__badge">Daily reward</span>
+            <h3 class="game-card__title">Daily Free Spin</h3>
+            <p class="game-card__copy">Claim your once-a-day wheel spin with a brighter wheel and easier-to-read rewards.</p>
+            <span class="btn btn-primary">Open Daily Spin</span>
+          </a>
+          <a class="game-card" href="/gambling/classic-spins.html">
+            <span class="game-card__badge">New machine</span>
+            <h3 class="game-card__title">Classic Spins</h3>
+            <p class="game-card__copy">A retro fruit machine packed with lemons, cherries, and Triple 7s.</p>
+            <span class="btn btn-primary">Open Classic Spins</span>
+          </a>
         </div>
       </section>
 
@@ -176,7 +105,7 @@
         <div>
           <h2 class="panel-title">Grev Coin</h2>
           <p class="info-copy">
-            Grev Coin is the shared currency for the whole gambling playground, and your casino balance now stays visible
+            Grev Coin is the shared currency for the whole gambling playground, and your casino balance stays visible
             in the header while you move around the casino area.
           </p>
         </div>
@@ -184,8 +113,8 @@
           <h2 class="panel-title">What’s live now</h2>
           <ul class="feature-list">
             <li>A single Grev Coin wallet shared across the whole casino playground.</li>
-            <li>A header balance readout that follows you around the casino area.</li>
-            <li>A daily spin wheel with animation and equal 25% reward odds.</li>
+            <li>A daily spin page with a cleaner, easier-to-read reward wheel.</li>
+            <li>A new Classic Spins fruit machine page for quick retro slot fun.</li>
           </ul>
         </div>
       </section>
@@ -194,69 +123,10 @@
 
   <script>
     const balanceEl = document.getElementById("player-balance");
-    const spinButton = document.getElementById("daily-spin-btn");
-    const spinStatusEl = document.getElementById("daily-spin-status");
-    const spinMetaEl = document.getElementById("daily-spin-meta");
-    const wheelEl = document.getElementById("daily-spin-wheel");
-
-    const rewards = [5, 10, 50, 100];
-    const segmentAngle = 360 / rewards.length;
-    let isSpinning = false;
-    let currentRotation = 0;
-    let latestSpinState = null;
 
     function formatGc(value) {
       const amount = Number(value || 0);
       return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
-    }
-
-    function updateCasinoBalance(balance) {
-      const formatted = formatGc(balance || 0);
-      balanceEl.textContent = formatted;
-      if (typeof window.writeCasinoBalance === "function") {
-        window.writeCasinoBalance({
-          formatted,
-          value: Number(balance || 0),
-          updated_at: Date.now()
-        });
-      }
-    }
-
-    function formatDate(value) {
-      if (!value) return "";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return "";
-      return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-    }
-
-    function buildWheel() {
-      wheelEl.innerHTML = rewards.map((reward, index) => {
-        const rotation = index * segmentAngle;
-        return `<div class="wheel-segment" style="transform: rotate(${rotation}deg)"><span>${reward} GC</span></div>`;
-      }).join("");
-    }
-
-    function setSpinState(data) {
-      latestSpinState = data || null;
-      if (!data) {
-        spinButton.disabled = true;
-        spinStatusEl.textContent = "Sign in to spin.";
-        spinMetaEl.textContent = "";
-        return;
-      }
-
-      const available = Boolean(data.available);
-      spinButton.disabled = !available || isSpinning;
-      spinStatusEl.textContent = available ? "Your free daily spin is ready." : "Daily spin already used.";
-      spinMetaEl.textContent = available
-        ? "Come back after your next 24-hour cooldown once you spin."
-        : `Next free spin: ${formatDate(data.next_available_at) || "waiting for timer"}`;
     }
 
     async function loadCasinoProfile() {
@@ -264,7 +134,6 @@
       if (!user) {
         balanceEl.textContent = "Sign in to view";
         if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance(null);
-        setSpinState(null);
         return;
       }
 
@@ -273,74 +142,21 @@
         const data = await response.json();
         if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load casino profile");
 
-        updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
-        setSpinState(data?.daily_spin || null);
+        const formatted = formatGc(data?.profile?.grev_coin_balance || 0);
+        balanceEl.textContent = formatted;
+        if (typeof window.writeCasinoBalance === "function") {
+          window.writeCasinoBalance({
+            formatted,
+            value: Number(data?.profile?.grev_coin_balance || 0),
+            updated_at: Date.now()
+          });
+        }
       } catch (error) {
         console.error(error);
         balanceEl.textContent = "Could not load";
-        spinStatusEl.textContent = "Could not load spin status.";
       }
     }
 
-    function animateWheelToReward(rewardCoins) {
-      const rewardIndex = rewards.indexOf(Number(rewardCoins));
-      if (rewardIndex < 0) return Promise.resolve();
-
-      const centerAngle = (rewardIndex * segmentAngle) + (segmentAngle / 2);
-      const targetRotation = (360 * 6) + (360 - centerAngle);
-      currentRotation += targetRotation;
-      wheelEl.style.setProperty("--rotation", `${currentRotation}deg`);
-
-      return new Promise((resolve) => {
-        window.setTimeout(resolve, 5300);
-      });
-    }
-
-    async function handleDailySpin() {
-      if (isSpinning) return;
-      isSpinning = true;
-      spinButton.disabled = true;
-      spinStatusEl.textContent = "Spinning...";
-      spinMetaEl.textContent = "Good luck.";
-
-      try {
-        const response = await fetch("/api/casino/daily-spin", {
-          method: "POST",
-          credentials: "same-origin"
-        });
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          setSpinState(data?.daily_spin || null);
-          throw new Error(data?.error || "Daily spin failed");
-        }
-
-        await animateWheelToReward(data.reward?.coins || 0);
-        updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
-        spinStatusEl.textContent = `You won ${formatGc(data?.reward?.coins || 0)}.`;
-        spinMetaEl.textContent = `Next free spin: ${formatDate(data?.daily_spin?.next_available_at) || "in 24 hours"}`;
-        setSpinState(data?.daily_spin || null);
-      } catch (error) {
-        console.error(error);
-        spinStatusEl.textContent = error.message || "Daily spin failed.";
-      } finally {
-        isSpinning = false;
-        setSpinState(latestSpinState);
-      }
-    }
-
-    function setupCasinoActionButtons() {
-      document.querySelectorAll("[data-scroll-target]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const target = document.getElementById(button.dataset.scrollTarget);
-          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      });
-    }
-
-    buildWheel();
-    setupCasinoActionButtons();
-    spinButton.addEventListener("click", handleDailySpin);
     document.addEventListener("DOMContentLoaded", loadCasinoProfile);
   </script>
 </body>
