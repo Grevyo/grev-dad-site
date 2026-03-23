@@ -8,30 +8,94 @@
   <script src="/scripts/header.js" defer></script>
   <script src="/scripts/casino-chat-widget.js" defer></script>
   <style>
-    .roulette-shell, .roulette-layout, .roulette-grid, .roulette-meta, .betting-grid, .history-list, .payout-grid { display: grid; gap: 20px; }
+    .roulette-shell, .roulette-layout, .roulette-meta, .betting-grid, .history-list, .pending-bets { display: grid; gap: 20px; }
     .roulette-layout { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; }
-    .roulette-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .roulette-number { min-height: 88px; border-radius: 16px; border: 1px solid var(--border); display: grid; place-items: center; font-weight: 800; font-size: 1.02rem; text-align: center; padding: 12px; }
-    .roulette-number--red { background: rgba(220, 38, 38, 0.2); }
-    .roulette-number--black { background: rgba(15, 23, 42, 0.7); }
-    .roulette-number--green { background: rgba(22, 163, 74, 0.28); }
-    .roulette-number--gold { background: rgba(248, 196, 68, 0.18); }
     .roulette-meta { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .betting-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-    .payout-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .stat-card, .payout-card { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
+    .stat-card, .bettor-card, .history-item { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
     .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
     .stat-value { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; }
-    .history-item { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); }
-    .history-item p, .payout-card p { margin: 0; }
     .muted { color: var(--muted); }
     .roulette-help { margin: 0; color: var(--muted); line-height: 1.6; }
     .field-span-2 { grid-column: span 2; }
     .hidden { display: none !important; }
+    .roulette-stage {
+      position: relative; overflow: hidden; min-height: 400px; padding: 28px; border-radius: var(--radius-lg); border: 1px solid var(--border);
+      background:
+        radial-gradient(circle at top, rgba(248, 196, 68, 0.16), transparent 32%),
+        linear-gradient(180deg, rgba(13, 89, 48, 0.95), rgba(6, 44, 25, 0.98));
+    }
+    .roulette-wheel {
+      --wheel-rotation: 0deg;
+      width: min(100%, 360px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; position: relative;
+      border: 14px solid #d4a63f; box-shadow: 0 24px 55px rgba(0,0,0,0.3), inset 0 0 0 8px rgba(43, 25, 6, 0.45);
+      background: conic-gradient(
+        #1f9d55 0deg 10deg,
+        #111827 10deg 20deg,
+        #dc2626 20deg 30deg,
+        #111827 30deg 40deg,
+        #dc2626 40deg 50deg,
+        #111827 50deg 60deg,
+        #dc2626 60deg 70deg,
+        #111827 70deg 80deg,
+        #dc2626 80deg 90deg,
+        #111827 90deg 100deg,
+        #dc2626 100deg 110deg,
+        #111827 110deg 120deg,
+        #dc2626 120deg 130deg,
+        #111827 130deg 140deg,
+        #dc2626 140deg 150deg,
+        #111827 150deg 160deg,
+        #dc2626 160deg 170deg,
+        #111827 170deg 180deg,
+        #dc2626 180deg 190deg,
+        #111827 190deg 200deg,
+        #dc2626 200deg 210deg,
+        #111827 210deg 220deg,
+        #dc2626 220deg 230deg,
+        #111827 230deg 240deg,
+        #dc2626 240deg 250deg,
+        #111827 250deg 260deg,
+        #dc2626 260deg 270deg,
+        #111827 270deg 280deg,
+        #dc2626 280deg 290deg,
+        #111827 290deg 300deg,
+        #dc2626 300deg 310deg,
+        #111827 310deg 320deg,
+        #dc2626 320deg 330deg,
+        #111827 330deg 340deg,
+        #dc2626 340deg 350deg,
+        #111827 350deg 360deg
+      );
+      transform: rotate(var(--wheel-rotation)); transition: transform 7.2s cubic-bezier(.12,.82,.18,1);
+    }
+    .roulette-wheel::after { content: ""; position: absolute; inset: 26%; border-radius: 50%; background: radial-gradient(circle, rgba(53,30,6,0.95), rgba(18,10,2,1)); border: 8px solid rgba(248, 196, 68, 0.65); }
+    .wheel-pointer { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 30px solid #f8c444; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.45)); z-index: 2; }
+    .roulette-ball {
+      --ball-angle: 0deg;
+      position: absolute; top: 50%; left: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff, #cbd5e1 58%, #94a3b8 100%);
+      box-shadow: 0 4px 14px rgba(255,255,255,0.55), 0 0 0 2px rgba(255,255,255,0.18);
+      transform: rotate(var(--ball-angle)) translateY(-150px); transition: transform 7.2s cubic-bezier(.12,.82,.18,1); z-index: 3;
+    }
+    .roulette-result-banner { margin-top: 20px; text-align: center; }
+    .roulette-result-pill { display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); font-weight: 800; }
+    .result-dot { width: 14px; height: 14px; border-radius: 50%; }
+    .result-dot[data-color="red"] { background: #dc2626; }
+    .result-dot[data-color="black"] { background: #111827; }
+    .result-dot[data-color="green"] { background: #16a34a; }
+    .pending-bets { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .bettor-card { display: flex; gap: 14px; align-items: center; }
+    .bettor-avatar, .bettor-avatar-fallback { width: 48px; height: 48px; border-radius: 50%; flex: 0 0 auto; }
+    .bettor-avatar { object-fit: cover; border: 1px solid var(--border); background: rgba(255,255,255,0.06); }
+    .bettor-avatar-fallback { display: grid; place-items: center; font-weight: 800; background: rgba(248, 196, 68, 0.18); border: 1px solid rgba(248, 196, 68, 0.26); }
+    .bettor-copy p, .history-item p { margin: 0; }
+    .bettor-copy { display: grid; gap: 4px; }
     @media (max-width: 900px) {
       .roulette-layout { grid-template-columns: 1fr; }
-      .roulette-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .field-span-2 { grid-column: auto; }
+      .roulette-stage { min-height: 360px; }
+      .roulette-ball { transform: rotate(var(--ball-angle)) translateY(-128px); }
     }
   </style>
 </head>
@@ -47,22 +111,19 @@
         <section class="panel">
           <p class="eyebrow">🎡 Roulette</p>
           <h1 class="panel-title">Roulette Table</h1>
-          <p class="muted">A new round starts every minute. Mix simple even-money bets with straight-up, split, street, corner, basket, line, and dozen coverage before the next spin begins.</p>
+          <p class="muted">A live spin runs every 15 minutes. Place your bet for the next table close, then watch the wheel and ball land before the winning number is revealed.</p>
           <div class="roulette-meta">
             <div class="stat-card"><p class="stat-label">Next round</p><p id="next-round-id" class="stat-value">--</p></div>
             <div class="stat-card"><p class="stat-label">Starts in</p><p id="next-round-countdown" class="stat-value">--</p></div>
             <div class="stat-card"><p class="stat-label">Last result</p><p id="last-result" class="stat-value">--</p></div>
           </div>
-          <div class="roulette-grid mt-16">
-            <div class="roulette-number roulette-number--red">Single number<br />35 to 1</div>
-            <div class="roulette-number roulette-number--black">Split 2 numbers<br />17 to 1</div>
-            <div class="roulette-number roulette-number--green">Street 3 numbers<br />11 to 1</div>
-            <div class="roulette-number roulette-number--gold">Corner 4 numbers<br />8 to 1</div>
-            <div class="roulette-number roulette-number--green">Basket 5 numbers<br />6 to 1</div>
-            <div class="roulette-number roulette-number--red">Line 6 numbers<br />5 to 1</div>
-            <div class="roulette-number roulette-number--black">Dozen 12 numbers<br />2 to 1</div>
-            <div class="roulette-number roulette-number--red">Red / Black<br />1 to 1</div>
-            <div class="roulette-number roulette-number--black">Odd / Even<br />1 to 1</div>
+          <div class="roulette-stage mt-16">
+            <div class="wheel-pointer"></div>
+            <div id="roulette-wheel" class="roulette-wheel"></div>
+            <div id="roulette-ball" class="roulette-ball"></div>
+            <div class="roulette-result-banner">
+              <span class="roulette-result-pill"><span id="result-dot" class="result-dot" data-color="green"></span><span id="result-text">Waiting for spin...</span></span>
+            </div>
           </div>
         </section>
 
@@ -106,16 +167,8 @@
       </section>
 
       <section class="panel">
-        <h2 class="panel-title">Payout guide</h2>
-        <div class="payout-grid">
-          <article class="payout-card"><p><strong>Single number</strong><br />Pick 1 exact number. Pays 35 to 1.</p></article>
-          <article class="payout-card"><p><strong>Double number</strong><br />Pick 2 numbers. Pays 17 to 1.</p></article>
-          <article class="payout-card"><p><strong>Three number</strong><br />Pick 3 numbers. Pays 11 to 1.</p></article>
-          <article class="payout-card"><p><strong>Four number</strong><br />Pick 4 numbers. Pays 8 to 1.</p></article>
-          <article class="payout-card"><p><strong>Five number basket</strong><br />Pick 5 numbers, like 0,1,2,3,4. Pays 6 to 1.</p></article>
-          <article class="payout-card"><p><strong>Six number line</strong><br />Pick 6 numbers. Pays 5 to 1.</p></article>
-          <article class="payout-card"><p><strong>Dozens</strong><br />Choose 1st, 2nd, or 3rd dozen. Pays 2 to 1.</p></article>
-        </div>
+        <h2 class="panel-title">Bets on the next spin</h2>
+        <div id="pending-bets" class="pending-bets"><div class="history-item"><p>No bets have been placed for the next spin yet.</p></div></div>
       </section>
 
       <section class="panel">
@@ -137,15 +190,18 @@
     const nextRoundIdEl = document.getElementById("next-round-id");
     const nextRoundCountdownEl = document.getElementById("next-round-countdown");
     const lastResultEl = document.getElementById("last-result");
+    const resultTextEl = document.getElementById("result-text");
+    const resultDotEl = document.getElementById("result-dot");
     const historyEl = document.getElementById("roulette-history");
+    const pendingBetsEl = document.getElementById("pending-bets");
+    const wheelEl = document.getElementById("roulette-wheel");
+    const ballEl = document.getElementById("roulette-ball");
     let state = null;
     let timer = null;
+    let lastAnimatedRound = null;
 
     const betConfig = {
-      red: { needsValue: false },
-      black: { needsValue: false },
-      even: { needsValue: false },
-      odd: { needsValue: false },
+      red: { needsValue: false }, black: { needsValue: false }, even: { needsValue: false }, odd: { needsValue: false },
       dozen: { needsValue: true, label: "Dozen number", help: "Enter 1, 2, or 3 for the dozen you want.", value: "1" },
       number: { needsValue: true, label: "Single number", help: "Enter one number from 0 to 36.", value: "0" },
       split: { needsValue: true, label: "Two numbers", help: "Enter 2 unique numbers like 7,8.", value: "7,8" },
@@ -157,6 +213,18 @@
 
     function formatGc(value) { const amount = Number(value || 0); return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`; }
     function updateCasinoBalance(balance) { if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance({ formatted: formatGc(balance || 0), value: Number(balance || 0), updated_at: Date.now() }); }
+    function formatCountdown(targetIso) {
+      const diff = Math.max(0, new Date(targetIso || 0).getTime() - Date.now());
+      const totalSeconds = Math.ceil(diff / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+    function avatarMarkup(username, avatarUrl) {
+      const safeName = username || "Unknown";
+      if (avatarUrl) return `<img class="bettor-avatar" src="${avatarUrl}" alt="${safeName} avatar" loading="lazy" />`;
+      return `<div class="bettor-avatar-fallback" aria-hidden="true">${safeName.slice(0, 1).toUpperCase()}</div>`;
+    }
     function updateBetValueUi() {
       const config = betConfig[betTypeInput.value] || { needsValue: false };
       betValueGroup.classList.toggle("hidden", !config.needsValue);
@@ -169,26 +237,61 @@
         betValueInput.value = "";
       }
     }
+    function renderPendingBets(bets) {
+      if (!Array.isArray(bets) || !bets.length) {
+        pendingBetsEl.innerHTML = '<div class="history-item"><p>No bets have been placed for the next spin yet.</p></div>';
+        return;
+      }
+      pendingBetsEl.innerHTML = bets.map((bet) => `
+        <article class="bettor-card">
+          ${avatarMarkup(bet.username, bet.avatar_url)}
+          <div class="bettor-copy">
+            <p><strong>${bet.username}</strong></p>
+            <p class="muted">${bet.bet_label || bet.bet_type} · Stake ${formatGc(bet.stake_coins)}</p>
+          </div>
+        </article>
+      `).join("");
+    }
     function renderHistory(bets) {
       if (!Array.isArray(bets) || !bets.length) { historyEl.innerHTML = '<div class="history-item"><p>No bets yet.</p></div>'; return; }
       historyEl.innerHTML = bets.map((bet) => `<article class="history-item"><p><strong>Round ${bet.round_id}</strong> — ${bet.bet_label || bet.bet_type}</p><p class="muted">Stake: ${formatGc(bet.stake_coins)} · ${bet.resolved_at ? `Result ${bet.outcome_number} · Payout ${formatGc(bet.payout_coins)}` : "Waiting for spin"}</p></article>`).join("");
     }
+    function applyResult(previous) {
+      if (!previous) return;
+      lastResultEl.textContent = `${previous.number} · ${previous.color}`;
+      resultTextEl.textContent = `Winning pocket: ${previous.number} ${previous.color}`;
+      resultDotEl.dataset.color = previous.color || "green";
+    }
+    function animateResult(previous, roundId) {
+      if (!previous) return;
+      const segment = 360 / 37;
+      const targetAngle = (previous.number * segment) + (segment / 2);
+      const wheelRotation = 1440 - targetAngle;
+      const ballRotation = -2160 + targetAngle;
+      wheelEl.style.setProperty("--wheel-rotation", `${wheelRotation}deg`);
+      ballEl.style.setProperty("--ball-angle", `${ballRotation}deg`);
+      resultTextEl.textContent = "Ball in motion...";
+      resultDotEl.dataset.color = "green";
+      window.clearTimeout(animateResult._timer);
+      animateResult._timer = window.setTimeout(() => applyResult(previous), 6400);
+      lastAnimatedRound = roundId;
+    }
     function renderState() {
       if (!state?.table) return;
       nextRoundIdEl.textContent = String(state.table.next_round_id || "--");
-      const previous = state.table.previous_round;
-      lastResultEl.textContent = previous ? `${previous.number} · ${previous.color}` : "--";
+      renderPendingBets(state.pending_bets || []);
       renderHistory(state.bets || []);
       updateCasinoBalance(state.profile?.grev_coin_balance || 0);
+      const previous = state.table.previous_round;
+      if (previous && lastAnimatedRound !== previous.round_id) animateResult(previous, previous.round_id);
+      else applyResult(previous);
     }
     function startCountdown() {
       if (timer) window.clearInterval(timer);
       timer = window.setInterval(() => {
+        nextRoundCountdownEl.textContent = formatCountdown(state?.table?.next_round_starts_at);
         const target = state?.table?.next_round_starts_at ? new Date(state.table.next_round_starts_at).getTime() : 0;
-        const diff = Math.max(0, target - Date.now());
-        const seconds = Math.ceil(diff / 1000);
-        nextRoundCountdownEl.textContent = `${seconds}s`;
-        if (diff <= 1000) loadState(false);
+        if (target && Date.now() >= target) loadState(false);
       }, 500);
     }
     async function loadState(showLoading = true) {

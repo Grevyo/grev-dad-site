@@ -30,6 +30,7 @@ const CASINO_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
 const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DAILY_SPIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const ROULETTE_ROUND_INTERVAL_MS = 15 * 60 * 1000;
 const DAILY_SPIN_REWARDS = [
   { coins: 5, weight: 25 },
   { coins: 10, weight: 25 },
@@ -858,7 +859,15 @@ async function handleCasinoClassicSpin(request, env) {
 
 
 function getRouletteRoundId(date = Date.now()) {
-  return Math.floor(Number(date) / 60000);
+  return Math.floor(Number(date) / ROULETTE_ROUND_INTERVAL_MS);
+}
+
+function getRouletteRoundStartMs(roundId) {
+  return Number(roundId) * ROULETTE_ROUND_INTERVAL_MS;
+}
+
+function getRouletteRoundEndMs(roundId) {
+  return getRouletteRoundStartMs(roundId + 1);
 }
 
 function getRouletteRoundNumber(roundId) {
@@ -996,15 +1005,34 @@ async function handleCasinoRouletteState(request, env) {
     ORDER BY id DESC
     LIMIT 20
   `).bind(session.id).all();
+  const pendingBets = await env.DB.prepare(`
+    SELECT
+      b.id,
+      b.round_id,
+      b.bet_type,
+      b.bet_value,
+      b.stake_pence,
+      b.created_at,
+      u.username,
+      p.avatar_url
+    FROM casino_roulette_bets b
+    INNER JOIN users u ON u.id = b.user_id
+    LEFT JOIN user_profiles p ON p.user_id = b.user_id
+    WHERE b.round_id = ? AND b.resolved_at IS NULL
+    ORDER BY b.created_at ASC, b.id ASC
+    LIMIT 50
+  `).bind(upcomingRoundId).all();
 
   return json({
     success: true,
     profile: formatCasinoProfile(profile, session.username),
     table: {
       current_round_id: currentRoundId,
-      current_round_started_at: new Date(currentRoundId * 60000).toISOString(),
+      round_interval_ms: ROULETTE_ROUND_INTERVAL_MS,
+      current_round_started_at: new Date(getRouletteRoundStartMs(currentRoundId)).toISOString(),
+      current_round_ends_at: new Date(getRouletteRoundEndMs(currentRoundId)).toISOString(),
       next_round_id: upcomingRoundId,
-      next_round_starts_at: new Date(upcomingRoundId * 60000).toISOString(),
+      next_round_starts_at: new Date(getRouletteRoundStartMs(upcomingRoundId)).toISOString(),
       previous_round: {
         round_id: currentRoundId - 1,
         number: getRouletteRoundNumber(currentRoundId - 1),
@@ -1012,6 +1040,17 @@ async function handleCasinoRouletteState(request, env) {
         dozen: getRouletteDozen(getRouletteRoundNumber(currentRoundId - 1))
       }
     },
+    pending_bets: (pendingBets.results || []).map((row) => ({
+      id: Number(row.id),
+      round_id: Number(row.round_id),
+      username: row.username || "Unknown",
+      avatar_url: row.avatar_url || "",
+      bet_type: row.bet_type,
+      bet_value: row.bet_value,
+      bet_label: getRouletteBetLabel(row.bet_type, row.bet_value),
+      stake_coins: toCoinAmount(row.stake_pence),
+      created_at: row.created_at
+    })),
     bets: (recentRows.results || []).map((row) => ({
       id: Number(row.id),
       round_id: Number(row.round_id),

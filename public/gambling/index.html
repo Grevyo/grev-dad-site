@@ -63,6 +63,11 @@
             <p class="stat-label">Your balance</p>
             <p id="player-balance" class="stat-value">Sign in to view</p>
           </div>
+          <div class="stat-card">
+            <p class="stat-label">Next roulette spin</p>
+            <p id="roulette-countdown" class="stat-value">--:--</p>
+            <p id="roulette-round-label" class="stat-label">Loading next table...</p>
+          </div>
         </div>
       </section>
 
@@ -84,10 +89,46 @@
 
   <script>
     const balanceEl = document.getElementById("player-balance");
+    const rouletteCountdownEl = document.getElementById("roulette-countdown");
+    const rouletteRoundLabelEl = document.getElementById("roulette-round-label");
+    let rouletteTimer = null;
+
 
     function formatGc(value) {
       const amount = Number(value || 0);
       return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
+    function formatCountdown(targetIso) {
+      const diff = Math.max(0, new Date(targetIso || 0).getTime() - Date.now());
+      const totalSeconds = Math.ceil(diff / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function startRouletteCountdown(targetIso) {
+      if (rouletteTimer) window.clearInterval(rouletteTimer);
+      const tick = () => {
+        rouletteCountdownEl.textContent = formatCountdown(targetIso);
+        if (Date.now() >= new Date(targetIso).getTime()) loadRouletteCountdown();
+      };
+      tick();
+      rouletteTimer = window.setInterval(tick, 500);
+    }
+
+    async function loadRouletteCountdown() {
+      try {
+        const response = await fetch("/api/casino/roulette/state", { credentials: "same-origin" });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load roulette state");
+        rouletteRoundLabelEl.textContent = `Round ${data.table.next_round_id} closes in`;
+        startRouletteCountdown(data.table.next_round_starts_at);
+      } catch (error) {
+        console.error(error);
+        rouletteCountdownEl.textContent = "--:--";
+        rouletteRoundLabelEl.textContent = "Roulette timer unavailable";
+      }
     }
 
     async function loadCasinoProfile() {
@@ -114,7 +155,9 @@
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadCasinoProfile);
+    document.addEventListener("DOMContentLoaded", async () => {
+      await Promise.all([loadCasinoProfile(), loadRouletteCountdown()]);
+    });
   </script>
 </body>
 </html>
