@@ -55,6 +55,10 @@ async function handleRequest(request, env, ctx) {
     return await handleCasinoDailySpin(request, env);
   }
 
+  if (pathname === "/api/casino/classic-spin" && request.method === "POST") {
+    return await handleCasinoClassicSpin(request, env);
+  }
+
   if (isRetiredGamblingPath(pathname)) {
     return retiredGamblingResponse(request);
   }
@@ -706,6 +710,92 @@ async function handleCasinoDailySpin(request, env) {
     daily_spin: await getCasinoDailySpinState(env, session.id)
   }, 200, request);
 }
+
+function pickClassicSpinResult() {
+  const symbols = ["🍋", "🍒", "7️⃣"];
+  return Array.from({ length: 3 }, () => symbols[Math.floor(Math.random() * symbols.length)]);
+}
+
+function evaluateClassicSpin(result) {
+  if (result.every((symbol) => symbol === "7️⃣")) {
+    return { multiplier: 12, message: "Jackpot! Triple 7s smashed the machine." };
+  }
+  if (result.every((symbol) => symbol === "🍒")) {
+    return { multiplier: 6, message: "Cherry line! That one pays nicely." };
+  }
+  if (result.every((symbol) => symbol === "🍋")) {
+    return { multiplier: 4, message: "Lemon line! Sharp little payout." };
+  }
+  const counts = result.reduce((map, symbol) => {
+    map[symbol] = (map[symbol] || 0) + 1;
+    return map;
+  }, {});
+  if (Object.values(counts).some((count) => count >= 2)) {
+    return { multiplier: 2, message: "Nice, you landed a matching pair." };
+  }
+  return { multiplier: 0, message: "No line win this time — give the lever another go." };
+}
+
+async function handleCasinoClassicSpin(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const casesDb = await ensureCasesWalletTables(env);
+  if (!casesDb) {
+    return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
+  }
+
+  const body = await safeJson(request);
+  const betCoins = Number(body?.bet_coins);
+  const allowedBetCoins = new Set([5, 10, 25]);
+  if (!allowedBetCoins.has(betCoins)) {
+    return json({ success: false, error: "Bet must be 5, 10, or 25 Grev Coins." }, 400, request);
+  }
+
+  const betPence = Math.round(betCoins * 100);
+  await ensureCasinoProfile(env, session.id, session.username, { force: true });
+
+  const profile = await casesDb.prepare(`
+    SELECT balance
+    FROM case_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(session.id).first();
+
+  const balancePence = Number(profile?.balance || 0);
+  if (balancePence < betPence) {
+    return json({ success: false, error: "Not enough Grev Coins for that spin." }, 400, request);
+  }
+
+  const result = pickClassicSpinResult();
+  const outcome = evaluateClassicSpin(result);
+  const winningsPence = Math.round(betPence * outcome.multiplier);
+  const netChangePence = winningsPence - betPence;
+  const now = isoNow();
+
+  await casesDb.prepare(`
+    UPDATE case_profiles
+    SET balance = balance + ?, updated_at = ?
+    WHERE user_id = ?
+  `).bind(netChangePence, now, session.id).run();
+
+  const updatedProfile = await ensureCasinoProfile(env, session.id, session.username, { force: true });
+  return json({
+    success: true,
+    result,
+    outcome: {
+      multiplier: outcome.multiplier,
+      message: outcome.message,
+      bet_coins: betCoins,
+      winnings_coins: toCoinAmount(winningsPence),
+      net_change_coins: toCoinAmount(netChangePence)
+    },
+    profile: formatCasinoProfile(updatedProfile, session.username)
+  }, 200, request);
+}
+
 
 /* -------------------------------------------------------------------------- */
 /*                                   AUTH                                     */
