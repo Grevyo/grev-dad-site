@@ -7,803 +7,398 @@
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .admin-layout {
-      display: grid;
-      grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
-      gap: 24px;
-      align-items: start;
-    }
-
-    .admin-stack {
-      display: grid;
-      gap: 24px;
-    }
-
-    .panel-title {
-      margin: 0 0 10px;
-      font-size: 1.35rem;
-      line-height: 1.15;
-    }
-
-    .panel-subtitle {
-      margin: 0 0 16px;
-      color: var(--muted);
-      line-height: 1.5;
-      font-size: 0.96rem;
-    }
-
-    .user-list {
-      display: grid;
-      gap: 10px;
-      max-height: 540px;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
-
-    .user-row {
-      width: 100%;
-      text-align: left;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-    }
-
-    .user-row:hover {
-      transform: translateY(-1px);
-      border-color: #3a4a61;
-      background: rgba(255, 255, 255, 0.04);
-    }
-
-    .user-row.active {
-      border-color: var(--accent);
-      background: rgba(142, 197, 255, 0.08);
-    }
-
-    .user-row-main {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      margin-bottom: 6px;
-    }
-
-    .user-row-name {
-      font-weight: 700;
-      flex: 1 1 220px;
-      min-width: 0;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-
-    .user-row-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .role-badge,
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 24px;
-      padding: 0 9px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    .role-badge {
-      background: rgba(142, 197, 255, 0.12);
-      color: #d9ebff;
-      border: 1px solid rgba(142, 197, 255, 0.2);
-    }
-
-    .status-approved {
-      background: rgba(74, 222, 128, 0.12);
-      color: #dbffe8;
-      border: 1px solid rgba(74, 222, 128, 0.2);
-    }
-
-    .status-pending {
-      background: rgba(251, 191, 36, 0.12);
-      color: #fff1c7;
-      border: 1px solid rgba(251, 191, 36, 0.2);
-    }
-
-    .user-row-meta {
-      color: var(--muted);
-      font-size: 0.88rem;
-      line-height: 1.4;
-    }
-
-    #user-select {
-      max-width: 100%;
-    }
-
-    #user-select option {
-      white-space: normal;
-    }
-
-    #detail-username {
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-
-    .detail-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .detail-card {
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: var(--radius-md);
-      padding: 16px;
-    }
-
-    .detail-card h3 {
-      margin: 0 0 8px;
-      font-size: 0.95rem;
-    }
-
-    .detail-card p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.45;
-      word-break: break-word;
-    }
-
-    .empty-box {
-      border: 1px dashed var(--border);
-      border-radius: var(--radius-md);
-      padding: 22px;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    @media (max-width: 980px) {
-      .admin-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .detail-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    .admin-shell { display:grid; gap:24px; }
+    .admin-tabs, .tab-actions, .balance-actions, .hero-actions { display:flex; flex-wrap:wrap; gap:12px; }
+    .admin-layout { display:grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap:24px; align-items:start; }
+    .admin-stack { display:grid; gap:24px; }
+    .admin-tab { border:1px solid var(--border); background:rgba(255,255,255,.03); color:var(--text); border-radius:999px; padding:10px 16px; font-weight:700; }
+    .admin-tab.active { background:rgba(142,197,255,.12); border-color:var(--accent); }
+    .admin-panel.hidden { display:none; }
+    .user-list, .balance-list { display:grid; gap:10px; max-height:620px; overflow:auto; }
+    .list-card, .balance-row { border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); padding:14px; }
+    .list-card.active { border-color:var(--accent); background:rgba(142,197,255,.08); }
+    .list-card button, .balance-row button { width:100%; text-align:left; background:none; border:0; color:inherit; padding:0; }
+    .list-main, .balance-main, .detail-grid { display:grid; gap:12px; }
+    .list-title, .balance-title { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+    .pill { display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:.82rem; background:rgba(255,255,255,.05); }
+    .muted-copy { color:var(--muted); line-height:1.5; }
+    .detail-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .detail-card, .balance-summary, .casino-admin-hero { border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); padding:16px; }
+    .table-wrap { overflow:auto; }
+    .balance-table { width:100%; border-collapse:collapse; }
+    .balance-table th, .balance-table td { padding:12px; border-bottom:1px solid var(--border); text-align:left; }
+    .balance-table tr.active { background:rgba(142,197,255,.08); }
+    .balance-adjust-form { display:grid; gap:14px; }
+    .balance-value { font-size:1.5rem; font-weight:800; }
+    @media (max-width: 960px) { .admin-layout { grid-template-columns:1fr; } .detail-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
-
-    <main class="page-main">
+    <main class="page-main admin-shell">
       <section class="panel">
-        <h1 class="auth-title">Admin Panel</h1>
-        <p class="auth-subtitle">
-          Search members, open any account, approve users into member access, assign roles, or delete accounts.
-        </p>
+        <h1 class="auth-title">Admin Portal</h1>
+        <p class="auth-subtitle">Manage site members, control casino access, and adjust casino balances from one place.</p>
         <div id="page-message" class="hidden"></div>
       </section>
 
-      <div class="admin-layout mt-24">
-        <aside class="admin-stack">
-          <section class="panel">
-            <h2 class="panel-title">Search members</h2>
-            <p class="panel-subtitle">
-              Search by username or role. You can also use the full dropdown list below.
-            </p>
+      <section class="panel">
+        <div class="admin-tabs">
+          <button class="admin-tab" type="button" data-tab="member-admin">Member Admin</button>
+          <button class="admin-tab" type="button" data-tab="casino-admin">Casino Admin</button>
+        </div>
+      </section>
 
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label" for="user-search">Search</label>
-                <input
-                  id="user-search"
-                  class="form-input"
-                  type="text"
-                  placeholder="Search username or role..."
-                />
+      <section id="member-admin-panel" class="admin-panel panel hidden">
+        <div class="admin-layout">
+          <aside class="admin-stack">
+            <section class="detail-card">
+              <h2 class="panel-title">Search members</h2>
+              <p class="muted-copy">Search all users, filter pending accounts, and open an account in the editor.</p>
+              <div class="form-grid">
+                <div class="form-group"><label class="form-label" for="user-search">Search</label><input id="user-search" class="form-input" type="text" placeholder="username or role" /></div>
+                <div class="form-group"><label class="form-label" for="user-select">All users</label><select id="user-select" class="form-select"><option value="">Select a user...</option></select></div>
+                <div class="tab-actions">
+                  <button id="refresh-users-btn" class="btn" type="button">Refresh users</button>
+                  <button id="load-pending-btn" class="btn" type="button">Pending only</button>
+                  <button id="read-database-btn" class="btn" type="button" disabled>READ DATABASE</button>
+                </div>
               </div>
+            </section>
+            <section class="detail-card">
+              <h2 class="panel-title">User list</h2>
+              <div id="user-list" class="user-list"><div class="muted-copy">Loading users...</div></div>
+            </section>
+          </aside>
 
-              <div class="form-group">
-                <label class="form-label" for="user-select">All users</label>
-                <select id="user-select" class="form-select">
-                  <option value="">Select a user...</option>
-                </select>
-              </div>
+          <section class="admin-stack">
+            <section class="detail-card">
+              <h2 class="panel-title">Edit member</h2>
+              <div id="editor-empty" class="muted-copy">Select a user to start editing.</div>
+              <form id="user-editor-form" class="form-grid hidden">
+                <input type="hidden" id="edit-user-id" />
+                <div class="detail-grid">
+                  <div class="detail-card"><h3>Username</h3><p id="detail-username">—</p></div>
+                  <div class="detail-card"><h3>Current role</h3><p id="detail-role">—</p></div>
+                  <div class="detail-card"><h3>Created</h3><p id="detail-created">—</p></div>
+                  <div class="detail-card"><h3>Last seen</h3><p id="detail-last-seen">—</p></div>
+                </div>
+                <div class="form-group"><label class="form-label" for="edit-group">Assign role</label><select id="edit-group" class="form-select" required></select></div>
+                <div class="form-group"><label class="form-label" for="edit-approved">Approval</label><select id="edit-approved" class="form-select" required><option value="true">Approved</option><option value="false">Pending / Unapproved</option></select></div>
+                <div class="form-group"><label class="form-label" for="edit-is-admin">Admin access</label><select id="edit-is-admin" class="form-select" required><option value="false">No</option><option value="true">Yes</option></select></div>
+                <div class="form-group"><label class="form-label" for="edit-gambling-admin">Casino admin access</label><select id="edit-gambling-admin" class="form-select" required><option value="false">No</option><option value="true">Yes</option></select></div>
+                <div class="detail-grid">
+                  <div class="form-group"><label class="form-label" for="edit-real-name">Real name</label><input id="edit-real-name" class="form-input" type="text" maxlength="80" /></div>
+                  <div class="form-group"><label class="form-label" for="edit-motto">Motto</label><input id="edit-motto" class="form-input" type="text" maxlength="140" /></div>
+                  <div class="form-group"><label class="form-label" for="edit-avatar-url">Avatar URL</label><input id="edit-avatar-url" class="form-input" type="url" maxlength="1200" /></div>
+                  <div class="form-group"><label class="form-label" for="edit-accent-color">Profile colour</label><input id="edit-accent-color" class="form-input" type="color" value="#1f2937" /></div>
+                </div>
+                <div class="form-group"><label class="form-label" for="edit-bio">Bio</label><textarea id="edit-bio" class="form-input form-textarea" maxlength="3000"></textarea></div>
+                <div class="detail-grid">
+                  <div class="form-group"><label class="form-label" for="edit-media-1">Media 1 URL</label><input id="edit-media-1" class="form-input" type="url" maxlength="1200" /></div>
+                  <div class="form-group"><label class="form-label" for="edit-media-2">Media 2 URL</label><input id="edit-media-2" class="form-input" type="url" maxlength="1200" /></div>
+                  <div class="form-group"><label class="form-label" for="edit-media-3">Media 3 URL</label><input id="edit-media-3" class="form-input" type="url" maxlength="1200" /></div>
+                  <div class="form-group"><label class="form-label" for="edit-music-url">Music URL</label><input id="edit-music-url" class="form-input" type="url" maxlength="1200" /></div>
+                </div>
+                <div class="tab-actions"><button id="save-user-btn" class="btn btn-primary" type="submit">Save user</button><button id="delete-user-btn" class="btn btn-danger" type="button">Delete user</button></div>
+              </form>
+            </section>
+          </section>
+        </div>
+      </section>
 
-              <div class="button-row">
-                <button id="refresh-users-btn" class="btn" type="button">Refresh users</button>
-                <button id="load-pending-btn" class="btn" type="button">Pending only</button>
-                <button id="read-database-btn" class="btn" type="button">READ DATABASE</button>
-              </div>
+      <section id="casino-admin-panel" class="admin-panel panel hidden">
+        <div class="casino-admin-hero">
+          <h2 class="panel-title">Casino admin</h2>
+          <p class="muted-copy">Approved casino admins can view everyone using the casino, audit balances, and add or remove Grev Coins without needing full site-admin rights.</p>
+          <div class="hero-actions"><button id="refresh-balances-btn" class="btn" type="button">Refresh balances</button></div>
+        </div>
+        <div class="admin-layout mt-24">
+          <section class="admin-stack">
+            <div class="balance-summary">
+              <h3 class="panel-title">Balance tab</h3>
+              <p class="muted-copy">Every casino profile and current balance appears below.</p>
+            </div>
+            <div class="table-wrap">
+              <table class="balance-table">
+                <thead><tr><th>User</th><th>Balance</th><th>Status</th><th>Updated</th></tr></thead>
+                <tbody id="casino-balance-table-body"><tr><td colspan="4" class="muted-copy">Loading casino balances...</td></tr></tbody>
+              </table>
             </div>
           </section>
-
-          <section class="panel">
-            <h2 class="panel-title">User list</h2>
-            <p class="panel-subtitle">
-              Click a user to load their account into the editor.
-            </p>
-
-            <div id="user-list" class="user-list">
-              <div class="empty-box">Loading users...</div>
-            </div>
-          </section>
-        </aside>
-
-        <section class="admin-stack">
-          <section class="panel">
-            <h2 class="panel-title">Edit member</h2>
-            <p class="panel-subtitle">
-              Select a user to approve them into member access, make them admin, or assign a role.
-            </p>
-
-            <div id="editor-empty" class="empty-box">
-              No user selected yet.
-            </div>
-
-            <form id="user-editor-form" class="form-grid hidden">
-              <input type="hidden" id="edit-user-id" />
-
-              <div class="detail-grid">
-                <div class="detail-card">
-                  <h3>Username</h3>
-                  <p id="detail-username">-</p>
-                </div>
-
-                <div class="detail-card">
-                  <h3>Current role</h3>
-                  <p id="detail-role">-</p>
-                </div>
-
-                <div class="detail-card">
-                  <h3>Created</h3>
-                  <p id="detail-created">-</p>
-                </div>
-
-                <div class="detail-card">
-                  <h3>Last seen</h3>
-                  <p id="detail-last-seen">-</p>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-group">Assign role</label>
-                <select id="edit-group" class="form-select" required></select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-approved">Approval</label>
-                <select id="edit-approved" class="form-select" required>
-                  <option value="true">Approved</option>
-                  <option value="false">Pending / Unapproved</option>
-                </select>
-                <div class="form-help">
-                  Approving a standard account promotes it to the Member group automatically. Pending accounts stay Standard until approved.
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-is-admin">Admin access</label>
-                <select id="edit-is-admin" class="form-select" required>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
-                <div class="form-help">
-                  Setting this to Yes gives access to the admin panel regardless of their normal role.
-                </div>
-              </div>
-
-	              <div class="form-group">
-	                <label class="form-label" for="edit-gambling-admin">Gambling admin access</label>
-                <select id="edit-gambling-admin" class="form-select" required>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
-                <div class="form-help">
-	                  Lets this user manage CS2 gambling admin tools without giving them full main-site admin access.
-	                </div>
-	              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-real-name">Real name</label>
-                <input id="edit-real-name" class="form-input" type="text" maxlength="80" />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-motto">Motto</label>
-                <input id="edit-motto" class="form-input" type="text" maxlength="140" />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-avatar-url">Avatar URL</label>
-                <input id="edit-avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-bio">Bio</label>
-                <textarea id="edit-bio" class="form-input form-textarea" maxlength="3000" style="min-height:140px;"></textarea>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-media-1">Media 1 URL</label>
-                <input id="edit-media-1" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-media-2">Media 2 URL</label>
-                <input id="edit-media-2" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-media-3">Media 3 URL</label>
-                <input id="edit-media-3" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="edit-music-url">Music URL</label>
-                <input id="edit-music-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
-              </div>
-
-	              <div class="button-row">
-	                <button id="save-user-btn" class="btn btn-primary" type="submit">Save changes</button>
-                  <button id="delete-user-btn" class="btn" type="button">Delete account</button>
-	              </div>
-            </form>
-          </section>
-        </section>
-      </div>
+          <aside class="admin-stack">
+            <section class="balance-summary">
+              <h3 class="panel-title">Selected player</h3>
+              <div id="casino-balance-empty" class="muted-copy">Pick a casino member from the balance tab to adjust their wallet.</div>
+              <form id="casino-balance-form" class="balance-adjust-form hidden">
+                <input type="hidden" id="casino-balance-user-id" />
+                <div><div id="casino-balance-username" class="panel-title">—</div><p id="casino-balance-updated" class="muted-copy">—</p></div>
+                <div><div class="muted-copy">Current balance</div><div id="casino-balance-current" class="balance-value">0.00 GC</div></div>
+                <div class="form-group"><label class="form-label" for="casino-balance-delta">Adjust balance (GC)</label><input id="casino-balance-delta" class="form-input" type="number" step="0.01" placeholder="Use negative values to remove" required /></div>
+                <div class="balance-actions"><button id="casino-balance-save-btn" class="btn btn-primary" type="submit">Apply adjustment</button><button class="btn" type="button" data-quick-delta="50">+50 GC</button><button class="btn" type="button" data-quick-delta="-50">-50 GC</button></div>
+              </form>
+            </section>
+          </aside>
+        </div>
+      </section>
     </main>
-
-    <footer class="footer">
-      <div class="footer-inner">
-        Grev.dad — admin user management
-      </div>
-    </footer>
   </div>
 
   <script>
-    const allowedGroups = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
+    const pageMessage = document.getElementById('page-message');
+    const tabs = Array.from(document.querySelectorAll('[data-tab]'));
+    const memberAdminPanel = document.getElementById('member-admin-panel');
+    const casinoAdminPanel = document.getElementById('casino-admin-panel');
 
+    const userSearch = document.getElementById('user-search');
+    const userSelect = document.getElementById('user-select');
+    const refreshUsersBtn = document.getElementById('refresh-users-btn');
+    const loadPendingBtn = document.getElementById('load-pending-btn');
+    const readDatabaseBtn = document.getElementById('read-database-btn');
+    const userList = document.getElementById('user-list');
+    const editorEmpty = document.getElementById('editor-empty');
+    const userEditorForm = document.getElementById('user-editor-form');
+    const editUserId = document.getElementById('edit-user-id');
+    const detailUsername = document.getElementById('detail-username');
+    const detailRole = document.getElementById('detail-role');
+    const detailCreated = document.getElementById('detail-created');
+    const detailLastSeen = document.getElementById('detail-last-seen');
+    const editGroup = document.getElementById('edit-group');
+    const editApproved = document.getElementById('edit-approved');
+    const editIsAdmin = document.getElementById('edit-is-admin');
+    const editGamblingAdmin = document.getElementById('edit-gambling-admin');
+    const editRealName = document.getElementById('edit-real-name');
+    const editMotto = document.getElementById('edit-motto');
+    const editAvatarUrl = document.getElementById('edit-avatar-url');
+    const editAccentColor = document.getElementById('edit-accent-color');
+    const editBio = document.getElementById('edit-bio');
+    const editMedia1 = document.getElementById('edit-media-1');
+    const editMedia2 = document.getElementById('edit-media-2');
+    const editMedia3 = document.getElementById('edit-media-3');
+    const editMusicUrl = document.getElementById('edit-music-url');
+    const saveUserBtn = document.getElementById('save-user-btn');
+    const deleteUserBtn = document.getElementById('delete-user-btn');
+
+    const balanceBody = document.getElementById('casino-balance-table-body');
+    const refreshBalancesBtn = document.getElementById('refresh-balances-btn');
+    const casinoBalanceEmpty = document.getElementById('casino-balance-empty');
+    const casinoBalanceForm = document.getElementById('casino-balance-form');
+    const casinoBalanceUserId = document.getElementById('casino-balance-user-id');
+    const casinoBalanceUsername = document.getElementById('casino-balance-username');
+    const casinoBalanceUpdated = document.getElementById('casino-balance-updated');
+    const casinoBalanceCurrent = document.getElementById('casino-balance-current');
+    const casinoBalanceDelta = document.getElementById('casino-balance-delta');
+    const casinoBalanceSaveBtn = document.getElementById('casino-balance-save-btn');
+
+    let currentUser = null;
+    let allowedGroups = [];
     let allUsers = [];
+    let casinoBalances = [];
     let selectedUserId = null;
+    let selectedCasinoUserId = null;
 
-    const pageMessage = document.getElementById("page-message");
-    const userSearch = document.getElementById("user-search");
-    const userSelect = document.getElementById("user-select");
-    const refreshUsersBtn = document.getElementById("refresh-users-btn");
-    const loadPendingBtn = document.getElementById("load-pending-btn");
-    const readDatabaseBtn = document.getElementById("read-database-btn");
-    const userList = document.getElementById("user-list");
+    function showMessage(type, text) { pageMessage.className = `alert alert-${type}`; pageMessage.textContent = text; }
+    function clearMessage() { pageMessage.className = 'hidden'; pageMessage.textContent = ''; }
+    function formatDate(value) { if (!value) return '—'; const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    function toTitleCase(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Standard'; }
+    function formatGc(value) { return `${Number(value || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; }
+    function toPence(gcValue) { return Math.round(Number(gcValue || 0) * 100); }
+    function escapeHtml(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
 
-    const editorEmpty = document.getElementById("editor-empty");
-    const userEditorForm = document.getElementById("user-editor-form");
-
-    const editUserId = document.getElementById("edit-user-id");
-    const detailUsername = document.getElementById("detail-username");
-    const detailRole = document.getElementById("detail-role");
-    const detailCreated = document.getElementById("detail-created");
-    const detailLastSeen = document.getElementById("detail-last-seen");
-	    const editGroup = document.getElementById("edit-group");
-	    const editApproved = document.getElementById("edit-approved");
-	    const editIsAdmin = document.getElementById("edit-is-admin");
-	    const editGamblingAdmin = document.getElementById("edit-gambling-admin");
-      const editRealName = document.getElementById("edit-real-name");
-      const editMotto = document.getElementById("edit-motto");
-      const editAvatarUrl = document.getElementById("edit-avatar-url");
-      const editBio = document.getElementById("edit-bio");
-      const editMedia1 = document.getElementById("edit-media-1");
-      const editMedia2 = document.getElementById("edit-media-2");
-      const editMedia3 = document.getElementById("edit-media-3");
-      const editMusicUrl = document.getElementById("edit-music-url");
-	    const saveUserBtn = document.getElementById("save-user-btn");
-    const deleteUserBtn = document.getElementById("delete-user-btn");
-
-    readDatabaseBtn.disabled = true;
-
-    function showMessage(type, text) {
-      pageMessage.className = `alert alert-${type}`;
-      pageMessage.textContent = text;
+    function setActiveTab(tabName) {
+      tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
+      memberAdminPanel.classList.toggle('hidden', tabName !== 'member-admin');
+      casinoAdminPanel.classList.toggle('hidden', tabName !== 'casino-admin');
     }
 
-    function clearMessage() {
-      pageMessage.className = "hidden";
-      pageMessage.textContent = "";
+    async function checkAccess() {
+      const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.authenticated) { window.location.href = '/login.html'; return false; }
+      currentUser = data.user;
+      const canMemberAdmin = Boolean(currentUser?.is_admin);
+      const canCasinoAdmin = Boolean(currentUser?.gambling_admin || currentUser?.is_admin);
+      if (!canMemberAdmin && !canCasinoAdmin) { showMessage('error', 'You do not have access to this admin portal.'); return false; }
+      tabs.find((tab) => tab.dataset.tab === 'member-admin').classList.toggle('hidden', !canMemberAdmin);
+      tabs.find((tab) => tab.dataset.tab === 'casino-admin').classList.toggle('hidden', !canCasinoAdmin);
+      setActiveTab(canMemberAdmin ? 'member-admin' : 'casino-admin');
+      if (!canMemberAdmin) memberAdminPanel.innerHTML = '<div class="muted-copy">Site-wide member management requires full admin access.</div>';
+      return true;
     }
 
-    function formatDate(value) {
-      if (!value) return "—";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return "—";
-
-      return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-    }
-
-    function toTitleCase(value) {
-      if (!value) return "Standard";
-      return value.charAt(0).toUpperCase() + value.slice(1);
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-
-    async function checkAdminAccess() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "same-origin"
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.authenticated) {
-          window.location.href = "/login.html";
-          return false;
-        }
-
-        if (!data.user?.is_admin) {
-          showMessage("error", "You do not have access to the admin panel.");
-          return false;
-        }
-
-        return true;
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not verify admin access.");
-        return false;
-      }
-    }
-
-    function renderGroupOptions() {
-      editGroup.innerHTML = allowedGroups
-        .map((group) => `<option value="${group}">${toTitleCase(group)}</option>`)
-        .join("");
-    }
-
-    function renderUserDropdown(users) {
-      userSelect.innerHTML = `<option value="">Select a user...</option>` + users
-        .map((user) => `<option value="${user.id}">${escapeHtml(user.username)} (${toTitleCase(user.group)})</option>`)
-        .join("");
-    }
-
+    function renderGroupOptions() { editGroup.innerHTML = allowedGroups.map((group) => `<option value="${group}">${toTitleCase(group)}</option>`).join(''); }
+    function renderUserDropdown(users) { userSelect.innerHTML = '<option value="">Select a user...</option>' + users.map((user) => `<option value="${user.id}">${escapeHtml(user.username)} (${escapeHtml(toTitleCase(user.group))})</option>`).join(''); }
     function renderUserList(users) {
-      if (!users.length) {
-        userList.innerHTML = `<div class="empty-box">No users found.</div>`;
-        return;
-      }
-
-      userList.innerHTML = users.map((user) => {
-        const isActive = Number(user.id) === Number(selectedUserId);
-        const statusClass = user.approved ? "status-approved" : "status-pending";
-        const statusText = user.approved ? "Approved" : "Pending";
-
-        return `
-          <button class="user-row ${isActive ? "active" : ""}" type="button" data-user-id="${user.id}">
-            <div class="user-row-main">
-              <span class="user-row-name">${escapeHtml(user.username)}</span>
-              <div class="user-row-badges">
-                <span class="role-badge">${escapeHtml(toTitleCase(user.group))}</span>
-                <span class="status-badge ${statusClass}">${statusText}</span>
-              </div>
-            </div>
-            <div class="user-row-meta">
-              ID: ${user.id} · Admin: ${user.is_admin ? "Yes" : "No"} · Gambling admin: ${user.gambling_admin ? "Yes" : "No"}
+      if (!users.length) { userList.innerHTML = '<div class="muted-copy">No users found.</div>'; return; }
+      userList.innerHTML = users.map((user) => `
+        <div class="list-card ${Number(user.id) === Number(selectedUserId) ? 'active' : ''}">
+          <button type="button" data-user-id="${user.id}">
+            <div class="list-main">
+              <div class="list-title"><strong>${escapeHtml(user.username)}</strong><span class="pill">${escapeHtml(toTitleCase(user.group))}</span></div>
+              <div class="muted-copy">Approved: ${user.approved ? 'Yes' : 'No'} · Admin: ${user.is_admin ? 'Yes' : 'No'} · Casino admin: ${user.gambling_admin ? 'Yes' : 'No'}</div>
             </div>
           </button>
-        `;
-      }).join("");
-
-      userList.querySelectorAll("[data-user-id]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const id = Number(button.getAttribute("data-user-id"));
-          selectUserById(id);
-        });
-      });
+        </div>`).join('');
+      userList.querySelectorAll('[data-user-id]').forEach((button) => button.addEventListener('click', () => selectUserById(Number(button.dataset.userId))));
     }
 
-    async function loadUsers(search = "") {
-      clearMessage();
-
-      try {
-        const response = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}`, {
-          method: "GET",
-          credentials: "same-origin"
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to load users.");
-          return;
-        }
-
-        allUsers = Array.isArray(data.users) ? data.users : [];
-        renderUserDropdown(allUsers);
-        renderUserList(allUsers);
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not load users.");
-      }
+    async function loadUsers(search = '') {
+      const response = await fetch(`/api/admin/users?search=${encodeURIComponent(search)}`, { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load users');
+      allUsers = Array.isArray(data.users) ? data.users : [];
+      allowedGroups = Array.isArray(data.available_groups) ? data.available_groups : [];
+      renderGroupOptions(); renderUserDropdown(allUsers); renderUserList(allUsers);
     }
 
     async function loadPendingUsers() {
-      clearMessage();
-
-      try {
-        const response = await fetch("/api/admin/pending-users", {
-          method: "GET",
-          credentials: "same-origin"
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to load pending users.");
-          return;
-        }
-
-        allUsers = Array.isArray(data.users) ? data.users : [];
-        renderUserDropdown(allUsers);
-        renderUserList(allUsers);
-
-        if (!allUsers.length) {
-          showMessage("info", "There are no pending users right now.");
-        }
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not load pending users.");
-      }
+      const response = await fetch('/api/admin/pending-users', { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load pending users');
+      allUsers = Array.isArray(data.users) ? data.users : [];
+      renderUserDropdown(allUsers); renderUserList(allUsers);
     }
 
     async function selectUserById(userId) {
-      clearMessage();
-
-      try {
-        const response = await fetch(`/api/admin/user?id=${encodeURIComponent(userId)}`, {
-          method: "GET",
-          credentials: "same-origin"
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to load user.");
-          return;
-        }
-
-        const user = data.user;
-        selectedUserId = user.id;
-
-        editUserId.value = user.id;
-        detailUsername.textContent = user.username || "—";
-        detailRole.textContent = toTitleCase(user.group);
-        detailCreated.textContent = formatDate(user.created_at);
-        detailLastSeen.textContent = formatDate(user.last_seen_at);
-
-	        editGroup.value = user.group || "standard";
-	        editApproved.value = String(Boolean(user.approved));
-	        editIsAdmin.value = String(Boolean(user.is_admin));
-	        editGamblingAdmin.value = String(Boolean(user.gambling_admin));
-          editRealName.value = user.real_name || "";
-          editMotto.value = user.motto || "";
-          editAvatarUrl.value = user.avatar_url || "";
-          editBio.value = user.bio || "";
-          editMedia1.value = user.media_1_url || "";
-          editMedia2.value = user.media_2_url || "";
-          editMedia3.value = user.media_3_url || "";
-          editMusicUrl.value = user.music_url || "";
-
-        editorEmpty.classList.add("hidden");
-        userEditorForm.classList.remove("hidden");
-
-        renderUserList(allUsers);
-        userSelect.value = String(user.id);
-        readDatabaseBtn.disabled = false;
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not open that user.");
-      }
+      const response = await fetch(`/api/admin/user?id=${encodeURIComponent(userId)}`, { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load user');
+      const user = data.user;
+      selectedUserId = user.id;
+      editUserId.value = user.id;
+      detailUsername.textContent = user.username || '—';
+      detailRole.textContent = toTitleCase(user.group);
+      detailCreated.textContent = formatDate(user.created_at);
+      detailLastSeen.textContent = formatDate(user.last_seen_at);
+      editGroup.value = user.group || 'member';
+      editApproved.value = String(Boolean(user.approved));
+      editIsAdmin.value = String(Boolean(user.is_admin));
+      editGamblingAdmin.value = String(Boolean(user.gambling_admin));
+      editRealName.value = user.real_name || '';
+      editMotto.value = user.motto || '';
+      editAvatarUrl.value = user.avatar_url || '';
+      editAccentColor.value = user.profile_accent_color || '#1f2937';
+      editBio.value = user.bio || '';
+      editMedia1.value = user.media_1_url || '';
+      editMedia2.value = user.media_2_url || '';
+      editMedia3.value = user.media_3_url || '';
+      editMusicUrl.value = user.music_url || '';
+      editorEmpty.classList.add('hidden');
+      userEditorForm.classList.remove('hidden');
+      readDatabaseBtn.disabled = false;
+      userSelect.value = String(user.id);
+      renderUserList(allUsers);
     }
 
-
     async function readCasinoDatabase() {
-      clearMessage();
-
       const userId = Number(editUserId.value || selectedUserId);
-      if (!userId) {
-        showMessage("error", "Select a user before forcing a casino database read.");
-        return;
-      }
-
-      readDatabaseBtn.disabled = true;
-      readDatabaseBtn.textContent = "Reading...";
-
-      try {
-        const response = await fetch("/api/admin/casino/read-database", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          credentials: "same-origin",
-          body: JSON.stringify({ user_id: userId })
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to read from CASES-DB.");
-          return;
-        }
-
-        showMessage("success", data.message || "Casino wallet refreshed from CASES-DB.");
-        await loadUsers(userSearch.value.trim());
-        await selectUserById(userId);
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not force a CASES-DB read.");
-      } finally {
-        readDatabaseBtn.disabled = false;
-        readDatabaseBtn.textContent = "READ DATABASE";
-      }
+      if (!userId) throw new Error('Select a user before forcing a casino database read.');
+      const response = await fetch('/api/admin/casino/read-database', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify({ user_id:userId }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to read database');
+      await loadUsers(userSearch.value.trim());
+      await selectUserById(userId);
+      showMessage('success', data.message || 'Casino wallet refreshed.');
     }
 
     async function saveUserChanges(event) {
       event.preventDefault();
-      clearMessage();
+      const payload = {
+        user_id: Number(editUserId.value), group_name: editGroup.value, approved: editApproved.value === 'true', is_admin: editIsAdmin.value === 'true', gambling_admin: editGamblingAdmin.value === 'true',
+        real_name: editRealName.value, motto: editMotto.value, avatar_url: editAvatarUrl.value, profile_accent_color: editAccentColor.value,
+        bio: editBio.value, media_1_url: editMedia1.value, media_2_url: editMedia2.value, media_3_url: editMedia3.value, music_url: editMusicUrl.value
+      };
+      const response = await fetch('/api/admin/user/update', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to save user');
+      await loadUsers(userSearch.value.trim());
+      await selectUserById(payload.user_id);
+      showMessage('success', data.message || 'User updated successfully.');
+    }
 
-	      const payload = {
-	        user_id: Number(editUserId.value),
-	        group_name: editGroup.value,
-	        approved: editApproved.value === "true",
-	        is_admin: editIsAdmin.value === "true",
-	        gambling_admin: editGamblingAdmin.value === "true",
-          real_name: editRealName.value,
-          motto: editMotto.value,
-          avatar_url: editAvatarUrl.value,
-          bio: editBio.value,
-          media_1_url: editMedia1.value,
-          media_2_url: editMedia2.value,
-          media_3_url: editMedia3.value,
-          music_url: editMusicUrl.value
-	      };
+    async function deleteUser() {
+      const userId = Number(editUserId.value || selectedUserId);
+      if (!userId || !window.confirm('Delete this user account? This cannot be undone.')) return;
+      const response = await fetch('/api/admin/user/delete', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify({ user_id:userId }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to delete user');
+      userEditorForm.classList.add('hidden'); editorEmpty.classList.remove('hidden'); selectedUserId = null; readDatabaseBtn.disabled = true;
+      await loadUsers(userSearch.value.trim());
+      showMessage('success', data.message || 'User deleted.');
+    }
 
-      saveUserBtn.disabled = true;
-      deleteUserBtn.disabled = true;
-      saveUserBtn.textContent = "Saving...";
+    function renderCasinoBalances() {
+      if (!casinoBalances.length) { balanceBody.innerHTML = '<tr><td colspan="4" class="muted-copy">No casino profiles found.</td></tr>'; return; }
+      balanceBody.innerHTML = casinoBalances.map((row) => `
+        <tr class="${Number(row.user_id) === Number(selectedCasinoUserId) ? 'active' : ''}" data-casino-user-id="${row.user_id}">
+          <td><button type="button">${escapeHtml(row.username)}</button></td>
+          <td>${formatGc(row.balance)}</td>
+          <td>${row.approved ? 'Approved' : 'Pending'}</td>
+          <td>${escapeHtml(formatDate(row.updated_at || row.refreshed_at))}</td>
+        </tr>`).join('');
+      balanceBody.querySelectorAll('[data-casino-user-id]').forEach((row) => row.addEventListener('click', () => selectCasinoUser(Number(row.dataset.casinoUserId))));
+    }
 
+    async function loadCasinoBalances() {
+      const response = await fetch('/api/casino/admin/balances', { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load casino balances');
+      casinoBalances = Array.isArray(data.balances) ? data.balances : [];
+      renderCasinoBalances();
+      if (selectedCasinoUserId) selectCasinoUser(selectedCasinoUserId);
+    }
+
+    function selectCasinoUser(userId) {
+      const user = casinoBalances.find((row) => Number(row.user_id) === Number(userId));
+      if (!user) return;
+      selectedCasinoUserId = user.user_id;
+      casinoBalanceEmpty.classList.add('hidden');
+      casinoBalanceForm.classList.remove('hidden');
+      casinoBalanceUserId.value = String(user.user_id);
+      casinoBalanceUsername.textContent = user.username;
+      casinoBalanceUpdated.textContent = `Last updated: ${formatDate(user.updated_at || user.refreshed_at)}`;
+      casinoBalanceCurrent.textContent = formatGc(user.balance);
+      renderCasinoBalances();
+    }
+
+    async function submitCasinoBalance(event) {
+      event.preventDefault();
+      const userId = Number(casinoBalanceUserId.value);
+      const deltaPence = toPence(casinoBalanceDelta.value);
+      if (!deltaPence) throw new Error('Enter a non-zero casino balance adjustment.');
+      const response = await fetch('/api/casino/admin/balance', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify({ user_id:userId, balance_delta_pence:deltaPence }) });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to update balance');
+      casinoBalanceDelta.value = '';
+      await loadCasinoBalances();
+      selectCasinoUser(userId);
+      showMessage('success', data.message || 'Casino balance updated.');
+    }
+
+    tabs.forEach((tab) => tab.addEventListener('click', () => setActiveTab(tab.dataset.tab)));
+    refreshUsersBtn.addEventListener('click', async () => { try { clearMessage(); await loadUsers(userSearch.value.trim()); } catch (error) { showMessage('error', error.message); } });
+    loadPendingBtn.addEventListener('click', async () => { try { clearMessage(); await loadPendingUsers(); } catch (error) { showMessage('error', error.message); } });
+    readDatabaseBtn.addEventListener('click', async () => { try { clearMessage(); await readCasinoDatabase(); } catch (error) { showMessage('error', error.message); } });
+    userSelect.addEventListener('change', async () => { if (!userSelect.value) return; try { clearMessage(); await selectUserById(Number(userSelect.value)); } catch (error) { showMessage('error', error.message); } });
+    userSearch.addEventListener('input', async () => { try { await loadUsers(userSearch.value.trim()); } catch (error) { showMessage('error', error.message); } });
+    userEditorForm.addEventListener('submit', async (event) => { try { clearMessage(); saveUserBtn.disabled = true; deleteUserBtn.disabled = true; await saveUserChanges(event); } catch (error) { showMessage('error', error.message); } finally { saveUserBtn.disabled = false; deleteUserBtn.disabled = false; } });
+    deleteUserBtn.addEventListener('click', async () => { try { clearMessage(); await deleteUser(); } catch (error) { showMessage('error', error.message); } });
+    refreshBalancesBtn.addEventListener('click', async () => { try { clearMessage(); await loadCasinoBalances(); } catch (error) { showMessage('error', error.message); } });
+    casinoBalanceForm.addEventListener('submit', async (event) => { try { clearMessage(); casinoBalanceSaveBtn.disabled = true; await submitCasinoBalance(event); } catch (error) { showMessage('error', error.message); } finally { casinoBalanceSaveBtn.disabled = false; } });
+    document.querySelectorAll('[data-quick-delta]').forEach((button) => button.addEventListener('click', () => { casinoBalanceDelta.value = button.dataset.quickDelta; }));
+
+    document.addEventListener('DOMContentLoaded', async () => {
       try {
-        const response = await fetch("/api/admin/user/update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          credentials: "same-origin",
-          body: JSON.stringify(payload)
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to save user.");
-          return;
-        }
-
-        showMessage("success", "User updated successfully.");
-        await loadUsers(userSearch.value.trim());
-        await selectUserById(payload.user_id);
+        clearMessage();
+        if (!await checkAccess()) return;
+        if (currentUser?.is_admin) await loadUsers();
+        if (currentUser?.gambling_admin || currentUser?.is_admin) await loadCasinoBalances();
       } catch (error) {
         console.error(error);
-        showMessage("error", "Could not save changes.");
-      } finally {
-        saveUserBtn.disabled = false;
-        deleteUserBtn.disabled = false;
-        saveUserBtn.textContent = "Save changes";
-      }
-    }
-
-    async function deleteSelectedUser() {
-      clearMessage();
-
-      const userId = Number(editUserId.value);
-      const username = detailUsername.textContent || "this account";
-      if (!userId) {
-        showMessage("error", "Pick a user before deleting an account.");
-        return;
-      }
-
-      const confirmed = window.confirm(`Delete ${username}? This cannot be undone.`);
-      if (!confirmed) return;
-
-      deleteUserBtn.disabled = true;
-      saveUserBtn.disabled = true;
-      deleteUserBtn.textContent = "Deleting...";
-
-      try {
-        const response = await fetch("/api/admin/user/delete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          credentials: "same-origin",
-          body: JSON.stringify({ user_id: userId })
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data?.success) {
-          showMessage("error", data?.error || "Failed to delete user.");
-          return;
-        }
-
-        showMessage("success", data.message || "Account deleted.");
-        selectedUserId = null;
-        userEditorForm.classList.add("hidden");
-        editorEmpty.classList.remove("hidden");
-        userSelect.value = "";
-        readDatabaseBtn.disabled = true;
-        await loadUsers(userSearch.value.trim());
-      } catch (error) {
-        console.error(error);
-        showMessage("error", "Could not delete that account.");
-      } finally {
-        deleteUserBtn.disabled = false;
-        saveUserBtn.disabled = false;
-        deleteUserBtn.textContent = "Delete account";
-      }
-    }
-
-    userSearch.addEventListener("input", () => {
-      loadUsers(userSearch.value.trim());
-    });
-
-    userSelect.addEventListener("change", () => {
-      const id = Number(userSelect.value);
-      if (id > 0) {
-        selectUserById(id);
+        showMessage('error', error.message || 'Could not load admin portal.');
       }
     });
-
-    refreshUsersBtn.addEventListener("click", () => {
-      loadUsers(userSearch.value.trim());
-    });
-
-    loadPendingBtn.addEventListener("click", () => {
-      loadPendingUsers();
-    });
-
-    readDatabaseBtn.addEventListener("click", readCasinoDatabase);
-
-    userEditorForm.addEventListener("submit", saveUserChanges);
-    deleteUserBtn.addEventListener("click", deleteSelectedUser);
-
-    async function initPage() {
-      renderGroupOptions();
-
-      const isAdmin = await checkAdminAccess();
-      if (!isAdmin) return;
-
-      await loadUsers("");
-    }
-
-    document.addEventListener("DOMContentLoaded", initPage);
   </script>
 </body>
 </html>

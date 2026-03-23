@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit Profile | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <p class="gambling-breadcrumb"><a href="/profile.html">← Back to profile</a></p>
+      <section class="panel">
+        <h1 class="auth-title">Edit your profile</h1>
+        <p class="auth-subtitle">Update your profile details, media, music, and personal background colour.</p>
+        <div id="profile-message" class="hidden"></div>
+        <form id="profile-form" class="form-grid mt-24">
+          <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+            <div class="form-group"><label class="form-label" for="real-name">Real name</label><input id="real-name" class="form-input" type="text" maxlength="80" /></div>
+            <div class="form-group"><label class="form-label" for="motto">Motto</label><input id="motto" class="form-input" type="text" maxlength="140" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-url">Avatar image URL</label><input id="avatar-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color">Profile background colour</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
+          </div>
+          <div class="form-group"><label class="form-label" for="bio">Bio</label><textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height:160px;"></textarea></div>
+          <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+            <div class="form-group"><label class="form-label" for="media-1-url">Media 1 URL</label><input id="media-1-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="media-2-url">Media 2 URL</label><input id="media-2-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="media-3-url">Media 3 URL</label><input id="media-3-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="music-url">Music link</label><input id="music-url" class="form-input" type="url" maxlength="1200" /></div>
+          </div>
+          <div class="button-row"><button id="save-profile-btn" class="btn btn-primary" type="submit">Save profile</button><a class="btn" href="/profile.html">Cancel</a></div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script>
+    const messageEl = document.getElementById('profile-message');
+    const form = document.getElementById('profile-form');
+    const saveBtn = document.getElementById('save-profile-btn');
+    const fields = {
+      real_name: document.getElementById('real-name'), motto: document.getElementById('motto'), avatar_url: document.getElementById('avatar-url'), profile_accent_color: document.getElementById('profile-accent-color'), bio: document.getElementById('bio'), media_1_url: document.getElementById('media-1-url'), media_2_url: document.getElementById('media-2-url'), media_3_url: document.getElementById('media-3-url'), music_url: document.getElementById('music-url')
+    };
+    function showMessage(type, text) { messageEl.className = `alert alert-${type}`; messageEl.textContent = text; }
+    async function loadProfile() {
+      const response = await fetch('/api/profile/me', { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) { if (response.status === 401) window.location.href = '/login.html'; throw new Error(data?.error || 'Failed to load profile'); }
+      Object.entries(fields).forEach(([key, input]) => { input.value = data.profile?.[key] || (key === 'profile_accent_color' ? '#1f2937' : ''); });
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        saveBtn.disabled = true;
+        const payload = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
+        const response = await fetch('/api/profile/update', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(payload) });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to save profile');
+        showMessage('success', 'Profile updated. Redirecting…');
+        setTimeout(() => { window.location.href = '/profile.html'; }, 500);
+      } catch (error) { showMessage('error', error.message || 'Could not save profile.'); } finally { saveBtn.disabled = false; }
+    });
+    document.addEventListener('DOMContentLoaded', async () => { try { await loadProfile(); } catch (error) { showMessage('error', error.message || 'Could not load edit form.'); } });
+  </script>
+</body>
+</html>

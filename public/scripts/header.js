@@ -235,9 +235,9 @@ function applyHeaderAuthState(user) {
     item.classList.toggle("hidden", !!user);
   });
 
-  const isAdmin = Boolean(user?.is_admin);
+  const canAccessAdminPortal = Boolean(user?.is_admin || user?.gambling_admin);
   adminOnlyItems.forEach((item) => {
-    item.classList.toggle("hidden", !isAdmin);
+    item.classList.toggle("hidden", !canAccessAdminPortal);
   });
 }
 
