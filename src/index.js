@@ -49,6 +49,10 @@ async function handleRequest(request, env, ctx) {
     return handleOptions(request);
   }
 
+  if (isCasesDbFeaturePath(pathname)) {
+    return casesDbDisconnectedResponse(request);
+  }
+
   if (pathname === "/api/health" && request.method === "GET") {
     return json(
       {
@@ -327,13 +331,12 @@ async function handleRequest(request, env, ctx) {
 
 async function handleSetup(env, request) {
   await ensureCoreTables(env);
-  const cs2Seed = await ensureCasesCatalogReady(env);
 
   return json(
     {
       success: true,
-      message: "Core database tables and gambling tables applied",
-      cs2_seed: cs2Seed
+      message: "Core database tables applied; cases-db integrations remain disconnected",
+      cs2_seed: { seeded: false, reason: "cases_db_disconnected" }
     },
     200,
     request
@@ -341,6 +344,10 @@ async function handleSetup(env, request) {
 }
 
 async function ensureCs2CatalogReady(env) {
+  if (!getCasesDb(env)) {
+    return { seeded: false, reason: "cases_db_disconnected" };
+  }
+
   await ensureCasesTables(env);
   await ensureCs2Extensions(getCasesDb(env));
   return await seedCs2CatalogIfEmpty(env);
@@ -366,6 +373,30 @@ async function ensureBlackjackReady(env) {
 
 async function ensureCasesCatalogReady(env) {
   return await ensureCs2CatalogReady(env);
+}
+
+function isCasesDbFeaturePath(pathname) {
+  return pathname === "/api/gambling/profile"
+    || pathname === "/api/gambling/event"
+    || pathname.startsWith("/api/gambling/admin/")
+    || pathname === "/api/cases"
+    || pathname === "/api/cases/catalog"
+    || pathname.startsWith("/api/admin/cases")
+    || pathname.startsWith("/api/cs2")
+    || pathname.startsWith("/api/ygo")
+    || pathname.startsWith("/api/blackjack")
+    || pathname.startsWith("/api/casino");
+}
+
+function casesDbDisconnectedResponse(request) {
+  return json(
+    {
+      success: false,
+      error: "cases-db integrations have been disconnected"
+    },
+    503,
+    request
+  );
 }
 
 async function ensureCoreTables(env) {
