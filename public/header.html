@@ -11,17 +11,6 @@
     </a>
 
     <nav class="nav" id="site-nav">
-      <button
-        class="btn playground-launcher hidden"
-        id="playground-nav-toggle"
-        type="button"
-        aria-label="Open playground navigation"
-        aria-controls="playground-side-nav"
-        aria-expanded="false"
-      >
-        <span aria-hidden="true">🎮</span>
-        <span>Playgrounds</span>
-      </button>
       <a class="nav-link" href="/gambling/index.html" title="Grev Coins hub — CS CASES, blackjack, packs, and more">Casino</a>
       <a class="nav-link" href="/login.html" data-guest-only>Login</a>
       <a class="nav-link" href="/register.html" data-guest-only>Register</a>
@@ -46,34 +35,41 @@
   aria-hidden="true"
   data-state="closed"
   data-collapsed="false"
+  data-pinned="false"
 >
-  <div class="playground-side-nav__header">
-    <div>
-      <p class="playground-side-nav__eyebrow">Quick jump</p>
-      <h2 class="playground-side-nav__title">Playgrounds</h2>
+  <button
+    class="playground-side-nav__edge-toggle"
+    id="playground-side-nav-expand"
+    type="button"
+    aria-label="Expand playground navigation"
+    aria-controls="playground-side-nav"
+    aria-expanded="false"
+  >⇥</button>
+  <div class="playground-side-nav__panel">
+    <div class="playground-side-nav__header">
+      <div>
+        <p class="playground-side-nav__eyebrow">Quick jump</p>
+        <h2 class="playground-side-nav__title">Playgrounds</h2>
+      </div>
+      <div class="playground-side-nav__actions">
+        <button class="playground-side-nav__icon-btn" id="playground-side-nav-pin" type="button" aria-label="Pin playground navigation" aria-pressed="false">📍</button>
+        <button class="playground-side-nav__icon-btn" id="playground-side-nav-collapse" type="button" aria-label="Minimize playground navigation">⇤</button>
+        <button class="playground-side-nav__icon-btn" id="playground-side-nav-close" type="button" aria-label="Close playground navigation">✕</button>
+      </div>
     </div>
-    <div class="playground-side-nav__actions">
-      <button class="playground-side-nav__icon-btn" id="playground-side-nav-collapse" type="button" aria-label="Minimize playground navigation">⇤</button>
-      <button class="playground-side-nav__icon-btn" id="playground-side-nav-close" type="button" aria-label="Close playground navigation">✕</button>
-    </div>
+    <nav class="playground-side-nav__list" aria-label="Playground links">
+      <a class="playground-side-nav__link" href="/gambling/index.html">
+        <span class="playground-side-nav__emoji" aria-hidden="true">🎰</span>
+        <span class="playground-side-nav__text">Casino</span>
+      </a>
+      <a class="playground-side-nav__link" href="/j-playground/index.html">
+        <span class="playground-side-nav__emoji" aria-hidden="true">🧪</span>
+        <span class="playground-side-nav__text">J Playground</span>
+      </a>
+      <a class="playground-side-nav__link" href="/dkpg/index.html">
+        <span class="playground-side-nav__emoji" aria-hidden="true">🛝</span>
+        <span class="playground-side-nav__text">DKPG</span>
+      </a>
+    </nav>
   </div>
-  <nav class="playground-side-nav__list" aria-label="Playground links">
-    <a class="playground-side-nav__link" href="/gambling/cs-cases/index.html">
-      <span class="playground-side-nav__emoji" aria-hidden="true">🎯</span>
-      <span class="playground-side-nav__text">CS CASES</span>
-    </a>
-    <a class="playground-side-nav__link" href="/gambling/blackjack/index.html">
-      <span class="playground-side-nav__emoji" aria-hidden="true">🃏</span>
-      <span class="playground-side-nav__text">Blackjack</span>
-    </a>
-    <a class="playground-side-nav__link" href="/gambling/casino/index.html">
-      <span class="playground-side-nav__emoji" aria-hidden="true">🎰</span>
-      <span class="playground-side-nav__text">Casino game hub</span>
-    </a>
-    <a class="playground-side-nav__link" href="/gambling/yugioh/index.html">
-      <span class="playground-side-nav__emoji" aria-hidden="true">🐉</span>
-      <span class="playground-side-nav__text">Yu-Gi-Oh packs</span>
-    </a>
-  </nav>
 </aside>
-<div class="playground-side-nav__backdrop hidden" id="playground-side-nav-backdrop" aria-hidden="true"></div>
