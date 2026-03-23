@@ -99,24 +99,6 @@
       font-size: 0.84rem;
     }
 
-    .status-online {
-      color: #dbffe8;
-      background: rgba(74, 222, 128, 0.12);
-      border-color: rgba(74, 222, 128, 0.24);
-    }
-
-    .status-away {
-      color: #fff1c7;
-      background: rgba(251, 191, 36, 0.12);
-      border-color: rgba(251, 191, 36, 0.24);
-    }
-
-    .status-offline {
-      color: #d7dde7;
-      background: rgba(148, 163, 184, 0.10);
-      border-color: rgba(148, 163, 184, 0.18);
-    }
-
     .member-motto {
       color: var(--muted);
       font-size: 0.93rem;
@@ -254,7 +236,7 @@
           <div>
             <h1 class="auth-title">Members</h1>
             <p class="auth-subtitle">
-              Browse everyone on Grev.dad, see their status, role, profile details, and later their cases progression too.
+              Browse everyone on Grev.dad, see their role, profile details, and cases progression.
             </p>
           </div>
 
@@ -356,37 +338,6 @@
       });
     }
 
-    function getStatus(lastSeenAt) {
-      if (!lastSeenAt) {
-        return { key: "offline", label: "Offline" };
-      }
-
-      const diffMs = Date.now() - new Date(lastSeenAt).getTime();
-      if (Number.isNaN(diffMs)) {
-        return { key: "offline", label: "Offline" };
-      }
-
-      const diffMinutes = diffMs / 60000;
-
-      if (diffMinutes <= 5) {
-        return { key: "online", label: "Online" };
-      }
-
-      if (diffMinutes <= 45) {
-        return { key: "away", label: "Away" };
-      }
-
-      return { key: "offline", label: "Offline" };
-    }
-
-    function activityMarkup(activity) {
-      if (!activity) return 'Not currently sharing a live area.';
-      const action = activity.room_id && activity.area === 'Gambling - Blackjack'
-        ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><a class="btn" href="/gambling/blackjack/index.html?room_id=${encodeURIComponent(activity.room_id)}">Join table</a><a class="btn" href="/gambling/blackjack/index.html?room_id=${encodeURIComponent(activity.room_id)}">Spectate</a></div>`
-        : '';
-      return `${escapeHtml(activity.area || 'Browsing')} — ${escapeHtml(activity.detail || 'around the site')}${action}`;
-    }
-
     function moneyFormat(value) {
       if (value === null || value === undefined || value === "") {
         return "—";
@@ -439,7 +390,6 @@
       }
 
       membersGrid.innerHTML = members.map((member) => {
-        const status = getStatus(member.last_seen_at);
         const firstLetter = (member.username || "U").charAt(0).toUpperCase();
 
         return `
@@ -457,7 +407,6 @@
 
                 <div class="member-badges">
                   <span class="member-badge">${escapeHtml(toTitleCase(member.group || "standard"))}</span>
-                  <span class="member-badge status-${status.key}">${escapeHtml(status.label)}</span>
                 </div>
 
                 <div class="member-motto">
@@ -504,10 +453,6 @@
                   </span>
                 </div>
 
-                <div class="member-stat" style="grid-column: 1 / -1;">
-                  <span class="member-stat-label">Current Area</span>
-                  <span class="member-stat-value">${activityMarkup(member.current_activity)}</span>
-                </div>
               </div>
 
               <div class="member-actions">
