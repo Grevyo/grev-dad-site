@@ -3,64 +3,109 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Casino reset | Grev.dad</title>
+  <title>Casino | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
   <style>
-    .reset-shell {
-      display: grid;
-      gap: 20px;
-    }
-    .reset-hero {
+    .casino-shell { display: grid; gap: 20px; }
+    .casino-hero {
       padding: 32px 28px;
       border-radius: var(--radius-lg);
-      background:
-        radial-gradient(circle at top left, rgba(235, 75, 75, 0.18), transparent 30%),
-        linear-gradient(135deg, color-mix(in srgb, #eb4b4b 10%, var(--bg-elevated)), color-mix(in srgb, var(--bg-soft) 78%, transparent));
       border: 1px solid var(--border);
+      background:
+        radial-gradient(circle at top left, rgba(248, 196, 68, 0.2), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(104, 193, 255, 0.14), transparent 26%),
+        linear-gradient(135deg, color-mix(in srgb, #1f7a4c 22%, var(--bg-elevated)), color-mix(in srgb, var(--bg-soft) 80%, transparent));
     }
-    .reset-hero h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3rem); }
-    .reset-hero p, .reset-list li { color: var(--muted); line-height: 1.7; }
     .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      min-height: 32px;
-      padding: 0 12px;
-      border-radius: 999px;
-      background: rgba(235, 75, 75, 0.14);
-      border: 1px solid rgba(235, 75, 75, 0.2);
-      font-size: 0.84rem;
-      font-weight: 700;
-      margin-bottom: 16px;
+      display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px;
+      border-radius: 999px; font-size: 0.84rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      background: rgba(248, 196, 68, 0.14); border: 1px solid rgba(248, 196, 68, 0.24); margin-bottom: 16px;
     }
-    .reset-list { margin: 0; padding-left: 20px; }
+    .casino-hero h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3rem); }
+    .casino-hero p, .feature-list li, .info-copy { color: var(--muted); line-height: 1.7; }
+    .hero-actions, .info-grid { display: grid; gap: 16px; }
+    .hero-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 24px; }
+    .stat-card { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
+    .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+    .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
+    .feature-list { margin: 0; padding-left: 20px; }
   </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
-    <main class="page-main reset-shell">
-      <section class="panel reset-hero">
-        <span class="eyebrow">Reset in progress</span>
-        <h1>Gambling playground cleared out</h1>
+    <main class="page-main casino-shell">
+      <section class="panel casino-hero">
+        <span class="eyebrow">🎰 Casino</span>
+        <h1>Welcome to Grev.dad Casino</h1>
         <p>
-          The previous gambling playground has been removed so this area can be rebuilt from scratch.
-          Old game pages, admin pages, and related API routes have been intentionally turned off.
+          Take a spin through the Grev.dad Casino, where free daily wheel rewards, table games with your mates,
+          classic slots, and future drops like Yu-Gi-Oh packs and Counter-Strike cases all live under one roof.
+          Have a poke around, stack some Grev Coin, and see what chaos is waiting for you.
         </p>
+        <div class="hero-actions">
+          <div class="stat-card">
+            <p class="stat-label">Starting balance</p>
+            <p id="starting-balance" class="stat-value">500.00 GC</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Your balance</p>
+            <p id="player-balance" class="stat-value">Sign in to view</p>
+          </div>
+        </div>
       </section>
-      <section class="panel">
-        <h2 class="panel-title">What changed</h2>
-        <ul class="reset-list">
-          <li>The old CS2, blackjack, casino, and Yu-Gi-Oh pages were removed.</li>
-          <li>The gambling admin pages were removed.</li>
-          <li>The old gambling API endpoints now return a reset message instead of partially working responses.</li>
-        </ul>
-      </section>
-      <section class="panel">
-        <h2 class="panel-title">Next step</h2>
-        <p class="panel-subtitle">This page is now a clean starting point for a new gambling playground implementation.</p>
+
+      <section class="panel info-grid">
+        <div>
+          <h2 class="panel-title">Grev Coin</h2>
+          <p class="info-copy">
+            Grev Coin is the shared currency for the entire casino. Every account begins with <strong>500.00 GC</strong>,
+            and that balance is intended to power every game we add from here on out.
+          </p>
+        </div>
+        <div>
+          <h2 class="panel-title">What’s first</h2>
+          <ul class="feature-list">
+            <li>A single Grev Coin wallet shared across the whole casino.</li>
+            <li>Cached casino profile data so page refreshes do not hammer D1 every time.</li>
+            <li>A clean foundation for daily wheel rewards, blackjack, poker, slots, and future pack/case drops.</li>
+          </ul>
+        </div>
       </section>
     </main>
   </div>
+
+  <script>
+    const balanceEl = document.getElementById("player-balance");
+    const startingBalanceEl = document.getElementById("starting-balance");
+
+    function formatGc(value) {
+      const amount = Number(value || 0);
+      return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
+    async function loadCasinoProfile() {
+      const user = await window.fetchCurrentUser({ preferCache: true });
+      if (!user) {
+        balanceEl.textContent = "Sign in to view";
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/casino/profile", { credentials: "same-origin" });
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load casino profile");
+
+        startingBalanceEl.textContent = formatGc(data?.casino?.starting_balance || 500);
+        balanceEl.textContent = formatGc(data?.profile?.grev_coin_balance || 0);
+      } catch (error) {
+        console.error(error);
+        balanceEl.textContent = "Could not load";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadCasinoProfile);
+  </script>
 </body>
 </html>

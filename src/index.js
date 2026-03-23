@@ -2,7 +2,6 @@
 
 import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
-import { getCasesDb } from "./lib/cases-binding.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -27,6 +26,7 @@ const SESSION_DAYS = 30;
 const DEFAULT_USER_GROUP = "standard";
 const GLOBAL_CHAT_MESSAGE_LIMIT = 100;
 const FORUM_POST_LIMIT = 100;
+const CASINO_PROFILE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const ALLOWED_GROUPS = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
 const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
 let coreTablesReadyPromise = null;
@@ -37,6 +37,10 @@ async function handleRequest(request, env, ctx) {
 
   if (request.method === "OPTIONS") {
     return handleOptions(request);
+  }
+
+  if (pathname === "/api/casino/profile" && request.method === "GET") {
+    return await handleCasinoProfile(request, env);
   }
 
   if (isRetiredGamblingPath(pathname)) {
@@ -295,6 +299,23 @@ async function ensureCoreTablesOnce(env) {
   await env.DB.prepare(`INSERT OR IGNORE INTO gambling_settings (key, value, updated_at) VALUES ('starting_balance_pence', ?, ?)` ).bind(String(STARTING_BALANCE_PENCE), new Date().toISOString()).run();
 
   await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS casino_profiles (
+      user_id INTEGER PRIMARY KEY,
+      display_name TEXT,
+      grev_coin_balance INTEGER NOT NULL DEFAULT 50000,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      refreshed_at TEXT NOT NULL
+    )
+  `).run();
+
+  await ensureColumn(env.DB, "casino_profiles", "display_name", "TEXT");
+  await ensureColumn(env.DB, "casino_profiles", "grev_coin_balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
+  await ensureColumn(env.DB, "casino_profiles", "created_at", "TEXT");
+  await ensureColumn(env.DB, "casino_profiles", "updated_at", "TEXT");
+  await ensureColumn(env.DB, "casino_profiles", "refreshed_at", "TEXT");
+
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_token TEXT NOT NULL UNIQUE,
@@ -411,102 +432,6 @@ async function ensureCoreTablesOnce(env) {
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_forum_reactions_post_user ON forum_reactions (post_id, user_id)`).run();
 }
 
-async function ensureCasesTables(env) {
-  if (!getCasesDb(env)) {
-    return;
-  }
-
-  await getCasesDb(env).prepare(`
-    CREATE TABLE IF NOT EXISTS case_profiles (
-      user_id INTEGER PRIMARY KEY,
-      display_name TEXT,
-      balance INTEGER NOT NULL DEFAULT 500000,
-      total_cases_opened INTEGER NOT NULL DEFAULT 0,
-      total_spent INTEGER NOT NULL DEFAULT 0,
-      total_inventory_value INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `).run();
-
-  await ensureColumn(getCasesDb(env), "case_profiles", "display_name", "TEXT");
-  await ensureColumn(getCasesDb(env), "case_profiles", "balance", `INTEGER NOT NULL DEFAULT ${STARTING_BALANCE_PENCE}`);
-  await ensureColumn(getCasesDb(env), "case_profiles", "total_cases_opened", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn(getCasesDb(env), "case_profiles", "total_spent", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn(getCasesDb(env), "case_profiles", "total_inventory_value", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn(getCasesDb(env), "case_profiles", "created_at", "TEXT");
-  await ensureColumn(getCasesDb(env), "case_profiles", "updated_at", "TEXT");
-
-  await getCasesDb(env).prepare(`
-    CREATE TABLE IF NOT EXISTS case_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      item_name TEXT NOT NULL,
-      weapon_name TEXT,
-      skin_name TEXT,
-      rarity TEXT NOT NULL,
-      wear TEXT,
-      image_url TEXT,
-      market_value INTEGER NOT NULL DEFAULT 0,
-      color_hex TEXT,
-      created_at TEXT NOT NULL
-    )
-  `).run();
-
-  await getCasesDb(env).prepare(`
-    CREATE TABLE IF NOT EXISTS case_definitions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      case_name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      image_url TEXT,
-      price INTEGER NOT NULL DEFAULT 100,
-      description TEXT,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL
-    )
-  `).run();
-
-  await getCasesDb(env).prepare(`
-    CREATE TABLE IF NOT EXISTS case_drops (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      case_id INTEGER NOT NULL,
-      item_id INTEGER NOT NULL,
-      drop_weight INTEGER NOT NULL DEFAULT 1
-    )
-  `).run();
-
-  await getCasesDb(env).prepare(`
-    CREATE TABLE IF NOT EXISTS inventory (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      item_id INTEGER NOT NULL,
-      source_case_id INTEGER,
-      acquired_at TEXT NOT NULL,
-      locked INTEGER NOT NULL DEFAULT 0
-    )
-  `).run();
-
-  await getCasesDb(env).prepare(`
-    CREATE TABLE IF NOT EXISTS case_open_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      case_id INTEGER NOT NULL,
-      item_id INTEGER NOT NULL,
-      price_paid INTEGER NOT NULL,
-      opened_at TEXT NOT NULL
-    )
-  `).run();
-
-  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_case_profiles_user_id ON case_profiles (user_id)`).run();
-  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory (user_id)`).run();
-  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_inventory_item_id ON inventory (item_id)`).run();
-  await getCasesDb(env).prepare(`CREATE INDEX IF NOT EXISTS idx_case_open_history_user_id ON case_open_history (user_id)`).run();
-  await getCasesDb(env).prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_case_definitions_slug ON case_definitions (slug)`).run();
-
-  await getCasesDb(env).prepare(`CREATE TABLE IF NOT EXISTS gambling_event_config (id INTEGER PRIMARY KEY CHECK (id = 1), title TEXT, message TEXT, is_active INTEGER NOT NULL DEFAULT 0, cs2_discount_percent INTEGER NOT NULL DEFAULT 0, ygo_discount_percent INTEGER NOT NULL DEFAULT 0, blackjack_bonus_percent INTEGER NOT NULL DEFAULT 0, updated_at TEXT)`).run();
-  await getCasesDb(env).prepare(`INSERT OR IGNORE INTO gambling_event_config (id, title, message, is_active, cs2_discount_percent, ygo_discount_percent, blackjack_bonus_percent, updated_at) VALUES (1, '', '', 0, 0, 0, 0, '')`).run();
-
-}
-
 async function ensureColumn(db, tableName, columnName, columnDefinition) {
   const result = await db.prepare(`PRAGMA table_info(${tableName})`).all();
   const cols = result.results || [];
@@ -515,6 +440,87 @@ async function ensureColumn(db, tableName, columnName, columnDefinition) {
   if (!exists) {
     await db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`).run();
   }
+}
+
+function toCoinAmount(pence) {
+  const value = Number(pence || 0);
+  return Number.isFinite(value) ? value / 100 : 0;
+}
+
+function formatCasinoProfile(row, fallbackUsername = "") {
+  return {
+    user_id: Number(row.user_id),
+    display_name: row.display_name || fallbackUsername || "Player",
+    grev_coin_balance_pence: Number(row.grev_coin_balance || 0),
+    grev_coin_balance: toCoinAmount(row.grev_coin_balance || 0),
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+    refreshed_at: row.refreshed_at || null,
+    cache_ttl_ms: CASINO_PROFILE_CACHE_TTL_MS
+  };
+}
+
+async function ensureCasinoProfile(env, userId, username) {
+  await ensureCoreTables(env);
+  const now = isoNow();
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO casino_profiles (
+      user_id,
+      display_name,
+      grev_coin_balance,
+      created_at,
+      updated_at,
+      refreshed_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(userId, username, await getStartingBalancePence(env), now, now, now).run();
+
+  let profile = await env.DB.prepare(`
+    SELECT user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at
+    FROM casino_profiles
+    WHERE user_id = ?
+    LIMIT 1
+  `).bind(userId).first();
+
+  const refreshedAtMs = profile?.refreshed_at ? Date.parse(profile.refreshed_at) : NaN;
+  if (!Number.isFinite(refreshedAtMs) || (Date.now() - refreshedAtMs) >= CASINO_PROFILE_CACHE_TTL_MS) {
+    const refreshedAt = isoNow();
+    await env.DB.prepare(`
+      UPDATE casino_profiles
+      SET display_name = ?, refreshed_at = ?
+      WHERE user_id = ?
+    `).bind(username, refreshedAt, userId).run();
+
+    profile = await env.DB.prepare(`
+      SELECT user_id, display_name, grev_coin_balance, created_at, updated_at, refreshed_at
+      FROM casino_profiles
+      WHERE user_id = ?
+      LIMIT 1
+    `).bind(userId).first();
+  }
+
+  return profile;
+}
+
+async function handleCasinoProfile(request, env) {
+  const session = await getSessionUser(request, env);
+  if (!session) {
+    return json({ success: false, error: "Not authenticated" }, 401, request);
+  }
+
+  const profile = await ensureCasinoProfile(env, session.id, session.username);
+
+  return json({
+    success: true,
+    casino: {
+      title: "Welcome to Grev.dad Casino",
+      description: "Spin the free daily wheel, jump into blackjack or poker with your mates, chase classic slots, and keep an eye out for future Yu-Gi-Oh packs and Counter-Strike cases.",
+      currency_name: "Grev Coin",
+      currency_code: "GC",
+      starting_balance: toCoinAmount(await getStartingBalancePence(env))
+    },
+    profile: formatCasinoProfile(profile, session.username)
+  }, 200, request);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -964,26 +970,6 @@ async function handleMembers(request, env) {
   for (const row of rows.results || []) {
     const group = resolveUserGroupName(row.group_name, Boolean(row.approved), Boolean(row.is_admin));
 
-    let caseSummary = {
-      case_money: 0,
-      case_rarest_item_name: "",
-      case_rarest_score: 0,
-      case_most_expensive_item_name: "",
-      case_inventory_value: 0
-    };
-
-    if (getCasesDb(env)) {
-      const profile = await getCasesDb(env).prepare(`
-        SELECT balance, total_inventory_value
-        FROM case_profiles
-        WHERE user_id = ?
-        LIMIT 1
-      `).bind(row.id).first();
-
-      caseSummary.case_money = Number(profile?.balance || 0);
-      caseSummary.case_inventory_value = Number(profile?.total_inventory_value || 0);
-    }
-
     members.push({
       id: row.id,
       username: row.username,
@@ -995,8 +981,7 @@ async function handleMembers(request, env) {
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
       motto: row.motto || "",
-      current_activity: null,
-      ...caseSummary
+      current_activity: null
     });
   }
 
@@ -1449,136 +1434,36 @@ async function handleForumRemovePost(request, env) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              GAMBLING / CASES                              */
+/*                                   ADMIN                                    */
 /* -------------------------------------------------------------------------- */
 
-async function handleGamblingProfile(request, env) {
-  await ensureCoreTables(env);
-  await ensureCasesCatalogReady(env);
-
-  if (!getCasesDb(env)) {
-    return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
-  }
-
-  const session = await getSessionUser(request, env);
-  if (!session) {
-    return json({ success: false, error: "Not authenticated" }, 401, request);
-  }
-
-  const now = isoNow();
-
-  await getCasesDb(env).prepare(`
-    INSERT OR IGNORE INTO case_profiles (
-      user_id,
-      display_name,
-      balance,
-      total_cases_opened,
-      total_spent,
-      total_inventory_value,
-      created_at,
-      updated_at
-    )
-    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-  `).bind(session.id, session.username, await getStartingBalancePence(env), now, now).run();
-
-  const row = await getCasesDb(env).prepare(`
-    SELECT
-      user_id,
-      display_name,
-      balance,
-      key_balance,
-      total_cases_opened,
-      total_spent,
-      total_inventory_value,
-      created_at,
-      updated_at
-    FROM case_profiles
-    WHERE user_id = ?
-    LIMIT 1
-  `).bind(session.id).first();
-
-  const quickSellFee = await getQuickSellFeePercent(env);
-
-  return json({
-    success: true,
-    profile: {
-      user_id: row.user_id,
-      username: session.username,
-      display_name: row.display_name || session.username,
-      balance: Number(row.balance || 0),
-      key_balance: Number(row.key_balance ?? 0),
-      total_cases_opened: Number(row.total_cases_opened || 0),
-      total_spent: Number(row.total_spent || 0),
-      total_inventory_value: Number(row.total_inventory_value || 0),
-      quick_sell_fee_percent: quickSellFee,
-      created_at: row.created_at || now,
-      updated_at: row.updated_at || now
-    }
-  }, 200, request);
-}
-
-
-async function attachCaseAdminStats(env, users) {
+async function attachCasinoAdminStats(env, users) {
   const list = Array.isArray(users) ? users : [];
-  if (!getCasesDb(env) || !list.length) return list;
+  if (!list.length) return list;
 
   const ids = [...new Set(list.map((user) => Number(user.id)).filter((id) => Number.isInteger(id) && id > 0))];
   if (!ids.length) return list;
 
   const placeholders = ids.map(() => "?").join(",");
-  const rows = await getCasesDb(env).prepare(`
-    SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
-    FROM case_profiles
+  const rows = await env.DB.prepare(`
+    SELECT user_id, grev_coin_balance, refreshed_at
+    FROM casino_profiles
     WHERE user_id IN (${placeholders})
   `).bind(...ids).all();
 
-  const statsByUserId = new Map();
-  for (const row of rows.results || []) {
-    statsByUserId.set(Number(row.user_id), {
-      case_balance: Number(row.balance || 0),
-      key_balance: Number(row.key_balance || 0),
-      total_cases_opened: Number(row.total_cases_opened || 0),
-      case_inventory_value: Number(row.total_inventory_value || 0)
-    });
-  }
+  const statsByUserId = new Map((rows.results || []).map((row) => [Number(row.user_id), {
+    grev_coin_balance: toCoinAmount(row.grev_coin_balance || 0),
+    grev_coin_balance_pence: Number(row.grev_coin_balance || 0),
+    casino_refreshed_at: row.refreshed_at || null
+  }]));
 
   return list.map((user) => ({
     ...user,
-    case_balance: statsByUserId.get(Number(user.id))?.case_balance ?? 0,
-    key_balance: statsByUserId.get(Number(user.id))?.key_balance ?? 0,
-    total_cases_opened: statsByUserId.get(Number(user.id))?.total_cases_opened ?? 0,
-    case_inventory_value: statsByUserId.get(Number(user.id))?.case_inventory_value ?? 0
+    grev_coin_balance: statsByUserId.get(Number(user.id))?.grev_coin_balance ?? null,
+    grev_coin_balance_pence: statsByUserId.get(Number(user.id))?.grev_coin_balance_pence ?? null,
+    casino_refreshed_at: statsByUserId.get(Number(user.id))?.casino_refreshed_at ?? null
   }));
 }
-
-async function ensureAdminCaseProfile(env, userId, username) {
-  if (!getCasesDb(env)) return null;
-  const now = isoNow();
-  await getCasesDb(env).prepare(`
-    INSERT OR IGNORE INTO case_profiles (
-      user_id,
-      display_name,
-      balance,
-      total_cases_opened,
-      total_spent,
-      total_inventory_value,
-      created_at,
-      updated_at
-    )
-    VALUES (?, ?, ?, 0, 0, 0, ?, ?)
-  `).bind(userId, username, await getStartingBalancePence(env), now, now).run();
-
-  return getCasesDb(env).prepare(`
-    SELECT user_id, balance, key_balance, total_cases_opened, total_inventory_value
-    FROM case_profiles
-    WHERE user_id = ?
-    LIMIT 1
-  `).bind(userId).first();
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                   ADMIN                                    */
-/* -------------------------------------------------------------------------- */
 
 async function handleAdminUsers(request, env) {
   await ensureCoreTables(env);
@@ -1613,7 +1498,7 @@ async function handleAdminUsers(request, env) {
   `).all();
 
   let users = (rows.results || []).map(formatAdminUserRow);
-  users = await attachCaseAdminStats(env, users);
+  users = await attachCasinoAdminStats(env, users);
 
   if (search) {
     users = users.filter((user) =>
@@ -1670,7 +1555,7 @@ async function handleAdminUser(request, env) {
     return json({ success: false, error: "User not found" }, 404, request);
   }
 
-  const [userWithStats] = await attachCaseAdminStats(env, [formatAdminUserRow(row)]);
+  const [userWithStats] = await attachCasinoAdminStats(env, [formatAdminUserRow(row)]);
 
   return json({
     success: true,
@@ -1702,7 +1587,7 @@ async function handleAdminPendingUsers(request, env) {
 
   return json({
     success: true,
-    users: await attachCaseAdminStats(env, (rows.results || []).map(formatAdminUserRow))
+    users: await attachCasinoAdminStats(env, (rows.results || []).map(formatAdminUserRow))
   }, 200, request);
 }
 
@@ -1719,7 +1604,7 @@ async function handleAdminUpdateUser(request, env) {
   const isAdmin = body?.is_admin;
   const gamblingAdmin = body?.gambling_admin;
   const requestedGroup = sanitiseGroupName(body?.group_name);
-  const gamblingBalanceDelta = Number(body?.gambling_balance_delta ?? body?.case_balance_delta ?? 0);
+  const gamblingBalanceDelta = Number(body?.gambling_balance_delta ?? body?.grev_coin_balance_delta ?? 0);
   const profileFields = {
     real_name: typeof body?.real_name === "string" ? body.real_name.trim().slice(0, 80) : "",
     motto: typeof body?.motto === "string" ? body.motto.trim().slice(0, 140) : "",
@@ -1768,12 +1653,8 @@ async function handleAdminUpdateUser(request, env) {
 
   let nextBalance = null;
   if (gamblingBalanceDelta !== 0) {
-    if (!getCasesDb(env)) {
-      return json({ success: false, error: "CASES-DB is not configured" }, 500, request);
-    }
-
-    const profile = await ensureAdminCaseProfile(env, userId, existingUser.username);
-    const currentBalance = Number(profile?.balance || 0);
+    const profile = await ensureCasinoProfile(env, userId, existingUser.username);
+    const currentBalance = Number(profile?.grev_coin_balance || 0);
     nextBalance = currentBalance + gamblingBalanceDelta;
 
     if (nextBalance < 0) {
@@ -1811,11 +1692,11 @@ async function handleAdminUpdateUser(request, env) {
 
   let updatedBalance = null;
   if (nextBalance != null) {
-    await getCasesDb(env).prepare(`
-      UPDATE case_profiles
-      SET balance = ?, updated_at = ?
+    await env.DB.prepare(`
+      UPDATE casino_profiles
+      SET grev_coin_balance = ?, updated_at = ?, refreshed_at = ?
       WHERE user_id = ?
-    `).bind(nextBalance, isoNow(), userId).run();
+    `).bind(nextBalance, isoNow(), isoNow(), userId).run();
 
     updatedBalance = nextBalance;
   }
@@ -1844,7 +1725,7 @@ async function handleAdminUpdateUser(request, env) {
     LIMIT 1
   `).bind(userId).first();
 
-  const [userWithStats] = await attachCaseAdminStats(env, [formatAdminUserRow(updatedRow)]);
+  const [userWithStats] = await attachCasinoAdminStats(env, [formatAdminUserRow(updatedRow)]);
 
   return json({
     success: true,
@@ -2132,26 +2013,10 @@ async function handleAdminDeleteUser(request, env) {
   await env.DB.prepare(`DELETE FROM user_profiles WHERE user_id = ?`).bind(userId).run();
   await env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(userId).run();
 
-  if (getCasesDb(env)) {
-    try {
-      await getCasesDb(env).prepare(`DELETE FROM case_open_logs WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM case_battles WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM coinflip_games WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM case_inventory WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM case_profiles WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM ygo_pack_open_logs WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM ygo_inventory WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM blackjack_hands WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM blackjack_profiles WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM casino_towers_games WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM casino_coinflip_games WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM casino_rain_rewards WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM casino_bets WHERE user_id = ?`).bind(userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM casino_rps_matches WHERE creator_user_id = ? OR opponent_user_id = ?`).bind(userId, userId).run();
-      await getCasesDb(env).prepare(`DELETE FROM casino_profiles WHERE user_id = ?`).bind(userId).run();
-    } catch (error) {
-      console.error("Failed to fully clean gambling data during account deletion:", error);
-    }
+  try {
+    await env.DB.prepare(`DELETE FROM casino_profiles WHERE user_id = ?`).bind(userId).run();
+  } catch (error) {
+    console.error("Failed to fully clean casino data during account deletion:", error);
   }
 
   return json({
