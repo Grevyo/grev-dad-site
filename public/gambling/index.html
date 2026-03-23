@@ -19,10 +19,16 @@
     }
     .eyebrow { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 0.84rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: rgba(248, 196, 68, 0.14); border: 1px solid rgba(248, 196, 68, 0.24); margin-bottom: 16px; }
     .casino-hero h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 3rem); }
-    .casino-hero p, .feature-list li, .info-copy, .spin-meta { color: var(--muted); line-height: 1.7; }
-    .hero-actions, .info-grid { display: grid; gap: 16px; }
+    .casino-hero p, .feature-list li, .info-copy, .spin-meta, .casino-action__copy { color: var(--muted); line-height: 1.7; }
+    .hero-actions, .info-grid, .casino-actions { display: grid; gap: 16px; }
     .hero-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 24px; }
-    .stat-card, .spin-card { padding: 18px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); }
+    .casino-actions { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .stat-card, .spin-card, .casino-action {
+      padding: 18px;
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      border: 1px solid var(--border);
+    }
     .stat-label { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
     .stat-value { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; }
     .feature-list { margin: 0; padding-left: 20px; }
@@ -37,11 +43,10 @@
       border: 8px solid rgba(255,255,255,0.12);
       box-shadow: 0 22px 50px rgba(0,0,0,0.28), inset 0 0 0 6px rgba(0,0,0,0.16);
       background: conic-gradient(
-        #f97316 0deg 72deg,
-        #ef4444 72deg 144deg,
-        #facc15 144deg 216deg,
-        #22c55e 216deg 288deg,
-        #3b82f6 288deg 360deg
+        #ef4444 0deg 90deg,
+        #facc15 90deg 180deg,
+        #22c55e 180deg 270deg,
+        #3b82f6 270deg 360deg
       );
       position: relative;
       transform: rotate(var(--rotation));
@@ -76,6 +81,34 @@
     .spin-result { min-height: 28px; font-weight: 700; }
     .spin-reward-list { margin: 0; padding-left: 18px; }
     .spin-reward-list li + li { margin-top: 6px; }
+    .casino-action {
+      width: 100%;
+      text-align: left;
+      display: grid;
+      gap: 10px;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .casino-action:hover,
+    .casino-action:focus-visible {
+      transform: translateY(-2px);
+      border-color: rgba(248, 196, 68, 0.45);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
+      outline: none;
+    }
+    .casino-action__title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .casino-action__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(248, 196, 68, 0.14);
+      border: 1px solid rgba(248, 196, 68, 0.24);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     .hidden { display: none !important; }
     @media (max-width: 860px) {
       .daily-spin-layout { grid-template-columns: 1fr; }
@@ -99,35 +132,42 @@
             <p class="stat-label">Your balance</p>
             <p id="player-balance" class="stat-value">Sign in to view</p>
           </div>
-          <div class="stat-card">
-            <p class="stat-label">Wallet sync</p>
-            <p id="wallet-sync" class="stat-value">Every 6 hours</p>
-          </div>
         </div>
       </section>
 
-      <section class="panel daily-spin-layout">
+      <section class="casino-actions" aria-label="Casino actions">
+        <button class="casino-action" type="button" data-scroll-target="daily-free-spin">
+          <div class="casino-action__title-row">
+            <h2 class="panel-title">DAILY FREE SPIN</h2>
+            <span class="casino-action__badge">Play now</span>
+          </div>
+          <p class="casino-action__copy">Jump straight to the wheel and claim today’s free casino spin.</p>
+        </button>
+      </section>
+
+      <section id="daily-free-spin" class="panel daily-spin-layout">
         <div class="wheel-wrap">
           <div class="wheel-pointer" aria-hidden="true"></div>
           <div id="daily-spin-wheel" class="wheel" aria-label="Daily Grev Coin spin wheel"></div>
         </div>
         <div class="spin-card">
           <div>
-            <h2 class="panel-title">Daily Spin</h2>
+            <h2 class="panel-title">Daily Free Spin</h2>
             <p class="info-copy">
-              One free spin every 24 hours. The wheel can land on 1, 5, 10, 50, or 100 Grev Coin with weighted odds,
-              and the reward is dropped straight into your shared CASES-DB wallet.
+              One free spin every 24 hours. The wheel can land on 5, 10, 50, or 100 Grev Coin,
+              and each reward now has an even 25% chance.
             </p>
           </div>
           <div class="button-row">
-            <button id="daily-spin-btn" class="btn btn-primary" type="button">Daily Spin</button>
+            <button id="daily-spin-btn" class="btn btn-primary" type="button">Spin the wheel</button>
           </div>
           <p id="daily-spin-status" class="spin-result">Sign in to spin.</p>
           <p id="daily-spin-meta" class="spin-meta"></p>
           <ul class="spin-reward-list feature-list">
-            <li>1 GC — most common.</li>
-            <li>5 GC and 10 GC — regular wins.</li>
-            <li>50 GC and 100 GC — rare hits.</li>
+            <li>5 GC — 25% chance.</li>
+            <li>10 GC — 25% chance.</li>
+            <li>50 GC — 25% chance.</li>
+            <li>100 GC — 25% chance.</li>
           </ul>
         </div>
       </section>
@@ -136,16 +176,16 @@
         <div>
           <h2 class="panel-title">Grev Coin</h2>
           <p class="info-copy">
-            Grev Coin is the shared currency for the whole gambling playground. The wallet now reads from Case-db,
-            gets mirrored into the casino cache every 6 hours, and admins can force a fresh database read whenever they need one.
+            Grev Coin is the shared currency for the whole gambling playground, and your casino balance now stays visible
+            in the header while you move around the casino area.
           </p>
         </div>
         <div>
           <h2 class="panel-title">What’s live now</h2>
           <ul class="feature-list">
             <li>A single Grev Coin wallet shared across the whole casino playground.</li>
-            <li>6-hour cached profile reads with on-demand admin refresh support.</li>
-            <li>A daily spin wheel with animation and weighted Grev Coin rewards.</li>
+            <li>A header balance readout that follows you around the casino area.</li>
+            <li>A daily spin wheel with animation and equal 25% reward odds.</li>
           </ul>
         </div>
       </section>
@@ -154,13 +194,12 @@
 
   <script>
     const balanceEl = document.getElementById("player-balance");
-    const walletSyncEl = document.getElementById("wallet-sync");
     const spinButton = document.getElementById("daily-spin-btn");
     const spinStatusEl = document.getElementById("daily-spin-status");
     const spinMetaEl = document.getElementById("daily-spin-meta");
     const wheelEl = document.getElementById("daily-spin-wheel");
 
-    const rewards = [1, 5, 10, 50, 100];
+    const rewards = [5, 10, 50, 100];
     const segmentAngle = 360 / rewards.length;
     let isSpinning = false;
     let currentRotation = 0;
@@ -169,6 +208,18 @@
     function formatGc(value) {
       const amount = Number(value || 0);
       return `${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GC`;
+    }
+
+    function updateCasinoBalance(balance) {
+      const formatted = formatGc(balance || 0);
+      balanceEl.textContent = formatted;
+      if (typeof window.writeCasinoBalance === "function") {
+        window.writeCasinoBalance({
+          formatted,
+          value: Number(balance || 0),
+          updated_at: Date.now()
+        });
+      }
     }
 
     function formatDate(value) {
@@ -212,7 +263,7 @@
       const user = await window.fetchCurrentUser({ preferCache: true });
       if (!user) {
         balanceEl.textContent = "Sign in to view";
-        walletSyncEl.textContent = "Every 6 hours";
+        if (typeof window.writeCasinoBalance === "function") window.writeCasinoBalance(null);
         setSpinState(null);
         return;
       }
@@ -222,8 +273,7 @@
         const data = await response.json();
         if (!response.ok || !data?.success) throw new Error(data?.error || "Failed to load casino profile");
 
-        balanceEl.textContent = formatGc(data?.profile?.grev_coin_balance || 0);
-        walletSyncEl.textContent = `Every ${Number(data?.casino?.wallet_sync_interval_hours || 6)} hours`;
+        updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         setSpinState(data?.daily_spin || null);
       } catch (error) {
         console.error(error);
@@ -266,7 +316,7 @@
         }
 
         await animateWheelToReward(data.reward?.coins || 0);
-        balanceEl.textContent = formatGc(data?.profile?.grev_coin_balance || 0);
+        updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         spinStatusEl.textContent = `You won ${formatGc(data?.reward?.coins || 0)}.`;
         spinMetaEl.textContent = `Next free spin: ${formatDate(data?.daily_spin?.next_available_at) || "in 24 hours"}`;
         setSpinState(data?.daily_spin || null);
@@ -279,7 +329,17 @@
       }
     }
 
+    function setupCasinoActionButtons() {
+      document.querySelectorAll("[data-scroll-target]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const target = document.getElementById(button.dataset.scrollTarget);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    }
+
     buildWheel();
+    setupCasinoActionButtons();
     spinButton.addEventListener("click", handleDailySpin);
     document.addEventListener("DOMContentLoaded", loadCasinoProfile);
   </script>

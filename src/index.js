@@ -30,11 +30,10 @@ const FORUM_POST_LIMIT = 100;
 const CASINO_PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const DAILY_SPIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DAILY_SPIN_REWARDS = [
-  { coins: 1, weight: 50 },
-  { coins: 5, weight: 28 },
-  { coins: 10, weight: 15 },
-  { coins: 50, weight: 5 },
-  { coins: 100, weight: 2 }
+  { coins: 5, weight: 25 },
+  { coins: 10, weight: 25 },
+  { coins: 50, weight: 25 },
+  { coins: 100, weight: 25 }
 ];
 const ALLOWED_GROUPS = ["admin", "dev", "staff", "mod", "higher", "member", "standard"];
 const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
@@ -634,7 +633,7 @@ async function handleCasinoProfile(request, env) {
     success: true,
     casino: {
       title: "Welcome to Grev.dad Casino",
-      description: "Spin the free daily wheel, jump into blackjack or poker with your mates, chase classic slots, and keep an eye out for future Yu-Gi-Oh packs and Counter-Strike cases.",
+      description: "Spin the free daily wheel, jump into blackjack or poker with your mates, chase classic slots, and keep your Grev Coin balance visible while you move around the casino.",
       currency_name: "Grev Coin",
       currency_code: "GC",
       starting_balance: toCoinAmount(await getStartingBalancePence(env)),
