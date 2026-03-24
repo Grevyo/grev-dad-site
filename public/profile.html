@@ -9,7 +9,7 @@
   <style>
     .profile-layout { display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(320px, .8fr); gap:24px; align-items:start; }
     .profile-stack { display:grid; gap:24px; }
-    .profile-shell { border-radius:24px; border:1px solid color-mix(in srgb, var(--profile-accent, #1f2937) 45%, var(--border)); background:linear-gradient(135deg, color-mix(in srgb, var(--profile-accent, #1f2937) 55%, rgba(15,23,42,.96)), rgba(15,23,42,.95)); box-shadow:0 28px 60px rgba(0,0,0,.25); }
+    .profile-shell { border-radius:24px; border:1px solid color-mix(in srgb, var(--profile-accent, #1f2937) 45%, var(--border)); background:linear-gradient(135deg, color-mix(in srgb, var(--profile-accent, #1f2937) 55%, rgba(15,23,42,.96)), color-mix(in srgb, var(--profile-accent-2, #0f172a) 65%, rgba(15,23,42,.92))); box-shadow:0 28px 60px rgba(0,0,0,.25); }
     .profile-hero { display:grid; grid-template-columns:140px minmax(0,1fr); gap:20px; align-items:start; }
     .profile-avatar,.profile-avatar-placeholder { width:140px; height:140px; border-radius:24px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); }
     .profile-avatar { object-fit:cover; }
@@ -38,7 +38,7 @@
     <main class="page-main">
       <p class="gambling-breadcrumb"><a href="/index.html">← Back to home</a></p>
       <div id="profile-message" class="hidden"></div>
-      <div id="profile-root" class="profile-layout" style="--profile-accent:#1f2937;">
+      <div id="profile-root" class="profile-layout" style="--profile-accent:#1f2937;--profile-accent-2:#0f172a;">
         <section class="profile-stack">
           <section class="panel profile-shell">
             <div class="profile-hero">
@@ -104,10 +104,26 @@
       profileMusicWrap.innerHTML = `<div class="muted-copy">Saved link: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open music link</a></div>`;
     }
 
+    function avatarShapeClass(style) {
+      if (style === 'circle') return 'border-radius:50%;';
+      if (style === 'diamond') return 'border-radius:20px;transform:rotate(45deg);';
+      return 'border-radius:24px;';
+    }
+
     function renderProfile(profile) {
       const firstLetter = (profile.username || 'U').charAt(0).toUpperCase();
       profileRoot.style.setProperty('--profile-accent', profile.profile_accent_color || '#1f2937');
-      profileAvatarWrap.innerHTML = profile.avatar_url ? `<img class="profile-avatar" src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(profile.username)} avatar" />` : `<div class="profile-avatar-placeholder">${escapeHtml(firstLetter)}</div>`;
+      profileRoot.style.setProperty('--profile-accent-2', profile.profile_accent_color_secondary || '#0f172a');
+      const avatarLabel = (profile.avatar_initials || firstLetter || 'U').slice(0, 3).toUpperCase();
+      const shape = avatarShapeClass(profile.avatar_style || 'rounded');
+      if (profile.avatar_url) {
+        profileAvatarWrap.innerHTML = `<img class="profile-avatar" style="${shape}" src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(profile.username)} avatar" />`;
+      } else {
+        const initialsMarkup = (profile.avatar_style || 'rounded') === 'diamond'
+          ? `<span style="display:inline-block;transform:rotate(-45deg);">${escapeHtml(avatarLabel)}</span>`
+          : escapeHtml(avatarLabel);
+        profileAvatarWrap.innerHTML = `<div class="profile-avatar-placeholder" style="${shape}background:linear-gradient(145deg, ${escapeHtml(profile.profile_accent_color || '#1f2937')}, ${escapeHtml(profile.profile_accent_color_secondary || '#0f172a')});">${initialsMarkup}</div>`;
+      }
       profileTitle.textContent = profile.username || 'Profile';
       profileRealName.textContent = profile.real_name ? `Real name: ${profile.real_name}` : 'No real name added.';
       profileMotto.textContent = profile.motto ? `“${profile.motto}”` : 'No motto added.';
@@ -125,7 +141,10 @@
         <div class="info-card"><h3>Role</h3><p>${escapeHtml(profile.group_display || 'Standard')}</p></div>
         <div class="info-card"><h3>Joined</h3><p>${escapeHtml(formatDate(profile.created_at))}</p></div>
         <div class="info-card"><h3>Last seen</h3><p>${escapeHtml(formatDate(profile.last_seen_at))}</p></div>
-        <div class="info-card"><h3>Profile colour</h3><p>${escapeHtml(profile.profile_accent_color || '#1f2937')}</p></div>
+        <div class="info-card"><h3>Gradient colours</h3><p>${escapeHtml(profile.profile_accent_color || '#1f2937')} → ${escapeHtml(profile.profile_accent_color_secondary || '#0f172a')}</p></div>
+        <div class="info-card"><h3>Pronouns</h3><p>${escapeHtml(profile.pronouns || '—')}</p></div>
+        <div class="info-card"><h3>Location</h3><p>${escapeHtml(profile.location || '—')}</p></div>
+        <div class="info-card"><h3>Favourite game</h3><p>${escapeHtml(profile.favorite_game || '—')}</p></div>
         <div class="info-card"><h3>Casino admin</h3><p>${profile.gambling_admin ? 'Yes' : 'No'}</p></div>`;
       profileCsAccounts.innerHTML = `
         <div class="info-card"><h3>Steam</h3><p>${profile.steam_url ? `<a href="${escapeHtml(profile.steam_url)}" target="_blank" rel="noopener noreferrer">Open Steam profile</a>` : 'Not linked'}</p></div>
