@@ -112,7 +112,7 @@
       profileRealName.textContent = profile.real_name ? `Real name: ${profile.real_name}` : 'No real name added.';
       profileMotto.textContent = profile.motto ? `“${profile.motto}”` : 'No motto added.';
       profileBadges.innerHTML = `<span class="profile-badge">${escapeHtml(profile.group_display || 'Standard')}</span>${profile.is_admin ? '<span class="profile-badge">Admin Access</span>' : ''}${profile.gambling_admin ? '<span class="profile-badge">Casino Admin</span>' : ''}`;
-      const isOwnProfile = currentUser && Number(currentUser.id) === Number(profile.id);
+      const isOwnProfile = !isSpecificProfile || (currentUser && Number(currentUser.id) === Number(profile.id));
       profileActions.innerHTML = isOwnProfile ? `<a class="btn btn-primary" href="/profile-edit.html">Edit your profile</a>` : '';
       profileBio.textContent = profile.bio || 'No bio set.';
       profileBio.classList.toggle('muted-copy', !profile.bio);
