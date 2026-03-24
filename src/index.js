@@ -3053,7 +3053,7 @@ async function handleHltvOverview(request, env) {
     fetchTextPage("https://www.hltv.org/matches"),
     fetchTextPage("https://www.hltv.org/results"),
     fetchTextPage("https://www.hltv.org/events"),
-    fetchTextPage("https://ukic.gg/matches"),
+    fetchTextPage("https://ukicircuit.com/leagues/"),
     fetchTextPage("https://egamersworld.com/counterstrike/teams"),
     fetchTextPage("https://liquipedia.net/counterstrike/Portal:Teams")
   ]);
@@ -3067,8 +3067,8 @@ async function handleHltvOverview(request, env) {
   const ukCsMainGames = ukicMatchesRes.status === "fulfilled"
     ? extractSourcedLinks(
       ukicMatchesRes.value,
-      /\/matches\//,
-      "https://ukic.gg",
+      /\/(leagues|matches|events)\//,
+      "https://ukicircuit.com",
       8,
       title => !/login|sign up|register|about|contact|cookie|privacy/i.test(title)
     )
@@ -3278,6 +3278,7 @@ async function buildCommunityProfileRankings(env, limit = 20) {
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
+      p.avatar_url,
       u.last_seen_at
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -3298,6 +3299,7 @@ async function buildCommunityProfileRankings(env, limit = 20) {
     return {
       title: row.username,
       href: `/profile.html?id=${encodeURIComponent(row.id)}`,
+      avatar_url: row.avatar_url || "",
       score,
       linked_accounts: linkedAccounts.length,
       source_count: linkedAccounts.length

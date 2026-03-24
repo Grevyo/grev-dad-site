@@ -63,6 +63,15 @@
   gap: 12px;
 }
 
+.ukic-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, #22d3ee 26%, var(--border));
+  background:
+    radial-gradient(circle at 20% 15%, rgba(56, 189, 248, 0.15), transparent 28%),
+    rgba(15, 23, 42, 0.72);
+}
+
 .feed-header {
   display: flex;
   align-items: center;
@@ -132,6 +141,21 @@
   margin-right: 8px;
   color: #93c5fd;
   font-weight: 700;
+}
+
+.ranking-link {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+
+.ranking-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.8);
 }
 
 .empty-text {
