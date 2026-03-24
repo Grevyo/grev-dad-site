@@ -58,7 +58,7 @@
         </section>
         <aside class="profile-stack">
           <section class="panel"><h2 class="panel-title">Profile details</h2><div id="profile-info" class="profile-info-grid"></div></section>
-          <section class="panel"><h2 class="panel-title">CS2 coaching accounts</h2><div id="profile-cs-accounts" class="profile-info-grid"></div></section>
+          <section class="panel"><h2 class="panel-title">Linked CS2 accounts</h2><div id="profile-cs-accounts" class="profile-info-grid"></div></section>
           <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is now visible directly on your profile.</p><div id="casino-profile-balance" class="info-card"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
           <section class="panel"><h2 class="panel-title">CS2 simulator showcase</h2><p class="panel-subtitle">Simulated Grev Coins balance, opens, and recent drops.</p><div id="cs2-profile-body" class="muted">Loading CS2 stats…</div><div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div><div class="mt-16" style="display:flex;flex-wrap:wrap;gap:10px;"><a class="btn btn-primary" href="/gambling/index.html">Open gambling hub</a><a class="btn" href="/gambling/index.html">Casino</a></div></section>
         </aside>
@@ -128,6 +128,7 @@
         <div class="info-card"><h3>Profile colour</h3><p>${escapeHtml(profile.profile_accent_color || '#1f2937')}</p></div>
         <div class="info-card"><h3>Casino admin</h3><p>${profile.gambling_admin ? 'Yes' : 'No'}</p></div>`;
       profileCsAccounts.innerHTML = `
+        <div class="info-card"><h3>Steam</h3><p>${profile.steam_url ? `<a href="${escapeHtml(profile.steam_url)}" target="_blank" rel="noopener noreferrer">Open Steam profile</a>` : 'Not linked'}</p></div>
         <div class="info-card"><h3>Leetify</h3><p>${profile.leetify_url ? `<a href="${escapeHtml(profile.leetify_url)}" target="_blank" rel="noopener noreferrer">Open Leetify profile</a>` : 'Not linked'}</p></div>
         <div class="info-card"><h3>Refrag</h3><p>${profile.refrag_url ? `<a href="${escapeHtml(profile.refrag_url)}" target="_blank" rel="noopener noreferrer">Open Refrag profile</a>` : 'Not linked'}</p></div>`;
       casinoProfileBalance.innerHTML = `<h3>Balance</h3><p>${escapeHtml(formatGc(profile.casino_balance || 0))}</p>`;
