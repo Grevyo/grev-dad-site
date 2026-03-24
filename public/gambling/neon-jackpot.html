@@ -28,7 +28,7 @@
     .reels-grid { grid-template-columns:repeat(5, minmax(0, 1fr)); }
     .reel-column { padding:10px; border-radius:22px; background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(15,23,42,.45)); border:1px solid rgba(255,255,255,.08); overflow:hidden; min-height:320px; position:relative; }
     .reel-strip { display:grid; gap:10px; transform:translateY(0); transition:transform .18s linear; }
-    .reel-column.spinning .reel-strip { animation:reelSpin .22s linear infinite; }
+    .reel-column.spinning .reel-strip { animation:reelSpin .34s linear infinite; }
     .board-cell { min-height:86px; border-radius:18px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.12); background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(224,231,255,.92)); font-size:2rem; font-weight:800; color:#111827; text-shadow:0 1px 0 rgba(255,255,255,.45); }
     .board-cell.hit { border-color:#fbbf24; box-shadow:0 0 0 2px color-mix(in srgb, #fbbf24 32%, transparent) inset, 0 0 20px rgba(251,191,36,.35); transform:scale(1.02); }
     .board-cell.payline { background:linear-gradient(180deg, #fff7d6, #fde68a); }
@@ -146,60 +146,94 @@
       const now = ctx.currentTime;
       const master = ctx.createGain();
       master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.05, now + 0.05);
+      master.gain.linearRampToValueAtTime(0.042, now + 0.1);
       master.connect(ctx.destination);
 
       const pulse = ctx.createOscillator();
-      pulse.type = 'square';
-      pulse.frequency.setValueAtTime(140, now);
-      pulse.frequency.exponentialRampToValueAtTime(260, now + 0.4);
-      pulse.frequency.exponentialRampToValueAtTime(180, now + 1.1);
+      pulse.type = 'triangle';
+      pulse.frequency.setValueAtTime(86, now);
+      pulse.frequency.exponentialRampToValueAtTime(136, now + 0.8);
+      pulse.frequency.exponentialRampToValueAtTime(102, now + 2.2);
 
       const lead = ctx.createOscillator();
       lead.type = 'sawtooth';
-      lead.frequency.setValueAtTime(320, now);
-      lead.frequency.exponentialRampToValueAtTime(780, now + 0.7);
-      lead.frequency.exponentialRampToValueAtTime(420, now + 1.4);
+      lead.frequency.setValueAtTime(220, now);
+      lead.frequency.exponentialRampToValueAtTime(410, now + 0.9);
+      lead.frequency.exponentialRampToValueAtTime(270, now + 2.1);
 
       const air = ctx.createOscillator();
       air.type = 'triangle';
-      air.frequency.setValueAtTime(880, now);
-      air.frequency.exponentialRampToValueAtTime(1180, now + 0.9);
+      air.frequency.setValueAtTime(660, now);
+      air.frequency.exponentialRampToValueAtTime(990, now + 1.2);
 
-      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 2), ctx.sampleRate);
+      const shimmer = ctx.createOscillator();
+      shimmer.type = 'sine';
+      shimmer.frequency.setValueAtTime(1320, now);
+      shimmer.frequency.exponentialRampToValueAtTime(1760, now + 0.9);
+      shimmer.frequency.exponentialRampToValueAtTime(1100, now + 2.2);
+
+      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 3), ctx.sampleRate);
       const noiseData = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < noiseData.length; i += 1) noiseData[i] = (Math.random() * 2 - 1) * 0.06;
+      for (let i = 0; i < noiseData.length; i += 1) noiseData[i] = (Math.random() * 2 - 1) * 0.035;
       const noise = ctx.createBufferSource();
       noise.buffer = noiseBuffer;
       noise.loop = true;
       const noiseFilter = ctx.createBiquadFilter();
       noiseFilter.type = 'highpass';
-      noiseFilter.frequency.setValueAtTime(2200, now);
-      noiseFilter.frequency.exponentialRampToValueAtTime(900, now + 1.4);
+      noiseFilter.frequency.setValueAtTime(2800, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(980, now + 2.2);
 
       const lfo = ctx.createOscillator();
       lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(5, now);
+      lfo.frequency.setValueAtTime(3.8, now);
       const lfoGain = ctx.createGain();
-      lfoGain.gain.value = 22;
+      lfoGain.gain.value = 16;
       lfo.connect(lfoGain);
       lfoGain.connect(lead.frequency);
-      [pulse, lead, air].forEach((node) => node.connect(master));
+      [pulse, lead, air, shimmer].forEach((node) => node.connect(master));
       noise.connect(noiseFilter).connect(master);
-      [pulse, lead, air, noise, lfo].forEach((node) => node.start(now));
-      activeSpinSound = { ctx, master, toneA: pulse, toneB: lead, shimmer: air, noise, wobble: lfo };
+      [pulse, lead, air, shimmer, noise, lfo].forEach((node) => node.start(now));
+      activeSpinSound = { ctx, master, toneA: pulse, toneB: lead, shimmer: air, sparkle: shimmer, noise, wobble: lfo };
     }
 
     function stopSpinSound() {
       if (!activeSpinSound) return;
-      const { ctx, master, toneA, toneB, shimmer, noise, wobble } = activeSpinSound;
+      const { ctx, master, toneA, toneB, shimmer, sparkle, noise, wobble } = activeSpinSound;
       const now = ctx.currentTime;
       master.gain.cancelScheduledValues(now);
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
       master.gain.exponentialRampToValueAtTime(0.018, now + 0.08);
       master.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
-      [toneA, toneB, shimmer, noise, wobble].forEach((node) => node.stop(now + 0.45));
+      [toneA, toneB, shimmer, sparkle, noise, wobble].forEach((node) => node.stop(now + 0.45));
       activeSpinSound = null;
+    }
+
+    function playReelStopSound(reelIndex, isFinal = false) {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const base = 280 + (reelIndex * 58);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const click = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      osc.type = isFinal ? 'square' : 'triangle';
+      osc.frequency.setValueAtTime(base, now);
+      osc.frequency.exponentialRampToValueAtTime(base * (isFinal ? 2 : 1.6), now + 0.08);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(isFinal ? 0.08 : 0.045, now + 0.016);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + (isFinal ? 0.28 : 0.2));
+      click.type = 'square';
+      click.frequency.setValueAtTime(1400 + (reelIndex * 80), now);
+      clickGain.gain.setValueAtTime(0.0001, now);
+      clickGain.gain.linearRampToValueAtTime(0.028, now + 0.006);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+      osc.connect(gain).connect(ctx.destination);
+      click.connect(clickGain).connect(ctx.destination);
+      osc.start(now);
+      click.start(now);
+      osc.stop(now + 0.3);
+      click.stop(now + 0.08);
     }
 
     function playStopAccent(payout = 0) {
@@ -341,11 +375,12 @@
 
       const outcome = makeSpinOutcome();
       for (let reelIndex = 0; reelIndex < reelEls.length; reelIndex += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 320 + reelIndex * 120));
+        await new Promise((resolve) => setTimeout(resolve, 520 + reelIndex * 220));
         reelEls[reelIndex].classList.remove('spinning');
         const start = reelIndex * 3;
         const strip = reelEls[reelIndex].querySelector('.reel-strip');
         strip.innerHTML = outcome.cells.slice(start, start + 3).map((icon, rowIndex) => `<div class="board-cell ${outcome.hits.includes(start + rowIndex) ? 'hit payline' : ''}">${icon}</div>`).join('');
+        playReelStopSound(reelIndex, reelIndex === reelEls.length - 1);
       }
 
       writeBalance(credits + outcome.payout);
