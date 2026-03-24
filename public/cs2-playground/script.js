@@ -78,13 +78,19 @@ function renderRankings(targetEl, items, fallbackText) {
   for (const item of items) {
     const li = document.createElement('li');
     const link = document.createElement('a');
+    link.className = 'ranking-link';
     const rank = document.createElement('span');
     rank.className = 'rank-badge';
     rank.textContent = `#${Number(item?.rank || 0)}`;
+    const profileImage = document.createElement('img');
+    profileImage.className = 'ranking-avatar';
+    profileImage.src = item?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item?.title || 'Player')}&background=0f172a&color=ffffff&size=64`;
+    profileImage.alt = `${item?.title || 'Player'} profile picture`;
     link.href = item.href;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.appendChild(rank);
+    link.appendChild(profileImage);
     link.appendChild(document.createTextNode(item.title || 'Unknown team'));
     li.appendChild(link);
     targetEl.appendChild(li);
