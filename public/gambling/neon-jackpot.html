@@ -123,7 +123,7 @@
     const BET_MIN = 1;
 
     let audioCtx = null;
-    let spinNoiseNodes = null;
+    let ambientStarted = false;
 
     function ensureAudioContext() {
       if (!window.AudioContext && !window.webkitAudioContext) return null;
@@ -132,45 +132,30 @@
       return audioCtx;
     }
 
+    function startCasinoMusic() {
+      if (ambientStarted) return;
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      ambientStarted = true;
+      const master = ctx.createGain();
+      master.gain.value = 0.018;
+      master.connect(ctx.destination);
+      [220, 277.18, 329.63].forEach((frequency, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = index === 0 ? 'sine' : 'triangle';
+        osc.frequency.value = frequency;
+        gain.gain.value = index === 0 ? 0.7 : 0.35;
+        osc.connect(gain).connect(master);
+        osc.start();
+      });
+    }
+
     function syncBetPreset(value) {
       if (!betPresetEl) return;
       const rounded = Math.round(Number(value || 0));
       const option = Array.from(betPresetEl.options).find((entry) => Number(entry.value) === rounded);
       betPresetEl.value = option ? String(rounded) : 'custom';
-    }
-
-    function startSpinSound() {
-      const ctx = ensureAudioContext();
-      if (!ctx) return;
-      stopSpinSound();
-      const bufferSize = ctx.sampleRate * 2;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * 0.18;
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 900;
-      const gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      source.connect(filter).connect(gain).connect(ctx.destination);
-      const now = ctx.currentTime;
-      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
-      source.start();
-      spinNoiseNodes = { source, gain, ctx };
-    }
-
-    function stopSpinSound() {
-      if (!spinNoiseNodes) return;
-      const { source, gain, ctx } = spinNoiseNodes;
-      const now = ctx.currentTime;
-      gain.gain.cancelScheduledValues(now);
-      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-      source.stop(now + 0.14);
-      spinNoiseNodes = null;
     }
 
     function playWinSting(winnings) {
@@ -307,7 +292,7 @@
 
       const reelEls = Array.from(boardEl.querySelectorAll('.reel-column'));
       reelEls.forEach((reel) => reel.classList.add('spinning'));
-      startSpinSound();
+      startCasinoMusic();
 
       const outcome = makeSpinOutcome();
       for (let reelIndex = 0; reelIndex < reelEls.length; reelIndex += 1) {
@@ -323,7 +308,6 @@
       refreshHud();
       statusEl.textContent = outcome.payout ? `You banked ${formatGc(outcome.payout)}.` : 'No payout this round.';
       copyEl.textContent = outcome.events.length ? `Feature hits: ${outcome.events.join(', ')}.` : 'No line this time — keep pressing for a hotter reel set.';
-      stopSpinSound();
       playWinSting(outcome.payout);
       addLog(outcome.payout ? `Paid ${formatGc(outcome.payout)} from ${outcome.events.join(', ') || 'base line'}.` : 'Dead spin — no feature connected.');
       spinning = false;
@@ -334,13 +318,17 @@
       credits = readBalance();
       renderBoard(currentCells);
       refreshHud();
+      startCasinoMusic();
     });
 
     betPresetEl?.addEventListener('change', () => { if (betPresetEl.value !== 'custom') betEl.value = betPresetEl.value; });
     betEl.addEventListener('input', () => syncBetPreset(betEl.value));
     betEl.addEventListener('change', () => { try { bet = readBet(); } catch (error) { statusEl.textContent = 'Stake update failed.'; copyEl.textContent = error.message; } });
     syncBetPreset(betEl.value);
-    spinBtn.addEventListener('click', spin);
+    spinBtn.addEventListener('click', () => {
+      startCasinoMusic();
+      spin();
+    });
   </script>
 </body>
 </html>
