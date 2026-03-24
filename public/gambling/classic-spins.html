@@ -154,7 +154,7 @@
     const SYMBOL_HEIGHT = 108;
     let spinning = false;
     let audioCtx = null;
-    let spinNoiseNodes = null;
+    let activeSpinBed = null;
 
 
     function ensureAudioContext() {
@@ -171,86 +171,61 @@
       const now = ctx.currentTime;
       const master = ctx.createGain();
       master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.042, now + 0.03);
+      master.gain.linearRampToValueAtTime(0.048, now + 0.04);
       master.connect(ctx.destination);
 
-      const chug = ctx.createOscillator();
-      chug.type = "triangle";
-      chug.frequency.setValueAtTime(56, now);
-      chug.frequency.exponentialRampToValueAtTime(94, now + 0.45);
-      chug.frequency.exponentialRampToValueAtTime(62, now + 1.4);
-
       const motor = ctx.createOscillator();
-      motor.type = "square";
-      motor.frequency.setValueAtTime(128, now);
-      motor.frequency.exponentialRampToValueAtTime(168, now + 0.24);
-      motor.frequency.exponentialRampToValueAtTime(116, now + 1.1);
+      motor.type = "sawtooth";
+      motor.frequency.setValueAtTime(74, now);
+      motor.frequency.exponentialRampToValueAtTime(92, now + 0.4);
 
-      const flutter = ctx.createOscillator();
-      flutter.type = "square";
-      flutter.frequency.setValueAtTime(9, now);
-      const flutterGain = ctx.createGain();
-      flutterGain.gain.value = 0.014;
-      flutter.connect(flutterGain).connect(master.gain);
+      const whir = ctx.createOscillator();
+      whir.type = "triangle";
+      whir.frequency.setValueAtTime(180, now);
+      whir.frequency.exponentialRampToValueAtTime(145, now + 1.1);
 
-      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 1.8), ctx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.065;
-      const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuffer;
-      noise.loop = true;
-      const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = "bandpass";
-      noiseFilter.frequency.setValueAtTime(760, now);
-      noiseFilter.Q.value = 0.9;
-      noiseFilter.frequency.exponentialRampToValueAtTime(390, now + 1.4);
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.setValueAtTime(5.4, now);
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 8;
+      lfo.connect(lfoGain).connect(whir.frequency);
 
-      chug.connect(master);
       motor.connect(master);
-      noise.connect(noiseFilter).connect(master);
-      [chug, motor, noise, flutter].forEach((node) => node.start(now));
-      spinNoiseNodes = { source: noise, gain: master, filter: noiseFilter, ctx, extras: [chug, motor, flutter] };
+      whir.connect(master);
+      [motor, whir, lfo].forEach((node) => node.start(now));
+      activeSpinBed = { ctx, master, nodes: [motor, whir, lfo] };
     }
 
     function stopSpinSound(withLandingTail = false) {
-      if (!spinNoiseNodes) return;
-      const { source, gain, filter, ctx, extras = [] } = spinNoiseNodes;
+      if (!activeSpinBed) return;
+      const { ctx, master, nodes } = activeSpinBed;
       const now = ctx.currentTime;
-      gain.gain.cancelScheduledValues(now);
-      filter.frequency.cancelScheduledValues(now);
-      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
-      if (withLandingTail) {
-        filter.frequency.setValueAtTime(520, now);
-        filter.frequency.exponentialRampToValueAtTime(180, now + 0.2);
-        gain.gain.exponentialRampToValueAtTime(0.014, now + 0.09);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
-        source.stop(now + 0.42);
-        extras.forEach((node) => node.stop(now + 0.42));
-      } else {
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-        source.stop(now + 0.14);
-        extras.forEach((node) => node.stop(now + 0.16));
-      }
-      spinNoiseNodes = null;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
+      master.gain.exponentialRampToValueAtTime(withLandingTail ? 0.008 : 0.0001, now + 0.12);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + (withLandingTail ? 0.32 : 0.16));
+      nodes.forEach((node) => node.stop(now + (withLandingTail ? 0.34 : 0.18)));
+      activeSpinBed = null;
     }
 
     function playWinSting(winnings) {
       const ctx = ensureAudioContext();
       if (!ctx) return;
       const won = winnings > 0;
-      const notes = won ? [392, 523.25, 659.25, 784] : [220, 196, 174.61];
+      const notes = won ? [523.25, 659.25, 783.99, 1046.5] : [246.94, 220, 196];
       notes.forEach((frequency, index) => {
-        const time = ctx.currentTime + (index * 0.08);
+        const time = ctx.currentTime + (index * 0.07);
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = won ? "square" : "triangle";
+        osc.type = won ? "sine" : "triangle";
         osc.frequency.setValueAtTime(frequency, time);
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.linearRampToValueAtTime(won ? 0.06 : 0.035, time + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, time + (won ? 0.26 : 0.22));
+        gain.gain.linearRampToValueAtTime(won ? 0.07 : 0.03, time + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.24);
         osc.connect(gain).connect(ctx.destination);
         osc.start(time);
-        osc.stop(time + (won ? 0.28 : 0.24));
+        osc.stop(time + 0.26);
       });
     }
 
@@ -258,27 +233,27 @@
       const ctx = ensureAudioContext();
       if (!ctx) return;
       const now = ctx.currentTime;
-      const bell = ctx.createOscillator();
-      const clack = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const clackGain = ctx.createGain();
-      bell.type = "sine";
-      clack.type = "square";
-      bell.frequency.setValueAtTime(510 + (reelIndex * 58), now);
-      bell.frequency.exponentialRampToValueAtTime((isFinal ? 1.3 : 1.14) * (510 + (reelIndex * 58)), now + 0.07);
-      clack.frequency.setValueAtTime(980 + (reelIndex * 120), now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(isFinal ? 0.08 : 0.05, now + 0.016);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + (isFinal ? 0.35 : 0.24));
-      clackGain.gain.setValueAtTime(0.0001, now);
-      clackGain.gain.linearRampToValueAtTime(0.038, now + 0.006);
-      clackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-      bell.connect(gain).connect(ctx.destination);
-      clack.connect(clackGain).connect(ctx.destination);
-      bell.start(now);
-      clack.start(now);
-      bell.stop(now + 0.36);
-      clack.stop(now + 0.1);
+      const click = ctx.createOscillator();
+      const ping = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      const pingGain = ctx.createGain();
+      click.type = "square";
+      ping.type = "sine";
+      click.frequency.setValueAtTime(950 + (reelIndex * 90), now);
+      ping.frequency.setValueAtTime(720 + (reelIndex * 64), now);
+      ping.frequency.exponentialRampToValueAtTime((isFinal ? 1.26 : 1.14) * (720 + (reelIndex * 64)), now + 0.05);
+      clickGain.gain.setValueAtTime(0.0001, now);
+      clickGain.gain.linearRampToValueAtTime(0.032, now + 0.004);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+      pingGain.gain.setValueAtTime(0.0001, now);
+      pingGain.gain.linearRampToValueAtTime(isFinal ? 0.075 : 0.05, now + 0.01);
+      pingGain.gain.exponentialRampToValueAtTime(0.0001, now + (isFinal ? 0.24 : 0.18));
+      click.connect(clickGain).connect(ctx.destination);
+      ping.connect(pingGain).connect(ctx.destination);
+      click.start(now);
+      ping.start(now);
+      click.stop(now + 0.07);
+      ping.stop(now + 0.26);
     }
 
     function randomSymbol() { return symbols[Math.floor(Math.random() * symbols.length)]; }
