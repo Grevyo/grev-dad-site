@@ -3064,7 +3064,8 @@ async function handleHltvOverview(request, env) {
   const bigEvents = eventsRes.status === "fulfilled"
     ? extractBigEvents(eventsRes.value, 8)
     : [];
-  const ukCsMainGames = ukicMatchesRes.status === "fulfilled"
+  const featuredUkicLeagues = getFeaturedUkicLeagues();
+  const ukicScrapedItems = ukicMatchesRes.status === "fulfilled"
     ? extractSourcedLinks(
       ukicMatchesRes.value,
       /\/(leagues|matches|events)\//,
@@ -3073,6 +3074,7 @@ async function handleHltvOverview(request, env) {
       title => !/login|sign up|register|about|contact|cookie|privacy/i.test(title)
     )
     : [];
+  const ukCsMainGames = mergeUniqueLinks(featuredUkicLeagues, ukicScrapedItems, 8);
   const egamersworldTeams = egwTeamsRes.status === "fulfilled"
     ? extractEgwTeamLinks(egwTeamsRes.value, 12)
     : [];
@@ -3326,6 +3328,38 @@ function decodeHtmlEntities(input) {
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+}
+
+function getFeaturedUkicLeagues() {
+  return [
+    {
+      title: "UKIC Challengers Season 9 — Group Stage",
+      href: "https://ukicircuit.com/leagues/38efbc98-ec65-46a7-af50-fabe2a0b149e"
+    },
+    {
+      title: "UKIC Contenders Season 9 — Group Stage",
+      href: "https://ukicircuit.com/leagues/39eb286a-10f2-40a9-ae1e-6cd1c03e551c"
+    },
+    {
+      title: "UKIC Rising Season 9 — Group Stage",
+      href: "https://ukicircuit.com/leagues/cea75113-fd46-4c49-8f66-df9add564f1b"
+    }
+  ];
+}
+
+function mergeUniqueLinks(primaryItems, secondaryItems, limit = 8) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const item of [...(primaryItems || []), ...(secondaryItems || [])]) {
+    const href = String(item?.href || "").trim();
+    if (!href || seen.has(href)) continue;
+    seen.add(href);
+    merged.push(item);
+    if (merged.length >= limit) break;
+  }
+
+  return merged;
 }
 
 function buildSessionCookie(sessionToken, expires) {
