@@ -12,7 +12,8 @@
     .playground-list,
     .chat-shell,
     .home-footer-note,
-    .below-hero-grid {
+    .below-hero-grid,
+    .status-grid {
       display: grid;
       gap: 16px;
     }
@@ -142,6 +143,33 @@
       color: var(--accent);
     }
 
+    .status-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .status-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      padding: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .status-label {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .status-value {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+
     @media (max-width: 980px) {
       .below-hero-grid {
         grid-template-columns: 1fr;
@@ -231,6 +259,21 @@
             </div>
           </section>
         </div>
+
+        <section class="panel">
+          <p class="eyebrow">Local Watch</p>
+          <h2 class="panel-title">Status of the QEH</h2>
+          <div class="status-grid">
+            <article class="status-card">
+              <h3 class="status-label">New Hospital?</h3>
+              <p class="status-value">Current status: NO</p>
+            </article>
+            <article class="status-card">
+              <h3 class="status-label">Blown Up?</h3>
+              <p class="status-value">Current status: NO</p>
+            </article>
+          </div>
+        </section>
       </div>
     </main>
 
