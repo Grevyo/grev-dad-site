@@ -31,6 +31,20 @@ function renderList(targetEl, items, fallbackText) {
     title.textContent = item.title || 'Open item';
     link.appendChild(title);
 
+    if (item?.summary) {
+      const summary = document.createElement('small');
+      summary.className = 'feed-meta';
+      summary.textContent = item.summary;
+      link.appendChild(summary);
+    }
+
+    if (Array.isArray(item?.meta_lines) && item.meta_lines.length) {
+      const detail = document.createElement('small');
+      detail.className = 'feed-meta';
+      detail.textContent = item.meta_lines.slice(0, 2).join(' · ');
+      link.appendChild(detail);
+    }
+
     if (item?.logos?.team1 || item?.logos?.team2) {
       const logos = document.createElement('div');
       logos.className = 'match-logo-row';
@@ -92,6 +106,12 @@ function renderRankings(targetEl, items, fallbackText) {
     link.appendChild(rank);
     link.appendChild(profileImage);
     link.appendChild(document.createTextNode(item.title || 'Unknown team'));
+    if (item?.summary) {
+      const meta = document.createElement('small');
+      meta.className = 'feed-meta ranking-meta';
+      meta.textContent = item.summary;
+      link.appendChild(meta);
+    }
     li.appendChild(link);
     targetEl.appendChild(li);
   }
