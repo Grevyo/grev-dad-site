@@ -154,9 +154,6 @@
     const SYMBOL_HEIGHT = 108;
     let spinning = false;
     let audioCtx = null;
-    let activeSpinBed = null;
-
-
     function ensureAudioContext() {
       if (!window.AudioContext && !window.webkitAudioContext) return null;
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -164,49 +161,26 @@
       return audioCtx;
     }
 
-    function startSpinSound() {
+    function playRouletteSpinSound() {
       const ctx = ensureAudioContext();
       if (!ctx) return;
-      stopSpinSound();
-      const now = ctx.currentTime;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.048, now + 0.04);
-      master.connect(ctx.destination);
-
-      const motor = ctx.createOscillator();
-      motor.type = "sawtooth";
-      motor.frequency.setValueAtTime(74, now);
-      motor.frequency.exponentialRampToValueAtTime(92, now + 0.4);
-
-      const whir = ctx.createOscillator();
-      whir.type = "triangle";
-      whir.frequency.setValueAtTime(180, now);
-      whir.frequency.exponentialRampToValueAtTime(145, now + 1.1);
-
-      const lfo = ctx.createOscillator();
-      lfo.type = "sine";
-      lfo.frequency.setValueAtTime(5.4, now);
-      const lfoGain = ctx.createGain();
-      lfoGain.gain.value = 8;
-      lfo.connect(lfoGain).connect(whir.frequency);
-
-      motor.connect(master);
-      whir.connect(master);
-      [motor, whir, lfo].forEach((node) => node.start(now));
-      activeSpinBed = { ctx, master, nodes: [motor, whir, lfo] };
-    }
-
-    function stopSpinSound(withLandingTail = false) {
-      if (!activeSpinBed) return;
-      const { ctx, master, nodes } = activeSpinBed;
-      const now = ctx.currentTime;
-      master.gain.cancelScheduledValues(now);
-      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
-      master.gain.exponentialRampToValueAtTime(withLandingTail ? 0.008 : 0.0001, now + 0.12);
-      master.gain.exponentialRampToValueAtTime(0.0001, now + (withLandingTail ? 0.32 : 0.16));
-      nodes.forEach((node) => node.stop(now + (withLandingTail ? 0.34 : 0.18)));
-      activeSpinBed = null;
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * 0.14;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(1200, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(380, ctx.currentTime + 3);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.035, ctx.currentTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 3);
+      source.connect(filter).connect(gain).connect(ctx.destination);
+      source.start();
+      source.stop(ctx.currentTime + 3.05);
     }
 
     function playWinSting(winnings) {
@@ -295,25 +269,24 @@
     async function handleSpin() {
       if (spinning) return;
       spinning = true; spinBtn.disabled = true; statusEl.textContent = "Spinning..."; copyEl.textContent = "The old fruit machine is rattling away.";
-      startSpinSound();
+      playRouletteSpinSound();
       try {
         const bet = readBetValue();
         const response = await fetch("/api/casino/classic-spin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bet_coins: bet }) });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) throw new Error(data?.error || "Classic Fruity spin failed");
         const finalResult = Array.isArray(data?.result) && data.result.length === 3 ? data.result : reelEls.map(() => randomSymbol());
-        for (let index = 0; index < reelEls.length; index += 1) {
-          await animateSingleReel(reelEls[index], finalResult[index], 860 + (index * 260));
-          playClassicStopBell(index, index === reelEls.length - 1);
-        }
+        await Promise.all(
+          reelEls.map((reelEl, index) => animateSingleReel(reelEl, finalResult[index], 860 + (index * 260)).then(() => {
+            playClassicStopBell(index, index === reelEls.length - 1);
+          }))
+        );
         updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         const winnings = Number(data?.outcome?.winnings_coins || 0);
-        stopSpinSound(true);
         playWinSting(winnings);
         statusEl.textContent = winnings > 0 ? `${finalResult.join(" ")} — You won ${formatGc(winnings)}.` : `${finalResult.join(" ")} — No payout.`;
         copyEl.textContent = `${data?.outcome?.message || "Spin complete."} Balance now: ${formatGc(data?.profile?.grev_coin_balance || 0)}.`;
       } catch (error) {
-        stopSpinSound();
         console.error(error); statusEl.textContent = "Spin failed."; copyEl.textContent = error.message || "Classic Fruity spin failed.";
       } finally {
         spinning = false; spinBtn.disabled = false;
