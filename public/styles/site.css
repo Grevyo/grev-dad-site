@@ -198,6 +198,24 @@ body[data-theme="light"] .alert-error { color: #991b1b; }
   transition: background 0.15s ease, color 0.15s ease;
 }
 .nav-link:hover { background: var(--surface); color: var(--text); }
+.nav-link-profile {
+  gap: 8px;
+  background: var(--profile-chip-bg, color-mix(in srgb, var(--accent) 24%, var(--surface)));
+  border: 1px solid var(--profile-chip-border, color-mix(in srgb, var(--accent) 50%, var(--border)));
+  padding-left: 10px;
+  padding-right: 14px;
+}
+.nav-link-profile:hover {
+  background: var(--profile-chip-hover-bg, color-mix(in srgb, var(--accent) 36%, var(--surface)));
+}
+.profile-chip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, #ffffff 35%, transparent);
+  flex: 0 0 24px;
+}
 .nav-casino-balance {
   display: inline-grid;
   gap: 2px;

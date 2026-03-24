@@ -264,10 +264,41 @@ function clearCachedAuthUser() {
   writeCasinoBalance(null);
 }
 
+let profileChipRefreshToken = 0;
+
+async function refreshProfileChipStyle() {
+  const currentToken = ++profileChipRefreshToken;
+  const profileLink = document.getElementById("header-profile-link");
+  if (!profileLink) return;
+
+  profileLink.style.removeProperty("--profile-chip-bg");
+  profileLink.style.removeProperty("--profile-chip-border");
+  profileLink.style.removeProperty("--profile-chip-hover-bg");
+
+  try {
+    const response = await fetch("/api/profile/me", { credentials: "same-origin" });
+    const data = await response.json().catch(() => null);
+    if (currentToken !== profileChipRefreshToken) return;
+    if (!response.ok || !data?.success || !data?.profile) return;
+
+    const accent = String(data.profile.profile_accent_color || "").trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(accent)) {
+      profileLink.style.setProperty("--profile-chip-bg", `color-mix(in srgb, ${accent} 28%, var(--surface))`);
+      profileLink.style.setProperty("--profile-chip-border", `color-mix(in srgb, ${accent} 70%, var(--border))`);
+      profileLink.style.setProperty("--profile-chip-hover-bg", `color-mix(in srgb, ${accent} 40%, var(--surface))`);
+    }
+  } catch (error) {
+    console.error("Failed to refresh profile chip style:", error);
+  }
+}
+
 function applyHeaderAuthState(user) {
   const authOnlyItems = document.querySelectorAll("[data-auth-only]");
   const guestOnlyItems = document.querySelectorAll("[data-guest-only]");
   const adminOnlyItems = document.querySelectorAll("[data-admin-only]");
+  const profileName = document.getElementById("header-profile-name");
+  const profileAvatar = document.getElementById("header-profile-avatar");
+  const profileLink = document.getElementById("header-profile-link");
 
   authOnlyItems.forEach((item) => {
     item.classList.toggle("hidden", !user);
@@ -281,6 +312,22 @@ function applyHeaderAuthState(user) {
   adminOnlyItems.forEach((item) => {
     item.classList.toggle("hidden", !canAccessAdminPortal);
   });
+
+  if (profileName) profileName.textContent = user?.username || "Profile";
+  if (profileAvatar) {
+    const avatarUrl = String(user?.avatar_url || "").trim();
+    if (avatarUrl) {
+      profileAvatar.src = avatarUrl;
+      profileAvatar.alt = `${user?.username || "User"} avatar`;
+      profileAvatar.classList.remove("hidden");
+    } else {
+      profileAvatar.removeAttribute("src");
+      profileAvatar.alt = "";
+      profileAvatar.classList.add("hidden");
+    }
+  }
+
+  if (profileLink && user) refreshProfileChipStyle();
 }
 
 
