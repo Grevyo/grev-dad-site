@@ -29,7 +29,6 @@
         <p>Pick from slots, arcade, fishing, roulette, and Texas Holdem, then jump into the latest casino floor lineup.</p>
         <div class="hero-actions">
           <div class="stat-card"><p class="stat-label">Your balance</p><p id="player-balance" class="stat-value">Sign in to view</p></div>
-          <div class="stat-card"><p class="stat-label">Starting balance</p><p id="starting-balance" class="stat-value">500.00 GC</p></div>
           <div class="stat-card"><p class="stat-label">House Timer</p><p id="roulette-countdown" class="stat-value">--:--</p><p id="roulette-round-label" class="stat-label">Loading next table...</p></div>
         </div>
         <div class="mt-24"><p class="eyebrow">⏱ Timed Games</p><h2 class="panel-title">Timed Games</h2><p class="stat-label">Jump into the shared timed tables that both refresh every 5 minutes.</p></div>
@@ -55,7 +54,6 @@
   </div>
   <script>
     const balanceEl = document.getElementById('player-balance');
-    const startingBalanceEl = document.getElementById('starting-balance');
     const rouletteCountdownEl = document.getElementById('roulette-countdown');
     const rouletteRoundLabelEl = document.getElementById('roulette-round-label');
     let rouletteTimer = null;
@@ -63,7 +61,7 @@
     const formatCountdown = (targetIso) => { const diff = Math.max(0, new Date(targetIso || 0).getTime() - Date.now()); const totalSeconds = Math.ceil(diff / 1000); return `${String(Math.floor(totalSeconds / 3600)).padStart(2,'0')}:${String(Math.floor((totalSeconds % 3600) / 60)).padStart(2,'0')}:${String(totalSeconds % 60).padStart(2,'0')}`; };
     function startRouletteCountdown(targetIso) { if (rouletteTimer) clearInterval(rouletteTimer); const tick = () => { rouletteCountdownEl.textContent = formatCountdown(targetIso); if (Date.now() >= new Date(targetIso).getTime()) loadRouletteCountdown(); }; tick(); rouletteTimer = setInterval(tick, 500); }
     async function loadRouletteCountdown() { try { const response = await fetch('/api/casino/roulette/state', { credentials:'same-origin' }); const data = await response.json(); if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load roulette state'); rouletteRoundLabelEl.textContent = `Round ${data.table.next_round_id} closes in`; startRouletteCountdown(data.table.next_round_starts_at); } catch { rouletteCountdownEl.textContent = '--:--'; rouletteRoundLabelEl.textContent = 'Roulette timer unavailable'; } }
-    async function loadCasinoProfile() { const currentUser = await window.fetchCurrentUser({ preferCache:true }); if (!currentUser) { balanceEl.textContent = 'Sign in to view'; return; } try { const response = await fetch('/api/casino/profile', { credentials:'same-origin' }); const data = await response.json(); if (!response.ok || !data?.success) throw new Error(); balanceEl.textContent = formatGc(data?.profile?.grev_coin_balance || 0); startingBalanceEl.textContent = formatGc(data?.casino?.starting_balance || 500); if (typeof window.writeCasinoBalance === 'function') window.writeCasinoBalance({ formatted: formatGc(data?.profile?.grev_coin_balance || 0), value: Number(data?.profile?.grev_coin_balance || 0), updated_at: Date.now() }); } catch { balanceEl.textContent = 'Could not load'; } }
+    async function loadCasinoProfile() { const currentUser = await window.fetchCurrentUser({ preferCache:true }); if (!currentUser) { balanceEl.textContent = 'Sign in to view'; return; } try { const response = await fetch('/api/casino/profile', { credentials:'same-origin' }); const data = await response.json(); if (!response.ok || !data?.success) throw new Error(); balanceEl.textContent = formatGc(data?.profile?.grev_coin_balance || 0); if (typeof window.writeCasinoBalance === 'function') window.writeCasinoBalance({ formatted: formatGc(data?.profile?.grev_coin_balance || 0), value: Number(data?.profile?.grev_coin_balance || 0), updated_at: Date.now() }); } catch { balanceEl.textContent = 'Could not load'; } }
     document.addEventListener('DOMContentLoaded', async () => { await Promise.all([loadCasinoProfile(), loadRouletteCountdown()]); });
     window.addEventListener('beforeunload', () => { if (rouletteTimer) clearInterval(rouletteTimer); });
   </script>
