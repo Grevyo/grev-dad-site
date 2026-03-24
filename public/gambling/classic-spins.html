@@ -171,44 +171,45 @@
       const now = ctx.currentTime;
       const master = ctx.createGain();
       master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.05, now + 0.04);
+      master.gain.linearRampToValueAtTime(0.042, now + 0.03);
       master.connect(ctx.destination);
 
       const chug = ctx.createOscillator();
-      chug.type = "sawtooth";
-      chug.frequency.setValueAtTime(82, now);
-      chug.frequency.exponentialRampToValueAtTime(126, now + 0.32);
-      chug.frequency.exponentialRampToValueAtTime(92, now + 1.1);
+      chug.type = "triangle";
+      chug.frequency.setValueAtTime(56, now);
+      chug.frequency.exponentialRampToValueAtTime(94, now + 0.45);
+      chug.frequency.exponentialRampToValueAtTime(62, now + 1.4);
 
-      const bell = ctx.createOscillator();
-      bell.type = "triangle";
-      bell.frequency.setValueAtTime(420, now);
-      bell.frequency.exponentialRampToValueAtTime(640, now + 0.2);
-      bell.frequency.exponentialRampToValueAtTime(360, now + 1.1);
+      const motor = ctx.createOscillator();
+      motor.type = "square";
+      motor.frequency.setValueAtTime(128, now);
+      motor.frequency.exponentialRampToValueAtTime(168, now + 0.24);
+      motor.frequency.exponentialRampToValueAtTime(116, now + 1.1);
 
       const flutter = ctx.createOscillator();
       flutter.type = "square";
-      flutter.frequency.setValueAtTime(12, now);
+      flutter.frequency.setValueAtTime(9, now);
       const flutterGain = ctx.createGain();
-      flutterGain.gain.value = 0.018;
+      flutterGain.gain.value = 0.014;
       flutter.connect(flutterGain).connect(master.gain);
 
       const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 1.8), ctx.sampleRate);
       const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.08;
+      for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.065;
       const noise = ctx.createBufferSource();
       noise.buffer = noiseBuffer;
       noise.loop = true;
       const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = "highpass";
-      noiseFilter.frequency.setValueAtTime(900, now);
-      noiseFilter.frequency.exponentialRampToValueAtTime(450, now + 1);
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.setValueAtTime(760, now);
+      noiseFilter.Q.value = 0.9;
+      noiseFilter.frequency.exponentialRampToValueAtTime(390, now + 1.4);
 
       chug.connect(master);
-      bell.connect(master);
+      motor.connect(master);
       noise.connect(noiseFilter).connect(master);
-      [chug, bell, noise, flutter].forEach((node) => node.start(now));
-      spinNoiseNodes = { source: noise, gain: master, filter: noiseFilter, ctx, extras: [chug, bell, flutter] };
+      [chug, motor, noise, flutter].forEach((node) => node.start(now));
+      spinNoiseNodes = { source: noise, gain: master, filter: noiseFilter, ctx, extras: [chug, motor, flutter] };
     }
 
     function stopSpinSound(withLandingTail = false) {
@@ -251,6 +252,33 @@
         osc.start(time);
         osc.stop(time + (won ? 0.28 : 0.24));
       });
+    }
+
+    function playClassicStopBell(reelIndex, isFinal = false) {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const bell = ctx.createOscillator();
+      const clack = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const clackGain = ctx.createGain();
+      bell.type = "sine";
+      clack.type = "square";
+      bell.frequency.setValueAtTime(510 + (reelIndex * 58), now);
+      bell.frequency.exponentialRampToValueAtTime((isFinal ? 1.3 : 1.14) * (510 + (reelIndex * 58)), now + 0.07);
+      clack.frequency.setValueAtTime(980 + (reelIndex * 120), now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(isFinal ? 0.08 : 0.05, now + 0.016);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + (isFinal ? 0.35 : 0.24));
+      clackGain.gain.setValueAtTime(0.0001, now);
+      clackGain.gain.linearRampToValueAtTime(0.038, now + 0.006);
+      clackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      bell.connect(gain).connect(ctx.destination);
+      clack.connect(clackGain).connect(ctx.destination);
+      bell.start(now);
+      clack.start(now);
+      bell.stop(now + 0.36);
+      clack.stop(now + 0.1);
     }
 
     function randomSymbol() { return symbols[Math.floor(Math.random() * symbols.length)]; }
@@ -299,7 +327,10 @@
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.success) throw new Error(data?.error || "Classic Fruity spin failed");
         const finalResult = Array.isArray(data?.result) && data.result.length === 3 ? data.result : reelEls.map(() => randomSymbol());
-        await Promise.all(reelEls.map((el, index) => animateSingleReel(el, finalResult[index], 700 + (index * 180))));
+        for (let index = 0; index < reelEls.length; index += 1) {
+          await animateSingleReel(reelEls[index], finalResult[index], 860 + (index * 260));
+          playClassicStopBell(index, index === reelEls.length - 1);
+        }
         updateCasinoBalance(data?.profile?.grev_coin_balance || 0);
         const winnings = Number(data?.outcome?.winnings_coins || 0);
         stopSpinSound(true);
