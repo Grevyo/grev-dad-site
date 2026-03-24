@@ -416,6 +416,8 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "user_profiles", "media_3_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "music_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "profile_accent_color", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "leetify_url", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "refrag_url", "TEXT");
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS global_chat_messages (
@@ -1688,6 +1690,8 @@ async function handleProfileMe(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.leetify_url,
+      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -1741,6 +1745,8 @@ async function handleProfileView(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.leetify_url,
+      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -1777,6 +1783,8 @@ async function handleProfileUpdate(request, env) {
   const media2 = cleanUrl(body?.media_2_url, 1200);
   const media3 = cleanUrl(body?.media_3_url, 1200);
   const musicUrl = cleanUrl(body?.music_url, 1200);
+  const leetifyUrl = cleanUrl(body?.leetify_url, 1200);
+  const refragUrl = cleanUrl(body?.refrag_url, 1200);
   const profileAccentColor = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || "").trim()) ? String(body.profile_accent_color).trim() : "#1f2937";
 
   await env.DB.prepare(`
@@ -1790,9 +1798,11 @@ async function handleProfileUpdate(request, env) {
       media_2_url,
       media_3_url,
       music_url,
-      profile_accent_color
+      profile_accent_color,
+      leetify_url,
+      refrag_url
     )
-    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937')
+    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '')
   `).bind(session.id).run();
 
   await env.DB.prepare(`
@@ -1806,7 +1816,9 @@ async function handleProfileUpdate(request, env) {
       media_2_url = ?,
       media_3_url = ?,
       music_url = ?,
-      profile_accent_color = ?
+      profile_accent_color = ?,
+      leetify_url = ?,
+      refrag_url = ?
     WHERE user_id = ?
   `).bind(
     realName,
@@ -1818,6 +1830,8 @@ async function handleProfileUpdate(request, env) {
     media3,
     musicUrl,
     profileAccentColor,
+    leetifyUrl,
+    refragUrl,
     session.id
   ).run();
 
@@ -1840,6 +1854,8 @@ async function handleProfileUpdate(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.leetify_url,
+      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -1883,6 +1899,8 @@ function formatProfileRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
+    leetify_url: row.leetify_url || "",
+    refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937",
     casino_balance_pence: Number(row.grev_coin_balance || 0),
     casino_balance: toCoinAmount(row.grev_coin_balance || 0),
@@ -2631,6 +2649,8 @@ async function handleAdminUpdateUser(request, env) {
     media_2_url: cleanUrl(body?.media_2_url, 1200),
     media_3_url: cleanUrl(body?.media_3_url, 1200),
     music_url: cleanUrl(body?.music_url, 1200),
+    leetify_url: cleanUrl(body?.leetify_url, 1200),
+    refrag_url: cleanUrl(body?.refrag_url, 1200),
     profile_accent_color: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || '').trim()) ? String(body.profile_accent_color).trim() : '#1f2937'
   };
 
@@ -2688,13 +2708,13 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
-      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color
-    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937')
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, leetify_url, refrag_url
+    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '')
   `).bind(userId).run();
 
   await env.DB.prepare(`
     UPDATE user_profiles
-    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, leetify_url = ?, refrag_url = ?
     WHERE user_id = ?
   `).bind(
     profileFields.real_name,
@@ -2706,6 +2726,8 @@ async function handleAdminUpdateUser(request, env) {
     profileFields.media_3_url,
     profileFields.music_url,
     profileFields.profile_accent_color,
+    profileFields.leetify_url,
+    profileFields.refrag_url,
     userId
   ).run();
 
@@ -2744,6 +2766,8 @@ async function handleAdminUpdateUser(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.leetify_url,
+      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -2915,73 +2939,80 @@ function parseCookies(cookieHeader) {
 async function handleHltvOverview(request) {
   const startedAt = Date.now();
 
-  try {
-    const [newsRes, matchesRes, resultsRes, eventsRes, ukicMatchesRes] = await Promise.all([
-      fetchTextPage("https://www.hltv.org/news"),
-      fetchTextPage("https://www.hltv.org/matches"),
-      fetchTextPage("https://www.hltv.org/results"),
-      fetchTextPage("https://www.hltv.org/events"),
-      fetchTextPage("https://ukic.gg/matches")
-    ]);
+  const [newsRes, matchesRes, resultsRes, eventsRes, ukicMatchesRes, egwTeamsRes, liquipediaTeamsRes] = await Promise.allSettled([
+    fetchTextPage("https://www.hltv.org/news"),
+    fetchTextPage("https://www.hltv.org/matches"),
+    fetchTextPage("https://www.hltv.org/results"),
+    fetchTextPage("https://www.hltv.org/events"),
+    fetchTextPage("https://ukic.gg/matches"),
+    fetchTextPage("https://egamersworld.com/counterstrike/teams"),
+    fetchTextPage("https://liquipedia.net/counterstrike/Portal:Teams")
+  ]);
 
-    const news = extractHltvLinks(newsRes, /^\/news\/\d+\//, 8);
-    const upcomingMatches = extractHltvLinks(matchesRes, /^\/matches\/\d+\//, 8);
-    const latestResults = extractHltvLinks(resultsRes, /^\/matches\/\d+\//, 8);
-    const bigEvents = extractSourcedLinks(
-      eventsRes,
+  const news = newsRes.status === "fulfilled" ? extractHltvLinks(newsRes.value, /^\/news\/\d+\//, 8) : [];
+  const upcomingMatches = matchesRes.status === "fulfilled" ? extractHltvLinks(matchesRes.value, /^\/matches\/\d+\//, 8) : [];
+  const latestResults = resultsRes.status === "fulfilled" ? extractHltvLinks(resultsRes.value, /^\/matches\/\d+\//, 8) : [];
+  const bigEvents = eventsRes.status === "fulfilled"
+    ? extractSourcedLinks(
+      eventsRes.value,
       /^\/events\/\d+\//,
       "https://www.hltv.org",
       8,
       title => /major|iem|katowice|cologne|blast|pro league|pgl|championship|masters|global finals|world/i.test(title)
-    );
-    const ukCsMainGames = extractSourcedLinks(
-      ukicMatchesRes,
+    )
+    : [];
+  const ukCsMainGames = ukicMatchesRes.status === "fulfilled"
+    ? extractSourcedLinks(
+      ukicMatchesRes.value,
       /\/matches\//,
       "https://ukic.gg",
       8,
       title => !/login|sign up|register|about|contact|cookie|privacy/i.test(title)
-    );
-    const tier2Matches = filterTierTwoMatches(upcomingMatches, 8);
+    )
+    : [];
+  const egamersworldTeams = egwTeamsRes.status === "fulfilled"
+    ? extractEgwTeamLinks(egwTeamsRes.value, 12)
+    : [];
+  const liquipediaTeams = liquipediaTeamsRes.status === "fulfilled"
+    ? extractLiquipediaTeams(liquipediaTeamsRes.value, 12)
+    : [];
+  const communityRankings = buildCommunityRankings({
+    hltvItems: upcomingMatches.concat(bigEvents),
+    egamersworldTeams,
+    liquipediaTeams
+  }, 10);
+  const tier2Matches = filterTierTwoMatches(upcomingMatches, 8);
 
-    return json(
-      {
-        success: true,
-        source: "HLTV + UKIC",
-        fetched_at: new Date().toISOString(),
-        elapsed_ms: Date.now() - startedAt,
-        sections: {
-          news,
-          big_events: bigEvents,
-          uk_cs_main_games: ukCsMainGames,
-          upcoming_matches: upcomingMatches,
-          tier2_matches: tier2Matches,
-          latest_results: latestResults
-        }
-      },
-      200,
-      request
-    );
-  } catch (error) {
-    return json(
-      {
-        success: false,
-        error: "Unable to load CS feed data right now.",
-        detail: error?.message || "Unknown error",
-        fetched_at: new Date().toISOString(),
-        elapsed_ms: Date.now() - startedAt,
-        sections: {
-          news: [],
-          big_events: [],
-          uk_cs_main_games: [],
-          upcoming_matches: [],
-          tier2_matches: [],
-          latest_results: []
-        }
-      },
-      502,
-      request
-    );
-  }
+  const sourceStatus = {
+    hltv: newsRes.status === "fulfilled" || matchesRes.status === "fulfilled" || resultsRes.status === "fulfilled" || eventsRes.status === "fulfilled",
+    ukic: ukicMatchesRes.status === "fulfilled",
+    egamersworld: egwTeamsRes.status === "fulfilled",
+    liquipedia: liquipediaTeamsRes.status === "fulfilled"
+  };
+
+  const success = Object.values(sourceStatus).some(Boolean);
+  return json(
+    {
+      success,
+      source: "HLTV + UKIC + EGamersWorld + Liquipedia",
+      source_status: sourceStatus,
+      fetched_at: new Date().toISOString(),
+      elapsed_ms: Date.now() - startedAt,
+      sections: {
+        community_rankings: communityRankings,
+        news,
+        big_events: bigEvents,
+        uk_cs_main_games: ukCsMainGames,
+        upcoming_matches: upcomingMatches,
+        tier2_matches: tier2Matches,
+        latest_results: latestResults,
+        egamersworld_teams: egamersworldTeams.slice(0, 8),
+        liquipedia_teams: liquipediaTeams.slice(0, 8)
+      }
+    },
+    success ? 200 : 502,
+    request
+  );
 }
 
 async function fetchTextPage(url) {
@@ -3001,6 +3032,26 @@ async function fetchTextPage(url) {
 
 function extractHltvLinks(html, hrefPattern, limit = 8) {
   return extractSourcedLinks(html, hrefPattern, "https://www.hltv.org", limit);
+}
+
+function extractEgwTeamLinks(html, limit = 12) {
+  return extractSourcedLinks(
+    html,
+    /\/counterstrike\/team\/[^"?#]+/i,
+    "https://egamersworld.com",
+    limit,
+    title => /^[a-z0-9 ._'&+-]{2,30}$/i.test(title) && !/counter[-\s]?strike|team ranking|matches|bet|news/i.test(title)
+  );
+}
+
+function extractLiquipediaTeams(html, limit = 12) {
+  return extractSourcedLinks(
+    html,
+    /\/counterstrike\/[^"?#]+/i,
+    "https://liquipedia.net",
+    limit,
+    title => /^[a-z0-9 ._'&+-]{2,30}$/i.test(title) && !/counter[-\s]?strike|portal|results|tournaments|liquipedia/i.test(title)
+  );
 }
 
 function extractSourcedLinks(html, hrefPattern, baseUrl, limit = 8, titleFilter = null) {
@@ -3052,6 +3103,49 @@ function filterTierTwoMatches(matches, limit = 8) {
   });
 
   return filtered.slice(0, limit);
+}
+
+function normaliseTeamName(raw) {
+  return String(raw || "")
+    .toLowerCase()
+    .replace(/&amp;/gi, "&")
+    .replace(/[^a-z0-9&+\- ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildCommunityRankings({ hltvItems = [], egamersworldTeams = [], liquipediaTeams = [] }, limit = 10) {
+  const teams = new Map();
+  const sources = [
+    { key: "hltv", items: hltvItems },
+    { key: "egamersworld", items: egamersworldTeams },
+    { key: "liquipedia", items: liquipediaTeams }
+  ];
+
+  for (const source of sources) {
+    for (const item of source.items) {
+      const title = String(item?.title || "").trim();
+      const normalized = normaliseTeamName(title);
+      if (!normalized || normalized.length < 2 || normalized.length > 30) continue;
+      const existing = teams.get(normalized) || { title, mentions: 0, sourceKeys: new Set(), href: item?.href || "" };
+      existing.mentions += 1;
+      existing.sourceKeys.add(source.key);
+      if (!existing.href && item?.href) existing.href = item.href;
+      teams.set(normalized, existing);
+    }
+  }
+
+  return [...teams.values()]
+    .filter(team => team.sourceKeys.size > 0)
+    .sort((a, b) => b.sourceKeys.size - a.sourceKeys.size || b.mentions - a.mentions || a.title.localeCompare(b.title))
+    .slice(0, limit)
+    .map((team, index) => ({
+      rank: index + 1,
+      title: team.title,
+      href: team.href || "https://www.hltv.org/ranking/teams/",
+      score: (team.sourceKeys.size * 100) + team.mentions,
+      source_count: team.sourceKeys.size
+    }));
 }
 
 function stripHtml(input) {
@@ -3254,6 +3348,8 @@ function formatAdminUserRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
+    leetify_url: row.leetify_url || "",
+    refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937"
   };
 }
