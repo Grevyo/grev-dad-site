@@ -58,6 +58,11 @@
   gap: 12px;
 }
 
+.rankings-panel {
+  display: grid;
+  gap: 12px;
+}
+
 .feed-header {
   display: flex;
   align-items: center;
@@ -97,6 +102,15 @@
 .feed-list li a:hover {
   transform: translateY(-1px);
   border-color: rgba(96, 165, 250, 0.56);
+}
+
+.rank-badge {
+  display: inline-flex;
+  min-width: 2rem;
+  justify-content: center;
+  margin-right: 8px;
+  color: #93c5fd;
+  font-weight: 700;
 }
 
 .empty-text {

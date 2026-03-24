@@ -17,11 +17,11 @@
       <section class="panel cs2-hero">
         <p class="eyebrow">🎮 Counter-Strike Playground</p>
         <h1>Latest Counter-Strike activity in one clean dashboard</h1>
-        <p class="hero-copy">Track HLTV news, major events, UK CS matchups, and tier 2 games inside one fast layout built for quick scanning.</p>
+        <p class="hero-copy">Track HLTV, EGamersWorld, and Liquipedia updates plus major events and tier 2 matchups inside one fast layout built for quick scanning.</p>
         <div class="hero-meta-row">
           <div class="meta-card">
             <p class="meta-label">Data source</p>
-            <p class="meta-value">HLTV + UKIC</p>
+            <p class="meta-value">HLTV + EGW + Liquipedia</p>
           </div>
           <div class="meta-card">
             <p class="meta-label">Last refresh</p>
@@ -32,6 +32,15 @@
             <p class="meta-value" id="hltv-status">Connecting...</p>
           </div>
         </div>
+      </section>
+
+      <section class="panel rankings-panel">
+        <header class="feed-header">
+          <h2>🏅 Grev.dad Community Rankings</h2>
+          <a class="feed-link" href="https://www.hltv.org/ranking/teams/" target="_blank" rel="noopener noreferrer">Ranking context</a>
+        </header>
+        <p class="muted-copy">Community ranking blend from HLTV, EGamersWorld, and Liquipedia team mentions.</p>
+        <ul id="community-rankings-list" class="feed-list"></ul>
       </section>
 
       <section class="cards-grid">
@@ -81,6 +90,22 @@
             <a class="feed-link" href="https://www.hltv.org/results" target="_blank" rel="noopener noreferrer">Open HLTV</a>
           </header>
           <ul id="results-list" class="feed-list"></ul>
+        </article>
+
+        <article class="panel feed-card">
+          <header class="feed-header">
+            <h2>🌍 EGamersWorld Teams</h2>
+            <a class="feed-link" href="https://egamersworld.com/counterstrike/teams" target="_blank" rel="noopener noreferrer">Open EGW</a>
+          </header>
+          <ul id="egw-teams-list" class="feed-list"></ul>
+        </article>
+
+        <article class="panel feed-card">
+          <header class="feed-header">
+            <h2>📘 Liquipedia Teams</h2>
+            <a class="feed-link" href="https://liquipedia.net/counterstrike/Portal:Teams" target="_blank" rel="noopener noreferrer">Open Liquipedia</a>
+          </header>
+          <ul id="liquipedia-teams-list" class="feed-list"></ul>
         </article>
       </section>
     </main>
