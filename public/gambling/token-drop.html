@@ -21,7 +21,7 @@
     .status-value { margin:0; font-size:1.35rem; font-weight:800; }
     .board-grid { grid-template-columns:minmax(0, 1.3fr) minmax(260px, .7fr); align-items:start; }
     .drop-stage { position:relative; min-height:430px; padding:20px; border-radius:22px; background:radial-gradient(circle at top, rgba(244,114,182,.18), transparent 26%), linear-gradient(180deg, rgba(59,7,100,.52), rgba(15,23,42,.86)); border:1px solid rgba(255,255,255,.1); overflow:hidden; }
-    .lane-grid { position:relative; grid-template-columns:repeat(5, minmax(0, 1fr)); align-items:end; min-height:330px; padding:44px 10px 0; }
+    .lane-grid { position:relative; grid-template-columns:repeat(10, minmax(0, 1fr)); align-items:end; min-height:330px; padding:44px 10px 0; }
     .lane-grid::before { content:""; position:absolute; inset:22px 28px 86px; border-radius:26px 26px 18px 18px; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(15,23,42,.12)); pointer-events:none; }
     .lane { position:relative; min-height:320px; padding:28px 10px 14px; border-radius:18px; background:transparent; border:0; display:flex; flex-direction:column; justify-content:flex-end; gap:14px; isolation:isolate; overflow:hidden; }
     .lane.active { border-color:#c084fc; box-shadow:0 0 0 2px rgba(192,132,252,.18) inset, 0 0 24px rgba(192,132,252,.22); transform:translateY(-4px); }
@@ -91,7 +91,7 @@
         </div>
         <div class="feature-card">
           <p class="eyebrow">How it plays</p>
-          <p class="muted-copy">Choose any round buy-in, start the round, and drop tokens through a plinko-style peg field while pockets reroll, slide, and build combo multipliers.</p>
+          <p class="muted-copy">Choose any round buy-in, start the round, and drop a token for each bet. Every token falls into one of 10 lanes and pays the lane it lands in.</p>
           <div class="info-grid mt-16">
             <div class="status-card"><p class="stat-label">Stake scaling</p><p class="status-copy">Any buy-in reshapes the whole board — bigger rounds unlock stronger multipliers and more unstable lanes.</p></div>
             <div class="status-card"><p class="stat-label">Visual drop</p><p class="status-copy">Each token now bounces through peg rows, lands with a burst, and the pocket mix shifts after every drop.</p></div>
@@ -104,7 +104,7 @@
         <div class="control-grid">
           <label class="form-group"><span class="form-label">Round buy-in</span><div class="bet-control-stack"><select id="drop-stake-presets" class="form-input"><option value="10">10 GC</option><option value="25">25 GC</option><option value="50" selected>50 GC</option><option value="100">100 GC</option><option value="250">250 GC</option><option value="custom">Custom amount</option></select><input id="drop-stake" class="form-input" type="number" inputmode="decimal" min="1" step="1" value="50" /></div></label>
           <div class="button-row"><button id="drop-start" class="btn btn-primary" type="button">Start Round</button></div>
-          <div class="button-row"><button class="btn" type="button" data-drop="0">Drop Lane 1</button><button class="btn" type="button" data-drop="1">Drop Lane 2</button><button class="btn" type="button" data-drop="2">Drop Lane 3</button><button class="btn" type="button" data-drop="3">Drop Lane 4</button><button class="btn" type="button" data-drop="4">Drop Lane 5</button></div>
+                    <div class="button-row"><button id="drop-token-btn" class="btn btn-primary" type="button">Drop Token</button></div>
         </div>
         <div class="board-grid mt-20">
           <div class="drop-stage">
@@ -145,7 +145,7 @@
     const tierEl = document.getElementById('drop-tier');
     const feedEl = document.getElementById('drop-feed');
     const roundMultiEl = document.getElementById('drop-round-multi');
-    const laneBtns = Array.from(document.querySelectorAll('[data-drop]'));
+    const dropBtn = document.getElementById('drop-token-btn');
 
     let timer = null;
     let clock = 20;
@@ -198,7 +198,7 @@
             <div class="peg-row"><span class="peg"></span><span class="peg"></span></div>
           </div>
           <div class="bucket ${bucket.type}">${bucket.label}</div>
-          <div class="lane-note">Slot ${index + 1} · ${bucket.note}</div>
+          <div class="lane-note">Lane ${index + 1} · ${bucket.note}</div>
         </div>
       `).join('');
     }
@@ -217,7 +217,7 @@
     function newBuckets() {
       const meta = tierMeta(activeStake);
       tierEl.textContent = meta.label;
-      buckets = Array.from({ length: 5 }, () => createBucket(meta));
+      buckets = Array.from({ length: 10 }, () => createBucket(meta));
     }
 
     function refresh() {
@@ -232,7 +232,7 @@
     async function endRound(message) {
       if (timer) clearInterval(timer);
       timer = null;
-      laneBtns.forEach((btn) => { btn.disabled = true; });
+      dropBtn.disabled = true;
       startBtn.disabled = false;
       await writeBalance(balance + score);
       statusEl.textContent = message;
@@ -268,7 +268,7 @@
       copyEl.textContent = 'The board now shifts after key hits. Chase combo, surge, and multiplier pockets before the timer expires.';
       addFeed(`Round started for ${formatGc(activeStake)} on the ${tierMeta(activeStake).label.toLowerCase()} tier.`);
       startBtn.disabled = true;
-      laneBtns.forEach((btn) => { btn.disabled = false; });
+      dropBtn.disabled = false;
       if (timer) clearInterval(timer);
       timer = setInterval(() => {
         clock -= 1;
@@ -286,11 +286,12 @@
 
     function rerollNeighbors(lane) { [lane - 1, lane + 1].forEach((index) => { if (index >= 0 && index < buckets.length) rerollLane(index); }); }
 
-    function dropToken(lane) {
+    function dropToken() {
       if (!timer || tokens <= 0 || dropLocked) return;
+      const lane = Math.floor(Math.random() * buckets.length);
       const bucket = buckets[lane];
       dropLocked = true;
-      laneBtns.forEach((btn) => { btn.disabled = true; });
+      dropBtn.disabled = true;
       tokens -= 1;
       renderBoard(lane, lane);
       setTimeout(() => {
@@ -303,7 +304,7 @@
         rerollLane((lane + buckets.length) % buckets.length);
         lastImpact = { lane, type: bucket.type, label: `+${Math.round(payout)} GC` };
         refresh();
-        statusEl.textContent = `Lane ${lane + 1} paid ${formatGc(payout)} at ${activeRoundMultiplier.toFixed(2)}×.`;
+        statusEl.textContent = `Token landed in lane ${lane + 1} and paid ${formatGc(payout)} at ${activeRoundMultiplier.toFixed(2)}×.`;
         copyEl.textContent = bucket.type === 'gold' ? 'Gold cache landed — raw payout spike.' : bucket.type === 'shifted' ? 'Shift lane fired — the whole board slid before rerolling.' : bucket.type === 'combo' ? 'Combo pocket hit — you gained an extra token for another shot.' : bucket.type === 'surge' ? 'Surge lane cracked open — adjacent lanes rerolled instantly.' : bucket.type === 'multiplier' ? 'Multiplier pocket raised the round multiplier for future drops.' : 'Base lane landed — steady value while you look for better swings.';
         addFeed(`Lane ${lane + 1}: ${bucket.label} for ${formatGc(payout)}.`);
         renderBoard(lane);
@@ -318,7 +319,7 @@
           return;
         }
         dropLocked = false;
-        laneBtns.forEach((btn) => { btn.disabled = false; });
+        dropBtn.disabled = false;
       }, 920);
     }
 
@@ -336,7 +337,8 @@
       refresh();
     }
 
-    laneBtns.forEach((btn) => { btn.disabled = true; btn.addEventListener('click', () => dropToken(Number(btn.dataset.drop))); });
+    dropBtn.disabled = true;
+    dropBtn.addEventListener('click', () => dropToken());
     startBtn.addEventListener('click', () => { startRound(); });
     stakePresetEl?.addEventListener('change', () => { if (stakePresetEl.value !== 'custom') stakeEl.value = stakePresetEl.value; });
     stakeEl.addEventListener('input', () => syncStakePreset(stakeEl.value));

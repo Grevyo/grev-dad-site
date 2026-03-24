@@ -146,65 +146,46 @@
       const now = ctx.currentTime;
       const master = ctx.createGain();
       master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.042, now + 0.1);
+      master.gain.linearRampToValueAtTime(0.05, now + 0.06);
       master.connect(ctx.destination);
 
-      const pulse = ctx.createOscillator();
-      pulse.type = 'triangle';
-      pulse.frequency.setValueAtTime(86, now);
-      pulse.frequency.exponentialRampToValueAtTime(136, now + 0.8);
-      pulse.frequency.exponentialRampToValueAtTime(102, now + 2.2);
+      const engine = ctx.createOscillator();
+      engine.type = 'sawtooth';
+      engine.frequency.setValueAtTime(48, now);
+      engine.frequency.exponentialRampToValueAtTime(66, now + 0.6);
 
-      const lead = ctx.createOscillator();
-      lead.type = 'sawtooth';
-      lead.frequency.setValueAtTime(220, now);
-      lead.frequency.exponentialRampToValueAtTime(410, now + 0.9);
-      lead.frequency.exponentialRampToValueAtTime(270, now + 2.1);
+      const drone = ctx.createOscillator();
+      drone.type = 'triangle';
+      drone.frequency.setValueAtTime(98, now);
+      drone.frequency.exponentialRampToValueAtTime(128, now + 1.8);
 
-      const air = ctx.createOscillator();
-      air.type = 'triangle';
-      air.frequency.setValueAtTime(660, now);
-      air.frequency.exponentialRampToValueAtTime(990, now + 1.2);
+      const laser = ctx.createOscillator();
+      laser.type = 'square';
+      laser.frequency.setValueAtTime(680, now);
+      laser.frequency.exponentialRampToValueAtTime(980, now + 0.8);
+      laser.frequency.exponentialRampToValueAtTime(740, now + 1.9);
 
-      const shimmer = ctx.createOscillator();
-      shimmer.type = 'sine';
-      shimmer.frequency.setValueAtTime(1320, now);
-      shimmer.frequency.exponentialRampToValueAtTime(1760, now + 0.9);
-      shimmer.frequency.exponentialRampToValueAtTime(1100, now + 2.2);
+      const wobble = ctx.createOscillator();
+      wobble.type = 'sine';
+      wobble.frequency.setValueAtTime(4.2, now);
+      const wobbleGain = ctx.createGain();
+      wobbleGain.gain.value = 12;
+      wobble.connect(wobbleGain).connect(laser.frequency);
 
-      const noiseBuffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * 3), ctx.sampleRate);
-      const noiseData = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < noiseData.length; i += 1) noiseData[i] = (Math.random() * 2 - 1) * 0.035;
-      const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuffer;
-      noise.loop = true;
-      const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = 'highpass';
-      noiseFilter.frequency.setValueAtTime(2800, now);
-      noiseFilter.frequency.exponentialRampToValueAtTime(980, now + 2.2);
-
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(3.8, now);
-      const lfoGain = ctx.createGain();
-      lfoGain.gain.value = 16;
-      lfo.connect(lfoGain);
-      lfoGain.connect(lead.frequency);
-      [pulse, lead, air, shimmer].forEach((node) => node.connect(master));
-      noise.connect(noiseFilter).connect(master);
-      [pulse, lead, air, shimmer, noise, lfo].forEach((node) => node.start(now));
-      activeSpinSound = { ctx, master, toneA: pulse, toneB: lead, shimmer: air, sparkle: shimmer, noise, wobble: lfo };
+      [engine, drone, laser].forEach((node) => node.connect(master));
+      [engine, drone, laser, wobble].forEach((node) => node.start(now));
+      activeSpinSound = { ctx, master, nodes: [engine, drone, laser, wobble] };
     }
 
     function stopSpinSound() {
       if (!activeSpinSound) return;
-      const { ctx, master, toneA, toneB, shimmer, sparkle, noise, wobble } = activeSpinSound;
+      const { ctx, master, nodes } = activeSpinSound;
       const now = ctx.currentTime;
       master.gain.cancelScheduledValues(now);
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
-      master.gain.exponentialRampToValueAtTime(0.018, now + 0.08);
-      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
-      [toneA, toneB, shimmer, sparkle, noise, wobble].forEach((node) => node.stop(now + 0.45));
+      master.gain.exponentialRampToValueAtTime(0.012, now + 0.08);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+      nodes.forEach((node) => node.stop(now + 0.3));
       activeSpinSound = null;
     }
 
@@ -212,42 +193,41 @@
       const ctx = ensureAudioContext();
       if (!ctx) return;
       const now = ctx.currentTime;
-      const base = 280 + (reelIndex * 58);
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const click = ctx.createOscillator();
-      const clickGain = ctx.createGain();
-      osc.type = isFinal ? 'square' : 'triangle';
-      osc.frequency.setValueAtTime(base, now);
-      osc.frequency.exponentialRampToValueAtTime(base * (isFinal ? 2 : 1.6), now + 0.08);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(isFinal ? 0.08 : 0.045, now + 0.016);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + (isFinal ? 0.28 : 0.2));
-      click.type = 'square';
-      click.frequency.setValueAtTime(1400 + (reelIndex * 80), now);
-      clickGain.gain.setValueAtTime(0.0001, now);
-      clickGain.gain.linearRampToValueAtTime(0.028, now + 0.006);
-      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
-      osc.connect(gain).connect(ctx.destination);
-      click.connect(clickGain).connect(ctx.destination);
-      osc.start(now);
-      click.start(now);
-      osc.stop(now + 0.3);
-      click.stop(now + 0.08);
+      const zap = ctx.createOscillator();
+      const thunk = ctx.createOscillator();
+      const zapGain = ctx.createGain();
+      const thunkGain = ctx.createGain();
+      zap.type = 'square';
+      thunk.type = 'triangle';
+      zap.frequency.setValueAtTime(840 + (reelIndex * 70), now);
+      zap.frequency.exponentialRampToValueAtTime(520 + (reelIndex * 40), now + 0.07);
+      thunk.frequency.setValueAtTime(140 + (reelIndex * 18), now);
+      zapGain.gain.setValueAtTime(0.0001, now);
+      zapGain.gain.linearRampToValueAtTime(isFinal ? 0.07 : 0.045, now + 0.01);
+      zapGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      thunkGain.gain.setValueAtTime(0.0001, now);
+      thunkGain.gain.linearRampToValueAtTime(0.03, now + 0.01);
+      thunkGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+      zap.connect(zapGain).connect(ctx.destination);
+      thunk.connect(thunkGain).connect(ctx.destination);
+      zap.start(now);
+      thunk.start(now);
+      zap.stop(now + 0.14);
+      thunk.stop(now + 0.16);
     }
 
     function playStopAccent(payout = 0) {
       const ctx = ensureAudioContext();
       if (!ctx) return;
       const now = ctx.currentTime;
-      const notes = payout > 0 ? [523.25, 659.25, 880, 1174.66] : [262, 220, 196];
+      const notes = payout > 0 ? [659.25, 880, 1174.66, 1318.51] : [246.94, 220, 196];
       notes.forEach((frequency, index) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = payout > 0 ? 'sawtooth' : 'triangle';
+        osc.type = payout > 0 ? 'square' : 'triangle';
         osc.frequency.setValueAtTime(frequency, now + (index * 0.06));
         gain.gain.setValueAtTime(0.0001, now + (index * 0.06));
-        gain.gain.linearRampToValueAtTime(payout > 0 ? 0.055 : 0.03, now + 0.02 + (index * 0.06));
+        gain.gain.linearRampToValueAtTime(payout > 0 ? 0.06 : 0.03, now + 0.02 + (index * 0.06));
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26 + (index * 0.06));
         osc.connect(gain).connect(ctx.destination);
         osc.start(now + (index * 0.06));
