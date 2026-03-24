@@ -1,5 +1,8 @@
 const newsListEl = document.getElementById('news-list');
+const bigEventsListEl = document.getElementById('big-events-list');
+const ukCsListEl = document.getElementById('uk-cs-list');
 const matchesListEl = document.getElementById('matches-list');
+const tier2ListEl = document.getElementById('tier2-list');
 const resultsListEl = document.getElementById('results-list');
 const refreshTimeEl = document.getElementById('refresh-time');
 const statusEl = document.getElementById('hltv-status');
@@ -54,7 +57,10 @@ async function loadHltvOverview() {
     const data = await response.json();
 
     renderList(newsListEl, data?.sections?.news, 'No HLTV news available right now.');
+    renderList(bigEventsListEl, data?.sections?.big_events, 'No S tier events found right now.');
+    renderList(ukCsListEl, data?.sections?.uk_cs_main_games, 'No UK CS matches found right now.');
     renderList(matchesListEl, data?.sections?.upcoming_matches, 'No upcoming matches found right now.');
+    renderList(tier2ListEl, data?.sections?.tier2_matches, 'No tier 2 games found right now.');
     renderList(resultsListEl, data?.sections?.latest_results, 'No results available right now.');
 
     writeRefreshTime(data?.fetched_at);
@@ -67,7 +73,10 @@ async function loadHltvOverview() {
     statusEl.textContent = 'Partial';
   } catch (error) {
     renderList(newsListEl, [], 'Could not connect to HLTV feed.');
+    renderList(bigEventsListEl, [], 'Could not connect to events feed.');
+    renderList(ukCsListEl, [], 'Could not connect to UKIC feed.');
     renderList(matchesListEl, [], 'Could not connect to HLTV feed.');
+    renderList(tier2ListEl, [], 'Could not connect to tier 2 feed.');
     renderList(resultsListEl, [], 'Could not connect to HLTV feed.');
     refreshTimeEl.textContent = 'Unavailable';
     statusEl.textContent = 'Offline';

@@ -16,12 +16,12 @@
     <main class="page-main cs2-playground-shell">
       <section class="panel cs2-hero">
         <p class="eyebrow">🎮 Counter-Strike Playground</p>
-        <h1>Latest HLTV activity in one clean dashboard</h1>
-        <p class="hero-copy">Track HLTV news, upcoming matches, and newest results inside one fast layout built for quick scanning.</p>
+        <h1>Latest Counter-Strike activity in one clean dashboard</h1>
+        <p class="hero-copy">Track HLTV news, major events, UK CS matchups, and tier 2 games inside one fast layout built for quick scanning.</p>
         <div class="hero-meta-row">
           <div class="meta-card">
             <p class="meta-label">Data source</p>
-            <p class="meta-value">HLTV</p>
+            <p class="meta-value">HLTV + UKIC</p>
           </div>
           <div class="meta-card">
             <p class="meta-label">Last refresh</p>
@@ -45,10 +45,34 @@
 
         <article class="panel feed-card">
           <header class="feed-header">
+            <h2>🌟 Big Events (S Tier)</h2>
+            <a class="feed-link" href="https://www.hltv.org/events" target="_blank" rel="noopener noreferrer">Open HLTV Events</a>
+          </header>
+          <ul id="big-events-list" class="feed-list"></ul>
+        </article>
+
+        <article class="panel feed-card">
+          <header class="feed-header">
+            <h2>🇬🇧 UK CS Main Games</h2>
+            <a class="feed-link" href="https://ukic.gg/matches" target="_blank" rel="noopener noreferrer">Open UKIC</a>
+          </header>
+          <ul id="uk-cs-list" class="feed-list"></ul>
+        </article>
+
+        <article class="panel feed-card">
+          <header class="feed-header">
             <h2>📅 Upcoming Matches</h2>
             <a class="feed-link" href="https://www.hltv.org/matches" target="_blank" rel="noopener noreferrer">Open HLTV</a>
           </header>
           <ul id="matches-list" class="feed-list"></ul>
+        </article>
+
+        <article class="panel feed-card">
+          <header class="feed-header">
+            <h2>🧪 Match Fixing Watch (Tier 2)</h2>
+            <a class="feed-link" href="https://www.hltv.org/matches" target="_blank" rel="noopener noreferrer">Open HLTV Matches</a>
+          </header>
+          <ul id="tier2-list" class="feed-list"></ul>
         </article>
 
         <article class="panel feed-card">

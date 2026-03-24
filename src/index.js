@@ -2916,25 +2916,45 @@ async function handleHltvOverview(request) {
   const startedAt = Date.now();
 
   try {
-    const [newsRes, matchesRes, resultsRes] = await Promise.all([
-      fetchHltvPage("https://www.hltv.org/news"),
-      fetchHltvPage("https://www.hltv.org/matches"),
-      fetchHltvPage("https://www.hltv.org/results")
+    const [newsRes, matchesRes, resultsRes, eventsRes, ukicMatchesRes] = await Promise.all([
+      fetchTextPage("https://www.hltv.org/news"),
+      fetchTextPage("https://www.hltv.org/matches"),
+      fetchTextPage("https://www.hltv.org/results"),
+      fetchTextPage("https://www.hltv.org/events"),
+      fetchTextPage("https://ukic.gg/matches")
     ]);
 
     const news = extractHltvLinks(newsRes, /^\/news\/\d+\//, 8);
     const upcomingMatches = extractHltvLinks(matchesRes, /^\/matches\/\d+\//, 8);
     const latestResults = extractHltvLinks(resultsRes, /^\/matches\/\d+\//, 8);
+    const bigEvents = extractSourcedLinks(
+      eventsRes,
+      /^\/events\/\d+\//,
+      "https://www.hltv.org",
+      8,
+      title => /major|iem|katowice|cologne|blast|pro league|pgl|championship|masters|global finals|world/i.test(title)
+    );
+    const ukCsMainGames = extractSourcedLinks(
+      ukicMatchesRes,
+      /\/matches\//,
+      "https://ukic.gg",
+      8,
+      title => !/login|sign up|register|about|contact|cookie|privacy/i.test(title)
+    );
+    const tier2Matches = filterTierTwoMatches(upcomingMatches, 8);
 
     return json(
       {
         success: true,
-        source: "HLTV",
+        source: "HLTV + UKIC",
         fetched_at: new Date().toISOString(),
         elapsed_ms: Date.now() - startedAt,
         sections: {
           news,
+          big_events: bigEvents,
+          uk_cs_main_games: ukCsMainGames,
           upcoming_matches: upcomingMatches,
+          tier2_matches: tier2Matches,
           latest_results: latestResults
         }
       },
@@ -2945,13 +2965,16 @@ async function handleHltvOverview(request) {
     return json(
       {
         success: false,
-        error: "Unable to load HLTV data right now.",
+        error: "Unable to load CS feed data right now.",
         detail: error?.message || "Unknown error",
         fetched_at: new Date().toISOString(),
         elapsed_ms: Date.now() - startedAt,
         sections: {
           news: [],
+          big_events: [],
+          uk_cs_main_games: [],
           upcoming_matches: [],
+          tier2_matches: [],
           latest_results: []
         }
       },
@@ -2961,7 +2984,7 @@ async function handleHltvOverview(request) {
   }
 }
 
-async function fetchHltvPage(url) {
+async function fetchTextPage(url) {
   const response = await fetch(url, {
     headers: {
       "user-agent": "Mozilla/5.0 (compatible; grev-dad-site/1.0; +https://grev.dad)",
@@ -2970,13 +2993,17 @@ async function fetchHltvPage(url) {
   });
 
   if (!response.ok) {
-    throw new Error(`HLTV request failed (${response.status}) for ${url}`);
+    throw new Error(`Request failed (${response.status}) for ${url}`);
   }
 
   return await response.text();
 }
 
 function extractHltvLinks(html, hrefPattern, limit = 8) {
+  return extractSourcedLinks(html, hrefPattern, "https://www.hltv.org", limit);
+}
+
+function extractSourcedLinks(html, hrefPattern, baseUrl, limit = 8, titleFilter = null) {
   if (!html || typeof html !== "string") return [];
 
   const linkRegex = /<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
@@ -2988,17 +3015,43 @@ function extractHltvLinks(html, hrefPattern, limit = 8) {
     const rawHref = match[1] || "";
     if (!hrefPattern.test(rawHref)) continue;
 
-    const href = rawHref.startsWith("http") ? rawHref : `https://www.hltv.org${rawHref}`;
+    const href = rawHref.startsWith("http") ? rawHref : `${baseUrl}${rawHref}`;
     if (seen.has(href)) continue;
 
     const title = decodeHtmlEntities(stripHtml(match[2] || "")).replace(/\s+/g, " ").trim();
     if (!title || title.length < 5) continue;
+    if (typeof titleFilter === "function" && !titleFilter(title)) continue;
 
     seen.add(href);
     items.push({ title, href });
   }
 
   return items;
+}
+
+
+function filterTierTwoMatches(matches, limit = 8) {
+  if (!Array.isArray(matches)) return [];
+
+  const tierOneKeywords = [
+    "major",
+    "iem",
+    "katowice",
+    "cologne",
+    "blast",
+    "pro league",
+    "pgl",
+    "world finals",
+    "masters"
+  ];
+
+  const filtered = matches.filter(item => {
+    const title = String(item?.title || "").toLowerCase();
+    if (!title) return false;
+    return !tierOneKeywords.some(keyword => title.includes(keyword));
+  });
+
+  return filtered.slice(0, limit);
 }
 
 function stripHtml(input) {
