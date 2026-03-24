@@ -1,0 +1,107 @@
+.cs2-playground-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.cs2-hero {
+  border: 1px solid color-mix(in srgb, #60a5fa 30%, var(--border));
+  background:
+    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.3), transparent 35%),
+    radial-gradient(circle at 100% 100%, rgba(14, 165, 233, 0.24), transparent 32%),
+    linear-gradient(140deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.98));
+}
+
+.hero-copy {
+  color: var(--muted);
+  max-width: 760px;
+  line-height: 1.75;
+}
+
+.hero-meta-row,
+.cards-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-meta-row {
+  margin-top: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.meta-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.meta-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.meta-value {
+  margin: 6px 0 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.cards-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.feed-card {
+  display: grid;
+  gap: 12px;
+}
+
+.feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.feed-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.feed-link {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.feed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.feed-list li a {
+  display: block;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text);
+  padding: 12px;
+  text-decoration: none;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.feed-list li a:hover {
+  transform: translateY(-1px);
+  border-color: rgba(96, 165, 250, 0.56);
+}
+
+.empty-text {
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  padding: 12px;
+}

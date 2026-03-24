@@ -111,6 +111,10 @@ async function handleRequest(request, env, ctx) {
     );
   }
 
+  if (pathname === "/api/hltv/overview" && request.method === "GET") {
+    return await handleHltvOverview(request);
+  }
+
   if (pathname === "/api/setup" && request.method === "POST") {
     return await handleSetup(env, request);
   }
@@ -2906,6 +2910,108 @@ function parseCookies(cookieHeader) {
   }
 
   return out;
+}
+
+async function handleHltvOverview(request) {
+  const startedAt = Date.now();
+
+  try {
+    const [newsRes, matchesRes, resultsRes] = await Promise.all([
+      fetchHltvPage("https://www.hltv.org/news"),
+      fetchHltvPage("https://www.hltv.org/matches"),
+      fetchHltvPage("https://www.hltv.org/results")
+    ]);
+
+    const news = extractHltvLinks(newsRes, /^\/news\/\d+\//, 8);
+    const upcomingMatches = extractHltvLinks(matchesRes, /^\/matches\/\d+\//, 8);
+    const latestResults = extractHltvLinks(resultsRes, /^\/matches\/\d+\//, 8);
+
+    return json(
+      {
+        success: true,
+        source: "HLTV",
+        fetched_at: new Date().toISOString(),
+        elapsed_ms: Date.now() - startedAt,
+        sections: {
+          news,
+          upcoming_matches: upcomingMatches,
+          latest_results: latestResults
+        }
+      },
+      200,
+      request
+    );
+  } catch (error) {
+    return json(
+      {
+        success: false,
+        error: "Unable to load HLTV data right now.",
+        detail: error?.message || "Unknown error",
+        fetched_at: new Date().toISOString(),
+        elapsed_ms: Date.now() - startedAt,
+        sections: {
+          news: [],
+          upcoming_matches: [],
+          latest_results: []
+        }
+      },
+      502,
+      request
+    );
+  }
+}
+
+async function fetchHltvPage(url) {
+  const response = await fetch(url, {
+    headers: {
+      "user-agent": "Mozilla/5.0 (compatible; grev-dad-site/1.0; +https://grev.dad)",
+      accept: "text/html,application/xhtml+xml"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HLTV request failed (${response.status}) for ${url}`);
+  }
+
+  return await response.text();
+}
+
+function extractHltvLinks(html, hrefPattern, limit = 8) {
+  if (!html || typeof html !== "string") return [];
+
+  const linkRegex = /<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const seen = new Set();
+  const items = [];
+  let match;
+
+  while ((match = linkRegex.exec(html)) && items.length < limit) {
+    const rawHref = match[1] || "";
+    if (!hrefPattern.test(rawHref)) continue;
+
+    const href = rawHref.startsWith("http") ? rawHref : `https://www.hltv.org${rawHref}`;
+    if (seen.has(href)) continue;
+
+    const title = decodeHtmlEntities(stripHtml(match[2] || "")).replace(/\s+/g, " ").trim();
+    if (!title || title.length < 5) continue;
+
+    seen.add(href);
+    items.push({ title, href });
+  }
+
+  return items;
+}
+
+function stripHtml(input) {
+  return String(input || "").replace(/<[^>]*>/g, " ");
+}
+
+function decodeHtmlEntities(input) {
+  return String(input || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
 }
 
 function buildSessionCookie(sessionToken, expires) {
