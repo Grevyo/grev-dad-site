@@ -20,7 +20,10 @@
       <a class="nav-link" href="/register.html" data-guest-only>Register</a>
       <a class="nav-link hidden" href="/members.html" data-auth-only>Members</a>
       <a class="nav-link hidden" href="/forum.html" data-auth-only>Forum</a>
-      <a class="nav-link hidden" href="/profile.html" data-auth-only>Profile</a>
+      <a class="nav-link nav-link-profile hidden" href="/profile.html" id="header-profile-link" data-auth-only>
+        <img class="profile-chip-avatar hidden" id="header-profile-avatar" alt="" />
+        <span id="header-profile-name">Profile</span>
+      </a>
       <a class="nav-link hidden" href="/admin.html" data-admin-only>Admin</a>
       <button class="btn hidden" id="header-logout-btn" type="button" data-auth-only>
         Logout
