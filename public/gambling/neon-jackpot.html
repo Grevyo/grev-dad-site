@@ -123,7 +123,7 @@
     const BET_MIN = 1;
 
     let audioCtx = null;
-    let activeSpinSound = null;
+    let spinNoiseNodes = null;
 
     function ensureAudioContext() {
       if (!window.AudioContext && !window.webkitAudioContext) return null;
@@ -136,102 +136,58 @@
       if (!betPresetEl) return;
       const rounded = Math.round(Number(value || 0));
       const option = Array.from(betPresetEl.options).find((entry) => Number(entry.value) === rounded);
-      betPresetEl.value = option ? String(rounded) : "custom";
+      betPresetEl.value = option ? String(rounded) : 'custom';
     }
 
     function startSpinSound() {
       const ctx = ensureAudioContext();
       if (!ctx) return;
       stopSpinSound();
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() * 2 - 1) * 0.18;
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 900;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      source.connect(filter).connect(gain).connect(ctx.destination);
       const now = ctx.currentTime;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0.0001, now);
-      master.gain.linearRampToValueAtTime(0.05, now + 0.06);
-      master.connect(ctx.destination);
-
-      const engine = ctx.createOscillator();
-      engine.type = 'sawtooth';
-      engine.frequency.setValueAtTime(48, now);
-      engine.frequency.exponentialRampToValueAtTime(66, now + 0.6);
-
-      const drone = ctx.createOscillator();
-      drone.type = 'triangle';
-      drone.frequency.setValueAtTime(98, now);
-      drone.frequency.exponentialRampToValueAtTime(128, now + 1.8);
-
-      const laser = ctx.createOscillator();
-      laser.type = 'square';
-      laser.frequency.setValueAtTime(680, now);
-      laser.frequency.exponentialRampToValueAtTime(980, now + 0.8);
-      laser.frequency.exponentialRampToValueAtTime(740, now + 1.9);
-
-      const wobble = ctx.createOscillator();
-      wobble.type = 'sine';
-      wobble.frequency.setValueAtTime(4.2, now);
-      const wobbleGain = ctx.createGain();
-      wobbleGain.gain.value = 12;
-      wobble.connect(wobbleGain).connect(laser.frequency);
-
-      [engine, drone, laser].forEach((node) => node.connect(master));
-      [engine, drone, laser, wobble].forEach((node) => node.start(now));
-      activeSpinSound = { ctx, master, nodes: [engine, drone, laser, wobble] };
+      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
+      source.start();
+      spinNoiseNodes = { source, gain, ctx };
     }
 
     function stopSpinSound() {
-      if (!activeSpinSound) return;
-      const { ctx, master, nodes } = activeSpinSound;
+      if (!spinNoiseNodes) return;
+      const { source, gain, ctx } = spinNoiseNodes;
       const now = ctx.currentTime;
-      master.gain.cancelScheduledValues(now);
-      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
-      master.gain.exponentialRampToValueAtTime(0.012, now + 0.08);
-      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
-      nodes.forEach((node) => node.stop(now + 0.3));
-      activeSpinSound = null;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      source.stop(now + 0.14);
+      spinNoiseNodes = null;
     }
 
-    function playReelStopSound(reelIndex, isFinal = false) {
+    function playWinSting(winnings) {
       const ctx = ensureAudioContext();
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      const zap = ctx.createOscillator();
-      const thunk = ctx.createOscillator();
-      const zapGain = ctx.createGain();
-      const thunkGain = ctx.createGain();
-      zap.type = 'square';
-      thunk.type = 'triangle';
-      zap.frequency.setValueAtTime(840 + (reelIndex * 70), now);
-      zap.frequency.exponentialRampToValueAtTime(520 + (reelIndex * 40), now + 0.07);
-      thunk.frequency.setValueAtTime(140 + (reelIndex * 18), now);
-      zapGain.gain.setValueAtTime(0.0001, now);
-      zapGain.gain.linearRampToValueAtTime(isFinal ? 0.07 : 0.045, now + 0.01);
-      zapGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-      thunkGain.gain.setValueAtTime(0.0001, now);
-      thunkGain.gain.linearRampToValueAtTime(0.03, now + 0.01);
-      thunkGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
-      zap.connect(zapGain).connect(ctx.destination);
-      thunk.connect(thunkGain).connect(ctx.destination);
-      zap.start(now);
-      thunk.start(now);
-      zap.stop(now + 0.14);
-      thunk.stop(now + 0.16);
-    }
-
-    function playStopAccent(payout = 0) {
-      const ctx = ensureAudioContext();
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      const notes = payout > 0 ? [659.25, 880, 1174.66, 1318.51] : [246.94, 220, 196];
-      notes.forEach((frequency, index) => {
+      if (!ctx || winnings <= 0) return;
+      [523.25, 659.25, 783.99].forEach((frequency, index) => {
+        const time = ctx.currentTime + (index * 0.07);
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = payout > 0 ? 'square' : 'triangle';
-        osc.frequency.setValueAtTime(frequency, now + (index * 0.06));
-        gain.gain.setValueAtTime(0.0001, now + (index * 0.06));
-        gain.gain.linearRampToValueAtTime(payout > 0 ? 0.06 : 0.03, now + 0.02 + (index * 0.06));
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26 + (index * 0.06));
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(frequency, time);
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.05, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.28);
         osc.connect(gain).connect(ctx.destination);
-        osc.start(now + (index * 0.06));
-        osc.stop(now + 0.3 + (index * 0.06));
+        osc.start(time);
+        osc.stop(time + 0.3);
       });
     }
     let currentCells = Array.from({ length: 15 }, () => icons[Math.floor(Math.random() * icons.length)]);
@@ -360,7 +316,6 @@
         const start = reelIndex * 3;
         const strip = reelEls[reelIndex].querySelector('.reel-strip');
         strip.innerHTML = outcome.cells.slice(start, start + 3).map((icon, rowIndex) => `<div class="board-cell ${outcome.hits.includes(start + rowIndex) ? 'hit payline' : ''}">${icon}</div>`).join('');
-        playReelStopSound(reelIndex, reelIndex === reelEls.length - 1);
       }
 
       writeBalance(credits + outcome.payout);
@@ -369,7 +324,7 @@
       statusEl.textContent = outcome.payout ? `You banked ${formatGc(outcome.payout)}.` : 'No payout this round.';
       copyEl.textContent = outcome.events.length ? `Feature hits: ${outcome.events.join(', ')}.` : 'No line this time — keep pressing for a hotter reel set.';
       stopSpinSound();
-      playStopAccent(outcome.payout);
+      playWinSting(outcome.payout);
       addLog(outcome.payout ? `Paid ${formatGc(outcome.payout)} from ${outcome.events.join(', ') || 'base line'}.` : 'Dead spin — no feature connected.');
       spinning = false;
       spinBtn.disabled = false;
