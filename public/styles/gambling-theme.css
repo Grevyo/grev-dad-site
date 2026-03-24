@@ -1,0 +1,98 @@
+body[data-theme="light"] .casino-hero,
+body[data-theme="light"] .hero-card,
+body[data-theme="light"] .felt,
+body[data-theme="light"] .roulette-stage,
+body[data-theme="light"] .machine-shell,
+body[data-theme="light"] .drop-stage,
+body[data-theme="light"] .graph-card,
+body[data-theme="light"] .graph-frame {
+  background: linear-gradient(160deg, #ffffff, #f4f7ff 58%, #edf2ff);
+  border-color: color-mix(in srgb, var(--border) 78%, #cbd5e1);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.1);
+}
+
+body[data-theme="light"] .eyebrow,
+body[data-theme="light"] .eyebrow-chip,
+body[data-theme="light"] .status-card,
+body[data-theme="light"] .stat-card,
+body[data-theme="light"] .feature-card,
+body[data-theme="light"] .panel-card,
+body[data-theme="light"] .seat,
+body[data-theme="light"] .summary,
+body[data-theme="light"] .bucket,
+body[data-theme="light"] .round-result-chip,
+body[data-theme="light"] .slot-callout,
+body[data-theme="light"] .event-feed li,
+body[data-theme="light"] .entry-list li,
+body[data-theme="light"] .spin-log li {
+  background: color-mix(in srgb, var(--surface) 96%, #ffffff);
+  border-color: color-mix(in srgb, var(--border) 85%, #d8e1ec);
+  color: var(--text);
+}
+
+body[data-theme="light"] .game-card,
+body[data-theme="light"] .board-cell,
+body[data-theme="light"] .lane-grid::before,
+body[data-theme="light"] .bucket.base,
+body[data-theme="light"] .bucket.shifted,
+body[data-theme="light"] .bucket.combo,
+body[data-theme="light"] .bucket.gold {
+  background: linear-gradient(180deg, #ffffff, #f4f7ff);
+  border-color: color-mix(in srgb, var(--border) 85%, #d8e1ec);
+  color: var(--text);
+}
+
+body[data-theme="light"] .roulette-result-pill,
+body[data-theme="light"] .settled-status[data-status="pending"],
+body[data-theme="light"] .pending-bets .history-item,
+body[data-theme="light"] .history-item,
+body[data-theme="light"] .result-badge {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+body[data-theme="light"] .settled-status[data-status="won"] {
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
+}
+
+body[data-theme="light"] .settled-status[data-status="lost"] {
+  background: rgba(220, 38, 38, 0.12);
+  color: #991b1b;
+}
+
+body[data-theme="light"] .machine-copy,
+body[data-theme="light"] .side-copy,
+body[data-theme="light"] .payout-card p,
+body[data-theme="light"] .result-copy,
+body[data-theme="light"] .roulette-help,
+body[data-theme="light"] .muted {
+  color: var(--muted);
+}
+
+body[data-theme="light"] .roulette-wheel {
+  border-color: #b68a2d;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.14), inset 0 0 0 8px rgba(71, 43, 8, 0.22);
+}
+
+body[data-theme="light"] .roulette-wheel::after {
+  border-color: rgba(182, 138, 45, 0.75);
+}
+
+body[data-theme="light"] .wheel-pointer {
+  border-top-color: #b68a2d;
+}
+
+body[data-theme="light"] .risk-meter {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+body[data-theme="light"] .peg {
+  background: rgba(15, 23, 42, 0.2);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06), 0 0 12px rgba(99, 102, 241, 0.12);
+}
+
+body[data-theme="light"] .drop-token {
+  box-shadow: 0 0 12px rgba(217, 119, 6, 0.45);
+}
