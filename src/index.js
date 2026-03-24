@@ -112,7 +112,7 @@ async function handleRequest(request, env, ctx) {
   }
 
   if (pathname === "/api/hltv/overview" && request.method === "GET") {
-    return await handleHltvOverview(request);
+    return await handleHltvOverview(request, env);
   }
 
   if (pathname === "/api/setup" && request.method === "POST") {
@@ -416,6 +416,7 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "user_profiles", "media_3_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "music_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "profile_accent_color", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "steam_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "leetify_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "refrag_url", "TEXT");
 
@@ -1690,6 +1691,7 @@ async function handleProfileMe(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.steam_url,
       p.leetify_url,
       p.refrag_url,
       c.grev_coin_balance
@@ -1745,6 +1747,7 @@ async function handleProfileView(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.steam_url,
       p.leetify_url,
       p.refrag_url,
       c.grev_coin_balance
@@ -1783,6 +1786,7 @@ async function handleProfileUpdate(request, env) {
   const media2 = cleanUrl(body?.media_2_url, 1200);
   const media3 = cleanUrl(body?.media_3_url, 1200);
   const musicUrl = cleanUrl(body?.music_url, 1200);
+  const steamUrl = cleanUrl(body?.steam_url, 1200);
   const leetifyUrl = cleanUrl(body?.leetify_url, 1200);
   const refragUrl = cleanUrl(body?.refrag_url, 1200);
   const profileAccentColor = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || "").trim()) ? String(body.profile_accent_color).trim() : "#1f2937";
@@ -1799,10 +1803,11 @@ async function handleProfileUpdate(request, env) {
       media_3_url,
       music_url,
       profile_accent_color,
+      steam_url,
       leetify_url,
       refrag_url
     )
-    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '')
+    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '', '')
   `).bind(session.id).run();
 
   await env.DB.prepare(`
@@ -1817,6 +1822,7 @@ async function handleProfileUpdate(request, env) {
       media_3_url = ?,
       music_url = ?,
       profile_accent_color = ?,
+      steam_url = ?,
       leetify_url = ?,
       refrag_url = ?
     WHERE user_id = ?
@@ -1830,6 +1836,7 @@ async function handleProfileUpdate(request, env) {
     media3,
     musicUrl,
     profileAccentColor,
+    steamUrl,
     leetifyUrl,
     refragUrl,
     session.id
@@ -1854,6 +1861,7 @@ async function handleProfileUpdate(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.steam_url,
       p.leetify_url,
       p.refrag_url,
       c.grev_coin_balance
@@ -1899,6 +1907,7 @@ function formatProfileRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
+    steam_url: row.steam_url || "",
     leetify_url: row.leetify_url || "",
     refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937",
@@ -1932,7 +1941,10 @@ async function handleMembers(request, env) {
       p.bio,
       p.avatar_url,
       p.real_name,
-      p.motto
+      p.motto,
+      p.steam_url,
+      p.leetify_url,
+      p.refrag_url
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.approved = 1
@@ -1955,6 +1967,9 @@ async function handleMembers(request, env) {
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
       motto: row.motto || "",
+      steam_url: row.steam_url || "",
+      leetify_url: row.leetify_url || "",
+      refrag_url: row.refrag_url || "",
       current_activity: null
     });
   }
@@ -2494,6 +2509,9 @@ async function handleAdminUsers(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.steam_url,
+      p.leetify_url,
+      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -2550,6 +2568,9 @@ async function handleAdminUser(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.steam_url,
+      p.leetify_url,
+      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -2649,6 +2670,7 @@ async function handleAdminUpdateUser(request, env) {
     media_2_url: cleanUrl(body?.media_2_url, 1200),
     media_3_url: cleanUrl(body?.media_3_url, 1200),
     music_url: cleanUrl(body?.music_url, 1200),
+    steam_url: cleanUrl(body?.steam_url, 1200),
     leetify_url: cleanUrl(body?.leetify_url, 1200),
     refrag_url: cleanUrl(body?.refrag_url, 1200),
     profile_accent_color: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || '').trim()) ? String(body.profile_accent_color).trim() : '#1f2937'
@@ -2708,13 +2730,13 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
-      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, leetify_url, refrag_url
-    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '')
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, steam_url, leetify_url, refrag_url
+    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '', '')
   `).bind(userId).run();
 
   await env.DB.prepare(`
     UPDATE user_profiles
-    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, leetify_url = ?, refrag_url = ?
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, steam_url = ?, leetify_url = ?, refrag_url = ?
     WHERE user_id = ?
   `).bind(
     profileFields.real_name,
@@ -2726,6 +2748,7 @@ async function handleAdminUpdateUser(request, env) {
     profileFields.media_3_url,
     profileFields.music_url,
     profileFields.profile_accent_color,
+    profileFields.steam_url,
     profileFields.leetify_url,
     profileFields.refrag_url,
     userId
@@ -2766,6 +2789,7 @@ async function handleAdminUpdateUser(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.steam_url,
       p.leetify_url,
       p.refrag_url,
       c.grev_coin_balance
@@ -2936,8 +2960,9 @@ function parseCookies(cookieHeader) {
   return out;
 }
 
-async function handleHltvOverview(request) {
+async function handleHltvOverview(request, env) {
   const startedAt = Date.now();
+  await ensureCoreTables(env);
 
   const [newsRes, matchesRes, resultsRes, eventsRes, ukicMatchesRes, egwTeamsRes, liquipediaTeamsRes] = await Promise.allSettled([
     fetchTextPage("https://www.hltv.org/news"),
@@ -2950,16 +2975,10 @@ async function handleHltvOverview(request) {
   ]);
 
   const news = newsRes.status === "fulfilled" ? extractHltvLinks(newsRes.value, /^\/news\/\d+\//, 8) : [];
-  const upcomingMatches = matchesRes.status === "fulfilled" ? extractHltvLinks(matchesRes.value, /^\/matches\/\d+\//, 8) : [];
+  const upcomingMatches = matchesRes.status === "fulfilled" ? extractUpcomingMatches(matchesRes.value, 8) : [];
   const latestResults = resultsRes.status === "fulfilled" ? extractHltvLinks(resultsRes.value, /^\/matches\/\d+\//, 8) : [];
   const bigEvents = eventsRes.status === "fulfilled"
-    ? extractSourcedLinks(
-      eventsRes.value,
-      /^\/events\/\d+\//,
-      "https://www.hltv.org",
-      8,
-      title => /major|iem|katowice|cologne|blast|pro league|pgl|championship|masters|global finals|world/i.test(title)
-    )
+    ? extractBigEvents(eventsRes.value, 8)
     : [];
   const ukCsMainGames = ukicMatchesRes.status === "fulfilled"
     ? extractSourcedLinks(
@@ -2976,11 +2995,7 @@ async function handleHltvOverview(request) {
   const liquipediaTeams = liquipediaTeamsRes.status === "fulfilled"
     ? extractLiquipediaTeams(liquipediaTeamsRes.value, 12)
     : [];
-  const communityRankings = buildCommunityRankings({
-    hltvItems: upcomingMatches.concat(bigEvents),
-    egamersworldTeams,
-    liquipediaTeams
-  }, 10);
+  const communityRankings = await buildCommunityProfileRankings(env, 20);
   const tier2Matches = filterTierTwoMatches(upcomingMatches, 8);
 
   const sourceStatus = {
@@ -3032,6 +3047,63 @@ async function fetchTextPage(url) {
 
 function extractHltvLinks(html, hrefPattern, limit = 8) {
   return extractSourcedLinks(html, hrefPattern, "https://www.hltv.org", limit);
+}
+
+function extractUpcomingMatches(html, limit = 8) {
+  if (!html || typeof html !== "string") return [];
+
+  const matches = extractSourcedLinks(
+    html,
+    /^\/matches\/\d+\//,
+    "https://www.hltv.org",
+    limit * 3,
+    (title) => / vs /i.test(title)
+  );
+
+  return matches.slice(0, limit).map((item) => ({
+    ...item,
+    teams: parseMatchTeams(item.title),
+    logos: {
+      team1: `https://ui-avatars.com/api/?name=${encodeURIComponent(parseMatchTeams(item.title).team1 || "TBD")}&background=0f172a&color=ffffff&size=64`,
+      team2: `https://ui-avatars.com/api/?name=${encodeURIComponent(parseMatchTeams(item.title).team2 || "TBD")}&background=1e293b&color=ffffff&size=64`
+    }
+  }));
+}
+
+function parseMatchTeams(title) {
+  const cleanTitle = String(title || "").replace(/\s+/g, " ").trim();
+  const parts = cleanTitle.split(/\s+vs\.?\s+/i).map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return { team1: parts[0], team2: parts[1] };
+  }
+  return { team1: cleanTitle || "Team 1", team2: "Team 2" };
+}
+
+function extractBigEvents(html, limit = 8) {
+  if (!html || typeof html !== "string") return [];
+  const links = extractSourcedLinks(
+    html,
+    /^\/events\/\d+\//,
+    "https://www.hltv.org",
+    limit * 2,
+    title => /major|iem|katowice|cologne|blast|pro league|pgl|championship|masters|global finals|world/i.test(title)
+  );
+
+  const unixDates = [...html.matchAll(/data-unix="(\d{10,13})"/g)].map((m) => Number(m[1]));
+
+  return links.slice(0, limit).map((event, index) => ({
+    ...event,
+    start_date: toIsoFromUnix(unixDates[index * 2]),
+    end_date: toIsoFromUnix(unixDates[(index * 2) + 1])
+  }));
+}
+
+function toIsoFromUnix(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  const ms = number > 1e12 ? number : number * 1000;
+  const date = new Date(ms);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function extractEgwTeamLinks(html, limit = 12) {
@@ -3114,37 +3186,46 @@ function normaliseTeamName(raw) {
     .trim();
 }
 
-function buildCommunityRankings({ hltvItems = [], egamersworldTeams = [], liquipediaTeams = [] }, limit = 10) {
-  const teams = new Map();
-  const sources = [
-    { key: "hltv", items: hltvItems },
-    { key: "egamersworld", items: egamersworldTeams },
-    { key: "liquipedia", items: liquipediaTeams }
-  ];
+async function buildCommunityProfileRankings(env, limit = 20) {
+  const rows = await env.DB.prepare(`
+    SELECT
+      u.id,
+      u.username,
+      p.steam_url,
+      p.leetify_url,
+      p.refrag_url,
+      u.last_seen_at
+    FROM users u
+    LEFT JOIN user_profiles p ON p.user_id = u.id
+    WHERE u.approved = 1
+  `).all();
 
-  for (const source of sources) {
-    for (const item of source.items) {
-      const title = String(item?.title || "").trim();
-      const normalized = normaliseTeamName(title);
-      if (!normalized || normalized.length < 2 || normalized.length > 30) continue;
-      const existing = teams.get(normalized) || { title, mentions: 0, sourceKeys: new Set(), href: item?.href || "" };
-      existing.mentions += 1;
-      existing.sourceKeys.add(source.key);
-      if (!existing.href && item?.href) existing.href = item.href;
-      teams.set(normalized, existing);
-    }
-  }
+  const rankings = (rows.results || []).map((row) => {
+    const linkedAccounts = [
+      row.steam_url,
+      row.leetify_url,
+      row.refrag_url
+    ].filter(Boolean);
 
-  return [...teams.values()]
-    .filter(team => team.sourceKeys.size > 0)
-    .sort((a, b) => b.sourceKeys.size - a.sourceKeys.size || b.mentions - a.mentions || a.title.localeCompare(b.title))
+    const score = (linkedAccounts.length * 100)
+      + (row.last_seen_at ? 15 : 0)
+      + (row.steam_url ? 25 : 0);
+
+    return {
+      title: row.username,
+      href: `/profile.html?id=${encodeURIComponent(row.id)}`,
+      score,
+      linked_accounts: linkedAccounts.length,
+      source_count: linkedAccounts.length
+    };
+  });
+
+  return rankings
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
     .slice(0, limit)
-    .map((team, index) => ({
-      rank: index + 1,
-      title: team.title,
-      href: team.href || "https://www.hltv.org/ranking/teams/",
-      score: (team.sourceKeys.size * 100) + team.mentions,
-      source_count: team.sourceKeys.size
+    .map((item, index) => ({
+      ...item,
+      rank: index + 1
     }));
 }
 
@@ -3348,6 +3429,7 @@ function formatAdminUserRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
+    steam_url: row.steam_url || "",
     leetify_url: row.leetify_url || "",
     refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937"

@@ -27,7 +27,39 @@ function renderList(targetEl, items, fallbackText) {
     link.href = item.href;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = item.title || 'Open item';
+    const title = document.createElement('div');
+    title.textContent = item.title || 'Open item';
+    link.appendChild(title);
+
+    if (item?.logos?.team1 || item?.logos?.team2) {
+      const logos = document.createElement('div');
+      logos.className = 'match-logo-row';
+      if (item?.logos?.team1) {
+        const img = document.createElement('img');
+        img.src = item.logos.team1;
+        img.alt = `${item?.teams?.team1 || 'Team 1'} logo`;
+        img.className = 'team-logo';
+        logos.appendChild(img);
+      }
+      if (item?.logos?.team2) {
+        const img = document.createElement('img');
+        img.src = item.logos.team2;
+        img.alt = `${item?.teams?.team2 || 'Team 2'} logo`;
+        img.className = 'team-logo';
+        logos.appendChild(img);
+      }
+      link.appendChild(logos);
+    }
+
+    if (item?.start_date || item?.end_date) {
+      const meta = document.createElement('small');
+      meta.className = 'feed-meta';
+      const start = formatDate(item.start_date);
+      const end = formatDate(item.end_date);
+      meta.textContent = `Starts: ${start} · Ends: ${end}`;
+      link.appendChild(meta);
+    }
+
     li.appendChild(link);
     targetEl.appendChild(li);
   }
@@ -72,6 +104,13 @@ function writeRefreshTime(isoString) {
   }
 
   refreshTimeEl.textContent = date.toLocaleString();
+}
+
+function formatDate(value) {
+  if (!value) return 'TBC';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'TBC';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 async function loadHltvOverview() {
