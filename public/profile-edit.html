@@ -14,14 +14,20 @@
       <p class="gambling-breadcrumb"><a href="/profile.html">← Back to profile</a></p>
       <section class="panel">
         <h1 class="auth-title">Edit your profile</h1>
-        <p class="auth-subtitle">Update your profile details, media, music, profile background colour, profile picture link, and your CS2 improvement accounts.</p>
+        <p class="auth-subtitle">Update your profile details, media, music, avatar setup, gradient background colours, and your CS2 improvement accounts.</p>
         <div id="profile-message" class="hidden"></div>
         <form id="profile-form" class="form-grid mt-24">
           <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
             <div class="form-group"><label class="form-label" for="real-name">Real name</label><input id="real-name" class="form-input" type="text" maxlength="80" /></div>
             <div class="form-group"><label class="form-label" for="motto">Motto</label><input id="motto" class="form-input" type="text" maxlength="140" /></div>
-            <div class="form-group"><label class="form-label" for="avatar-url">Profile picture link</label><input id="avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://example.com/avatar.png" /></div>
-            <div class="form-group"><label class="form-label" for="profile-accent-color">Profile background colour</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-url">Profile picture link (optional)</label><input id="avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://example.com/avatar.png" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-initials">Avatar initials (used when no image link)</label><input id="avatar-initials" class="form-input" type="text" maxlength="3" placeholder="JD" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-style">Avatar style</label><select id="avatar-style" class="form-input"><option value="rounded">Rounded</option><option value="circle">Circle</option><option value="diamond">Diamond</option></select></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color">Gradient colour 1</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color-secondary">Gradient colour 2</label><input id="profile-accent-color-secondary" class="form-input" type="color" value="#0f172a" /></div>
+            <div class="form-group"><label class="form-label" for="pronouns">Pronouns</label><input id="pronouns" class="form-input" type="text" maxlength="50" placeholder="he/him" /></div>
+            <div class="form-group"><label class="form-label" for="location">Location</label><input id="location" class="form-input" type="text" maxlength="120" placeholder="City, Country" /></div>
+            <div class="form-group"><label class="form-label" for="favorite-game">Favourite game</label><input id="favorite-game" class="form-input" type="text" maxlength="120" placeholder="Counter-Strike 2" /></div>
           </div>
 
           <div class="form-group"><label class="form-label" for="bio">Bio</label><textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height:160px;"></textarea></div>
@@ -48,7 +54,13 @@
       real_name: document.getElementById('real-name'),
       motto: document.getElementById('motto'),
       avatar_url: document.getElementById('avatar-url'),
+      avatar_initials: document.getElementById('avatar-initials'),
+      avatar_style: document.getElementById('avatar-style'),
       profile_accent_color: document.getElementById('profile-accent-color'),
+      profile_accent_color_secondary: document.getElementById('profile-accent-color-secondary'),
+      pronouns: document.getElementById('pronouns'),
+      location: document.getElementById('location'),
+      favorite_game: document.getElementById('favorite-game'),
       bio: document.getElementById('bio'),
       media_1_url: document.getElementById('media-1-url'),
       media_2_url: document.getElementById('media-2-url'),
@@ -63,7 +75,16 @@
       const response = await fetch('/api/profile/me', { credentials:'same-origin' });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.success) { if (response.status === 401) window.location.href = '/login.html'; throw new Error(data?.error || 'Failed to load profile'); }
-      Object.entries(fields).forEach(([key, input]) => { input.value = data.profile?.[key] || (key === 'profile_accent_color' ? '#1f2937' : ''); });
+      Object.entries(fields).forEach(([key, input]) => {
+        const fallback = key === 'profile_accent_color'
+          ? '#1f2937'
+          : key === 'profile_accent_color_secondary'
+            ? '#0f172a'
+            : key === 'avatar_style'
+              ? 'rounded'
+              : '';
+        input.value = data.profile?.[key] || fallback;
+      });
     }
     form.addEventListener('submit', async (event) => {
       event.preventDefault();

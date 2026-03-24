@@ -416,6 +416,12 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "user_profiles", "media_3_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "music_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "profile_accent_color", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "profile_accent_color_secondary", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "avatar_initials", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "avatar_style", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "pronouns", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "location", "TEXT");
+  await ensureColumn(env.DB, "user_profiles", "favorite_game", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "steam_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "leetify_url", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "refrag_url", "TEXT");
@@ -1691,6 +1697,12 @@ async function handleProfileMe(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.profile_accent_color_secondary,
+      p.avatar_initials,
+      p.avatar_style,
+      p.pronouns,
+      p.location,
+      p.favorite_game,
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
@@ -1747,6 +1759,12 @@ async function handleProfileView(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.profile_accent_color_secondary,
+      p.avatar_initials,
+      p.avatar_style,
+      p.pronouns,
+      p.location,
+      p.favorite_game,
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
@@ -1790,6 +1808,12 @@ async function handleProfileUpdate(request, env) {
   const leetifyUrl = cleanUrl(body?.leetify_url, 1200);
   const refragUrl = cleanUrl(body?.refrag_url, 1200);
   const profileAccentColor = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || "").trim()) ? String(body.profile_accent_color).trim() : "#1f2937";
+  const profileAccentColorSecondary = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color_secondary || "").trim()) ? String(body.profile_accent_color_secondary).trim() : "#0f172a";
+  const avatarInitials = cleanShortText(body?.avatar_initials, 3).toUpperCase();
+  const avatarStyle = ["rounded", "circle", "diamond"].includes(String(body?.avatar_style || "").trim()) ? String(body.avatar_style).trim() : "rounded";
+  const pronouns = cleanShortText(body?.pronouns, 50);
+  const location = cleanShortText(body?.location, 120);
+  const favoriteGame = cleanShortText(body?.favorite_game, 120);
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
@@ -1803,11 +1827,17 @@ async function handleProfileUpdate(request, env) {
       media_3_url,
       music_url,
       profile_accent_color,
+      profile_accent_color_secondary,
+      avatar_initials,
+      avatar_style,
+      pronouns,
+      location,
+      favorite_game,
       steam_url,
       leetify_url,
       refrag_url
     )
-    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '', '')
+    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '#0f172a', '', 'rounded', '', '', '', '', '', '')
   `).bind(session.id).run();
 
   await env.DB.prepare(`
@@ -1822,6 +1852,12 @@ async function handleProfileUpdate(request, env) {
       media_3_url = ?,
       music_url = ?,
       profile_accent_color = ?,
+      profile_accent_color_secondary = ?,
+      avatar_initials = ?,
+      avatar_style = ?,
+      pronouns = ?,
+      location = ?,
+      favorite_game = ?,
       steam_url = ?,
       leetify_url = ?,
       refrag_url = ?
@@ -1836,6 +1872,12 @@ async function handleProfileUpdate(request, env) {
     media3,
     musicUrl,
     profileAccentColor,
+    profileAccentColorSecondary,
+    avatarInitials,
+    avatarStyle,
+    pronouns,
+    location,
+    favoriteGame,
     steamUrl,
     leetifyUrl,
     refragUrl,
@@ -1861,6 +1903,12 @@ async function handleProfileUpdate(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.profile_accent_color_secondary,
+      p.avatar_initials,
+      p.avatar_style,
+      p.pronouns,
+      p.location,
+      p.favorite_game,
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
@@ -1911,6 +1959,12 @@ function formatProfileRow(row) {
     leetify_url: row.leetify_url || "",
     refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937",
+    profile_accent_color_secondary: row.profile_accent_color_secondary || "#0f172a",
+    avatar_initials: row.avatar_initials || "",
+    avatar_style: row.avatar_style || "rounded",
+    pronouns: row.pronouns || "",
+    location: row.location || "",
+    favorite_game: row.favorite_game || "",
     casino_balance_pence: Number(row.grev_coin_balance || 0),
     casino_balance: toCoinAmount(row.grev_coin_balance || 0),
     media,
@@ -2509,6 +2563,12 @@ async function handleAdminUsers(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.profile_accent_color_secondary,
+      p.avatar_initials,
+      p.avatar_style,
+      p.pronouns,
+      p.location,
+      p.favorite_game,
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
@@ -2568,6 +2628,12 @@ async function handleAdminUser(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.profile_accent_color_secondary,
+      p.avatar_initials,
+      p.avatar_style,
+      p.pronouns,
+      p.location,
+      p.favorite_game,
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
@@ -2673,7 +2739,13 @@ async function handleAdminUpdateUser(request, env) {
     steam_url: cleanUrl(body?.steam_url, 1200),
     leetify_url: cleanUrl(body?.leetify_url, 1200),
     refrag_url: cleanUrl(body?.refrag_url, 1200),
-    profile_accent_color: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || '').trim()) ? String(body.profile_accent_color).trim() : '#1f2937'
+    profile_accent_color: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || '').trim()) ? String(body.profile_accent_color).trim() : '#1f2937',
+    profile_accent_color_secondary: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color_secondary || '').trim()) ? String(body.profile_accent_color_secondary).trim() : '#0f172a',
+    avatar_initials: typeof body?.avatar_initials === "string" ? body.avatar_initials.trim().slice(0, 3).toUpperCase() : "",
+    avatar_style: ["rounded", "circle", "diamond"].includes(String(body?.avatar_style || '').trim()) ? String(body.avatar_style).trim() : "rounded",
+    pronouns: typeof body?.pronouns === "string" ? body.pronouns.trim().slice(0, 50) : "",
+    location: typeof body?.location === "string" ? body.location.trim().slice(0, 120) : "",
+    favorite_game: typeof body?.favorite_game === "string" ? body.favorite_game.trim().slice(0, 120) : ""
   };
 
   if (!Number.isInteger(userId) || userId <= 0) {
@@ -2730,13 +2802,13 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
-      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, steam_url, leetify_url, refrag_url
-    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '', '', '')
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, profile_accent_color_secondary, avatar_initials, avatar_style, pronouns, location, favorite_game, steam_url, leetify_url, refrag_url
+    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '#0f172a', '', 'rounded', '', '', '', '', '', '')
   `).bind(userId).run();
 
   await env.DB.prepare(`
     UPDATE user_profiles
-    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, steam_url = ?, leetify_url = ?, refrag_url = ?
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, profile_accent_color_secondary = ?, avatar_initials = ?, avatar_style = ?, pronouns = ?, location = ?, favorite_game = ?, steam_url = ?, leetify_url = ?, refrag_url = ?
     WHERE user_id = ?
   `).bind(
     profileFields.real_name,
@@ -2748,6 +2820,12 @@ async function handleAdminUpdateUser(request, env) {
     profileFields.media_3_url,
     profileFields.music_url,
     profileFields.profile_accent_color,
+    profileFields.profile_accent_color_secondary,
+    profileFields.avatar_initials,
+    profileFields.avatar_style,
+    profileFields.pronouns,
+    profileFields.location,
+    profileFields.favorite_game,
     profileFields.steam_url,
     profileFields.leetify_url,
     profileFields.refrag_url,
@@ -2789,6 +2867,12 @@ async function handleAdminUpdateUser(request, env) {
       p.media_3_url,
       p.music_url,
       p.profile_accent_color,
+      p.profile_accent_color_secondary,
+      p.avatar_initials,
+      p.avatar_style,
+      p.pronouns,
+      p.location,
+      p.favorite_game,
       p.steam_url,
       p.leetify_url,
       p.refrag_url,
