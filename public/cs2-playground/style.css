@@ -146,6 +146,7 @@
 .ranking-link {
   display: flex !important;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -163,4 +164,9 @@
   border-radius: var(--radius-md);
   color: var(--muted);
   padding: 12px;
+}
+
+.ranking-meta {
+  width: 100%;
+  margin-left: calc(2rem + 40px);
 }

@@ -3074,7 +3074,9 @@ async function handleHltvOverview(request, env) {
       title => !/login|sign up|register|about|contact|cookie|privacy/i.test(title)
     )
     : [];
-  const ukCsMainGames = mergeUniqueLinks(featuredUkicLeagues, ukicScrapedItems, 8);
+  const ukCsMainGames = await enrichUkicLeagueItems(
+    mergeUniqueLinks(featuredUkicLeagues, ukicScrapedItems, 8)
+  );
   const egamersworldTeams = egwTeamsRes.status === "fulfilled"
     ? extractEgwTeamLinks(egwTeamsRes.value, 12)
     : [];
@@ -3287,16 +3289,25 @@ async function buildCommunityProfileRankings(env, limit = 20) {
     WHERE u.approved = 1
   `).all();
 
-  const rankings = (rows.results || []).map((row) => {
+  const linkedRows = (rows.results || []).filter((row) => hasAnyCounterStrikeProfile(row));
+  const rankings = await Promise.all(linkedRows.map(async (row) => {
     const linkedAccounts = [
       row.steam_url,
       row.leetify_url,
       row.refrag_url
     ].filter(Boolean);
 
+    const profileInsights = await collectProfileInsights({
+      steamUrl: row.steam_url,
+      leetifyUrl: row.leetify_url,
+      refragUrl: row.refrag_url
+    });
+
+    const insightScore = profileInsights.reduce((total, item) => total + Number(item.score || 0), 0);
     const score = (linkedAccounts.length * 100)
       + (row.last_seen_at ? 15 : 0)
-      + (row.steam_url ? 25 : 0);
+      + (row.steam_url ? 25 : 0)
+      + insightScore;
 
     return {
       title: row.username,
@@ -3304,9 +3315,11 @@ async function buildCommunityProfileRankings(env, limit = 20) {
       avatar_url: row.avatar_url || "",
       score,
       linked_accounts: linkedAccounts.length,
-      source_count: linkedAccounts.length
+      source_count: linkedAccounts.length,
+      profile_insights: profileInsights,
+      summary: profileInsights.map((item) => item.headline).filter(Boolean).slice(0, 2).join(" · ")
     };
-  });
+  }));
 
   return rankings
     .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
@@ -3315,6 +3328,119 @@ async function buildCommunityProfileRankings(env, limit = 20) {
       ...item,
       rank: index + 1
     }));
+}
+
+function hasAnyCounterStrikeProfile(row) {
+  return Boolean(row?.steam_url || row?.leetify_url || row?.refrag_url);
+}
+
+async function collectProfileInsights({ steamUrl, leetifyUrl, refragUrl }) {
+  const checks = [
+    buildProfileCheck("Steam", steamUrl, /(steamcommunity\.com|store\.steampowered\.com)/i),
+    buildProfileCheck("Leetify", leetifyUrl, /leetify\.com/i),
+    buildProfileCheck("Refrag", refragUrl, /refrag\.gg/i)
+  ].filter(Boolean);
+
+  const results = await Promise.allSettled(checks.map(async (check) => {
+    const html = await fetchTextPage(check.url);
+    return parseProfileInsight(check.label, check.url, html);
+  }));
+
+  return results
+    .filter((result) => result.status === "fulfilled" && result.value)
+    .map((result) => result.value);
+}
+
+function buildProfileCheck(label, rawUrl, allowedDomainPattern) {
+  const url = cleanUrl(rawUrl, 1200);
+  if (!url || !allowedDomainPattern.test(url)) return null;
+  return { label, url };
+}
+
+function parseProfileInsight(provider, href, html) {
+  const title = decodeHtmlEntities(extractTitleFromHtml(html));
+  const description = decodeHtmlEntities(extractMetaDescription(html));
+  const rankHints = extractRankHints(`${title} ${description}`);
+  const statsHints = extractStatHints(`${title} ${description}`);
+  const headlineParts = [];
+  if (rankHints.length) headlineParts.push(`Rank: ${rankHints.slice(0, 2).join(", ")}`);
+  if (statsHints.length) headlineParts.push(statsHints[0]);
+  if (!headlineParts.length && description) headlineParts.push(description.slice(0, 120));
+  if (!headlineParts.length && title) headlineParts.push(title);
+
+  const score = (rankHints.length * 18) + (statsHints.length * 10) + (title ? 6 : 0) + (description ? 4 : 0);
+  return {
+    provider,
+    href,
+    headline: `${provider}: ${headlineParts.join(" · ")}`.trim(),
+    score
+  };
+}
+
+function extractTitleFromHtml(html) {
+  if (!html || typeof html !== "string") return "";
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? stripHtml(match[1]).replace(/\s+/g, " ").trim() : "";
+}
+
+function extractMetaDescription(html) {
+  if (!html || typeof html !== "string") return "";
+  const match = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["'][^>]*>/i);
+  return match ? stripHtml(match[1]).replace(/\s+/g, " ").trim() : "";
+}
+
+function extractRankHints(text) {
+  const source = String(text || "");
+  const rankMatches = source.match(/(?:rank|rating|elo|faceit|premier|level)\s*[:#]?\s*([a-z0-9.+\- ]{1,24})/gi) || [];
+  const cleaned = rankMatches
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  return [...new Set(cleaned)].slice(0, 3);
+}
+
+function extractStatHints(text) {
+  const source = String(text || "");
+  const statMatches = source.match(/(?:win\s*rate|headshot|hs%|kd|k\/d|adr|clutch|entry|matches|rounds|rating)\s*[:#]?\s*[0-9]+(?:\.[0-9]+)?%?/gi) || [];
+  const cleaned = statMatches
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  return [...new Set(cleaned)].slice(0, 3);
+}
+
+async function enrichUkicLeagueItems(items) {
+  const seeded = Array.isArray(items) ? items.slice(0, 8) : [];
+  const results = await Promise.allSettled(seeded.map(async (item) => {
+    const html = await fetchTextPage(item.href);
+    const details = extractUkicCompetitionDetails(html);
+    return {
+      ...item,
+      summary: details.summary,
+      meta_lines: details.lines
+    };
+  }));
+
+  return seeded.map((item, index) => (
+    results[index]?.status === "fulfilled"
+      ? results[index].value
+      : item
+  ));
+}
+
+function extractUkicCompetitionDetails(html) {
+  const title = extractTitleFromHtml(html);
+  const description = extractMetaDescription(html);
+  const groupMentions = (html.match(/group\s+[a-z0-9]+/gi) || []).slice(0, 3);
+  const standings = (html.match(/(?:#?\d+\s*[-–]\s*[a-z0-9 ._'&+-]{2,30}\s*[-–]\s*\d+\s*(?:pts|points))/gi) || []).slice(0, 3);
+  const positionLines = standings.length
+    ? standings.map((line) => line.replace(/\s+/g, " ").trim())
+    : groupMentions.map((line) => line.replace(/\s+/g, " ").trim());
+
+  const summary = description || title || "UKIC competition details";
+  return {
+    summary: summary.slice(0, 180),
+    lines: positionLines
+  };
 }
 
 function stripHtml(input) {
