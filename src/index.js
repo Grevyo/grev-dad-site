@@ -3048,14 +3048,14 @@ async function handleHltvOverview(request, env) {
   const startedAt = Date.now();
   await ensureCoreTables(env);
 
-  const [newsRes, matchesRes, resultsRes, eventsRes, ukicMatchesRes, egwTeamsRes, liquipediaTeamsRes] = await Promise.allSettled([
+  const [newsRes, matchesRes, resultsRes, eventsRes, rankingsRes, ukicMatchesRes, egwRankingsRes] = await Promise.allSettled([
     fetchTextPage("https://www.hltv.org/news"),
     fetchTextPage("https://www.hltv.org/matches"),
     fetchTextPage("https://www.hltv.org/results"),
     fetchTextPage("https://www.hltv.org/events"),
+    fetchTextPage("https://www.hltv.org/ranking/teams"),
     fetchTextPage("https://ukicircuit.com/leagues/"),
-    fetchTextPage("https://egamersworld.com/counterstrike/teams"),
-    fetchTextPage("https://liquipedia.net/counterstrike/Portal:Teams")
+    fetchTextPage("https://egamersworld.com/counterstrike/teams")
   ]);
 
   const news = newsRes.status === "fulfilled" ? extractHltvLinks(newsRes.value, /^\/news\/\d+\//, 8) : [];
@@ -3077,27 +3077,26 @@ async function handleHltvOverview(request, env) {
   const ukCsMainGames = await enrichUkicLeagueItems(
     mergeUniqueLinks(featuredUkicLeagues, ukicScrapedItems, 8)
   );
-  const egamersworldTeams = egwTeamsRes.status === "fulfilled"
-    ? extractEgwTeamLinks(egwTeamsRes.value, 12)
+  const hltvVrsRankings = rankingsRes.status === "fulfilled"
+    ? extractHltvVrsRankings(rankingsRes.value, 10)
     : [];
-  const liquipediaTeams = liquipediaTeamsRes.status === "fulfilled"
-    ? extractLiquipediaTeams(liquipediaTeamsRes.value, 12)
+  const egamersworldRankings = egwRankingsRes.status === "fulfilled"
+    ? extractEgwTeamLinks(egwRankingsRes.value, 10)
     : [];
   const communityRankings = await buildCommunityProfileRankings(env, 20);
   const tier2Matches = filterTierTwoMatches(upcomingMatches, 8);
 
   const sourceStatus = {
-    hltv: newsRes.status === "fulfilled" || matchesRes.status === "fulfilled" || resultsRes.status === "fulfilled" || eventsRes.status === "fulfilled",
+    hltv: newsRes.status === "fulfilled" || matchesRes.status === "fulfilled" || resultsRes.status === "fulfilled" || eventsRes.status === "fulfilled" || rankingsRes.status === "fulfilled",
     ukic: ukicMatchesRes.status === "fulfilled",
-    egamersworld: egwTeamsRes.status === "fulfilled",
-    liquipedia: liquipediaTeamsRes.status === "fulfilled"
+    egamersworld: egwRankingsRes.status === "fulfilled"
   };
 
   const success = Object.values(sourceStatus).some(Boolean);
   return json(
     {
       success,
-      source: "HLTV + UKIC + EGamersWorld + Liquipedia",
+      source: "HLTV + UKIC + EGamersWorld",
       source_status: sourceStatus,
       fetched_at: new Date().toISOString(),
       elapsed_ms: Date.now() - startedAt,
@@ -3109,8 +3108,8 @@ async function handleHltvOverview(request, env) {
         upcoming_matches: upcomingMatches,
         tier2_matches: tier2Matches,
         latest_results: latestResults,
-        egamersworld_teams: egamersworldTeams.slice(0, 8),
-        liquipedia_teams: liquipediaTeams.slice(0, 8)
+        hltv_vrs_rankings: hltvVrsRankings,
+        egamersworld_rankings: egamersworldRankings
       }
     },
     success ? 200 : 502,
@@ -3139,23 +3138,57 @@ function extractHltvLinks(html, hrefPattern, limit = 8) {
 
 function extractUpcomingMatches(html, limit = 8) {
   if (!html || typeof html !== "string") return [];
+  const blocks = html.match(/<a\b[^>]*class="[^"]*match[^"]*"[^>]*href="\/matches\/\d+\/[^"]+"[\s\S]*?<\/a>/gi) || [];
+  const seen = new Set();
+  const items = [];
 
-  const matches = extractSourcedLinks(
+  for (const block of blocks) {
+    if (items.length >= limit) break;
+
+    const hrefMatch = block.match(/href="(\/matches\/\d+\/[^"]+)"/i);
+    const href = hrefMatch ? `https://www.hltv.org${hrefMatch[1]}` : "";
+    if (!href || seen.has(href)) continue;
+
+    const teamNames = [...block.matchAll(/(?:team|matchTeamName)[^>]*>([^<]+)</gi)]
+      .map((m) => decodeHtmlEntities(stripHtml(m[1])).replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    const parsedFromTitle = parseMatchTeams(stripHtml(block));
+    const team1 = teamNames[0] || parsedFromTitle.team1;
+    const team2 = teamNames[1] || parsedFromTitle.team2;
+    if (!team1 || !team2) continue;
+
+    const logoUrls = [...block.matchAll(/<img[^>]+src="([^"]+)"[^>]*>/gi)]
+      .map((m) => makeAbsoluteUrl(m[1], "https://www.hltv.org"))
+      .filter(Boolean);
+
+    const eventNameMatch = block.match(/(?:event|matchEventName)[^>]*>([^<]+)</i);
+    const eventName = eventNameMatch
+      ? decodeHtmlEntities(stripHtml(eventNameMatch[1])).replace(/\s+/g, " ").trim()
+      : "";
+
+    const summary = eventName ? `Event: ${eventName}` : "";
+    seen.add(href);
+    items.push({
+      title: `${team1} vs ${team2}`,
+      href,
+      summary,
+      teams: { team1, team2 },
+      logos: {
+        team1: logoUrls[0] || "",
+        team2: logoUrls[1] || ""
+      }
+    });
+  }
+
+  if (items.length) return items;
+
+  return extractSourcedLinks(
     html,
     /^\/matches\/\d+\//,
     "https://www.hltv.org",
-    limit * 3,
+    limit,
     (title) => / vs /i.test(title)
-  );
-
-  return matches.slice(0, limit).map((item) => ({
-    ...item,
-    teams: parseMatchTeams(item.title),
-    logos: {
-      team1: `https://ui-avatars.com/api/?name=${encodeURIComponent(parseMatchTeams(item.title).team1 || "TBD")}&background=0f172a&color=ffffff&size=64`,
-      team2: `https://ui-avatars.com/api/?name=${encodeURIComponent(parseMatchTeams(item.title).team2 || "TBD")}&background=1e293b&color=ffffff&size=64`
-    }
-  }));
+  ).map((item) => ({ ...item, teams: parseMatchTeams(item.title), logos: { team1: "", team2: "" } }));
 }
 
 function parseMatchTeams(title) {
@@ -3204,14 +3237,33 @@ function extractEgwTeamLinks(html, limit = 12) {
   );
 }
 
-function extractLiquipediaTeams(html, limit = 12) {
-  return extractSourcedLinks(
-    html,
-    /\/counterstrike\/[^"?#]+/i,
-    "https://liquipedia.net",
-    limit,
-    title => /^[a-z0-9 ._'&+-]{2,30}$/i.test(title) && !/counter[-\s]?strike|portal|results|tournaments|liquipedia/i.test(title)
-  );
+function extractHltvVrsRankings(html, limit = 10) {
+  if (!html || typeof html !== "string") return [];
+  const blockMatches = html.match(/<a\b[^>]*href="\/team\/\d+\/[^"]+"[\s\S]*?<\/a>/gi) || [];
+  const seen = new Set();
+  const items = [];
+
+  for (const block of blockMatches) {
+    if (items.length >= limit) break;
+    const hrefMatch = block.match(/href="(\/team\/\d+\/[^"]+)"/i);
+    const href = hrefMatch ? `https://www.hltv.org${hrefMatch[1]}` : "";
+    if (!href || seen.has(href)) continue;
+
+    const titleMatch = block.match(/(?:teamLine|ranking-header|teamName)[^>]*>([^<]+)</i);
+    const title = titleMatch ? decodeHtmlEntities(stripHtml(titleMatch[1])).trim() : "";
+    const rankMatch = block.match(/#\s*(\d{1,2})/);
+    const logoMatch = block.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
+
+    if (!title) continue;
+    seen.add(href);
+    items.push({
+      title: `${rankMatch ? `#${rankMatch[1]} ` : ""}${title}`.trim(),
+      href,
+      logos: { team1: makeAbsoluteUrl(logoMatch?.[1] || "", "https://www.hltv.org"), team2: "" }
+    });
+  }
+
+  return items;
 }
 
 function extractSourcedLinks(html, hrefPattern, baseUrl, limit = 8, titleFilter = null) {
@@ -3454,6 +3506,15 @@ function decodeHtmlEntities(input) {
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+}
+
+function makeAbsoluteUrl(rawUrl, base) {
+  const source = String(rawUrl || "").trim();
+  if (!source) return "";
+  if (source.startsWith("http://") || source.startsWith("https://")) return source;
+  if (source.startsWith("//")) return `https:${source}`;
+  if (source.startsWith("/")) return `${base}${source}`;
+  return `${base}/${source.replace(/^\.?\//, "")}`;
 }
 
 function getFeaturedUkicLeagues() {

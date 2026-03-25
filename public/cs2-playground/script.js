@@ -5,10 +5,8 @@ const ukCsListEl = document.getElementById('uk-cs-list');
 const matchesListEl = document.getElementById('matches-list');
 const tier2ListEl = document.getElementById('tier2-list');
 const resultsListEl = document.getElementById('results-list');
-const egwTeamsListEl = document.getElementById('egw-teams-list');
-const liquipediaTeamsListEl = document.getElementById('liquipedia-teams-list');
-const refreshTimeEl = document.getElementById('refresh-time');
-const statusEl = document.getElementById('hltv-status');
+const hltvVrsListEl = document.getElementById('hltv-vrs-list');
+const egwRankingsListEl = document.getElementById('egw-rankings-list');
 
 function renderList(targetEl, items, fallbackText) {
   targetEl.innerHTML = '';
@@ -106,30 +104,9 @@ function renderRankings(targetEl, items, fallbackText) {
     link.appendChild(rank);
     link.appendChild(profileImage);
     link.appendChild(document.createTextNode(item.title || 'Unknown team'));
-    if (item?.summary) {
-      const meta = document.createElement('small');
-      meta.className = 'feed-meta ranking-meta';
-      meta.textContent = item.summary;
-      link.appendChild(meta);
-    }
     li.appendChild(link);
     targetEl.appendChild(li);
   }
-}
-
-function writeRefreshTime(isoString) {
-  if (!isoString) {
-    refreshTimeEl.textContent = 'Unknown';
-    return;
-  }
-
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) {
-    refreshTimeEl.textContent = 'Unknown';
-    return;
-  }
-
-  refreshTimeEl.textContent = date.toLocaleString();
 }
 
 function formatDate(value) {
@@ -140,8 +117,6 @@ function formatDate(value) {
 }
 
 async function loadHltvOverview() {
-  statusEl.textContent = 'Loading';
-
   try {
     const response = await fetch('/api/hltv/overview', {
       method: 'GET',
@@ -157,17 +132,8 @@ async function loadHltvOverview() {
     renderList(matchesListEl, data?.sections?.upcoming_matches, 'No upcoming matches found right now.');
     renderList(tier2ListEl, data?.sections?.tier2_matches, 'No tier 2 games found right now.');
     renderList(resultsListEl, data?.sections?.latest_results, 'No results available right now.');
-    renderList(egwTeamsListEl, data?.sections?.egamersworld_teams, 'No EGamersWorld team feed available.');
-    renderList(liquipediaTeamsListEl, data?.sections?.liquipedia_teams, 'No Liquipedia team feed available.');
-
-    writeRefreshTime(data?.fetched_at);
-
-    if (response.ok && data?.success) {
-      statusEl.textContent = 'Live';
-      return;
-    }
-
-    statusEl.textContent = 'Partial';
+    renderList(hltvVrsListEl, data?.sections?.hltv_vrs_rankings, 'No HLTV VRS ranking data available right now.');
+    renderList(egwRankingsListEl, data?.sections?.egamersworld_rankings, 'No EGamersWorld ranking data available right now.');
   } catch (error) {
     renderRankings(communityRankingsListEl, [], 'Could not connect to community ranking feeds.');
     renderList(newsListEl, [], 'Could not connect to HLTV feed.');
@@ -176,10 +142,8 @@ async function loadHltvOverview() {
     renderList(matchesListEl, [], 'Could not connect to HLTV feed.');
     renderList(tier2ListEl, [], 'Could not connect to tier 2 feed.');
     renderList(resultsListEl, [], 'Could not connect to HLTV feed.');
-    renderList(egwTeamsListEl, [], 'Could not connect to EGamersWorld feed.');
-    renderList(liquipediaTeamsListEl, [], 'Could not connect to Liquipedia feed.');
-    refreshTimeEl.textContent = 'Unavailable';
-    statusEl.textContent = 'Offline';
+    renderList(hltvVrsListEl, [], 'Could not connect to HLTV ranking feed.');
+    renderList(egwRankingsListEl, [], 'Could not connect to EGamersWorld ranking feed.');
   }
 }
 
