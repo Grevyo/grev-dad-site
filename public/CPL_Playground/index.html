@@ -105,8 +105,8 @@
           <a id="open-btn" class="link-button muted-link" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
         </div>
         <p id="status">
-          Tip: append <code>?appUrl=https://your-streamlit-subdomain.example.com</code> for Cloudflare hosting
-          or <code>?appUrl=http://localhost:8501</code> for local development.
+          Tip: append <code>?appUrl=https://your-streamlit-subdomain.example.com</code> to point this page
+          to your Cloudflare-hosted Streamlit deployment.
         </p>
       </section>
 
@@ -114,9 +114,6 @@
         <iframe id="streamlit-frame" title="CPL Streamlit Application"></iframe>
       </section>
 
-      <section class="card">
-        <p><strong>Run locally:</strong> <code>cd public/CPL_Playground && streamlit run app.py</code></p>
-      </section>
     </main>
 
     <script>
@@ -129,9 +126,8 @@
       const queryUrl = new URLSearchParams(window.location.search).get('appUrl');
       const savedUrl = localStorage.getItem('cplStreamlitUrl');
 
-      const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
       const cloudflareDefaultUrl = `${window.location.origin}/cpl-playground-app/`;
-      const defaultUrl = queryUrl || savedUrl || (isLocalHost ? 'http://localhost:8501' : cloudflareDefaultUrl);
+      const defaultUrl = queryUrl || savedUrl || cloudflareDefaultUrl;
 
       function isValid(url) {
         try {
