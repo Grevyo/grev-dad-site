@@ -1,6 +1,8 @@
 # CPL Streamlit App
 
-## Run locally
+This Streamlit app is intended to be hosted behind Cloudflare.
 
-pip install -r requirements.txt
-streamlit run streamlit_hltv_app.py
+Use the CPL playground shell with your deployed app URL:
+
+- `/CPL_Playground/`
+- `?appUrl=https://your-streamlit-subdomain.example.com`

@@ -7,13 +7,6 @@ A new Streamlit admin playground is available at `public/CPL_Playground/` with t
 - Player Profile Viewer
 - Team Tactics Analyst
 
-### Run locally
-
-```bash
-cd public/CPL_Playground
-streamlit run app.py
-```
-
 ### Host via Cloudflare
 
 `/CPL_Playground/` now defaults to your site origin with `/cpl-playground-app/` appended when opened on a non-localhost domain.  
