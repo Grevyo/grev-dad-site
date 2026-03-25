@@ -1,22 +1,9 @@
 # grev-dad-site
 
-## Grevs CPL Area (Streamlit)
+## CPL Playground
 
-A new Streamlit admin playground is available at `public/CPL_Playground/` with two CPL manager tool areas:
+`/CPL_Playground/` now acts as a lightweight shell that loads the external Streamlit app directly:
 
-- Player Profile Viewer
-- Team Tactics Analyst
+- https://grev-dad-cpl-eoyv29wef8yyzq8ugnhkba.streamlit.app/
 
-### Host via Cloudflare
-
-`/CPL_Playground/` defaults to your site origin with `/cpl-playground-app/` appended.  
-Example: `https://your-site.example/CPL_Playground/` loads `https://your-site.example/cpl-playground-app/`.
-
-### Data source
-
-CSV files can be committed directly into `public/CPL_Playground/data/` and are loaded by default:
-
-- `player_profiles.csv`
-- `team_tactics.csv`
-
-Each page also supports ad-hoc CSV upload from the Streamlit UI.
+The previous in-repo CPL Streamlit source/data files were removed from `public/CPL_Playground/`.
