@@ -2,7 +2,7 @@
 
 ## Grevs CPL Area (Streamlit)
 
-A new Streamlit admin playground is available at `cpl_playground/` with two CPL manager tool areas:
+A new Streamlit admin playground is available at `public/CPL_Playground/` with two CPL manager tool areas:
 
 - Player Profile Viewer
 - Team Tactics Analyst
@@ -10,13 +10,13 @@ A new Streamlit admin playground is available at `cpl_playground/` with two CPL 
 ### Run locally
 
 ```bash
-cd cpl_playground
+cd public/CPL_Playground
 streamlit run app.py
 ```
 
 ### Data source
 
-CSV files can be committed directly into `cpl_playground/data/` and are loaded by default:
+CSV files can be committed directly into `public/CPL_Playground/data/` and are loaded by default:
 
 - `player_profiles.csv`
 - `team_tactics.csv`

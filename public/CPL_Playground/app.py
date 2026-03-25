@@ -10,7 +10,7 @@ st.caption("Admin playground for CPL analytics workflows.")
 
 st.markdown(
     "Use the tools below to open player and tactical analysis pages. "
-    "The dashboard reads the committed CPL CSV sources from `cpl_playground/cpldata/`."
+    "The dashboard reads the committed CPL CSV sources from `public/CPL_Playground/cpldata/`."
 )
 
 CPL_DATA_DIR = Path(__file__).resolve().parent / "cpldata"
