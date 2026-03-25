@@ -42,13 +42,19 @@ metric_c.metric("Achievements rows", len(achievements_df))
 
 st.divider()
 
-left, right = st.columns(2)
+left, middle, right = st.columns(3)
 
 with left:
     st.subheader("HLTV Like Player Profile")
     st.write("Open player-focused CPL performance profiles from CSV-backed data.")
     if st.button("HLTV Like Player Profile", use_container_width=True, type="primary"):
         st.switch_page("pages/1_Player_Profile_Viewer.py")
+
+with middle:
+    st.subheader("CPL Profile Viewer (Legacy)")
+    st.write("Open the legacy CPL profile table viewer used in earlier dashboard versions.")
+    if st.button("CPL Profile Viewer (Legacy)", use_container_width=True):
+        st.switch_page("pages/3_CPL_Profile_Viewer_Legacy.py")
 
 with right:
     st.subheader("CPL Tactical Analyst")
