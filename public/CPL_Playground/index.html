@@ -46,16 +46,6 @@
         margin-top: 0.75rem;
       }
 
-      input {
-        flex: 1;
-        min-width: 260px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: #0b0f14;
-        color: var(--text);
-        padding: 0.7rem 0.8rem;
-      }
-
       button, .link-button {
         border: none;
         border-radius: 10px;
@@ -96,17 +86,15 @@
         <h1>Grevs CPL Playground</h1>
         <p>
           This route now serves a front-end shell for the Streamlit experience.
-          Configure your Streamlit URL below to load the live app directly on
+          Load the live app directly on
           <code>/CPL_Playground/</code>.
         </p>
         <div class="row">
-          <input id="streamlit-url" type="url" placeholder="https://your-streamlit-host/" />
-          <button id="load-btn" type="button">Load Streamlit App</button>
           <a id="open-btn" class="link-button muted-link" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
         </div>
         <p id="status">
-          Tip: append <code>?appUrl=https://your-streamlit-subdomain.example.com</code> to point this page
-          to your Cloudflare-hosted Streamlit deployment.
+          This page points to your Cloudflare-hosted Streamlit deployment at
+          <code>/cpl-playground-app/</code>.
         </p>
       </section>
 
@@ -117,17 +105,10 @@
     </main>
 
     <script>
-      const urlInput = document.getElementById('streamlit-url');
       const frame = document.getElementById('streamlit-frame');
       const openBtn = document.getElementById('open-btn');
       const status = document.getElementById('status');
-      const loadBtn = document.getElementById('load-btn');
-
-      const queryUrl = new URLSearchParams(window.location.search).get('appUrl');
-      const savedUrl = localStorage.getItem('cplStreamlitUrl');
-
       const cloudflareDefaultUrl = `${window.location.origin}/cpl-playground-app/`;
-      const defaultUrl = queryUrl || savedUrl || cloudflareDefaultUrl;
 
       function isValid(url) {
         try {
@@ -144,21 +125,12 @@
           return;
         }
 
-        urlInput.value = url;
         frame.src = url;
         openBtn.href = url;
-        localStorage.setItem('cplStreamlitUrl', url);
         status.textContent = `Loaded Streamlit app from ${url}`;
       }
 
-      loadBtn.addEventListener('click', () => loadStreamlit(urlInput.value.trim()));
-      urlInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          loadStreamlit(urlInput.value.trim());
-        }
-      });
-
-      loadStreamlit(defaultUrl);
+      loadStreamlit(cloudflareDefaultUrl);
     </script>
   </body>
 </html>
