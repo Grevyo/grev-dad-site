@@ -53,6 +53,12 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.dashboard-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+}
+
 .feed-card {
   display: grid;
   gap: 12px;
@@ -166,7 +172,26 @@
   padding: 12px;
 }
 
-.ranking-meta {
-  width: 100%;
-  margin-left: calc(2rem + 40px);
+.slim-list {
+  max-height: 980px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.rankings-split {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.rankings-subtitle {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
 }
