@@ -3,134 +3,107 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Grevs CPL Playground</title>
+    <title>CPL Playground</title>
     <style>
       :root {
-        --bg: #0d1117;
-        --panel: #161b22;
-        --text: #e6edf3;
-        --muted: #9ba7b4;
-        --accent: #2f81f7;
-        --border: #30363d;
+        --bg: #070b12;
+        --panel: #111927;
+        --border: #24344d;
+        --text: #e8eef8;
+        --muted: #9db0cd;
+        --accent: #4f9dff;
       }
 
       * { box-sizing: border-box; }
+
       body {
         margin: 0;
+        min-height: 100vh;
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        background: radial-gradient(circle at top, #182033 0%, var(--bg) 60%);
         color: var(--text);
+        background: radial-gradient(circle at top, #17243a 0%, var(--bg) 52%);
       }
 
-      .container {
-        max-width: 1100px;
+      main {
+        width: min(1200px, 100%);
         margin: 0 auto;
-        padding: 2rem 1rem 3rem;
+        padding: 28px 16px 32px;
+        display: grid;
+        gap: 14px;
       }
 
-      .card {
-        background: color-mix(in srgb, var(--panel) 92%, black);
+      .panel {
         border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 1rem;
+        background: color-mix(in srgb, var(--panel) 92%, black);
+        border-radius: 16px;
+        padding: 18px;
       }
 
-      h1 { margin: 0 0 0.5rem; }
-      p { color: var(--muted); line-height: 1.45; }
+      h1 { margin: 0 0 8px; }
+      p { margin: 0; color: var(--muted); line-height: 1.45; }
 
       .row {
+        margin-top: 14px;
         display: flex;
-        gap: 0.75rem;
         flex-wrap: wrap;
-        margin-top: 0.75rem;
+        gap: 10px;
+        align-items: center;
       }
 
-      button, .link-button {
-        border: none;
-        border-radius: 10px;
-        background: var(--accent);
-        color: white;
-        padding: 0.7rem 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-      }
-
-      .muted-link {
-        background: transparent;
-        color: var(--muted);
+      .btn {
         border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 13px;
+        text-decoration: none;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .btn-primary {
+        border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+        background: color-mix(in srgb, var(--accent) 28%, transparent);
       }
 
       iframe {
         width: 100%;
-        min-height: 70vh;
+        min-height: calc(100vh - 220px);
         border: 1px solid var(--border);
         border-radius: 12px;
-        background: #0a0f14;
+        background: #05080e;
       }
 
       code {
-        background: #0b0f14;
         border: 1px solid var(--border);
         border-radius: 6px;
-        padding: 0.15rem 0.35rem;
+        padding: 2px 6px;
+        background: #0a111b;
       }
     </style>
   </head>
   <body>
-    <main class="container">
-      <section class="card">
-        <h1>Grevs CPL Playground</h1>
+    <main>
+      <section class="panel">
+        <h1>CPL Playground</h1>
         <p>
-          This route now serves a front-end shell for the Streamlit experience.
-          Load the live app directly on
-          <code>/CPL_Playground/</code>.
+          Rebuilt CPL Playground shell connected to your hosted Streamlit app:
+          <code id="streamlit-url-label"></code>
         </p>
         <div class="row">
-          <a id="open-btn" class="link-button muted-link" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
+          <a id="open-streamlit" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">Open Streamlit in new tab</a>
+          <a class="btn" href="/">Back to home</a>
         </div>
-        <p id="status">
-          This page points to your Cloudflare-hosted Streamlit deployment at
-          <code>/cpl-playground-app/</code>.
-        </p>
       </section>
 
-      <section class="card">
-        <iframe id="streamlit-frame" title="CPL Streamlit Application"></iframe>
+      <section class="panel">
+        <iframe id="streamlit-frame" title="CPL Streamlit"></iframe>
       </section>
-
     </main>
 
     <script>
-      const frame = document.getElementById('streamlit-frame');
-      const openBtn = document.getElementById('open-btn');
-      const status = document.getElementById('status');
-      const cloudflareDefaultUrl = `${window.location.origin}/cpl-playground-app/`;
-
-      function isValid(url) {
-        try {
-          const parsed = new URL(url);
-          return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-        } catch {
-          return false;
-        }
-      }
-
-      function loadStreamlit(url) {
-        if (!isValid(url)) {
-          status.textContent = 'Invalid URL. Please enter a full http(s) Streamlit URL.';
-          return;
-        }
-
-        frame.src = url;
-        openBtn.href = url;
-        status.textContent = 'Streamlit app loaded.';
-      }
-
-      loadStreamlit(cloudflareDefaultUrl);
+      const streamlitUrl = 'https://grev-dad-cpl-eoyv29wef8yyzq8ugnhkba.streamlit.app/';
+      document.getElementById('streamlit-url-label').textContent = streamlitUrl;
+      document.getElementById('open-streamlit').href = streamlitUrl;
+      document.getElementById('streamlit-frame').src = streamlitUrl;
     </script>
   </body>
 </html>
