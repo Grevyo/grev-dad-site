@@ -104,7 +104,10 @@
           <button id="load-btn" type="button">Load Streamlit App</button>
           <a id="open-btn" class="link-button muted-link" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
         </div>
-        <p id="status">Tip: append <code>?appUrl=http://localhost:8501</code> for local development.</p>
+        <p id="status">
+          Tip: append <code>?appUrl=https://your-streamlit-subdomain.example.com</code> for Cloudflare hosting
+          or <code>?appUrl=http://localhost:8501</code> for local development.
+        </p>
       </section>
 
       <section class="card">
@@ -125,7 +128,10 @@
 
       const queryUrl = new URLSearchParams(window.location.search).get('appUrl');
       const savedUrl = localStorage.getItem('cplStreamlitUrl');
-      const defaultUrl = queryUrl || savedUrl || 'http://localhost:8501';
+
+      const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      const cloudflareDefaultUrl = `${window.location.origin}/cpl-playground-app/`;
+      const defaultUrl = queryUrl || savedUrl || (isLocalHost ? 'http://localhost:8501' : cloudflareDefaultUrl);
 
       function isValid(url) {
         try {
