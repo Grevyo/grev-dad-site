@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grevs CPL Playground</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --text: #e6edf3;
+        --muted: #9ba7b4;
+        --accent: #2f81f7;
+        --border: #30363d;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(circle at top, #182033 0%, var(--bg) 60%);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1rem 3rem;
+      }
+
+      .card {
+        background: color-mix(in srgb, var(--panel) 92%, black);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+      }
+
+      h1 { margin: 0 0 0.5rem; }
+      p { color: var(--muted); line-height: 1.45; }
+
+      .row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+      }
+
+      input {
+        flex: 1;
+        min-width: 260px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0b0f14;
+        color: var(--text);
+        padding: 0.7rem 0.8rem;
+      }
+
+      button, .link-button {
+        border: none;
+        border-radius: 10px;
+        background: var(--accent);
+        color: white;
+        padding: 0.7rem 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .muted-link {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      iframe {
+        width: 100%;
+        min-height: 70vh;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #0a0f14;
+      }
+
+      code {
+        background: #0b0f14;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.15rem 0.35rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <h1>Grevs CPL Playground</h1>
+        <p>
+          This route now serves a front-end shell for the Streamlit experience.
+          Configure your Streamlit URL below to load the live app directly on
+          <code>/CPL_Playground/</code>.
+        </p>
+        <div class="row">
+          <input id="streamlit-url" type="url" placeholder="https://your-streamlit-host/" />
+          <button id="load-btn" type="button">Load Streamlit App</button>
+          <a id="open-btn" class="link-button muted-link" href="#" target="_blank" rel="noopener noreferrer">Open in New Tab</a>
+        </div>
+        <p id="status">Tip: append <code>?appUrl=http://localhost:8501</code> for local development.</p>
+      </section>
+
+      <section class="card">
+        <iframe id="streamlit-frame" title="CPL Streamlit Application"></iframe>
+      </section>
+
+      <section class="card">
+        <p><strong>Run locally:</strong> <code>cd public/CPL_Playground && streamlit run app.py</code></p>
+      </section>
+    </main>
+
+    <script>
+      const urlInput = document.getElementById('streamlit-url');
+      const frame = document.getElementById('streamlit-frame');
+      const openBtn = document.getElementById('open-btn');
+      const status = document.getElementById('status');
+      const loadBtn = document.getElementById('load-btn');
+
+      const queryUrl = new URLSearchParams(window.location.search).get('appUrl');
+      const savedUrl = localStorage.getItem('cplStreamlitUrl');
+      const defaultUrl = queryUrl || savedUrl || 'http://localhost:8501';
+
+      function isValid(url) {
+        try {
+          const parsed = new URL(url);
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      }
+
+      function loadStreamlit(url) {
+        if (!isValid(url)) {
+          status.textContent = 'Invalid URL. Please enter a full http(s) Streamlit URL.';
+          return;
+        }
+
+        urlInput.value = url;
+        frame.src = url;
+        openBtn.href = url;
+        localStorage.setItem('cplStreamlitUrl', url);
+        status.textContent = `Loaded Streamlit app from ${url}`;
+      }
+
+      loadBtn.addEventListener('click', () => loadStreamlit(urlInput.value.trim()));
+      urlInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          loadStreamlit(urlInput.value.trim());
+        }
+      });
+
+      loadStreamlit(defaultUrl);
+    </script>
+  </body>
+</html>
