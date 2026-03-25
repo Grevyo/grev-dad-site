@@ -223,6 +223,10 @@
                 <span class="playground-card__emoji" aria-hidden="true">🛝</span>
                 <h3 class="playground-card__title">DKPG</h3>
               </a>
+              <a id="cpl-playground-card" class="playground-card hidden" href="/cpl-playground/">
+                <span class="playground-card__emoji" aria-hidden="true">⚽</span>
+                <h3 class="playground-card__title">CPL Playground</h3>
+              </a>
             </div>
           </aside>
 
@@ -299,8 +303,12 @@
     const chatStatus = document.getElementById("chat-status");
     const sendChatBtn = document.getElementById("send-chat-btn");
     const chatMessageInput = document.getElementById("chat-message");
+    const cplPlaygroundCard = document.getElementById("cpl-playground-card");
 
     function setAuthView(user) {
+      const hasAdminTag = Boolean(user?.is_admin);
+      cplPlaygroundCard.classList.toggle("hidden", !hasAdminTag);
+
       if (user) {
         guestActions.classList.add("hidden");
         memberActions.classList.remove("hidden");
