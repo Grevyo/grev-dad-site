@@ -9,10 +9,8 @@ A new Streamlit admin playground is available at `public/CPL_Playground/` with t
 
 ### Host via Cloudflare
 
-`/CPL_Playground/` now defaults to your site origin with `/cpl-playground-app/` appended when opened on a non-localhost domain.  
+`/CPL_Playground/` defaults to your site origin with `/cpl-playground-app/` appended.  
 Example: `https://your-site.example/CPL_Playground/` loads `https://your-site.example/cpl-playground-app/`.
-
-You can always override this by adding `?appUrl=https://your-streamlit-host.example.com` to the URL.
 
 ### Data source
 
