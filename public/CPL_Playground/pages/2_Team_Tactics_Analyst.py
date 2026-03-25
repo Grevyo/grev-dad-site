@@ -27,7 +27,7 @@ else:
 
 if df.empty:
     st.warning(
-        "No team tactics data loaded yet. Add `cpl_playground/cpldata/TacticsDataMaster.csv` or upload a CSV file."
+        "No team tactics data loaded yet. Add `public/CPL_Playground/cpldata/TacticsDataMaster.csv` or upload a CSV file."
     )
 else:
     st.success(f"Loaded {len(df)} team rows.")
