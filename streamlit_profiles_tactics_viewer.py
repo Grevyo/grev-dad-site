@@ -11,7 +11,6 @@ import json
 from typing import Any
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
 
@@ -29,9 +28,6 @@ SAMPLE_PROFILES = [
         "preferred_loadout": "Rifle + Utility",
         "strength": "Fast site entries",
         "risk": "High early-round exposure",
-        "GrevScore": 78,
-        "Red score": 71,
-        "Blue score": 64,
     },
     {
         "name": "Support Anchor",
@@ -39,9 +35,6 @@ SAMPLE_PROFILES = [
         "preferred_loadout": "SMG + Full Utility",
         "strength": "Late-round retake setups",
         "risk": "Can be isolated on rotates",
-        "GrevScore": 62,
-        "Red score": 58,
-        "Blue score": 67,
     },
 ]
 
@@ -102,61 +95,6 @@ def filter_dataframe(df: pd.DataFrame, search_label: str) -> pd.DataFrame:
     return df[mask.any(axis=1)]
 
 
-def remove_team_score_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove Red score / Blue score columns from table display."""
-    blocked = {"red score", "blue score"}
-    keep_columns = [col for col in df.columns if str(col).strip().lower() not in blocked]
-    return df[keep_columns]
-
-
-def resolve_grevscore(df: pd.DataFrame) -> float | None:
-    """Return an averaged GrevScore value between 0 and 100 when available."""
-    score_column = next((col for col in df.columns if str(col).strip().lower() == "grevscore"), None)
-    if score_column is None:
-        return None
-
-    series = pd.to_numeric(df[score_column], errors="coerce").dropna()
-    if series.empty:
-        return None
-
-    return float(series.clip(lower=0, upper=100).mean())
-
-
-def build_grevscore_gauge(score: float) -> go.Figure:
-    """Build a metronome-like gauge chart for GrevScore."""
-    fig = go.Figure(
-        go.Indicator(
-            mode="gauge+number",
-            value=score,
-            number={"suffix": " / 100", "font": {"size": 36}},
-            title={"text": "GrevScore", "font": {"size": 28}},
-            gauge={
-                "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#6b7280"},
-                "bar": {"color": "#3b82f6", "thickness": 0.26},
-                "bgcolor": "#0f172a",
-                "steps": [
-                    {"range": [0, 35], "color": "#7f1d1d"},
-                    {"range": [35, 70], "color": "#78350f"},
-                    {"range": [70, 100], "color": "#14532d"},
-                ],
-                "threshold": {
-                    "line": {"color": "#e5e7eb", "width": 5},
-                    "thickness": 0.75,
-                    "value": score,
-                },
-            },
-            domain={"x": [0, 1], "y": [0, 1]},
-        )
-    )
-    fig.update_layout(
-        height=360,
-        margin=dict(l=20, r=20, t=40, b=10),
-        paper_bgcolor="rgba(0,0,0,0)",
-        font={"color": "#e5e7eb"},
-    )
-    return fig
-
-
 def render_table_section(
     title: str,
     sample_records: list[dict[str, Any]],
@@ -190,22 +128,13 @@ def render_table_section(
         st.warning("No matching rows found.")
         return
 
-    visible_df = remove_team_score_columns(df)
-    grevscore = resolve_grevscore(df)
-
-    left, right = st.columns([3, 2])
+    left, right = st.columns([3, 1])
     with left:
-        st.dataframe(visible_df, use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True, hide_index=True)
     with right:
-        st.metric("Rows", len(visible_df))
-        st.metric("Columns", len(visible_df.columns))
-        if grevscore is not None:
-            st.plotly_chart(build_grevscore_gauge(grevscore), use_container_width=True)
-            st.caption("Metronome-style gauge view of average GrevScore.")
-        else:
-            st.info("Add a GrevScore column (0-100) to render the gauge chart.")
-
-        csv = visible_df.to_csv(index=False).encode("utf-8")
+        st.metric("Rows", len(df))
+        st.metric("Columns", len(df.columns))
+        csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(
             "Download filtered CSV",
             data=csv,
