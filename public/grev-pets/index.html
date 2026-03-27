@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grev Pets Playground</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="stylesheet" href="/grev-pets/style.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script type="module" src="/grev-pets/js/landing.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <div class="gp-shell">
+        <section class="gp-banner">
+          <h1>🐾 Grev Pets Playground</h1>
+          <p>Capture bizarre little goobers, train them, race them, and boop around a social overworld with other grev.dad members.</p>
+          <div class="gp-actions" style="margin-top:14px;">
+            <a class="btn btn-primary" href="/grev-pets/overworld.html">Enter Overworld</a>
+            <a class="btn" href="/grev-pets/stable.html">My Stable</a>
+            <a class="btn" href="/grev-pets/event-room.html">Event Room</a>
+          </div>
+        </section>
+
+        <section class="gp-grid">
+          <article class="gp-card">
+            <h2>Your Playground Profile</h2>
+            <p id="profile-status">Loading profile...</p>
+            <div class="gp-stats-grid" id="profile-grid"></div>
+          </article>
+
+          <article class="gp-card">
+            <h2>Starter Pet Crate</h2>
+            <p>Pick one starter archetype if you have no pets yet.</p>
+            <div class="gp-actions">
+              <button class="btn" data-archetype="scavenger">Scavenger</button>
+              <button class="btn" data-archetype="spark">Spark Zoomer</button>
+              <button class="btn" data-archetype="tanklet">Tanklet</button>
+            </div>
+            <p id="starter-status" class="gp-small">Starter not claimed yet.</p>
+          </article>
+        </section>
+
+        <section class="gp-card">
+          <h2>Featured Grev Pets</h2>
+          <div class="gp-grid" id="featured-pets"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

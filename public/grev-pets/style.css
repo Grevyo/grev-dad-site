@@ -1,0 +1,152 @@
+:root {
+  --gp-bg: #0a0d16;
+  --gp-card: #10172a;
+  --gp-card-soft: #131d34;
+  --gp-border: #2a3f66;
+  --gp-neon: #57d2ff;
+  --gp-pink: #ff7adf;
+  --gp-green: #8cff99;
+  --gp-gold: #ffd86f;
+}
+
+.gp-shell {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.gp-banner {
+  border-radius: 18px;
+  border: 1px solid var(--gp-border);
+  background: radial-gradient(circle at 20% 20%, rgba(87, 210, 255, 0.2), transparent 45%), linear-gradient(180deg, #131f37 0%, #0e1427 100%);
+  padding: 22px;
+}
+
+.gp-banner h1,
+.gp-banner p { margin: 0; }
+.gp-banner p { margin-top: 12px; color: var(--muted); line-height: 1.65; }
+
+.gp-actions,
+.gp-grid,
+.gp-stats-grid,
+.gp-row,
+.gp-control-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.gp-actions { display: flex; flex-wrap: wrap; }
+.gp-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.gp-stats-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.gp-control-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); align-items: start; }
+
+.gp-card {
+  border: 1px solid var(--gp-border);
+  background: linear-gradient(180deg, rgba(19, 29, 52, 0.95), rgba(11, 17, 31, 0.95));
+  border-radius: 16px;
+  padding: 15px;
+  display: grid;
+  gap: 10px;
+}
+
+.gp-card h2,
+.gp-card h3,
+.gp-card p { margin: 0; }
+.gp-card p { color: var(--muted); }
+
+.gp-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.gp-pill.rarity-common { color: #9cd5ff; }
+.gp-pill.rarity-uncommon { color: #9fffc6; }
+.gp-pill.rarity-rare { color: #deb0ff; }
+.gp-pill.rarity-epic { color: #ffb7e6; }
+.gp-pill.rarity-mythic { color: #ffe28a; border-color: rgba(255, 212, 105, 0.6); box-shadow: 0 0 14px rgba(255, 212, 105, 0.4); }
+
+.gp-pet-canvas {
+  width: 100%;
+  height: 170px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(8, 14, 26, 0.8), rgba(11, 19, 35, 0.95));
+}
+
+.gp-overworld {
+  position: relative;
+  border: 1px solid var(--gp-border);
+  border-radius: 16px;
+  background: #080f1f;
+  width: 100%;
+  max-width: 920px;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.gp-zone {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.zone-town_hub { left: 3%; top: 6%; width: 29%; height: 34%; background: rgba(95, 160, 255, 0.13); }
+.zone-stable_square { left: 35%; top: 6%; width: 26%; height: 24%; background: rgba(127, 255, 158, 0.1); }
+.zone-event_gate { left: 65%; top: 6%; width: 30%; height: 25%; background: rgba(255, 122, 223, 0.12); }
+.zone-wild_scrapyard { left: 4%; top: 45%; width: 42%; height: 45%; background: rgba(255, 171, 125, 0.12); }
+.zone-wild_neon_abyss { left: 49%; top: 37%; width: 25%; height: 54%; background: rgba(134, 102, 255, 0.12); }
+.zone-wild_mushroom_ruins { left: 76%; top: 34%; width: 20%; height: 56%; background: rgba(139, 242, 172, 0.12); }
+
+.gp-avatar,
+.gp-other {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.gp-avatar {
+  background: linear-gradient(180deg, #7ed4ff, #5c78ff);
+  box-shadow: 0 0 16px rgba(87, 210, 255, 0.7);
+}
+
+.gp-other {
+  background: linear-gradient(180deg, #ff9ec8, #d179ff);
+}
+
+.gp-name-tag {
+  position: absolute;
+  transform: translate(-50%, -150%);
+  font-size: 0.68rem;
+  background: rgba(7, 10, 17, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.gp-log {
+  min-height: 180px;
+  max-height: 280px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(7, 11, 20, 0.8);
+  padding: 12px;
+}
+
+.gp-log p { margin: 0 0 8px; font-size: 0.92rem; color: var(--muted); }
+.gp-small { font-size: 0.86rem; color: var(--muted); }
+
+@media (max-width: 930px) {
+  .gp-control-grid { grid-template-columns: 1fr; }
+}

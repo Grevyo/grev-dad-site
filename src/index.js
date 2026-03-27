@@ -5,6 +5,7 @@ import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
 import { handleCasinoRequest } from "./casino/handlers.js";
 import { recordCasinoGameEarning } from "./casino/leaderboards.js";
+import { handleGrevPetsRequest } from "./grev-pets/handlers.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -95,6 +96,9 @@ async function handleRequest(request, env, ctx) {
 
   const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
   if (casinoRouteResponse) return casinoRouteResponse;
+
+  const grevPetsRouteResponse = await handleGrevPetsRequest(request, env, { json, safeJson, getApprovedUser });
+  if (grevPetsRouteResponse) return grevPetsRouteResponse;
 
   if (isRetiredGamblingPath(pathname)) {
     return retiredGamblingResponse(request);

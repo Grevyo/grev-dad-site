@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grev Pets Overworld</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="stylesheet" href="/grev-pets/style.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script type="module" src="/grev-pets/js/overworld.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <div class="gp-shell">
+        <section class="gp-banner">
+          <h1>🌌 Overworld</h1>
+          <p>Use WASD or arrow keys to move. Danger zones can trigger wild encounters.</p>
+          <div class="gp-actions" style="margin-top:14px;">
+            <a class="btn" href="/grev-pets/index.html">Back to Landing</a>
+            <a class="btn" href="/grev-pets/stable.html">Stable</a>
+            <a class="btn" href="/grev-pets/event-room.html">Event Room</a>
+          </div>
+        </section>
+
+        <section class="gp-control-grid">
+          <article class="gp-card">
+            <div id="overworld" class="gp-overworld">
+              <div class="gp-zone zone-town_hub" data-zone="town_hub"></div>
+              <div class="gp-zone zone-stable_square" data-zone="stable_square"></div>
+              <div class="gp-zone zone-event_gate" data-zone="event_gate"></div>
+              <div class="gp-zone zone-wild_scrapyard" data-zone="wild_scrapyard"></div>
+              <div class="gp-zone zone-wild_neon_abyss" data-zone="wild_neon_abyss"></div>
+              <div class="gp-zone zone-wild_mushroom_ruins" data-zone="wild_mushroom_ruins"></div>
+              <div id="player-avatar" class="gp-avatar"></div>
+            </div>
+            <p class="gp-small">Tip: Standing in wild zones has a chance to trigger encounters every few seconds.</p>
+          </article>
+
+          <article class="gp-card">
+            <h2>Status</h2>
+            <p id="zone-label">Zone: town_hub</p>
+            <p id="encounter-status" class="gp-small">No encounter active.</p>
+            <div class="gp-actions">
+              <button class="btn" id="btn-weaken">Weaken</button>
+              <button class="btn btn-primary" id="btn-capture">Throw Tame Orb</button>
+              <button class="btn" id="btn-lure">Use Snack Lure</button>
+            </div>
+            <div id="encounter-card" class="gp-card hidden"></div>
+            <div class="gp-log" id="overworld-log"></div>
+          </article>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
