@@ -1349,57 +1349,210 @@
 
 /* ===== 2026 Proportion + Mobile Overworld Refinement ===== */
 .gp-explorer-avatar {
-  width: 100px;
-  height: 136px;
+  width: 104px;
+  height: 152px;
 }
 
-.gp-explorer-avatar--lg { width: 126px; height: 172px; }
-.gp-explorer-avatar--xl { width: 166px; height: 222px; }
-.gp-explorer-avatar--mini { width: 60px; height: 82px; }
+.gp-explorer-avatar--lg { width: 130px; height: 190px; }
+.gp-explorer-avatar--xl { width: 172px; height: 248px; }
+.gp-explorer-avatar--mini { width: 62px; height: 94px; }
 
 .gp-av-shell {
-  grid-template-rows: 45% 26% 29%;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  justify-items: center;
+  grid-template-rows: 45% 28% 27%;
+  position: relative;
+}
+
+.gp-av-head-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  justify-items: center;
+  align-items: end;
 }
 
 .gp-av-head {
-  width: 57%;
-  height: 94%;
-  border-radius: 50% 50% 47% 47%;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.16);
+  width: 60%;
+  height: 92%;
+  border-radius: 50% 50% 48% 48%;
+  align-self: end;
+  background: var(--skin);
+  position: relative;
+  border: 1px solid rgba(36, 27, 23, 0.28);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 2px 0 rgba(255, 255, 255, 0.17);
 }
+
+.gp-av-neck {
+  width: 14%;
+  height: 9%;
+  margin-top: -2%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--skin) 90%, #f6d8bf);
+  border: 1px solid rgba(36, 27, 23, 0.18);
+}
+
+.gp-av-hair {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  top: -14%;
+  height: 56%;
+  background: var(--hair);
+}
+.hair-short { border-radius: 82% 82% 26% 26%; }
+.hair-bob { border-radius: 62% 62% 36% 36%; height: 68%; }
+.hair-spike { clip-path: polygon(0 82%, 13% 18%, 30% 79%, 48% 11%, 66% 78%, 84% 20%, 100% 82%); }
+.hair-mop { border-radius: 999px; height: 72%; }
+.hair-puff { border-radius: 999px; height: 76%; }
+.hair-none { display: none; }
+
+.gp-av-face { position: absolute; inset: 0; }
+.gp-av-eye {
+  position: absolute;
+  top: 46%;
+  width: 12%;
+  height: 11%;
+  border-radius: 999px;
+  background: var(--eyes);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+.gp-av-eye.left { left: 27%; }
+.gp-av-eye.right { right: 27%; }
+.gp-av-mouth {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  width: 24%;
+  height: 8%;
+  border-bottom: 2px solid rgba(38, 37, 51, 0.9);
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.eyes-sleepy .gp-av-eye { height: 4%; border-radius: 4px; }
+.eyes-wide .gp-av-eye { width: 14%; height: 13%; }
+.eyes-spark .gp-av-eye { box-shadow: 0 0 6px var(--eyes); }
+.eyes-cat .gp-av-eye { width: 10%; height: 14%; border-radius: 3px; }
+
+.gp-av-hat {
+  position: absolute;
+  top: -27%;
+  left: 12%;
+  right: 12%;
+  height: 25%;
+  display: none;
+}
+.hat-beanie,
+.hat-cap,
+.hat-hornband,
+.hat-crown { display: block; border-radius: 999px 999px 10px 10px; }
+.hat-beanie { background: #2f4477; }
+.hat-cap { background: #3a67ff; }
+.hat-hornband { background: #6e56ff; }
+.hat-crown { background: #d4b55f; clip-path: polygon(0 100%, 0 56%, 14% 38%, 32% 56%, 48% 28%, 65% 57%, 83% 38%, 100% 56%, 100% 100%); }
 
 .gp-av-torso {
-  width: 47%;
-  height: 76%;
-  margin-top: 3px;
-  border-radius: 26% 26% 18% 18%;
+  width: 44%;
+  height: 74%;
+  align-self: center;
+  margin-top: 8%;
+  border-radius: 30% 30% 19% 19%;
+  background: var(--top);
+  border: 1px solid rgba(21, 24, 42, 0.25);
+  position: relative;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
 }
+
+.top-jacket { border-radius: 24% 24% 17% 17%; }
+.top-tee { border-radius: 32% 32% 22% 22%; }
+.top-robe { border-radius: 18% 18% 20% 20%; }
+.top-armor { box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.24), inset 0 0 0 2px rgba(186, 222, 255, 0.3); }
 
 .gp-av-arm {
-  top: 24%;
-  width: 15%;
-  height: 34%;
+  position: absolute;
+  top: 28%;
+  width: 13%;
+  height: 36%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--top) 72%, #f0f4ff);
 }
+.gp-av-arm.left { left: -14%; }
+.gp-av-arm.right { right: -14%; }
 
 .gp-av-legs {
-  width: 47%;
-  height: 86%;
-  margin-top: -2px;
+  width: 46%;
+  height: 90%;
+  align-self: start;
+  margin-top: 8%;
+  position: relative;
 }
 
 .gp-av-leg {
-  width: 30%;
-  height: 64%;
-  top: 5%;
-  border-radius: 7px 7px 9px 9px;
+  position: absolute;
+  width: 32%;
+  height: 66%;
+  top: 0;
+  border-radius: 10px 10px 12px 12px;
+  background: var(--bottom);
+  border: 1px solid rgba(18, 21, 35, 0.25);
 }
+.gp-av-leg.left { left: 12%; }
+.gp-av-leg.right { right: 12%; }
+
+.bottom-skirt .gp-av-leg { height: 58%; top: 11%; border-radius: 8px 8px 12px 12px; }
+.bottom-greaves .gp-av-leg { box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), inset 0 0 0 2px rgba(216, 236, 255, 0.25); }
 
 .gp-av-shoe {
-  width: 25%;
-  height: 13%;
-  bottom: 5%;
+  position: absolute;
+  bottom: 8%;
+  width: 29%;
+  height: 16%;
+  border-radius: 999px;
+  background: #e3ebf6;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+.gp-av-shoe.left { left: 14%; }
+.gp-av-shoe.right { right: 14%; }
+
+.gp-av-ground-shadow {
+  position: absolute;
+  bottom: 1%;
+  width: 48%;
+  height: 7%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(6, 14, 27, 0.44) 0%, rgba(6, 14, 27, 0.06) 75%, transparent 100%);
+  pointer-events: none;
 }
 
+.gp-av-acc {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.acc-scarf::before,
+.acc-visor::before,
+.acc-headphones::before,
+.acc-badge::before {
+  content: "";
+  position: absolute;
+}
+
+.acc-scarf::before { left: 37%; top: 52%; width: 26%; height: 4%; border-radius: 999px; background: #ff79df; }
+.acc-visor::before { left: 36%; top: 16%; width: 28%; height: 6%; border-radius: 6px; background: rgba(113, 235, 255, 0.9); }
+.acc-headphones::before { left: 23%; top: 10%; width: 54%; height: 16%; border: 2px solid #b0c7ff; border-bottom: none; border-radius: 999px 999px 0 0; }
+.acc-badge::before { right: 36%; top: 62%; width: 7%; height: 6%; border-radius: 999px; background: #ffd86f; }
+
+.gp-explorer-avatar--mini .gp-av-ground-shadow {
+  width: 56%;
+  height: 8%;
+  bottom: 2%;
+  opacity: 0.95;
+}
 .gp-touch-controls-wrap {
   display: none;
   margin-top: 10px;

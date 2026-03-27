@@ -41,14 +41,17 @@ export function avatarMarkup(config = {}, options = {}) {
   return `
     <div class="gp-explorer-avatar gp-explorer-avatar--${size} ${body}" style="--skin:${skin};--hair:${safeText(config.hairColor || "#47362f")};--eyes:${safeText(config.eyeColor || "#8be7ff")};--top:${safeText(config.topColor || "#7d6dff")};--bottom:${safeText(config.bottomColor || "#2a3757")};--scale:${BODY_SCALE[config.bodyType] || 1};">
       <div class="gp-av-shell">
-        <div class="gp-av-head">
-          <div class="gp-av-hair ${hairStyle}"></div>
-          <div class="gp-av-face ${eyeStyle}">
-            <span class="gp-av-eye left"></span>
-            <span class="gp-av-eye right"></span>
-            <span class="gp-av-mouth"></span>
+        <div class="gp-av-head-wrap">
+          <div class="gp-av-head">
+            <div class="gp-av-hair ${hairStyle}"></div>
+            <div class="gp-av-face ${eyeStyle}">
+              <span class="gp-av-eye left"></span>
+              <span class="gp-av-eye right"></span>
+              <span class="gp-av-mouth"></span>
+            </div>
+            <div class="gp-av-hat ${hat}"></div>
           </div>
-          <div class="gp-av-hat ${hat}"></div>
+          <span class="gp-av-neck"></span>
         </div>
 
         <div class="gp-av-torso ${topStyle}">
@@ -64,6 +67,7 @@ export function avatarMarkup(config = {}, options = {}) {
         </div>
 
         <div class="gp-av-acc ${accessory}"></div>
+        <span class="gp-av-ground-shadow"></span>
       </div>
       ${label}
     </div>
