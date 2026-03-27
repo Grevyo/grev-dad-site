@@ -34,17 +34,22 @@ async function loadProfile() {
 function renderProfileSummary(data) {
   const profile = data.profile;
   const summary = byId("profile-summary");
+  const readiness = profile.active_pet ? "Companion Linked" : "Pet Link Pending";
 
   summary.innerHTML = `
-    <div class="gp-profile-top">
+    <div class="gp-trainer-panel-head">
+      <p class="gp-small">Trainer Signal</p>
+      <span class="gp-home-tag">${safeText(profile.zone)}</span>
+    </div>
+    <div class="gp-profile-top gp-trainer-identity">
       <div id="hero-avatar"></div>
-      <div>
+      <div class="gp-trainer-copy">
         <h2>${safeText(profile.username)}</h2>
         <p class="gp-small">${safeText(profile.title || "Rookie Wrangler")}</p>
-        <p class="gp-small">Current area: ${safeText(profile.zone)}</p>
+        <p class="gp-small">Rank ${Number(profile.trainer_level || 1)} • ${safeText(readiness)}</p>
       </div>
     </div>
-    <div class="gp-stats-grid">
+    <div class="gp-stats-grid gp-trainer-stat-grid">
       <div class="gp-stat-block"><h3>Trainer Lv</h3><p>${Number(profile.trainer_level || 1)}</p></div>
       <div class="gp-stat-block"><h3>Captured</h3><p>${Number(data.pet_count || 0)}</p></div>
       <div class="gp-stat-block"><h3>Battle W/L</h3><p>${profile.battle_record?.wins || 0}/${profile.battle_record?.losses || 0}</p></div>
@@ -58,19 +63,37 @@ function renderProfileSummary(data) {
 function renderActivePet(data) {
   const activePet = data.profile.active_pet;
   const mount = byId("active-pet-panel");
+  const readiness = activePet ? "Deployment ready" : "Link a pet to deploy";
 
   mount.innerHTML = `
-    <div class="gp-section-head">
-      <h2>Active Grev Pet</h2>
-      <a class="btn" href="/grev-pets/stable.html">Switch Active</a>
+    <div class="gp-active-topline">
+      <p class="gp-kicker">Active Companion</p>
+      <span class="gp-home-tag">${safeText(readiness)}</span>
     </div>
     ${activePet
-      ? `<canvas id="active-pet-canvas" class="gp-pet-canvas" width="440" height="220"></canvas>
-         <p><strong>${safeText(activePet.name)}</strong> · Lv ${activePet.level} · ${safeText(activePet.species)}</p>
-         <p>${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</p>
-         <p class="gp-small">Current route partner ready for overworld movement, captures, and events.</p>
-         <div class="gp-actions"><a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Detail Card</a><a class="btn btn-primary" href="/grev-pets/overworld.html">Go Explore</a></div>`
-      : `<p>No active pet selected yet.</p><a class="btn btn-primary" href="/grev-pets/stable.html">Choose from Storage</a>`}
+      ? `<div class="gp-active-feature-grid">
+          <div class="gp-pet-stage">
+            <div class="gp-pet-stage-glow"></div>
+            <canvas id="active-pet-canvas" class="gp-pet-canvas gp-pet-canvas-stage" width="500" height="280"></canvas>
+          </div>
+          <div class="gp-active-meta">
+            <h2>${safeText(activePet.name)}</h2>
+            <p class="gp-small">Lv ${activePet.level} • ${safeText(activePet.species)}</p>
+            <div class="gp-active-chip-row">${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</div>
+            <p class="gp-small">Mood: Energized • Bond sync stable • Route tracking online.</p>
+            <p class="gp-small">Your lead companion is tuned for captures, encounters, and event entries.</p>
+            <div class="gp-actions gp-active-actions">
+              <a class="btn btn-primary" href="/grev-pets/overworld.html">Launch Adventure</a>
+              <a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Companion Card</a>
+              <a class="btn" href="/grev-pets/stable.html">Switch Active</a>
+            </div>
+          </div>
+        </div>`
+      : `<div class="gp-active-empty">
+          <h2>No Active Companion</h2>
+          <p class="gp-small">Choose your first route partner from storage to activate exploration and events.</p>
+          <a class="btn btn-primary" href="/grev-pets/stable.html">Choose from Storage</a>
+        </div>`}
   `;
 
   if (activePet) animatePetCanvas("active-pet-canvas", activePet);
@@ -82,7 +105,7 @@ function renderTeamPanel(pets, activePetId) {
   mount.innerHTML = `
     <div class="gp-section-head">
       <h2>Current Team</h2>
-      <a class="btn" href="/grev-pets/overworld.html">Travel</a>
+      <a class="btn" href="/grev-pets/overworld.html">Deploy</a>
     </div>
     <div class="gp-team-list" id="team-list"></div>
   `;
@@ -95,11 +118,11 @@ function renderTeamPanel(pets, activePetId) {
 
   list.innerHTML = team.map((pet) => `
     <div class="gp-team-item ${pet.petId === activePetId ? "is-active" : ""}">
-      <div>
+      <div class="gp-team-item-main">
         <strong>${safeText(pet.name)}</strong>
         <p class="gp-small">Lv ${pet.level} · ${safeText(pet.species)}</p>
       </div>
-      <div>${typeBadgePair(pet.primaryType, pet.secondaryType)}</div>
+      <div class="gp-team-types">${typeBadgePair(pet.primaryType, pet.secondaryType)}</div>
     </div>
   `).join("");
 }
@@ -108,13 +131,13 @@ function renderStoragePanel(pets, count) {
   const recent = pets.slice(0, 3);
   byId("storage-panel").innerHTML = `
     <div class="gp-section-head">
-      <h2>Storage / Stable</h2>
+      <h2>Stable Vault</h2>
       <a class="btn btn-primary" href="/grev-pets/stable.html">Open Stable</a>
     </div>
-    <p class="gp-small">Captured total: <strong>${count}</strong></p>
+    <p class="gp-small">Total Stored: <strong>${count}</strong></p>
     <div class="gp-recent-captures">
       ${recent.length
-        ? recent.map((pet) => `<p>${safeText(pet.name)} <span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span></p>`).join("")
+        ? recent.map((pet) => `<p><span>${safeText(pet.name)}</span> <span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span></p>`).join("")
         : "<p class='gp-small'>No pets in storage yet.</p>"}
     </div>
   `;
@@ -126,12 +149,12 @@ function renderProgressPanel(profile) {
       <h2>Quick Actions</h2>
       <a class="btn" href="/grev-pets/event-room.html">Events</a>
     </div>
-    <div class="gp-actions">
+    <div class="gp-actions gp-action-buttons">
       <a class="btn btn-primary" href="/grev-pets/overworld.html">Resume Overworld</a>
       <a class="btn" href="/grev-pets/stable.html">Manage Team</a>
       <a class="btn" href="/grev-pets/event-room.html">Run Event Match</a>
     </div>
-    <div class="gp-stats-grid gp-stats-grid-2">
+    <div class="gp-stats-grid gp-stats-grid-2 gp-action-meta">
       <div class="gp-stat-block"><h3>Favorite Type</h3><p>${safeText(profile.favorite_type || "Unpicked")}</p></div>
       <div class="gp-stat-block"><h3>Last Area</h3><p>${safeText(profile.zone)}</p></div>
     </div>
@@ -143,7 +166,7 @@ function renderRecentPanel(data) {
   const activePet = data.profile.active_pet;
   mount.innerHTML = `
     <div class="gp-section-head">
-      <h2>Area + Event Status</h2>
+      <h2>Area + Mission Status</h2>
       <a class="btn" href="/grev-pets/event-room.html">Open Event Plaza</a>
     </div>
     <div class="gp-home-status-grid">
@@ -164,6 +187,7 @@ function renderRecentPanel(data) {
         <p>${activePet ? "Resume Overworld" : "Open Storage"}</p>
       </div>
     </div>
+    <p class="gp-small">Mission board updates when your active companion, area progression, or event rotation changes.</p>
   `;
 }
 
