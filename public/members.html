@@ -31,11 +31,12 @@
     }
 
     .member-card {
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+      border-radius: 22px;
+      background: linear-gradient(160deg, color-mix(in srgb, var(--surface) 70%, transparent), color-mix(in srgb, var(--bg-soft) 90%, transparent));
       overflow: hidden;
       display: grid;
+      box-shadow: var(--shadow-soft);
     }
 
     .member-card-top {
@@ -44,7 +45,7 @@
       grid-template-columns: 88px minmax(0, 1fr);
       gap: 16px;
       align-items: start;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
     }
 
     .member-avatar {
@@ -95,7 +96,7 @@
       padding: 0 10px;
       border-radius: 999px;
       border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
+      background: color-mix(in srgb, var(--surface) 80%, transparent);
       font-size: 0.84rem;
     }
 
@@ -130,9 +131,9 @@
     }
 
     .member-stat {
-      border: 1px solid var(--border);
+      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
       border-radius: 14px;
-      background: rgba(255,255,255,0.02);
+      background: color-mix(in srgb, var(--surface) 65%, transparent);
       padding: 12px;
     }
 
@@ -164,9 +165,9 @@
     }
 
     .leaderboard-card {
-      border: 1px solid var(--border);
+      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
       border-radius: 18px;
-      background: rgba(255,255,255,0.025);
+      background: color-mix(in srgb, var(--surface) 60%, transparent);
       padding: 16px;
     }
 

@@ -5,20 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Playgrounds | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .playground-shell { display: grid; gap: 24px; max-width: 980px; margin: 0 auto; }
+    .playground-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .playground-link {
+      display:grid;
+      gap:8px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      background: color-mix(in srgb, var(--surface) 78%, transparent);
+      color: var(--text);
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .playground-link:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+      background: color-mix(in srgb, var(--surface-strong) 85%, transparent);
+      color: var(--text);
+    }
+    .playground-link strong { font-size: 1rem; }
+    .playground-link span { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+  </style>
 </head>
-<body class="site-shell">
-  <main class="site-main" style="max-width:900px;margin:0 auto;padding:32px;">
-    <h1 class="page-title">Playgrounds</h1>
-    <p class="page-subtitle">Experimental modules are isolated from the core site shell.</p>
-    <ul>
-      <li><a href="/playground/gambling/index.html">Gambling / Casino</a></li>
-      <li><a href="/playground/grev-pets/index.html">Grev Pets</a></li>
-      <li><a href="/playground/cs2/index.html">CS2 Playground</a></li>
-      <li><a href="/playground/cpl/index.html">CPL Playground</a></li>
-      <li><a href="/playground/misc/j-playground/index.html">J Playground</a></li>
-      <li><a href="/playground/misc/dkpg/index.html">DK Playground</a></li>
-    </ul>
-    <p><a href="/index.html">← Back to home</a></p>
-  </main>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <section class="panel playground-shell">
+        <div>
+          <p class="eyebrow">Explore</p>
+          <h1 class="auth-title">Playgrounds</h1>
+          <p class="auth-subtitle">Each module keeps its own personality while still matching the core Grev.dad look and feel.</p>
+        </div>
+
+        <div class="playground-grid">
+          <a class="playground-link" href="/playground/gambling/index.html"><strong>Gambling / Casino</strong><span>Slots, cards, drops, and leaderboard-driven chaos.</span></a>
+          <a class="playground-link" href="/playground/grev-pets/index.html"><strong>Grev Pets</strong><span>Collect, level, and explore pets in event rooms and stables.</span></a>
+          <a class="playground-link" href="/playground/cs2/index.html"><strong>CS2 Playground</strong><span>CS2-flavoured simulator experiences and profile showcases.</span></a>
+          <a class="playground-link" href="/playground/cpl/index.html"><strong>CPL Playground</strong><span>Football module experiments and community tie-ins.</span></a>
+          <a class="playground-link" href="/playground/misc/j-playground/index.html"><strong>J Playground</strong><span>General utility mini-tools and experiments.</span></a>
+          <a class="playground-link" href="/playground/misc/dkpg/index.html"><strong>DK Playground</strong><span>Arcade-style sandbox ideas and side projects.</span></a>
+        </div>
+
+        <div><a class="btn" href="/index.html">← Back to home</a></div>
+      </section>
+    </main>
+  </div>
 </body>
 </html>

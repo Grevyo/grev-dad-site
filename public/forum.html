@@ -30,19 +30,20 @@
 
     .forum-post-card {
       display: block;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+      border-radius: 18px;
+      background: linear-gradient(155deg, color-mix(in srgb, var(--surface) 68%, transparent), color-mix(in srgb, var(--bg-soft) 90%, transparent));
       padding: 18px;
       color: var(--text);
       text-decoration: none;
-      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
     }
 
     .forum-post-card:hover {
-      transform: translateY(-1px);
-      border-color: #3a4a61;
-      background: rgba(255, 255, 255, 0.04);
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+      background: color-mix(in srgb, var(--surface) 85%, transparent);
+      box-shadow: var(--shadow-soft);
     }
 
     .forum-post-image {
