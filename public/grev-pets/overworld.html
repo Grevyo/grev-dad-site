@@ -15,8 +15,8 @@
     <main class="page-main">
       <div class="gp-shell">
         <section class="gp-banner">
-          <h1>🌌 Overworld</h1>
-          <p>Use WASD or arrow keys to move. Danger zones can trigger wild encounters.</p>
+          <h1>🌌 Grev Pets Town Hub</h1>
+          <p>WASD / Arrow keys to explore. Wild grass and unstable patches can trigger encounters.</p>
           <div class="gp-actions" style="margin-top:14px;">
             <a class="btn" href="/grev-pets/index.html">Back to Landing</a>
             <a class="btn" href="/grev-pets/stable.html">Stable</a>
@@ -24,24 +24,57 @@
           </div>
         </section>
 
-        <section class="gp-control-grid">
-          <article class="gp-card">
+        <section class="gp-control-grid gp-control-grid--overworld">
+          <article class="gp-card gp-overworld-card">
             <div id="overworld" class="gp-overworld">
-              <div class="gp-zone zone-town_hub" data-zone="town_hub"></div>
-              <div class="gp-zone zone-stable_square" data-zone="stable_square"></div>
-              <div class="gp-zone zone-event_gate" data-zone="event_gate"></div>
-              <div class="gp-zone zone-wild_scrapyard" data-zone="wild_scrapyard"></div>
-              <div class="gp-zone zone-wild_neon_abyss" data-zone="wild_neon_abyss"></div>
-              <div class="gp-zone zone-wild_mushroom_ruins" data-zone="wild_mushroom_ruins"></div>
-              <div id="player-avatar" class="gp-avatar"></div>
+              <div class="gp-map-layer gp-map-base"></div>
+              <div class="gp-map-layer gp-map-paths"></div>
+              <div class="gp-map-layer gp-map-water"></div>
+              <div class="gp-map-layer gp-map-flora"></div>
+
+              <div class="gp-zone zone-town_hub" data-zone="town_hub"><span>Town Hub</span></div>
+              <div class="gp-zone zone-stable_square" data-zone="stable_square"><span>Stable Square</span></div>
+              <div class="gp-zone zone-event_gate" data-zone="event_gate"><span>Event Gate</span></div>
+              <div class="gp-zone zone-wild_scrapyard" data-zone="wild_scrapyard"><span>Tall Grass</span></div>
+              <div class="gp-zone zone-wild_neon_abyss" data-zone="wild_neon_abyss"><span>Neon Rift</span></div>
+              <div class="gp-zone zone-wild_mushroom_ruins" data-zone="wild_mushroom_ruins"><span>Mushroom Grove</span></div>
+
+              <div class="gp-scenery tree-cluster cluster-nw" aria-hidden="true"></div>
+              <div class="gp-scenery tree-cluster cluster-sw" aria-hidden="true"></div>
+              <div class="gp-scenery tree-cluster cluster-east" aria-hidden="true"></div>
+              <div class="gp-scenery house-row" aria-hidden="true"></div>
+              <div class="gp-scenery stable-building" aria-hidden="true"><span>Stable</span></div>
+              <div class="gp-scenery event-building" aria-hidden="true"><span>Event Hall</span></div>
+              <div class="gp-scenery pond" aria-hidden="true"></div>
+              <div class="gp-scenery fence fence-west" aria-hidden="true"></div>
+              <div class="gp-scenery fence fence-east" aria-hidden="true"></div>
+              <div class="gp-scenery flowers" aria-hidden="true"></div>
+              <div class="gp-scenery bushes" aria-hidden="true"></div>
+
+              <button class="gp-interactable sign sign-town" data-interact-id="welcome" type="button">Town Sign</button>
+              <button class="gp-interactable sign sign-wild" data-interact-id="wilds" type="button">Wilds Sign</button>
+              <button class="gp-interactable board" data-interact-id="board" type="button">Notice Board</button>
+              <button class="gp-interactable entrance entrance-stable" data-interact-id="stable" type="button">Enter Stable</button>
+              <button class="gp-interactable entrance entrance-event" data-interact-id="event" type="button">Enter Event Hall</button>
+
+              <div id="player-wrap" class="gp-player-wrap">
+                <div class="gp-player-shadow"></div>
+                <div id="player-avatar" class="gp-avatar"></div>
+                <div id="player-name" class="gp-name-tag"></div>
+              </div>
             </div>
-            <p class="gp-small">Tip: Standing in wild zones has a chance to trigger encounters every few seconds.</p>
+            <p id="overworld-hint" class="gp-small">Explore the town plaza and follow fenced paths into danger zones.</p>
           </article>
 
-          <article class="gp-card">
-            <h2>Status</h2>
-            <p id="zone-label">Zone: town_hub</p>
-            <p id="encounter-status" class="gp-small">No encounter active.</p>
+          <article class="gp-card gp-overworld-sidebar">
+            <h2>Explorer Status</h2>
+            <div class="gp-status-stack">
+              <p id="zone-label" class="gp-status-pill">Zone: town_hub</p>
+              <p id="danger-state" class="gp-small">Safe zone. Great place to socialize and prep.</p>
+              <p id="encounter-status" class="gp-small">No encounter active.</p>
+              <p id="active-pet" class="gp-small">Active Pet: none</p>
+              <p id="objective" class="gp-small">Objective: walk south-west to find tall grass encounters.</p>
+            </div>
             <div class="gp-actions">
               <button class="btn" id="btn-weaken">Weaken</button>
               <button class="btn btn-primary" id="btn-capture">Throw Tame Orb</button>
