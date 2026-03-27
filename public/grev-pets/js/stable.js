@@ -1,5 +1,5 @@
 import { api, byId, requireAuthOrRedirect, safeText } from "./api.js";
-import { renderPet, rarityClass } from "./pet-renderer.js";
+import { renderPet, rarityClass, typeBadgePair } from "./pet-renderer.js";
 
 async function boot() {
   await requireAuthOrRedirect();
@@ -12,7 +12,7 @@ async function loadPets() {
   const mount = byId("stable-grid");
 
   if (!pets.length) {
-    mount.innerHTML = `<article class="gp-card"><h2>No pets yet</h2><p>Go to the overworld and trigger wild encounters in danger zones.</p></article>`;
+    mount.innerHTML = `<article class="gp-card"><h2>No pets yet</h2><p>Go to the landing page and adopt your first Grev Pet.</p></article>`;
     return;
   }
 
@@ -21,6 +21,7 @@ async function loadPets() {
       <canvas id="stable-canvas-${idx}" class="gp-pet-canvas" width="260" height="170"></canvas>
       <h2>${safeText(pet.name)}</h2>
       <p><span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span> · Lv ${pet.level} · ${safeText(pet.species)}</p>
+      <p>${typeBadgePair(pet.primaryType, pet.secondaryType)}</p>
       <p class="gp-small">${safeText(pet.temperament)} · Growth: ${safeText(pet.growthBias)}</p>
       <div class="gp-actions">
         <button class="btn" data-active="${safeText(pet.petId)}">Set Active</button>
@@ -35,7 +36,7 @@ async function loadPets() {
     let frame = 0;
     const loop = () => {
       frame += 0.07;
-      renderPet(canvas, pet.traits, { bob: frame });
+      renderPet(canvas, pet.traits, { bob: frame, primaryType: pet.primaryType });
       requestAnimationFrame(loop);
     };
     loop();

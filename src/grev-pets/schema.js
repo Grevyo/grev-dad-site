@@ -20,22 +20,32 @@ async function ensureGrevPetsTablesOnce(db) {
     CREATE TABLE IF NOT EXISTS gp_player_state (
       user_id INTEGER PRIMARY KEY,
       username TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'Rookie Wrangler',
       pos_x REAL NOT NULL DEFAULT 220,
       pos_y REAL NOT NULL DEFAULT 240,
       zone TEXT NOT NULL DEFAULT 'town_hub',
       active_pet_id TEXT,
       starter_claimed INTEGER NOT NULL DEFAULT 0,
+      starter_pet_id TEXT,
+      trainer_level INTEGER NOT NULL DEFAULT 1,
+      favorite_type TEXT,
+      avatar_json TEXT NOT NULL DEFAULT '{}',
       encounter_seed INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )
   `).run();
 
   await ensureColumn(db, "gp_player_state", "username", "TEXT NOT NULL DEFAULT 'Player'");
+  await ensureColumn(db, "gp_player_state", "title", "TEXT NOT NULL DEFAULT 'Rookie Wrangler'");
   await ensureColumn(db, "gp_player_state", "pos_x", "REAL NOT NULL DEFAULT 220");
   await ensureColumn(db, "gp_player_state", "pos_y", "REAL NOT NULL DEFAULT 240");
   await ensureColumn(db, "gp_player_state", "zone", "TEXT NOT NULL DEFAULT 'town_hub'");
   await ensureColumn(db, "gp_player_state", "active_pet_id", "TEXT");
   await ensureColumn(db, "gp_player_state", "starter_claimed", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "gp_player_state", "starter_pet_id", "TEXT");
+  await ensureColumn(db, "gp_player_state", "trainer_level", "INTEGER NOT NULL DEFAULT 1");
+  await ensureColumn(db, "gp_player_state", "favorite_type", "TEXT");
+  await ensureColumn(db, "gp_player_state", "avatar_json", "TEXT NOT NULL DEFAULT '{}' ");
   await ensureColumn(db, "gp_player_state", "encounter_seed", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(db, "gp_player_state", "updated_at", "TEXT");
 
@@ -45,6 +55,8 @@ async function ensureGrevPetsTablesOnce(db) {
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       species TEXT NOT NULL,
+      primary_type TEXT NOT NULL DEFAULT 'Feral',
+      secondary_type TEXT,
       level INTEGER NOT NULL,
       xp INTEGER NOT NULL,
       rarity TEXT NOT NULL,
@@ -63,6 +75,8 @@ async function ensureGrevPetsTablesOnce(db) {
     )
   `).run();
 
+  await ensureColumn(db, "gp_pets", "primary_type", "TEXT NOT NULL DEFAULT 'Feral'");
+  await ensureColumn(db, "gp_pets", "secondary_type", "TEXT");
   await ensureColumn(db, "gp_pets", "battle_wins", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(db, "gp_pets", "battle_losses", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(db, "gp_pets", "race_wins", "INTEGER NOT NULL DEFAULT 0");
@@ -73,6 +87,7 @@ async function ensureGrevPetsTablesOnce(db) {
     CREATE TABLE IF NOT EXISTS gp_presence (
       user_id INTEGER PRIMARY KEY,
       username TEXT NOT NULL,
+      avatar_json TEXT NOT NULL DEFAULT '{}',
       pos_x REAL NOT NULL,
       pos_y REAL NOT NULL,
       zone TEXT NOT NULL,
@@ -80,6 +95,8 @@ async function ensureGrevPetsTablesOnce(db) {
       last_seen_at TEXT NOT NULL
     )
   `).run();
+
+  await ensureColumn(db, "gp_presence", "avatar_json", "TEXT NOT NULL DEFAULT '{}' ");
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS gp_encounters (
@@ -108,6 +125,7 @@ async function ensureGrevPetsTablesOnce(db) {
   `).run();
 
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gp_pets_user ON gp_pets (user_id, updated_at DESC)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gp_pets_types ON gp_pets (user_id, primary_type, secondary_type)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gp_presence_seen ON gp_presence (last_seen_at DESC)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gp_encounters_user ON gp_encounters (user_id, resolved, expires_at)`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_gp_event_user_time ON gp_event_log (user_id, created_at DESC)`).run();

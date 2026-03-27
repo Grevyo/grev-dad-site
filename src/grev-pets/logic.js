@@ -6,7 +6,7 @@ const RARITY_TABLE = [
   { rarity: "mythic", weight: 1, xpBonus: 1.5, color: "#ffd966" }
 ];
 
-const SPECIES = ["Blooplet", "Fangmop", "Tunkhopper", "Mossdrake", "Skibble", "Woblin", "Nimphib", "Grembryo"];
+const SPECIES = ["Blooplet", "Fangmop", "Tunkhopper", "Mossdrake", "Skibble", "Woblin", "Nimphib", "Grembryo", "Voltuff", "Pebblin", "Moonook", "Glimfix"];
 const TEMPERAMENTS = ["Chaotic Friendly", "Snack-Obsessed", "Nervy Zoomer", "Dramatic", "Battle Goblin", "Sleepy Menace", "Polite Menace", "Hype Beast"];
 const GROWTH_BIASES = ["Bruiser", "Sprinter", "Tank", "Trickster", "All-Rounder", "Glass Cannon"];
 const NAME_PREFIX = ["Snor", "Wib", "Grizz", "Tun", "Zib", "Floof", "Krim", "Mop", "Plin", "Gub", "Tron", "Bri", "Yip", "Mung", "Dink"];
@@ -22,31 +22,248 @@ const PATTERN_TYPES = ["plain", "spots", "stripes", "patch", "blotch", "circuit"
 const ACCESSORY_TYPES = ["none", "scarf", "bell", "visor", "spoon", "tiny-cape", "bandana"];
 const EXTRA_TYPES = ["none", "horn", "spikes", "fluff", "wings", "mushroom"];
 
-export function createStarterPet(userId, username, archetype) {
-  const seed = seededInt(`${userId}:${username}:${archetype}:${Date.now()}`);
-  return generatePet({
+export const TYPE_DEX = {
+  Ember: {
+    colors: [16, 29, 42],
+    traitBias: { extra: ["spikes", "horn"], pattern: ["stripes"], bodyShape: ["drake", "gecko"] },
+    flavor: "Warm, bold, and always ready to charge.",
+    strong: ["Moss", "Frost", "Feral"],
+    weak: ["Tidal", "Stone", "Lunar"]
+  },
+  Moss: {
+    colors: [94, 112, 132],
+    traitBias: { extra: ["mushroom", "fluff"], pattern: ["patch"], bodyShape: ["blob", "bean"] },
+    flavor: "Leafy, grounded creatures that outlast chaos.",
+    strong: ["Stone", "Tidal", "Toxic"],
+    weak: ["Ember", "Frost", "Iron"]
+  },
+  Zap: {
+    colors: [50, 62, 198],
+    traitBias: { extra: ["spikes"], pattern: ["circuit", "stripes"], bodyShape: ["ferret", "gecko"] },
+    flavor: "Fast-twitch sparks that hit first.",
+    strong: ["Tidal", "Spirit", "Lunar"],
+    weak: ["Stone", "Moss", "Feral"]
+  },
+  Tidal: {
+    colors: [190, 202, 214],
+    traitBias: { extra: ["wings", "fluff"], pattern: ["blotch", "spots"], bodyShape: ["blob", "moth"] },
+    flavor: "Fluid and serene, but dangerous when cornered.",
+    strong: ["Ember", "Stone", "Iron"],
+    weak: ["Zap", "Toxic", "Moss"]
+  },
+  Toxic: {
+    colors: [286, 302, 326],
+    traitBias: { extra: ["mushroom", "horn"], pattern: ["blotch", "circuit"], bodyShape: ["puff", "blob"] },
+    flavor: "Gooey tricksters with odd chemistry.",
+    strong: ["Moss", "Spirit", "Feral"],
+    weak: ["Stone", "Frost", "Ember"]
+  },
+  Stone: {
+    colors: [18, 28, 38],
+    traitBias: { extra: ["horn", "spikes"], pattern: ["patch", "plain"], bodyShape: ["chonk", "drake"] },
+    flavor: "Heavy, stubborn units built to endure.",
+    strong: ["Zap", "Toxic", "Iron"],
+    weak: ["Moss", "Tidal", "Lunar"]
+  },
+  Frost: {
+    colors: [191, 210, 231],
+    traitBias: { extra: ["fluff", "wings"], pattern: ["spots", "plain"], bodyShape: ["moth", "puff"] },
+    flavor: "Soft-cold, crisp, and precise.",
+    strong: ["Moss", "Toxic", "Lunar"],
+    weak: ["Ember", "Iron", "Spirit"]
+  },
+  Spirit: {
+    colors: [264, 278, 302],
+    traitBias: { extra: ["wings", "horn"], pattern: ["circuit", "patch"], bodyShape: ["moth", "bean"] },
+    flavor: "Eerie companions with high focus.",
+    strong: ["Frost", "Iron", "Lunar"],
+    weak: ["Zap", "Toxic", "Glitch"]
+  },
+  Iron: {
+    colors: [204, 214, 224],
+    traitBias: { extra: ["spikes", "horn"], pattern: ["stripes", "circuit"], bodyShape: ["chonk", "ferret"] },
+    flavor: "Engineered bruisers with disciplined rhythm.",
+    strong: ["Frost", "Moss", "Glitch"],
+    weak: ["Tidal", "Spirit", "Stone"]
+  },
+  Lunar: {
+    colors: [258, 282, 306],
+    traitBias: { extra: ["fluff", "wings"], pattern: ["plain", "spots"], bodyShape: ["puff", "bean"] },
+    flavor: "Mystic moonlit forms with evasive tempo.",
+    strong: ["Stone", "Ember", "Feral"],
+    weak: ["Zap", "Spirit", "Frost"]
+  },
+  Glitch: {
+    colors: [184, 313, 342],
+    traitBias: { extra: ["spikes", "mushroom"], pattern: ["circuit", "blotch"], bodyShape: ["gecko", "ferret"] },
+    flavor: "Corrupted oddballs with unstable burst.",
+    strong: ["Spirit", "Lunar", "Iron"],
+    weak: ["Feral", "Ember", "Tidal"]
+  },
+  Feral: {
+    colors: [34, 58, 84],
+    traitBias: { extra: ["none", "fluff"], pattern: ["spots", "patch"], bodyShape: ["bean", "chonk"] },
+    flavor: "Street-smart all-rounders with adaptive instincts.",
+    strong: ["Glitch", "Zap", "Toxic"],
+    weak: ["Ember", "Lunar", "Moss"]
+  }
+};
+
+export const TYPE_LIST = Object.keys(TYPE_DEX);
+
+export const STARTER_OPTIONS = [
+  {
+    key: "emberling",
+    name: "Cindrake",
+    species: "Mossdrake",
+    roleStyle: "Aggro / Speedy",
+    archetype: "spark",
+    personality: "A tiny furnace with too much confidence.",
+    primaryType: "Ember",
+    secondaryType: "Zap",
+    statsBias: { attack: 3, speed: 2, defence: -1 }
+  },
+  {
+    key: "mossguard",
+    name: "Brambub",
+    species: "Blooplet",
+    roleStyle: "Tanky / Sustain",
+    archetype: "tanklet",
+    personality: "Carries snacks, shields friends, ignores drama.",
+    primaryType: "Moss",
+    secondaryType: "Stone",
+    statsBias: { health: 4, defence: 2, speed: -2 }
+  },
+  {
+    key: "tidaltrick",
+    name: "Slinkip",
+    species: "Nimphib",
+    roleStyle: "Tricky / Balanced",
+    archetype: "scavenger",
+    personality: "Glides around trouble and steals objectives.",
+    primaryType: "Tidal",
+    secondaryType: "Glitch",
+    statsBias: { agility: 3, focus: 2, burst: 1 }
+  }
+];
+
+export const DEFAULT_AVATAR = {
+  skinTone: "warm",
+  hairStyle: "short",
+  hairColor: "#47362f",
+  eyeStyle: "round",
+  eyeColor: "#8be7ff",
+  topStyle: "hoodie",
+  topColor: "#7d6dff",
+  bottomStyle: "joggers",
+  bottomColor: "#2a3757",
+  accessory: "none",
+  hat: "none",
+  bodyType: "medium"
+};
+
+const AVATAR_OPTIONS = {
+  skinTone: ["fair", "warm", "tan", "deep", "olive", "fantasy"],
+  hairStyle: ["short", "bob", "spike", "mop", "puff", "none"],
+  eyeStyle: ["round", "sleepy", "spark", "wide", "cat"],
+  topStyle: ["hoodie", "jacket", "tee", "robe", "armor"],
+  bottomStyle: ["joggers", "shorts", "cargo", "skirt", "greaves"],
+  accessory: ["none", "scarf", "visor", "headphones", "badge"],
+  hat: ["none", "beanie", "cap", "hornband", "crown"],
+  bodyType: ["small", "medium", "broad"]
+};
+
+const STARTER_TYPE_MAP = {
+  scavenger: "Feral",
+  spark: "Zap",
+  tanklet: "Stone"
+};
+
+export function normalizeAvatarConfig(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const config = { ...DEFAULT_AVATAR };
+
+  for (const [key, allowed] of Object.entries(AVATAR_OPTIONS)) {
+    if (allowed.includes(String(source[key] || ""))) {
+      config[key] = String(source[key]);
+    }
+  }
+
+  config.hairColor = safeHex(source.hairColor, DEFAULT_AVATAR.hairColor);
+  config.eyeColor = safeHex(source.eyeColor, DEFAULT_AVATAR.eyeColor);
+  config.topColor = safeHex(source.topColor, DEFAULT_AVATAR.topColor);
+  config.bottomColor = safeHex(source.bottomColor, DEFAULT_AVATAR.bottomColor);
+
+  return config;
+}
+
+export function avatarMeta() {
+  return AVATAR_OPTIONS;
+}
+
+export function getTypeDexPreview() {
+  return TYPE_LIST.map((type) => ({ type, ...TYPE_DEX[type] }));
+}
+
+export function getStarterCatalog() {
+  return STARTER_OPTIONS.map((starter) => ({ ...starter }));
+}
+
+export function createStarterPet(userId, username, starterKey) {
+  const selected = STARTER_OPTIONS.find((item) => item.key === starterKey)
+    || STARTER_OPTIONS.find((item) => item.archetype === starterKey)
+    || STARTER_OPTIONS[0];
+
+  const seed = seededInt(`${userId}:${username}:${selected.key}:${Date.now()}`);
+  const starter = generatePet({
     userId,
     minLevel: 1,
     maxLevel: 2,
     forcedRarity: "uncommon",
     seed,
-    source: "starter"
+    source: "starter",
+    forcedPrimaryType: selected.primaryType,
+    forcedSecondaryType: selected.secondaryType,
+    forcedSpecies: selected.species
   });
+
+  starter.name = selected.name;
+  starter.starterKey = selected.key;
+  starter.roleStyle = selected.roleStyle;
+
+  for (const [stat, mod] of Object.entries(selected.statsBias || {})) {
+    starter.stats[stat] = Math.max(1, Number(starter.stats[stat] || 0) + Number(mod || 0));
+  }
+
+  return starter;
 }
 
 export function generateWildPet({ userId, zone = "wild_scrapyard", seed = Date.now() }) {
   const zoneBias = zone.includes("abyss") ? 3 : zone.includes("ruins") ? 2 : 1;
   const levelBase = 1 + (seededInt(`${seed}:${zone}`) % (4 + zoneBias * 2));
+
   return generatePet({
     userId,
     minLevel: levelBase,
     maxLevel: levelBase + zoneBias + 2,
     seed,
-    source: "wild"
+    source: "wild",
+    zoneHint: zone
   });
 }
 
-export function generatePet({ userId, minLevel = 1, maxLevel = 10, forcedRarity = null, seed = Date.now(), source = "wild" }) {
+export function generatePet({
+  userId,
+  minLevel = 1,
+  maxLevel = 10,
+  forcedRarity = null,
+  seed = Date.now(),
+  source = "wild",
+  zoneHint = "town_hub",
+  forcedPrimaryType = null,
+  forcedSecondaryType = null,
+  forcedSpecies = null
+}) {
   const petSeed = Number(seed) || Date.now();
   const rarityEntry = forcedRarity
     ? RARITY_TABLE.find((entry) => entry.rarity === forcedRarity) || RARITY_TABLE[0]
@@ -54,24 +271,29 @@ export function generatePet({ userId, minLevel = 1, maxLevel = 10, forcedRarity 
   const level = randomRange(minLevel, maxLevel, petSeed + 13);
   const temperament = pickFrom(TEMPERAMENTS, petSeed + 44);
   const growthBias = pickFrom(GROWTH_BIASES, petSeed + 88);
-  const species = pickFrom(SPECIES, petSeed + 19);
+  const species = forcedSpecies || pickFrom(SPECIES, petSeed + 19);
+
+  const primaryType = forcedPrimaryType || determinePrimaryType({ seed: petSeed, zoneHint, growthBias });
+  const secondaryType = forcedSecondaryType || determineSecondaryType(primaryType, petSeed + 55);
+
   const traits = {
-    bodyShape: pickFrom(BODY_SHAPES, petSeed + 1),
+    bodyShape: pickTypeBiased(primaryType, "bodyShape", BODY_SHAPES, petSeed + 1),
     bodySize: Number((0.8 + randomFloat(petSeed + 2) * 0.8).toFixed(2)),
-    colorPalette: makePalette(petSeed + 3),
+    colorPalette: makeTypePalette(primaryType, secondaryType, petSeed + 3),
     earType: pickFrom(EAR_TYPES, petSeed + 4),
     eyeType: pickFrom(EYE_TYPES, petSeed + 5),
     mouthType: pickFrom(MOUTH_TYPES, petSeed + 6),
     tailType: pickFrom(TAIL_TYPES, petSeed + 7),
-    patternType: pickFrom(PATTERN_TYPES, petSeed + 8),
+    patternType: pickTypeBiased(primaryType, "pattern", PATTERN_TYPES, petSeed + 8),
     accessory: pickFrom(ACCESSORY_TYPES, petSeed + 9),
-    extra: pickFrom(EXTRA_TYPES, petSeed + 10),
+    extra: pickTypeBiased(primaryType, "extra", EXTRA_TYPES, petSeed + 10),
     widthScale: Number((0.8 + randomFloat(petSeed + 11) * 0.9).toFixed(2)),
     heightScale: Number((0.8 + randomFloat(petSeed + 12) * 0.9).toFixed(2)),
-    bobSpeed: Number((0.6 + randomFloat(petSeed + 14) * 1.2).toFixed(2))
+    bobSpeed: Number((0.6 + randomFloat(petSeed + 14) * 1.2).toFixed(2)),
+    aura: primaryType
   };
 
-  const stats = generateStats(level, growthBias, rarityEntry.rarity, petSeed + 99);
+  const stats = generateStats(level, growthBias, rarityEntry.rarity, petSeed + 99, primaryType, secondaryType);
   const name = makeName(petSeed + 101);
   const petId = `gp_${source}_${petSeed.toString(36)}_${Math.abs(seededInt(`${name}:${species}:${petSeed}`)).toString(36).slice(0, 8)}`;
 
@@ -85,6 +307,8 @@ export function generatePet({ userId, minLevel = 1, maxLevel = 10, forcedRarity 
     rarityColor: rarityEntry.color,
     temperament,
     growthBias,
+    primaryType,
+    secondaryType,
     stats,
     traits,
     ownerId: userId,
@@ -114,7 +338,8 @@ export function runBattle(playerPet, enemyPetSeed) {
     minLevel: Math.max(1, playerPet.level - 1),
     maxLevel: playerPet.level + 3,
     seed: enemyPetSeed,
-    source: "npc"
+    source: "npc",
+    forcedPrimaryType: pickFrom(TYPE_LIST, enemyPetSeed + 77)
   });
 
   let playerHp = playerPet.stats.health;
@@ -255,6 +480,8 @@ export function summarizePet(pet) {
     rarity: pet.rarity,
     temperament: pet.temperament,
     growthBias: pet.growthBias,
+    primaryType: pet.primaryType || STARTER_TYPE_MAP[pet.starterKey] || "Feral",
+    secondaryType: pet.secondaryType || null,
     stats: pet.stats,
     traits: pet.traits,
     battleRecord: pet.battleRecord || { wins: pet.battle_wins || 0, losses: pet.battle_losses || 0 },
@@ -262,7 +489,34 @@ export function summarizePet(pet) {
   };
 }
 
-function generateStats(level, growthBias, rarity, seed) {
+function determinePrimaryType({ seed, zoneHint, growthBias }) {
+  if (zoneHint.includes("abyss")) return weightedType(seed, ["Glitch", "Spirit", "Lunar", "Zap"]);
+  if (zoneHint.includes("ruins")) return weightedType(seed, ["Moss", "Frost", "Toxic", "Stone"]);
+  if (growthBias === "Tank") return weightedType(seed, ["Stone", "Iron", "Moss", "Feral"]);
+  if (growthBias === "Sprinter") return weightedType(seed, ["Zap", "Ember", "Lunar", "Feral"]);
+  return TYPE_LIST[Math.abs(seededInt(`${seed}:${zoneHint}:${growthBias}`)) % TYPE_LIST.length];
+}
+
+function determineSecondaryType(primaryType, seed) {
+  const roll = Math.abs(seededInt(`${primaryType}:${seed}`)) % 100;
+  if (roll > 34) return null;
+  const candidates = TYPE_LIST.filter((type) => type !== primaryType && !TYPE_DEX[primaryType].weak.includes(type));
+  return candidates[Math.abs(seededInt(`${primaryType}:secondary:${seed}`)) % candidates.length] || null;
+}
+
+function weightedType(seed, list) {
+  return list[Math.abs(seededInt(`${seed}:${list.join("|")}`)) % list.length];
+}
+
+function pickTypeBiased(primaryType, key, fallbackList, seed) {
+  const biasList = TYPE_DEX[primaryType]?.traitBias?.[key] || [];
+  if (biasList.length && randomFloat(seed) > 0.38) {
+    return pickFrom(biasList, seed + 1);
+  }
+  return pickFrom(fallbackList, seed + 2);
+}
+
+function generateStats(level, growthBias, rarity, seed, primaryType, secondaryType) {
   const rarityMultiplier = rarity === "mythic" ? 1.24 : rarity === "epic" ? 1.17 : rarity === "rare" ? 1.1 : rarity === "uncommon" ? 1.04 : 1;
   const bias = {
     Bruiser: { attack: 5, health: 3, speed: -1, burst: 2 },
@@ -272,6 +526,8 @@ function generateStats(level, growthBias, rarity, seed) {
     "Glass Cannon": { attack: 7, burst: 4, defence: -3 },
     "All-Rounder": { health: 2, attack: 2, defence: 2, speed: 2, stamina: 2, agility: 2, focus: 2, burst: 2 }
   }[growthBias] || {};
+
+  const typeBonus = getTypeStatBonus(primaryType, secondaryType);
 
   const base = {
     health: 35 + level * 7,
@@ -287,11 +543,32 @@ function generateStats(level, growthBias, rarity, seed) {
   const stats = {};
   for (const [key, value] of Object.entries(base)) {
     const randomBump = Math.floor(randomFloat(seed + value * 13) * 5);
-    const biased = value + (bias[key] || 0) + randomBump;
+    const biased = value + (bias[key] || 0) + (typeBonus[key] || 0) + randomBump;
     stats[key] = Math.max(1, Math.floor(biased * rarityMultiplier));
   }
 
   return stats;
+}
+
+function getTypeStatBonus(primaryType, secondaryType) {
+  const bonus = { health: 0, attack: 0, defence: 0, speed: 0, stamina: 0, agility: 0, focus: 0, burst: 0 };
+  const apply = (type) => {
+    if (type === "Ember") { bonus.attack += 2; bonus.burst += 2; }
+    if (type === "Moss") { bonus.health += 2; bonus.stamina += 2; }
+    if (type === "Zap") { bonus.speed += 3; bonus.agility += 1; }
+    if (type === "Tidal") { bonus.agility += 2; bonus.focus += 1; }
+    if (type === "Toxic") { bonus.focus += 2; bonus.burst += 1; }
+    if (type === "Stone") { bonus.defence += 3; bonus.health += 1; }
+    if (type === "Frost") { bonus.focus += 2; bonus.defence += 1; }
+    if (type === "Spirit") { bonus.focus += 2; bonus.speed += 1; }
+    if (type === "Iron") { bonus.defence += 2; bonus.attack += 1; }
+    if (type === "Lunar") { bonus.agility += 2; bonus.stamina += 1; }
+    if (type === "Glitch") { bonus.burst += 2; bonus.speed += 1; }
+    if (type === "Feral") { bonus.stamina += 1; bonus.attack += 1; }
+  };
+  apply(primaryType);
+  if (secondaryType) apply(secondaryType);
+  return bonus;
 }
 
 function rollLevelGrowth(growthBias, level) {
@@ -326,14 +603,14 @@ function makeName(seed) {
   return `${pickFrom(NAME_PREFIX, seed)}${pickFrom(NAME_SUFFIX, seed + 1)}${pickFrom(NAME_END, seed + 2)}`;
 }
 
-function makePalette(seed) {
-  const hue1 = Math.floor(randomFloat(seed) * 360);
-  const hue2 = (hue1 + 20 + Math.floor(randomFloat(seed + 1) * 180)) % 360;
-  const hue3 = (hue1 + 180 + Math.floor(randomFloat(seed + 2) * 90)) % 360;
+function makeTypePalette(primaryType, secondaryType, seed) {
+  const [h1, h2, h3] = TYPE_DEX[primaryType]?.colors || [210, 240, 280];
+  const shift = Math.floor(randomFloat(seed + 99) * 24) - 12;
   return {
-    base: `hsl(${hue1}deg 72% 58%)`,
-    secondary: `hsl(${hue2}deg 66% 47%)`,
-    accent: `hsl(${hue3}deg 88% 66%)`
+    base: `hsl(${(h1 + shift + 360) % 360}deg 76% 58%)`,
+    secondary: `hsl(${(h2 + shift + 360) % 360}deg 70% 44%)`,
+    accent: `hsl(${(h3 + shift + 360) % 360}deg 88% 68%)`,
+    typeGlow: secondaryType ? `hsl(${TYPE_DEX[secondaryType]?.colors?.[0] || h3}deg 88% 66%)` : `hsl(${h3}deg 88% 66%)`
   };
 }
 
@@ -368,4 +645,9 @@ function seededInt(text) {
     hash |= 0;
   }
   return hash;
+}
+
+function safeHex(value, fallback) {
+  const v = String(value || "").trim();
+  return /^#([0-9a-fA-F]{6})$/.test(v) ? v : fallback;
 }

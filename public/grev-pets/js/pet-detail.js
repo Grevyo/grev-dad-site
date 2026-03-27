@@ -1,5 +1,5 @@
 import { api, byId, requireAuthOrRedirect, safeText } from "./api.js";
-import { renderPet, rarityClass } from "./pet-renderer.js";
+import { renderPet, rarityClass, typeBadgePair } from "./pet-renderer.js";
 
 async function boot() {
   await requireAuthOrRedirect();
@@ -21,6 +21,7 @@ function renderPetCard(pet) {
     <canvas id="pet-detail-canvas" class="gp-pet-canvas" width="300" height="190"></canvas>
     <h2>${safeText(pet.name)} <span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span></h2>
     <p>Lv ${pet.level} ${safeText(pet.species)} · ${safeText(pet.temperament)} · Growth ${safeText(pet.growthBias)}</p>
+    <p>${typeBadgePair(pet.primaryType, pet.secondaryType)}</p>
     <div class="gp-stats-grid">
       ${Object.entries(pet.stats || {}).map(([k, v]) => `<div class="gp-card"><h3>${safeText(k)}</h3><p>${v}</p></div>`).join("")}
     </div>
@@ -31,7 +32,7 @@ function renderPetCard(pet) {
   let frame = 0;
   const loop = () => {
     frame += 0.08;
-    renderPet(canvas, pet.traits, { bob: frame });
+    renderPet(canvas, pet.traits, { bob: frame, primaryType: pet.primaryType });
     requestAnimationFrame(loop);
   };
   loop();

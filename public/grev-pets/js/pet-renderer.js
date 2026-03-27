@@ -1,3 +1,20 @@
+import { safeText } from "./api.js";
+
+export const TYPE_COLORS = {
+  Ember: "#ff9052",
+  Moss: "#78d37a",
+  Zap: "#ffe55f",
+  Tidal: "#64d5ff",
+  Toxic: "#be79ff",
+  Stone: "#c2a580",
+  Frost: "#9ce7ff",
+  Spirit: "#c29dff",
+  Iron: "#c6d2e3",
+  Lunar: "#8c8cff",
+  Glitch: "#ff69bb",
+  Feral: "#ffb870"
+};
+
 function drawBody(ctx, traits, w, h) {
   const cx = w / 2;
   const cy = h / 2 + 10;
@@ -121,6 +138,15 @@ export function renderPet(canvas, traits, opts = {}) {
   const bob = opts.bob || 0;
 
   ctx.clearRect(0, 0, width, height);
+
+  if (opts.primaryType) {
+    const glow = TYPE_COLORS[opts.primaryType] || traits?.colorPalette?.accent || "#6ae2ff";
+    ctx.fillStyle = `${glow}22`;
+    ctx.beginPath();
+    ctx.ellipse(width / 2, height / 2 + 14, width * 0.44, height * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.save();
   ctx.translate(0, Math.sin(bob * ((traits?.bobSpeed || 1))) * 3);
 
@@ -139,4 +165,13 @@ export function renderPet(canvas, traits, opts = {}) {
 
 export function rarityClass(rarity) {
   return `rarity-${String(rarity || "common").toLowerCase()}`;
+}
+
+export function typeBadge(type) {
+  const t = safeText(type || "Feral");
+  return `<span class="gp-type-badge" style="--type:${TYPE_COLORS[t] || "#8baadf"}">${t}</span>`;
+}
+
+export function typeBadgePair(primary, secondary) {
+  return `${typeBadge(primary)}${secondary ? typeBadge(secondary) : ""}`;
 }
