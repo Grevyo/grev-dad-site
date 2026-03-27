@@ -2,148 +2,200 @@ import { api, byId, requireAuthOrRedirect, safeText } from "./api.js";
 import { renderPet, rarityClass, typeBadgePair } from "./pet-renderer.js";
 import { avatarMarkup } from "./avatar-renderer.js";
 
-const WORLD_WIDTH = 900;
-const WORLD_HEIGHT = 580;
+const WORLD_WIDTH = 1040;
+const WORLD_HEIGHT = 620;
 const PLAYER_SIZE = 30;
-const EDGE_BUFFER = 18;
+const EDGE_BUFFER = 20;
 
 const AREAS = {
   spawn_town: {
     id: "spawn_town",
     name: "Spawn Town",
-    subtitle: "Safe spawn hub with routes to the south and west districts.",
+    subtitle: "Safe plaza where routes branch in every direction.",
     theme: "spawn_town",
+    scene: "spawn-town",
     safe: true,
     encounterRate: 0,
-    objective: "Objective: head south into Tallgrass Trail to start catching.",
-    encounterFlavor: "Calm streets. Wild pets avoid the busy plaza.",
-    landmarks: [
-      { cls: "house-row" },
-      { cls: "stable-building", label: "Stable" },
-      { cls: "event-building", label: "Event Plaza" },
-      { cls: "fence fence-west" },
-      { cls: "fence fence-east" }
-    ],
+    objective: "Objective: head south to Tallgrass Route and begin captures.",
+    encounterFlavor: "Quiet streets and no wild activity.",
     exits: {
-      south: { to: "tallgrass_route", spawn: "north" },
-      west: { to: "stable_district", spawn: "east" },
-      east: { to: "event_plaza", spawn: "west" }
-    }
+      south: { to: "tallgrass_route", spawn: "north", lane: [40, 60], label: "Tallgrass Route" },
+      west: { to: "stable_district", spawn: "east", lane: [34, 66], label: "Stable District" },
+      east: { to: "event_plaza", spawn: "west", lane: [34, 66], label: "Event Plaza" }
+    },
+    props: [
+      { cls: "gp-prop path-cross" },
+      { cls: "gp-prop building-townhall", x: 30, y: 9, w: 20, h: 20, label: "Town Hall" },
+      { cls: "gp-prop building-stable", x: 9, y: 34, w: 15, h: 22, label: "Stable Gate" },
+      { cls: "gp-prop building-event", x: 76, y: 34, w: 15, h: 22, label: "Plaza Gate" },
+      { cls: "gp-prop lamp-row", x: 22, y: 46, w: 56, h: 8 },
+      { cls: "gp-prop garden-grid", x: 58, y: 67, w: 28, h: 18 }
+    ]
   },
   tallgrass_route: {
     id: "tallgrass_route",
-    name: "Tallgrass Trail",
-    subtitle: "Classic capture route filled with rustling grass and low-level wilds.",
+    name: "South Route · Tallgrass",
+    subtitle: "A long grassy stretch loaded with common wild encounters.",
     theme: "tallgrass_route",
+    scene: "tallgrass-route",
     safe: false,
-    encounterRate: 0.36,
-    objective: "Objective: weaken and capture common route species.",
-    encounterFlavor: "Grass trembles — something is stalking nearby.",
-    landmarks: [{ cls: "tree-cluster cluster-sw" }, { cls: "flowers" }, { cls: "bushes" }],
+    encounterRate: 0.37,
+    objective: "Objective: find route commons and build your core team.",
+    encounterFlavor: "Grass rustles — a wild pet leaps out!",
     exits: {
-      north: { to: "spawn_town", spawn: "south" },
-      east: { to: "pondside_path", spawn: "west" },
-      south: { to: "mushroom_grove", spawn: "north" }
-    }
-  },
-  stable_district: {
-    id: "stable_district",
-    name: "Stable District",
-    subtitle: "Quiet training strip next to storage barns and prep spaces.",
-    theme: "stable_district",
-    safe: true,
-    encounterRate: 0,
-    objective: "Objective: regroup here, then move to Scrapyard for tougher catches.",
-    encounterFlavor: "Stable workers keep wild pets away from this district.",
-    landmarks: [{ cls: "stable-building", label: "Barn Row" }, { cls: "tree-cluster cluster-nw" }],
-    exits: {
-      east: { to: "spawn_town", spawn: "west" },
-      south: { to: "scrapyard", spawn: "north" }
-    }
-  },
-  event_plaza: {
-    id: "event_plaza",
-    name: "Event Plaza",
-    subtitle: "Bright social plaza leading to unstable neon hunting ground.",
-    theme: "event_plaza",
-    safe: true,
-    encounterRate: 0,
-    objective: "Objective: move east into Neon Rift for glitch and lunar hunts.",
-    encounterFlavor: "Crowds and lights keep this plaza encounter-free.",
-    landmarks: [{ cls: "event-building", label: "Arena" }, { cls: "pond" }],
-    exits: {
-      west: { to: "spawn_town", spawn: "east" },
-      east: { to: "neon_rift", spawn: "west" }
-    }
+      north: { to: "spawn_town", spawn: "south", lane: [40, 60], label: "Spawn Town" },
+      south: { to: "mushroom_grove", spawn: "north", lane: [36, 64], label: "Mushroom Grove" },
+      east: { to: "pondside_path", spawn: "west", lane: [42, 76], label: "Pondside Path" }
+    },
+    props: [
+      { cls: "gp-prop route-road", x: 41, y: 0, w: 18, h: 100 },
+      { cls: "gp-prop tallgrass-block", x: 8, y: 12, w: 28, h: 24 },
+      { cls: "gp-prop tallgrass-block", x: 64, y: 18, w: 27, h: 25 },
+      { cls: "gp-prop tallgrass-block", x: 11, y: 53, w: 22, h: 34 },
+      { cls: "gp-prop tallgrass-block", x: 68, y: 56, w: 21, h: 30 },
+      { cls: "gp-prop route-sign", x: 46, y: 17, w: 8, h: 10, label: "R-01" }
+    ]
   },
   mushroom_grove: {
     id: "mushroom_grove",
     name: "Mushroom Grove",
-    subtitle: "Foggy fungal grove with spirit and toxic-flavored encounters.",
+    subtitle: "Foggy fungal woods with spooky spirit and toxic wildlife.",
     theme: "mushroom_grove",
+    scene: "mushroom-grove",
     safe: false,
-    encounterRate: 0.42,
-    objective: "Objective: hunt rare Moss/Toxic/Spirit mixes here.",
-    encounterFlavor: "Spores swirl — a strange wild pet emerges.",
-    landmarks: [{ cls: "cluster-east tree-cluster" }, { cls: "flowers" }],
+    encounterRate: 0.43,
+    objective: "Objective: hunt Moss/Toxic/Spirit blends in deeper patches.",
+    encounterFlavor: "Spores cloud the air as a wild pet appears.",
     exits: {
-      north: { to: "tallgrass_route", spawn: "south" },
-      east: { to: "neon_rift", spawn: "south" }
-    }
+      north: { to: "tallgrass_route", spawn: "south", lane: [36, 64], label: "Tallgrass" },
+      east: { to: "neon_rift", spawn: "south", lane: [22, 48], label: "Neon Rift" },
+      west: { to: "scrapyard", spawn: "east", lane: [56, 82], label: "Scrapyard" }
+    },
+    props: [
+      { cls: "gp-prop grove-path", x: 40, y: 0, w: 19, h: 100 },
+      { cls: "gp-prop mushroom-ring", x: 11, y: 18, w: 26, h: 25 },
+      { cls: "gp-prop mushroom-ring", x: 63, y: 60, w: 27, h: 27 },
+      { cls: "gp-prop tree-mass", x: 68, y: 10, w: 20, h: 26 },
+      { cls: "gp-prop spores", x: 8, y: 58, w: 24, h: 26 }
+    ]
   },
   neon_rift: {
     id: "neon_rift",
     name: "Neon Rift",
-    subtitle: "Electric rift zone with unstable glitch signatures and lunar echoes.",
+    subtitle: "A fractured tech corridor where glitch energy distorts reality.",
     theme: "neon_rift",
+    scene: "neon-rift",
     safe: false,
-    encounterRate: 0.44,
-    objective: "Objective: use snack lure for high-variance rare captures.",
-    encounterFlavor: "Reality flickers. A wild signal locks onto you.",
-    landmarks: [{ cls: "pond" }, { cls: "bushes" }],
+    encounterRate: 0.45,
+    objective: "Objective: use lures for rare Glitch/Zap/Lunar catches.",
+    encounterFlavor: "Static tears open and a wild signature locks on.",
     exits: {
-      west: { to: "event_plaza", spawn: "east" },
-      south: { to: "scrapyard", spawn: "east" },
-      north: { to: "pondside_path", spawn: "east" }
-    }
+      west: { to: "event_plaza", spawn: "east", lane: [34, 62], label: "Event Plaza" },
+      south: { to: "scrapyard", spawn: "east", lane: [34, 60], label: "Scrapyard" },
+      north: { to: "pondside_path", spawn: "east", lane: [38, 68], label: "Pondside" }
+    },
+    props: [
+      { cls: "gp-prop rift-river", x: 46, y: 0, w: 9, h: 100 },
+      { cls: "gp-prop neon-grid", x: 8, y: 14, w: 32, h: 24 },
+      { cls: "gp-prop neon-grid", x: 60, y: 19, w: 30, h: 25 },
+      { cls: "gp-prop crystal-stack", x: 66, y: 66, w: 22, h: 20 },
+      { cls: "gp-prop crystal-stack", x: 14, y: 64, w: 20, h: 20 }
+    ]
   },
   scrapyard: {
     id: "scrapyard",
     name: "Scrapyard",
-    subtitle: "Twisted metal route with Iron/Stone/Toxic encounters.",
+    subtitle: "Junk maze with iron heaps and hostile toxic-metal species.",
     theme: "scrapyard",
+    scene: "scrapyard",
     safe: false,
-    encounterRate: 0.34,
-    objective: "Objective: farm sturdy Iron and Stone catches for your core team.",
-    encounterFlavor: "Metal clanks nearby as a wild shape lunges out.",
-    landmarks: [{ cls: "fence fence-east" }, { cls: "fence fence-west" }],
+    encounterRate: 0.35,
+    objective: "Objective: catch sturdy Stone and Iron pets for battle depth.",
+    encounterFlavor: "Scrap shifts and something lunges from the pile.",
     exits: {
-      north: { to: "stable_district", spawn: "south" },
-      east: { to: "pondside_path", spawn: "south" },
-      west: { to: "mushroom_grove", spawn: "east" }
-    }
+      north: { to: "stable_district", spawn: "south", lane: [35, 65], label: "Stable District" },
+      east: { to: "pondside_path", spawn: "south", lane: [36, 64], label: "Pondside" },
+      west: { to: "mushroom_grove", spawn: "east", lane: [42, 72], label: "Grove" }
+    },
+    props: [
+      { cls: "gp-prop junk-road", x: 37, y: 0, w: 26, h: 100 },
+      { cls: "gp-prop scrap-heap", x: 8, y: 17, w: 22, h: 24 },
+      { cls: "gp-prop scrap-heap", x: 70, y: 19, w: 22, h: 24 },
+      { cls: "gp-prop scrap-heap", x: 12, y: 62, w: 24, h: 24 },
+      { cls: "gp-prop barrel-row", x: 65, y: 62, w: 22, h: 18 }
+    ]
   },
   pondside_path: {
     id: "pondside_path",
     name: "Pondside Path",
-    subtitle: "Waterside lane with Tidal, Moss, and Frost encounter pools.",
+    subtitle: "Quiet waterside lane with mixed Tidal, Moss, and Frost species.",
     theme: "pondside_path",
+    scene: "pondside-path",
     safe: false,
-    encounterRate: 0.31,
-    objective: "Objective: find balanced water-adjacent partners.",
-    encounterFlavor: "Ripples split apart as a wild pet leaps forward.",
-    landmarks: [{ cls: "pond" }, { cls: "tree-cluster cluster-east" }],
+    encounterRate: 0.32,
+    objective: "Objective: scout balanced water-route partners and support pets.",
+    encounterFlavor: "Water ripples hard and a wild pet surfaces.",
     exits: {
-      west: { to: "tallgrass_route", spawn: "east" },
-      south: { to: "scrapyard", spawn: "east" },
-      east: { to: "neon_rift", spawn: "north" }
-    }
+      west: { to: "tallgrass_route", spawn: "east", lane: [42, 76], label: "Tallgrass" },
+      south: { to: "scrapyard", spawn: "east", lane: [34, 66], label: "Scrapyard" },
+      east: { to: "neon_rift", spawn: "north", lane: [38, 68], label: "Neon Rift" }
+    },
+    props: [
+      { cls: "gp-prop water-strip", x: 53, y: 0, w: 32, h: 100 },
+      { cls: "gp-prop boardwalk", x: 32, y: 7, w: 15, h: 87 },
+      { cls: "gp-prop reed-bed", x: 56, y: 17, w: 26, h: 26 },
+      { cls: "gp-prop reed-bed", x: 58, y: 60, w: 24, h: 27 },
+      { cls: "gp-prop lily-cluster", x: 62, y: 45, w: 18, h: 15 }
+    ]
+  },
+  stable_district: {
+    id: "stable_district",
+    name: "Stable District",
+    subtitle: "Barn-lined logistics quarter for storage, prep, and regrouping.",
+    theme: "stable_district",
+    scene: "stable-district",
+    safe: true,
+    encounterRate: 0,
+    objective: "Objective: prep your lineup, then head south for scrapyard captures.",
+    encounterFlavor: "No wild activity in this managed district.",
+    exits: {
+      east: { to: "spawn_town", spawn: "west", lane: [34, 66], label: "Spawn Town" },
+      south: { to: "scrapyard", spawn: "north", lane: [35, 65], label: "Scrapyard" }
+    },
+    props: [
+      { cls: "gp-prop stable-road", x: 34, y: 0, w: 32, h: 100 },
+      { cls: "gp-prop barn-long", x: 8, y: 12, w: 20, h: 24, label: "Storage" },
+      { cls: "gp-prop barn-long", x: 72, y: 14, w: 20, h: 24, label: "Training" },
+      { cls: "gp-prop wagon-yard", x: 10, y: 61, w: 22, h: 24 },
+      { cls: "gp-prop wagon-yard", x: 67, y: 60, w: 23, h: 24 }
+    ]
+  },
+  event_plaza: {
+    id: "event_plaza",
+    name: "Event Plaza",
+    subtitle: "Showcase district with arena gates and festival lighting.",
+    theme: "event_plaza",
+    scene: "event-plaza",
+    safe: true,
+    encounterRate: 0,
+    objective: "Objective: use west exit for town or east route for Neon Rift.",
+    encounterFlavor: "Crowds keep encounters away from the plaza.",
+    exits: {
+      west: { to: "spawn_town", spawn: "east", lane: [34, 66], label: "Spawn Town" },
+      east: { to: "neon_rift", spawn: "west", lane: [34, 62], label: "Neon Rift" }
+    },
+    props: [
+      { cls: "gp-prop plaza-stage", x: 34, y: 13, w: 32, h: 20, label: "Arena" },
+      { cls: "gp-prop plaza-rings", x: 19, y: 40, w: 62, h: 46 },
+      { cls: "gp-prop neon-pillar", x: 12, y: 20, w: 8, h: 60 },
+      { cls: "gp-prop neon-pillar", x: 80, y: 20, w: 8, h: 60 }
+    ]
   }
 };
 
 const world = {
-  x: 220,
-  y: 140,
+  x: WORLD_WIDTH / 2,
+  y: WORLD_HEIGHT / 2,
   areaId: "spawn_town",
   encounter: null,
   keys: new Set(),
@@ -214,7 +266,7 @@ function setupControls() {
 function startLoop() {
   const step = () => {
     if (!world.encounter) {
-      const speed = 2.9;
+      const speed = 3;
       let dx = 0;
       let dy = 0;
       if (world.keys.has("arrowup") || world.keys.has("w")) dy -= speed;
@@ -242,41 +294,56 @@ function startLoop() {
 
 function tryAreaTransition() {
   if (world.transitionLock || world.encounter) return;
-  const exits = currentArea().exits || {};
-  let edge = null;
+  const area = currentArea();
+  const exits = area.exits || {};
+  const xPercent = (world.x / WORLD_WIDTH) * 100;
+  const yPercent = (world.y / WORLD_HEIGHT) * 100;
 
-  if (world.y <= EDGE_BUFFER) edge = "north";
-  else if (world.y >= WORLD_HEIGHT - EDGE_BUFFER) edge = "south";
-  else if (world.x <= EDGE_BUFFER) edge = "west";
-  else if (world.x >= WORLD_WIDTH - EDGE_BUFFER) edge = "east";
+  const candidates = Object.entries(exits);
+  for (const [edge, exit] of candidates) {
+    if (!exit?.to) continue;
 
-  const exit = edge ? exits[edge] : null;
-  if (!exit?.to) return;
+    const [laneMin, laneMax] = exit.lane || [0, 100];
+    const inLane = edge === "north" || edge === "south"
+      ? xPercent >= laneMin && xPercent <= laneMax
+      : yPercent >= laneMin && yPercent <= laneMax;
 
-  world.transitionLock = true;
-  switchArea(exit.to, exit.spawn || opposite(edge));
-  setTimeout(() => {
-    world.transitionLock = false;
-  }, 280);
+    if (!inLane) continue;
+
+    const touchedEdge =
+      (edge === "north" && world.y <= EDGE_BUFFER) ||
+      (edge === "south" && world.y >= WORLD_HEIGHT - EDGE_BUFFER) ||
+      (edge === "west" && world.x <= EDGE_BUFFER) ||
+      (edge === "east" && world.x >= WORLD_WIDTH - EDGE_BUFFER);
+
+    if (!touchedEdge) continue;
+
+    world.transitionLock = true;
+    switchArea(exit.to, exit.spawn || opposite(edge));
+    setTimeout(() => {
+      world.transitionLock = false;
+    }, 320);
+    return;
+  }
 }
 
 function switchArea(nextAreaId, spawnEdge) {
   world.areaId = normalizeArea(nextAreaId);
 
   if (spawnEdge === "north") {
-    world.y = EDGE_BUFFER + 10;
+    world.y = EDGE_BUFFER + 18;
     world.x = WORLD_WIDTH / 2;
   }
   if (spawnEdge === "south") {
-    world.y = WORLD_HEIGHT - EDGE_BUFFER - 10;
+    world.y = WORLD_HEIGHT - EDGE_BUFFER - 18;
     world.x = WORLD_WIDTH / 2;
   }
   if (spawnEdge === "west") {
-    world.x = EDGE_BUFFER + 10;
+    world.x = EDGE_BUFFER + 18;
     world.y = WORLD_HEIGHT / 2;
   }
   if (spawnEdge === "east") {
-    world.x = WORLD_WIDTH - EDGE_BUFFER - 10;
+    world.x = WORLD_WIDTH - EDGE_BUFFER - 18;
     world.y = WORLD_HEIGHT / 2;
   }
 
@@ -291,17 +358,34 @@ function renderAreaVisuals() {
   const map = byId("overworld");
   map.dataset.theme = area.theme;
 
-  const exitsMount = byId("map-exits");
-  exitsMount.innerHTML = Object.entries(area.exits || {}).map(([dir, exit]) => `
-    <div class="gp-exit-marker gp-exit-${dir}" title="${safeText(exit.to)}">
-      <span>${dir.toUpperCase()}</span>
-    </div>
-  `).join("");
+  const sceneMount = byId("map-scene");
+  sceneMount.className = `gp-map-scene scene-${safeText(area.scene)}`;
+  sceneMount.innerHTML = (area.props || []).map((item) => {
+    const style = item.x != null
+      ? `style="left:${Number(item.x)}%;top:${Number(item.y)}%;width:${Number(item.w)}%;height:${Number(item.h)}%;"`
+      : "";
+    return `<div class="${safeText(item.cls)}" ${style}>${item.label ? `<span>${safeText(item.label)}</span>` : ""}</div>`;
+  }).join("");
 
-  const landmarksMount = byId("map-landmarks");
-  landmarksMount.innerHTML = (area.landmarks || []).map((item) => `
-    <div class="gp-scenery ${safeText(item.cls)}">${item.label ? `<span>${safeText(item.label)}</span>` : ""}</div>
-  `).join("");
+  const exitsMount = byId("map-exits");
+  exitsMount.innerHTML = Object.entries(area.exits || {}).map(([dir, exit]) => exitMarkerMarkup(dir, exit)).join("");
+}
+
+function exitMarkerMarkup(dir, exit) {
+  const [start, end] = exit.lane || [36, 64];
+  const laneSize = Math.max(8, end - start);
+  const style = {
+    north: `left:${start}%;top:0%;width:${laneSize}%;height:6%;`,
+    south: `left:${start}%;top:94%;width:${laneSize}%;height:6%;`,
+    west: `left:0%;top:${start}%;width:6%;height:${laneSize}%;`,
+    east: `left:94%;top:${start}%;width:6%;height:${laneSize}%;`
+  }[dir] || "";
+
+  return `
+    <div class="gp-exit-marker gp-exit-${dir}" style="${style}" title="${safeText(exit.label || exit.to)}">
+      <span>${safeText(exit.label || dir)}</span>
+    </div>
+  `;
 }
 
 function placeAvatar() {
@@ -327,14 +411,14 @@ function updateHUDForArea(initial = false) {
   byId("objective").textContent = area.objective;
   byId("area-mode-pill").textContent = area.safe ? "Safe Zone" : "Wild Zone";
   byId("overworld").classList.toggle("is-danger", !area.safe);
-  if (!initial) byId("overworld-hint").textContent = area.safe ? "Safe district. Use exits to travel." : "Wild route. Stay ready for encounter overlays.";
+  if (!initial) byId("overworld-hint").textContent = area.safe ? "Safe district. Use marked exits to travel." : "Wild route. Encounter overlays can trigger anytime.";
 }
 
 function showAreaBanner(name, subtitle) {
   const banner = byId("area-banner");
-  banner.innerHTML = `<strong>${safeText(name)}</strong><span>${safeText(subtitle)}</span>`;
+  banner.innerHTML = `<strong>Entered ${safeText(name)}</strong><span>${safeText(subtitle)}</span>`;
   banner.classList.remove("hidden");
-  setTimeout(() => banner.classList.add("hidden"), 1800);
+  setTimeout(() => banner.classList.add("hidden"), 1900);
 }
 
 function startPresence() {

@@ -15,33 +15,56 @@ const BODY_SCALE = {
   broad: 1.14
 };
 
+const ALLOWED = {
+  hairStyle: ["short", "bob", "spike", "mop", "puff", "none"],
+  eyeStyle: ["round", "sleepy", "spark", "wide", "cat"],
+  topStyle: ["hoodie", "jacket", "tee", "robe", "armor"],
+  bottomStyle: ["joggers", "shorts", "cargo", "skirt", "greaves"],
+  accessory: ["none", "scarf", "visor", "headphones", "badge"],
+  hat: ["none", "beanie", "cap", "hornband", "crown"],
+  bodyType: ["small", "medium", "broad"]
+};
+
 export function avatarMarkup(config = {}, options = {}) {
   const size = options.size || "md";
   const label = options.label ? `<div class="gp-avatar-label">${safeText(options.label)}</div>` : "";
 
   const skin = SKIN[config.skinTone] || SKIN.warm;
-  const hairStyle = `hair-${safeText(config.hairStyle || "short")}`;
-  const eyeStyle = `eyes-${safeText(config.eyeStyle || "round")}`;
-  const topStyle = `top-${safeText(config.topStyle || "hoodie")}`;
-  const bottomStyle = `bottom-${safeText(config.bottomStyle || "joggers")}`;
-  const accessory = `acc-${safeText(config.accessory || "none")}`;
-  const hat = `hat-${safeText(config.hat || "none")}`;
-  const body = `body-${safeText(config.bodyType || "medium")}`;
+  const hairStyle = className("hair", config.hairStyle, "short");
+  const eyeStyle = className("eyes", config.eyeStyle, "round");
+  const topStyle = className("top", config.topStyle, "hoodie");
+  const bottomStyle = className("bottom", config.bottomStyle, "joggers");
+  const accessory = className("acc", config.accessory, "none");
+  const hat = className("hat", config.hat, "none");
+  const body = className("body", config.bodyType, "medium");
 
   return `
     <div class="gp-explorer-avatar gp-explorer-avatar--${size} ${body}" style="--skin:${skin};--hair:${safeText(config.hairColor || "#47362f")};--eyes:${safeText(config.eyeColor || "#8be7ff")};--top:${safeText(config.topColor || "#7d6dff")};--bottom:${safeText(config.bottomColor || "#2a3757")};--scale:${BODY_SCALE[config.bodyType] || 1};">
-      <div class="gp-av-head">
-        <div class="gp-av-hair ${hairStyle}"></div>
-        <div class="gp-av-face ${eyeStyle}">
-          <span class="gp-av-eye left"></span>
-          <span class="gp-av-eye right"></span>
-          <span class="gp-av-mouth"></span>
+      <div class="gp-av-shell">
+        <div class="gp-av-head">
+          <div class="gp-av-hair ${hairStyle}"></div>
+          <div class="gp-av-face ${eyeStyle}">
+            <span class="gp-av-eye left"></span>
+            <span class="gp-av-eye right"></span>
+            <span class="gp-av-mouth"></span>
+          </div>
+          <div class="gp-av-hat ${hat}"></div>
         </div>
-        <div class="gp-av-hat ${hat}"></div>
+
+        <div class="gp-av-torso ${topStyle}">
+          <span class="gp-av-arm left"></span>
+          <span class="gp-av-arm right"></span>
+        </div>
+
+        <div class="gp-av-legs ${bottomStyle}">
+          <span class="gp-av-leg left"></span>
+          <span class="gp-av-leg right"></span>
+          <span class="gp-av-shoe left"></span>
+          <span class="gp-av-shoe right"></span>
+        </div>
+
+        <div class="gp-av-acc ${accessory}"></div>
       </div>
-      <div class="gp-av-body ${topStyle}"></div>
-      <div class="gp-av-bottom ${bottomStyle}"></div>
-      <div class="gp-av-acc ${accessory}"></div>
       ${label}
     </div>
   `;
@@ -88,4 +111,30 @@ function selectField(id, label, values = [], selected) {
       </select>
     </label>
   `;
+}
+
+function className(prefix, value, fallback) {
+  const safeValue = String(value || fallback);
+  const listKey = `${prefix}Style`;
+
+  if (prefix === "eyes") {
+    return `eyes-${ALLOWED.eyeStyle.includes(safeValue) ? safeValue : fallback}`;
+  }
+  if (prefix === "top") {
+    return `top-${ALLOWED.topStyle.includes(safeValue) ? safeValue : fallback}`;
+  }
+  if (prefix === "bottom") {
+    return `bottom-${ALLOWED.bottomStyle.includes(safeValue) ? safeValue : fallback}`;
+  }
+  if (prefix === "acc") {
+    return `acc-${ALLOWED.accessory.includes(safeValue) ? safeValue : fallback}`;
+  }
+  if (prefix === "hat") {
+    return `hat-${ALLOWED.hat.includes(safeValue) ? safeValue : fallback}`;
+  }
+  if (prefix === "body") {
+    return `body-${ALLOWED.bodyType.includes(safeValue) ? safeValue : fallback}`;
+  }
+
+  return `${prefix}-${ALLOWED[listKey]?.includes(safeValue) ? safeValue : fallback}`;
 }
