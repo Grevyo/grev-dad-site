@@ -1875,3 +1875,291 @@
     max-height: 200px;
   }
 }
+
+/* ===== 2026 Home Base Full Redesign ===== */
+.gp-home-base {
+  gap: 22px;
+}
+
+.gp-home-base .btn {
+  border-radius: 12px;
+  border-color: rgba(123, 199, 255, 0.34);
+  background: linear-gradient(180deg, rgba(20, 34, 59, 0.92), rgba(10, 18, 35, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 14px rgba(0, 0, 0, 0.28);
+}
+
+.gp-home-base .btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 227, 255, 0.8);
+}
+
+.gp-home-base .btn.btn-primary {
+  border-color: rgba(130, 246, 255, 0.8);
+  background: linear-gradient(150deg, #2b63ff 0%, #2fd9ff 45%, #40ffd2 100%);
+  color: #041022;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(56, 202, 255, 0.4);
+}
+
+.gp-home-hero-v2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 16px;
+}
+
+.gp-home-intro-panel,
+.gp-trainer-panel,
+.gp-active-feature,
+.gp-team-rail,
+.gp-storage-utility,
+.gp-action-station,
+.gp-mission-board,
+.gp-home-mini-card,
+.gp-starter-showcase,
+.gp-explorer-hangar {
+  border-radius: 24px;
+  border: 1px solid rgba(111, 171, 255, 0.3);
+  background: linear-gradient(165deg, rgba(19, 31, 55, 0.96) 0%, rgba(11, 17, 33, 0.96) 58%, rgba(12, 29, 46, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 24px 36px rgba(2, 8, 22, 0.44);
+}
+
+.gp-home-intro-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 28px;
+  display: grid;
+  gap: 14px;
+}
+
+.gp-home-intro-panel::before,
+.gp-home-intro-panel::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.gp-home-intro-panel::before {
+  width: 260px;
+  height: 260px;
+  right: -70px;
+  top: -90px;
+  background: radial-gradient(circle, rgba(58, 207, 255, 0.4) 0%, rgba(58, 207, 255, 0) 70%);
+}
+
+.gp-home-intro-panel::after {
+  width: 220px;
+  height: 220px;
+  left: -80px;
+  bottom: -100px;
+  background: radial-gradient(circle, rgba(171, 105, 255, 0.3) 0%, rgba(171, 105, 255, 0) 75%);
+}
+
+.gp-home-intro-panel h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3.2vw, 2.5rem);
+}
+
+.gp-home-intro-copy {
+  margin: 0;
+  max-width: 58ch;
+  color: #c9daf6;
+  line-height: 1.65;
+}
+
+.gp-home-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gp-home-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: linear-gradient(180deg, rgba(86, 205, 255, 0.24), rgba(104, 131, 255, 0.16));
+  border: 1px solid rgba(124, 218, 255, 0.5);
+  color: #e9f7ff;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.gp-trainer-panel {
+  padding: 18px;
+  gap: 14px;
+}
+
+.gp-trainer-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gp-trainer-identity {
+  align-items: center;
+}
+
+.gp-trainer-copy h2 { margin: 0; }
+.gp-trainer-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.gp-home-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(330px, 0.75fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.gp-home-side-rail {
+  display: grid;
+  gap: 14px;
+}
+
+.gp-active-feature {
+  padding: 20px;
+  gap: 16px;
+}
+
+.gp-active-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gp-active-feature-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 18px;
+}
+
+.gp-pet-stage {
+  position: relative;
+  border-radius: 20px;
+  padding: 10px;
+  border: 1px solid rgba(122, 177, 255, 0.34);
+  background:
+    radial-gradient(circle at 60% 18%, rgba(100, 227, 255, 0.22), transparent 55%),
+    radial-gradient(circle at 35% 95%, rgba(148, 106, 255, 0.2), transparent 55%),
+    linear-gradient(180deg, rgba(9, 20, 38, 0.95), rgba(10, 13, 28, 0.95));
+}
+
+.gp-pet-stage-glow {
+  position: absolute;
+  inset: 28% 20% 14%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(68, 215, 255, 0.35), rgba(68, 215, 255, 0));
+  filter: blur(8px);
+}
+
+.gp-pet-canvas-stage {
+  position: relative;
+  height: 280px;
+  border: 0;
+  background: transparent;
+}
+
+.gp-active-meta h2 { margin: 0; font-size: 1.6rem; }
+.gp-active-chip-row { margin: 8px 0 10px; }
+.gp-active-actions { margin-top: 8px; }
+
+.gp-team-rail,
+.gp-storage-utility,
+.gp-action-station,
+.gp-mission-board,
+.gp-home-mini-card {
+  padding: 16px;
+}
+
+.gp-team-list {
+  display: grid;
+  gap: 10px;
+}
+
+.gp-team-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(133, 165, 215, 0.3);
+  background: linear-gradient(180deg, rgba(18, 32, 58, 0.86), rgba(10, 18, 34, 0.9));
+  padding: 10px;
+}
+
+.gp-team-item.is-active {
+  border-color: rgba(99, 242, 237, 0.9);
+  box-shadow: 0 0 0 1px rgba(99, 242, 237, 0.25), 0 12px 22px rgba(22, 114, 141, 0.25);
+}
+
+.gp-team-types .gp-type-badge {
+  margin-bottom: 4px;
+}
+
+.gp-recent-captures {
+  display: grid;
+  gap: 8px;
+}
+
+.gp-recent-captures p {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.gp-action-buttons {
+  display: grid;
+  gap: 10px;
+}
+
+.gp-action-buttons .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.gp-home-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.45fr);
+  gap: 14px;
+}
+
+.gp-home-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gp-mission-board .gp-stat-block {
+  border-radius: 12px;
+  border: 1px solid rgba(127, 172, 233, 0.3);
+  background: linear-gradient(180deg, rgba(18, 31, 54, 0.72), rgba(7, 14, 28, 0.8));
+}
+
+.gp-home-adoption-row {
+  display: grid;
+  gap: 10px;
+}
+
+.gp-explorer-hangar {
+  padding: 18px;
+}
+
+@media (max-width: 1150px) {
+  .gp-home-hero-v2,
+  .gp-home-main-grid,
+  .gp-home-status-row,
+  .gp-active-feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .gp-trainer-stat-grid,
+  .gp-home-status-grid {
+    grid-template-columns: 1fr;
+  }
+}
