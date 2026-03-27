@@ -45,24 +45,6 @@ SAMPLE_PROFILES = [
     },
 ]
 
-SAMPLE_TACTICS = [
-    {
-        "tactic": "A Split Pressure",
-        "phase": "Mid-round",
-        "objective": "Force rotations and create opening duels",
-        "key_steps": "Default map control, smoke heaven, split from short and long",
-        "difficulty": "Medium",
-    },
-    {
-        "tactic": "Slow Contact B",
-        "phase": "Late-round",
-        "objective": "Exploit over-rotations and low utility",
-        "key_steps": "Hold defaults, fake mid utility, contact walk through B",
-        "difficulty": "Hard",
-    },
-]
-
-
 def normalize_records(data: Any) -> pd.DataFrame:
     """Return a clean dataframe from JSON/list/dict-shaped data."""
     if data is None:
@@ -158,15 +140,10 @@ def build_grevscore_gauge(score: float) -> go.Figure:
 
 
 def render_table_section(
-    title: str,
     sample_records: list[dict[str, Any]],
     uploader_label: str,
-    search_label: str,
 ) -> None:
-    st.subheader(title)
-    st.caption("Upload a JSON/CSV file or use the built-in sample data.")
-
-    use_sample = st.toggle(f"Use sample {title.lower()} data", value=True)
+    use_sample = st.toggle("Use sample profile data", value=True)
     upload = st.file_uploader(
         uploader_label,
         type=["json", "csv"],
@@ -184,8 +161,6 @@ def render_table_section(
         else:
             df = pd.read_csv(upload)
 
-    df = filter_dataframe(df, search_label)
-
     if df.empty:
         st.warning("No matching rows found.")
         return
@@ -193,14 +168,30 @@ def render_table_section(
     visible_df = remove_team_score_columns(df)
     grevscore = resolve_grevscore(df)
 
-    selected_row = visible_df.iloc[0]
     name_column = next((col for col in visible_df.columns if str(col).strip().lower() == "name"), None)
+    selected_row = visible_df.iloc[0]
     if name_column is not None:
         options = visible_df[name_column].astype(str).tolist()
-        selected_name = st.selectbox(f"Pick an entry from {title.lower()} to inspect", options, index=0)
+        selected_name = st.selectbox("Player picker", options, index=0)
         matched = visible_df[visible_df[name_column].astype(str) == selected_name]
         if not matched.empty:
             selected_row = matched.iloc[0]
+    else:
+        st.selectbox("Player picker", ["Entry 1"], index=0, disabled=True)
+
+    with st.expander("Profile filters", expanded=False):
+        visible_df = filter_dataframe(visible_df, "Search profiles")
+        if visible_df.empty:
+            st.warning("No matching rows found.")
+            return
+        if name_column is not None:
+            matched = visible_df[visible_df[name_column].astype(str) == selected_name]
+            if not matched.empty:
+                selected_row = matched.iloc[0]
+            else:
+                selected_row = visible_df.iloc[0]
+        else:
+            selected_row = visible_df.iloc[0]
 
     top_left, top_mid, top_right = st.columns([1.2, 1.4, 1.2], gap="medium")
     with top_left:
@@ -250,7 +241,7 @@ def render_table_section(
         st.download_button(
             "Download filtered CSV",
             data=csv,
-            file_name=f"{title.lower().replace(' ', '_')}_filtered.csv",
+            file_name="profiles_filtered.csv",
             mime="text/csv",
         )
     with chart_col:
@@ -278,23 +269,13 @@ def render_table_section(
             st.info("No numeric fields available for quick metric chart.")
 
 
-st.title("HLTV CPL Profile Viewer")
+st.title("Grev's CPL Dashboard")
 st.write("Player analytics, form, achievements, and performance breakdowns.")
 
-profiles_tab, tactics_tab = st.tabs(["Profiles", "Tactics Viewer"])
+profile_tab = st.tabs(["Profile Viewer"])[0]
 
-with profiles_tab:
+with profile_tab:
     render_table_section(
-        title="Profiles",
         sample_records=SAMPLE_PROFILES,
         uploader_label="Upload profiles data (.json or .csv)",
-        search_label="Search profiles",
-    )
-
-with tactics_tab:
-    render_table_section(
-        title="Tactics Viewer",
-        sample_records=SAMPLE_TACTICS,
-        uploader_label="Upload tactics data (.json or .csv)",
-        search_label="Search tactics",
     )
