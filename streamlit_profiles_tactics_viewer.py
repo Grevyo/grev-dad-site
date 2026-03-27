@@ -123,7 +123,7 @@ def resolve_grevscore(df: pd.DataFrame) -> float | None:
 
 
 def build_grevscore_gauge(score: float) -> go.Figure:
-    """Build a metronome-like gauge chart for GrevScore."""
+    """Build a compact gauge chart for GrevScore."""
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
@@ -149,8 +149,8 @@ def build_grevscore_gauge(score: float) -> go.Figure:
         )
     )
     fig.update_layout(
-        height=360,
-        margin=dict(l=20, r=20, t=40, b=10),
+        height=250,
+        margin=dict(l=10, r=10, t=40, b=10),
         paper_bgcolor="rgba(0,0,0,0)",
         font={"color": "#e5e7eb"},
     )
@@ -193,18 +193,59 @@ def render_table_section(
     visible_df = remove_team_score_columns(df)
     grevscore = resolve_grevscore(df)
 
-    left, right = st.columns([3, 2])
-    with left:
-        st.dataframe(visible_df, use_container_width=True, hide_index=True)
-    with right:
-        st.metric("Rows", len(visible_df))
-        st.metric("Columns", len(visible_df.columns))
-        if grevscore is not None:
-            st.plotly_chart(build_grevscore_gauge(grevscore), use_container_width=True)
-            st.caption("Metronome-style gauge view of average GrevScore.")
-        else:
-            st.info("Add a GrevScore column (0-100) to render the gauge chart.")
+    selected_row = visible_df.iloc[0]
+    name_column = next((col for col in visible_df.columns if str(col).strip().lower() == "name"), None)
+    if name_column is not None:
+        options = visible_df[name_column].astype(str).tolist()
+        selected_name = st.selectbox(f"Pick an entry from {title.lower()} to inspect", options, index=0)
+        matched = visible_df[visible_df[name_column].astype(str) == selected_name]
+        if not matched.empty:
+            selected_row = matched.iloc[0]
 
+    top_left, top_mid, top_right = st.columns([1.2, 1.4, 1.2], gap="medium")
+    with top_left:
+        st.markdown("##### Player Card")
+        card_lines = []
+        for label in ("name", "role", "preferred_loadout", "strength", "risk"):
+            column = next((col for col in visible_df.columns if str(col).strip().lower() == label), None)
+            if column is not None:
+                card_lines.append(f"**{column}:** {selected_row[column]}")
+        if card_lines:
+            st.markdown("\n\n".join(card_lines))
+        else:
+            st.info("No player profile fields detected in this dataset.")
+
+    with top_mid:
+        st.markdown("##### GrevScore")
+        row_score = None
+        row_score_column = next(
+            (col for col in visible_df.columns if str(col).strip().lower() == "grevscore"),
+            None,
+        )
+        if row_score_column is not None:
+            row_score = pd.to_numeric(pd.Series([selected_row[row_score_column]]), errors="coerce").dropna()
+            if not row_score.empty:
+                row_score = float(row_score.iloc[0])
+
+        score_to_render = row_score if row_score is not None else grevscore
+        if score_to_render is not None:
+            st.plotly_chart(build_grevscore_gauge(score_to_render), use_container_width=True)
+            st.caption("Selected profile GrevScore (or filtered average if unavailable).")
+        else:
+            st.info("Add a GrevScore column (0-100) to render the score gauge.")
+
+    with top_right:
+        st.markdown("##### Headline Stats")
+        st.metric("Filtered Rows", len(visible_df))
+        st.metric("Visible Columns", len(visible_df.columns))
+        numeric_cols = visible_df.select_dtypes(include="number")
+        if not numeric_cols.empty:
+            st.metric("Avg Numeric Value", f"{numeric_cols.mean(numeric_only=True).mean():.1f}")
+
+    st.markdown("##### Data Table")
+    table_col, chart_col = st.columns([2.2, 1], gap="medium")
+    with table_col:
+        st.dataframe(visible_df, use_container_width=True, hide_index=True)
         csv = visible_df.to_csv(index=False).encode("utf-8")
         st.download_button(
             "Download filtered CSV",
@@ -212,6 +253,29 @@ def render_table_section(
             file_name=f"{title.lower().replace(' ', '_')}_filtered.csv",
             mime="text/csv",
         )
+    with chart_col:
+        st.markdown("##### Quick Metrics")
+        row_numeric = pd.to_numeric(selected_row, errors="coerce").dropna()
+        if not row_numeric.empty:
+            metric_fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=row_numeric.index.astype(str),
+                        y=row_numeric.values,
+                        marker_color="#3b82f6",
+                    )
+                ]
+            )
+            metric_fig.update_layout(
+                height=320,
+                margin=dict(l=10, r=10, t=10, b=10),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                yaxis_title="Value",
+            )
+            st.plotly_chart(metric_fig, use_container_width=True)
+        else:
+            st.info("No numeric fields available for quick metric chart.")
 
 
 st.title("🎯 Profiles and Tactics Viewer")
