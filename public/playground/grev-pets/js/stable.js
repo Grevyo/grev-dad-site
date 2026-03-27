@@ -7,7 +7,7 @@ async function boot() {
 }
 
 async function loadPets() {
-  const data = await api("/api/grev-pets/pets");
+  const data = await api("/api/playground/grev-pets/pets");
   const pets = data.pets || [];
   const mount = byId("stable-grid");
 
@@ -26,7 +26,7 @@ async function loadPets() {
       <div class="gp-actions">
         <button class="btn" data-active="${safeText(pet.petId)}">Set Active</button>
         <button class="btn" data-favorite="${safeText(pet.petId)}">Set Favorite</button>
-        <a class="btn btn-primary" href="/grev-pets/pet.html?petId=${encodeURIComponent(pet.petId)}">View Details</a>
+        <a class="btn btn-primary" href="/playground/grev-pets/pet.html?petId=${encodeURIComponent(pet.petId)}">View Details</a>
       </div>
     </article>
   `).join("");
@@ -44,7 +44,7 @@ async function loadPets() {
 
   document.querySelectorAll("[data-active]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await api("/api/grev-pets/active-pet", {
+      await api("/api/playground/grev-pets/active-pet", {
         method: "POST",
         body: JSON.stringify({ petId: button.dataset.active })
       });
@@ -54,7 +54,7 @@ async function loadPets() {
 
   document.querySelectorAll("[data-favorite]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await api("/api/grev-pets/active-pet", {
+      await api("/api/playground/grev-pets/active-pet", {
         method: "POST",
         body: JSON.stringify({ petId: button.dataset.favorite, favorite: true })
       });

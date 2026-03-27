@@ -10,7 +10,7 @@ async function boot() {
 }
 
 async function loadPets() {
-  const data = await api("/api/grev-pets/pets");
+  const data = await api("/api/playground/grev-pets/pets");
   pets = data.pets || [];
 
   const select = byId("pet-select");
@@ -28,7 +28,7 @@ async function runEvent(type) {
   if (!petId) return;
 
   try {
-    const endpoint = type === "battle" ? "/api/grev-pets/events/battle" : "/api/grev-pets/events/race";
+    const endpoint = type === "battle" ? "/api/playground/grev-pets/events/battle" : "/api/playground/grev-pets/events/race";
     const data = await api(endpoint, {
       method: "POST",
       body: JSON.stringify({ petId })

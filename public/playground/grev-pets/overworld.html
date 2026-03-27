@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grev Pets Overworld</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="stylesheet" href="/playground/grev-pets/style.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script type="module" src="/playground/grev-pets/js/overworld.js" defer></script>
+</head>
+<body class="gp-page">
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <div class="gp-shell">
+        <section class="gp-banner gp-overworld-banner">
+          <h1>🌌 Grev Pets Connected Overworld</h1>
+          <p>Move with WASD / Arrow keys on desktop, or the on-screen D-pad on phone. Exits at map edges transition into fully separate areas.</p>
+          <div class="gp-actions" style="margin-top:14px;">
+            <a class="btn" href="/playground/grev-pets/index.html">Home</a>
+            <a class="btn" href="/playground/grev-pets/stable.html">Storage</a>
+            <a class="btn" href="/playground/grev-pets/event-room.html">Event Plaza</a>
+          </div>
+        </section>
+
+        <section class="gp-control-grid gp-control-grid--overworld">
+          <article class="gp-card gp-overworld-card">
+            <div class="gp-area-head">
+              <div>
+                <h2 id="area-title">Spawn Town</h2>
+                <p id="area-subtitle" class="gp-small">Safe hub with exits to routes and districts.</p>
+              </div>
+              <p id="area-mode-pill" class="gp-status-pill">Safe Zone</p>
+            </div>
+
+            <div id="overworld" class="gp-overworld" data-theme="spawn_town">
+              <div id="map-scene" class="gp-map-scene scene-spawn-town"></div>
+              <div class="gp-map-layer" id="map-exits"></div>
+
+              <div id="player-wrap" class="gp-player-wrap">
+                <div class="gp-player-shadow"></div>
+                <div id="player-avatar" class="gp-avatar"></div>
+                <div id="player-name" class="gp-name-tag"></div>
+              </div>
+
+              <div id="area-banner" class="gp-area-banner hidden"></div>
+            </div>
+            <div class="gp-touch-controls-wrap" aria-label="Touch movement controls">
+              <p class="gp-small gp-touch-hint">Touch movement (mobile):</p>
+              <div class="gp-dpad" role="group" aria-label="Movement pad">
+                <button type="button" class="gp-dpad-btn up" data-move="up" aria-label="Move up">▲</button>
+                <button type="button" class="gp-dpad-btn left" data-move="left" aria-label="Move left">◀</button>
+                <button type="button" class="gp-dpad-btn right" data-move="right" aria-label="Move right">▶</button>
+                <button type="button" class="gp-dpad-btn down" data-move="down" aria-label="Move down">▼</button>
+              </div>
+            </div>
+            <p id="overworld-hint" class="gp-small">Step into an exit marker to load another area map.</p>
+          </article>
+
+          <article class="gp-card gp-overworld-sidebar">
+            <h2>Explorer Status</h2>
+            <div class="gp-status-stack">
+              <p id="zone-label" class="gp-status-pill">Area: Spawn Town</p>
+              <p id="danger-state" class="gp-small">Safe zone for prep and travel.</p>
+              <p id="encounter-status" class="gp-small">No encounter active.</p>
+              <p id="active-pet" class="gp-small">Active Pet: none</p>
+              <p id="objective" class="gp-small">Objective: Leave town and find route encounters.</p>
+            </div>
+            <div class="gp-log" id="overworld-log"></div>
+          </article>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="encounter-overlay" class="gp-encounter-overlay hidden" aria-live="polite">
+    <div class="gp-encounter-panel">
+      <p class="gp-kicker" id="encounter-kicker">Wild encounter</p>
+      <h2 id="encounter-title">A wild Grev Pet appeared!</h2>
+      <p id="encounter-flavor" class="gp-small"></p>
+      <p id="encounter-paused-note" class="gp-status-pill gp-encounter-paused-note">Movement paused during encounter</p>
+      <div class="gp-encounter-grid">
+        <article class="gp-card">
+          <h3>Wild Grev Pet</h3>
+          <canvas id="encounter-pet" class="gp-pet-canvas" width="280" height="170"></canvas>
+          <p id="encounter-wild-meta"></p>
+          <p id="encounter-wild-types"></p>
+          <p class="gp-small">HP: <span id="wild-hp">0</span> / <span id="wild-max-hp">0</span></p>
+        </article>
+        <article class="gp-card">
+          <h3>Your Active Grev Pet</h3>
+          <canvas id="encounter-active-pet" class="gp-pet-canvas" width="280" height="170"></canvas>
+          <p id="encounter-active-meta" class="gp-small">No active pet selected.</p>
+          <p id="encounter-active-types"></p>
+          <div class="gp-actions gp-encounter-actions">
+            <button class="btn" id="btn-battle" type="button">Battle / Attack</button>
+            <button class="btn" id="btn-weaken" type="button">Weaken</button>
+            <button class="btn btn-primary" id="btn-capture" type="button">Throw Tame Orb</button>
+            <button class="btn" id="btn-lure" type="button">Use Snack Lure</button>
+            <button class="btn" id="btn-run" type="button">Run Away</button>
+          </div>
+          <div class="gp-log gp-overlay-log" id="encounter-log"></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

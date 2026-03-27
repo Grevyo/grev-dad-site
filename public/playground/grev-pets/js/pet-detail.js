@@ -11,7 +11,7 @@ async function boot() {
     return;
   }
 
-  const data = await api(`/api/grev-pets/pet?petId=${encodeURIComponent(petId)}`);
+  const data = await api(`/api/playground/grev-pets/pet?petId=${encodeURIComponent(petId)}`);
   renderPetCard(data.pet);
   renderEvents(data.events || []);
 }

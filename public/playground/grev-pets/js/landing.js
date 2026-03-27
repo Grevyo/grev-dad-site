@@ -16,7 +16,7 @@ async function boot() {
 }
 
 async function loadProfile() {
-  const data = await api("/api/grev-pets/me");
+  const data = await api("/api/playground/grev-pets/me");
   profileData = data;
   avatarDraft = { ...(data.profile.avatar || {}) };
 
@@ -83,16 +83,16 @@ function renderActivePet(data) {
             <p class="gp-small">Mood: Energized • Bond sync stable • Route tracking online.</p>
             <p class="gp-small">Your lead companion is tuned for captures, encounters, and event entries.</p>
             <div class="gp-actions gp-active-actions">
-              <a class="btn btn-primary" href="/grev-pets/overworld.html">Launch Adventure</a>
-              <a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Companion Card</a>
-              <a class="btn" href="/grev-pets/stable.html">Switch Active</a>
+              <a class="btn btn-primary" href="/playground/grev-pets/overworld.html">Launch Adventure</a>
+              <a class="btn" href="/playground/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Companion Card</a>
+              <a class="btn" href="/playground/grev-pets/stable.html">Switch Active</a>
             </div>
           </div>
         </div>`
       : `<div class="gp-active-empty">
           <h2>No Active Companion</h2>
           <p class="gp-small">Choose your first route partner from storage to activate exploration and events.</p>
-          <a class="btn btn-primary" href="/grev-pets/stable.html">Choose from Storage</a>
+          <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Choose from Storage</a>
         </div>`}
   `;
 
@@ -105,7 +105,7 @@ function renderTeamPanel(pets, activePetId) {
   mount.innerHTML = `
     <div class="gp-section-head">
       <h2>Current Team</h2>
-      <a class="btn" href="/grev-pets/overworld.html">Deploy</a>
+      <a class="btn" href="/playground/grev-pets/overworld.html">Deploy</a>
     </div>
     <div class="gp-team-list" id="team-list"></div>
   `;
@@ -132,7 +132,7 @@ function renderStoragePanel(pets, count) {
   byId("storage-panel").innerHTML = `
     <div class="gp-section-head">
       <h2>Stable Vault</h2>
-      <a class="btn btn-primary" href="/grev-pets/stable.html">Open Stable</a>
+      <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Open Stable</a>
     </div>
     <p class="gp-small">Total Stored: <strong>${count}</strong></p>
     <div class="gp-recent-captures">
@@ -147,12 +147,12 @@ function renderProgressPanel(profile) {
   byId("progress-panel").innerHTML = `
     <div class="gp-section-head">
       <h2>Quick Actions</h2>
-      <a class="btn" href="/grev-pets/event-room.html">Events</a>
+      <a class="btn" href="/playground/grev-pets/event-room.html">Events</a>
     </div>
     <div class="gp-actions gp-action-buttons">
-      <a class="btn btn-primary" href="/grev-pets/overworld.html">Resume Overworld</a>
-      <a class="btn" href="/grev-pets/stable.html">Manage Team</a>
-      <a class="btn" href="/grev-pets/event-room.html">Run Event Match</a>
+      <a class="btn btn-primary" href="/playground/grev-pets/overworld.html">Resume Overworld</a>
+      <a class="btn" href="/playground/grev-pets/stable.html">Manage Team</a>
+      <a class="btn" href="/playground/grev-pets/event-room.html">Run Event Match</a>
     </div>
     <div class="gp-stats-grid gp-stats-grid-2 gp-action-meta">
       <div class="gp-stat-block"><h3>Favorite Type</h3><p>${safeText(profile.favorite_type || "Unpicked")}</p></div>
@@ -167,7 +167,7 @@ function renderRecentPanel(data) {
   mount.innerHTML = `
     <div class="gp-section-head">
       <h2>Area + Mission Status</h2>
-      <a class="btn" href="/grev-pets/event-room.html">Open Event Plaza</a>
+      <a class="btn" href="/playground/grev-pets/event-room.html">Open Event Plaza</a>
     </div>
     <div class="gp-home-status-grid">
       <div class="gp-stat-block">
@@ -232,7 +232,7 @@ function renderStarterOptions(data) {
       button.disabled = true;
       byId("starter-status").textContent = `Adopting ${key}...`;
       try {
-        await api("/api/grev-pets/starter", {
+        await api("/api/playground/grev-pets/starter", {
           method: "POST",
           body: JSON.stringify({ starterKey: key })
         });
@@ -291,7 +291,7 @@ function bindUI() {
 
   byId("save-avatar").addEventListener("click", async () => {
     try {
-      await api("/api/grev-pets/profile", {
+      await api("/api/playground/grev-pets/profile", {
         method: "POST",
         body: JSON.stringify({ avatar: avatarDraft })
       });

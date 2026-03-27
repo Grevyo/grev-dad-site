@@ -217,7 +217,7 @@ let encounterAnimHandle = null;
 async function boot() {
   try {
     const user = await requireAuthOrRedirect();
-    const me = await api("/api/grev-pets/me");
+    const me = await api("/api/playground/grev-pets/me");
 
     world.areaId = normalizeArea(me.profile.zone);
     world.x = Number(me.profile.pos_x || WORLD_WIDTH / 2);
@@ -483,11 +483,11 @@ function showAreaBanner(name, subtitle) {
 function startPresence() {
   const sync = async () => {
     try {
-      await api("/api/grev-pets/presence", {
+      await api("/api/playground/grev-pets/presence", {
         method: "POST",
         body: JSON.stringify({ x: world.x, y: world.y, zone: world.areaId })
       });
-      const presence = await api(`/api/grev-pets/presence?zone=${encodeURIComponent(world.areaId)}`);
+      const presence = await api(`/api/playground/grev-pets/presence?zone=${encodeURIComponent(world.areaId)}`);
       drawOthers(presence.players || []);
     } catch (error) {
       log(`Presence issue: ${error.message}`);
@@ -539,7 +539,7 @@ function startEncounterChecks() {
     if (Math.random() > area.encounterRate) return;
 
     try {
-      const data = await api("/api/grev-pets/encounter", {
+      const data = await api("/api/playground/grev-pets/encounter", {
         method: "POST",
         body: JSON.stringify({ zone: area.id })
       });
@@ -612,7 +612,7 @@ async function captureAction(mode, weaken) {
   if (!world.encounter) return;
 
   try {
-    const data = await api("/api/grev-pets/capture", {
+    const data = await api("/api/playground/grev-pets/capture", {
       method: "POST",
       body: JSON.stringify({ encounterId: world.encounter.encounterId, mode, weaken })
     });
