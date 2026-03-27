@@ -1349,52 +1349,55 @@
 
 /* ===== 2026 Proportion + Mobile Overworld Refinement ===== */
 .gp-explorer-avatar {
-  width: 102px;
-  height: 132px;
+  width: 100px;
+  height: 136px;
 }
 
-.gp-explorer-avatar--lg { width: 130px; height: 166px; }
-.gp-explorer-avatar--xl { width: 172px; height: 214px; }
-.gp-explorer-avatar--mini { width: 62px; height: 78px; }
+.gp-explorer-avatar--lg { width: 126px; height: 172px; }
+.gp-explorer-avatar--xl { width: 166px; height: 222px; }
+.gp-explorer-avatar--mini { width: 60px; height: 82px; }
 
 .gp-av-shell {
-  grid-template-rows: 38% 31% 31%;
+  grid-template-rows: 45% 26% 29%;
 }
 
 .gp-av-head {
-  width: 52%;
-  height: 88%;
+  width: 57%;
+  height: 94%;
+  border-radius: 50% 50% 47% 47%;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .gp-av-torso {
-  width: 56%;
-  height: 88%;
-  margin-top: 2px;
-  border-radius: 24% 24% 16% 16%;
+  width: 47%;
+  height: 76%;
+  margin-top: 3px;
+  border-radius: 26% 26% 18% 18%;
 }
 
 .gp-av-arm {
-  top: 21%;
-  width: 18%;
-  height: 40%;
+  top: 24%;
+  width: 15%;
+  height: 34%;
 }
 
 .gp-av-legs {
-  width: 58%;
-  height: 100%;
-  margin-top: 1px;
+  width: 47%;
+  height: 86%;
+  margin-top: -2px;
 }
 
 .gp-av-leg {
-  width: 32%;
-  height: 72%;
-  top: 2%;
+  width: 30%;
+  height: 64%;
+  top: 5%;
+  border-radius: 7px 7px 9px 9px;
 }
 
 .gp-av-shoe {
-  width: 30%;
-  height: 15%;
-  bottom: -2%;
+  width: 25%;
+  height: 13%;
+  bottom: 5%;
 }
 
 .gp-touch-controls-wrap {
@@ -1439,6 +1442,9 @@
 }
 
 .gp-dpad-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 52px;
   border-radius: 12px;
   border: 1px solid rgba(155, 229, 255, 0.42);
@@ -1446,13 +1452,28 @@
   color: #ecf7ff;
   font-size: 1.2rem;
   font-weight: 800;
+  line-height: 1;
+  -webkit-user-select: none;
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   user-select: none;
+  cursor: pointer;
 }
 
 .gp-dpad-btn.is-active {
   transform: translateY(1px) scale(0.98);
   background: linear-gradient(180deg, rgba(88, 154, 227, 0.95), rgba(36, 79, 146, 0.95));
+  box-shadow: inset 0 0 0 1px rgba(202, 238, 255, 0.52), 0 0 0 2px rgba(88, 167, 255, 0.15);
+}
+
+.gp-touch-controls-wrap,
+.gp-dpad,
+.gp-dpad-btn,
+.gp-dpad-btn * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .gp-encounter-paused-note {
