@@ -5,123 +5,191 @@ import { avatarMarkup } from "./avatar-renderer.js";
 const WORLD_WIDTH = 900;
 const WORLD_HEIGHT = 580;
 const PLAYER_SIZE = 30;
+const EDGE_BUFFER = 18;
+
+const AREAS = {
+  spawn_town: {
+    id: "spawn_town",
+    name: "Spawn Town",
+    subtitle: "Safe spawn hub with routes to the south and west districts.",
+    theme: "spawn_town",
+    safe: true,
+    encounterRate: 0,
+    objective: "Objective: head south into Tallgrass Trail to start catching.",
+    encounterFlavor: "Calm streets. Wild pets avoid the busy plaza.",
+    landmarks: [
+      { cls: "house-row" },
+      { cls: "stable-building", label: "Stable" },
+      { cls: "event-building", label: "Event Plaza" },
+      { cls: "fence fence-west" },
+      { cls: "fence fence-east" }
+    ],
+    exits: {
+      south: { to: "tallgrass_route", spawn: "north" },
+      west: { to: "stable_district", spawn: "east" },
+      east: { to: "event_plaza", spawn: "west" }
+    }
+  },
+  tallgrass_route: {
+    id: "tallgrass_route",
+    name: "Tallgrass Trail",
+    subtitle: "Classic capture route filled with rustling grass and low-level wilds.",
+    theme: "tallgrass_route",
+    safe: false,
+    encounterRate: 0.36,
+    objective: "Objective: weaken and capture common route species.",
+    encounterFlavor: "Grass trembles — something is stalking nearby.",
+    landmarks: [{ cls: "tree-cluster cluster-sw" }, { cls: "flowers" }, { cls: "bushes" }],
+    exits: {
+      north: { to: "spawn_town", spawn: "south" },
+      east: { to: "pondside_path", spawn: "west" },
+      south: { to: "mushroom_grove", spawn: "north" }
+    }
+  },
+  stable_district: {
+    id: "stable_district",
+    name: "Stable District",
+    subtitle: "Quiet training strip next to storage barns and prep spaces.",
+    theme: "stable_district",
+    safe: true,
+    encounterRate: 0,
+    objective: "Objective: regroup here, then move to Scrapyard for tougher catches.",
+    encounterFlavor: "Stable workers keep wild pets away from this district.",
+    landmarks: [{ cls: "stable-building", label: "Barn Row" }, { cls: "tree-cluster cluster-nw" }],
+    exits: {
+      east: { to: "spawn_town", spawn: "west" },
+      south: { to: "scrapyard", spawn: "north" }
+    }
+  },
+  event_plaza: {
+    id: "event_plaza",
+    name: "Event Plaza",
+    subtitle: "Bright social plaza leading to unstable neon hunting ground.",
+    theme: "event_plaza",
+    safe: true,
+    encounterRate: 0,
+    objective: "Objective: move east into Neon Rift for glitch and lunar hunts.",
+    encounterFlavor: "Crowds and lights keep this plaza encounter-free.",
+    landmarks: [{ cls: "event-building", label: "Arena" }, { cls: "pond" }],
+    exits: {
+      west: { to: "spawn_town", spawn: "east" },
+      east: { to: "neon_rift", spawn: "west" }
+    }
+  },
+  mushroom_grove: {
+    id: "mushroom_grove",
+    name: "Mushroom Grove",
+    subtitle: "Foggy fungal grove with spirit and toxic-flavored encounters.",
+    theme: "mushroom_grove",
+    safe: false,
+    encounterRate: 0.42,
+    objective: "Objective: hunt rare Moss/Toxic/Spirit mixes here.",
+    encounterFlavor: "Spores swirl — a strange wild pet emerges.",
+    landmarks: [{ cls: "cluster-east tree-cluster" }, { cls: "flowers" }],
+    exits: {
+      north: { to: "tallgrass_route", spawn: "south" },
+      east: { to: "neon_rift", spawn: "south" }
+    }
+  },
+  neon_rift: {
+    id: "neon_rift",
+    name: "Neon Rift",
+    subtitle: "Electric rift zone with unstable glitch signatures and lunar echoes.",
+    theme: "neon_rift",
+    safe: false,
+    encounterRate: 0.44,
+    objective: "Objective: use snack lure for high-variance rare captures.",
+    encounterFlavor: "Reality flickers. A wild signal locks onto you.",
+    landmarks: [{ cls: "pond" }, { cls: "bushes" }],
+    exits: {
+      west: { to: "event_plaza", spawn: "east" },
+      south: { to: "scrapyard", spawn: "east" },
+      north: { to: "pondside_path", spawn: "east" }
+    }
+  },
+  scrapyard: {
+    id: "scrapyard",
+    name: "Scrapyard",
+    subtitle: "Twisted metal route with Iron/Stone/Toxic encounters.",
+    theme: "scrapyard",
+    safe: false,
+    encounterRate: 0.34,
+    objective: "Objective: farm sturdy Iron and Stone catches for your core team.",
+    encounterFlavor: "Metal clanks nearby as a wild shape lunges out.",
+    landmarks: [{ cls: "fence fence-east" }, { cls: "fence fence-west" }],
+    exits: {
+      north: { to: "stable_district", spawn: "south" },
+      east: { to: "pondside_path", spawn: "south" },
+      west: { to: "mushroom_grove", spawn: "east" }
+    }
+  },
+  pondside_path: {
+    id: "pondside_path",
+    name: "Pondside Path",
+    subtitle: "Waterside lane with Tidal, Moss, and Frost encounter pools.",
+    theme: "pondside_path",
+    safe: false,
+    encounterRate: 0.31,
+    objective: "Objective: find balanced water-adjacent partners.",
+    encounterFlavor: "Ripples split apart as a wild pet leaps forward.",
+    landmarks: [{ cls: "pond" }, { cls: "tree-cluster cluster-east" }],
+    exits: {
+      west: { to: "tallgrass_route", spawn: "east" },
+      south: { to: "scrapyard", spawn: "east" },
+      east: { to: "neon_rift", spawn: "north" }
+    }
+  }
+};
 
 const world = {
   x: 220,
-  y: 240,
-  zone: "town_hub",
+  y: 140,
+  areaId: "spawn_town",
   encounter: null,
   keys: new Set(),
   others: new Map(),
   avatar: null,
   username: "Explorer",
-  activePetName: null,
+  activePet: null,
   facing: "down",
   bob: 0,
-  inDanger: false
-};
-
-const zoneBounds = [
-  { zone: "town_hub", x: 6, y: 12, w: 42, h: 32 },
-  { zone: "stable_square", x: 50, y: 8, w: 20, h: 26 },
-  { zone: "event_gate", x: 73, y: 8, w: 22, h: 26 },
-  { zone: "wild_scrapyard", x: 6, y: 48, w: 43, h: 42 },
-  { zone: "wild_neon_abyss", x: 53, y: 41, w: 20, h: 48 },
-  { zone: "wild_mushroom_ruins", x: 75, y: 38, w: 20, h: 52 }
-];
-
-const blockers = [
-  { x: 2, y: 3, w: 18, h: 13 },
-  { x: 5, y: 63, w: 14, h: 20 },
-  { x: 78, y: 56, w: 18, h: 32 },
-  { x: 26, y: 8, w: 20, h: 18 },
-  { x: 50, y: 8, w: 20, h: 17 },
-  { x: 74, y: 8, w: 21, h: 17 },
-  { x: 56, y: 67, w: 15, h: 17 },
-  { x: 18, y: 46, w: 2, h: 34 },
-  { x: 48, y: 46, w: 2, h: 34 },
-  { x: 73, y: 41, w: 2, h: 49 }
-];
-
-const zoneMeta = {
-  town_hub: {
-    name: "Town Hub",
-    danger: false,
-    hint: "Safe zone. Great place to socialize and prep.",
-    objective: "Objective: check signs and head to wild grass for encounters."
-  },
-  stable_square: {
-    name: "Stable Square",
-    danger: false,
-    hint: "Safe zone near the stable. Manage your lineup here.",
-    objective: "Objective: use the stable entrance when you want to swap pets."
-  },
-  event_gate: {
-    name: "Event Gate",
-    danger: false,
-    hint: "Safe zone near competitive events.",
-    objective: "Objective: warm up in wild zones before entering Event Hall."
-  },
-  wild_scrapyard: {
-    name: "Tall Grass Wilds",
-    danger: true,
-    hint: "Danger zone: encounters can trigger here.",
-    objective: "Objective: weaken then capture to build your stable."
-  },
-  wild_neon_abyss: {
-    name: "Neon Rift",
-    danger: true,
-    hint: "Danger zone: volatile energy attracts rare wild pets.",
-    objective: "Objective: use snack lure for better odds in this patch."
-  },
-  wild_mushroom_ruins: {
-    name: "Mushroom Grove",
-    danger: true,
-    hint: "Danger zone: strange flora hides trickster species.",
-    objective: "Objective: scout edges and watch for encounter pings."
-  }
-};
-
-const interactText = {
-  welcome: "🪧 Welcome to Grev Town. Respect trainers, love your pets, stay curious.",
-  wilds: "🪧 Wild zone ahead. Bring tame orbs and snacks before entering tall grass.",
-  board: "📌 Notice Board: Stable upgrades and seasonal events arriving soon.",
-  stable: "🏠 Stable Entrance: Opening stable...",
-  event: "🏟️ Event Hall: Entering event room..."
+  transitionLock: false
 };
 
 let animationHandle = null;
 let presenceTimer = null;
 let encounterTimer = null;
+let encounterAnimHandle = null;
 
 async function boot() {
   try {
     const user = await requireAuthOrRedirect();
     const me = await api("/api/grev-pets/me");
-    world.x = Number(me.profile.pos_x || 220);
-    world.y = Number(me.profile.pos_y || 240);
-    world.zone = me.profile.zone || "town_hub";
+
+    world.areaId = normalizeArea(me.profile.zone);
+    world.x = Number(me.profile.pos_x || WORLD_WIDTH / 2);
+    world.y = Number(me.profile.pos_y || WORLD_HEIGHT / 2);
     world.avatar = me.profile.avatar;
     world.username = user?.username || me.profile.username || "Explorer";
-    world.activePetName = me.profile.active_pet?.name || null;
+    world.activePet = me.profile.active_pet || null;
+
     mountPlayerAvatar();
-    updateHUDForZone(world.zone, true);
+    renderAreaVisuals();
+    updateHUDForArea(true);
     setupControls();
-    bindInteractables();
     startLoop();
     startPresence();
     startEncounterChecks();
-    log(`Entered overworld at ${zoneMeta[world.zone]?.name || world.zone}.`);
+    log(`Entered ${currentArea().name}.`);
   } catch (error) {
     log(error.message);
   }
 }
 
 function mountPlayerAvatar() {
-  const node = byId("player-avatar");
-  node.innerHTML = avatarMarkup(world.avatar, { size: "mini" });
+  byId("player-avatar").innerHTML = avatarMarkup(world.avatar, { size: "mini" });
   byId("player-name").textContent = safeText(world.username);
-  byId("active-pet").textContent = `Active Pet: ${safeText(world.activePetName || "none")}`;
+  byId("active-pet").textContent = `Active Pet: ${safeText(world.activePet?.name || "none")}`;
 }
 
 function setupControls() {
@@ -136,66 +204,32 @@ function setupControls() {
     world.keys.delete(event.key.toLowerCase());
   });
 
+  byId("btn-battle").addEventListener("click", () => captureAction("battle", true));
   byId("btn-weaken").addEventListener("click", () => captureAction("toss", true));
   byId("btn-capture").addEventListener("click", () => captureAction("toss", false));
   byId("btn-lure").addEventListener("click", () => captureAction("snack-lure", false));
-}
-
-function bindInteractables() {
-  document.querySelectorAll("[data-interact-id]").forEach((node) => {
-    node.addEventListener("click", () => {
-      const key = node.dataset.interactId;
-      if (!key) return;
-      const msg = interactText[key] || "It's decorative for now.";
-      log(msg);
-      byId("overworld-hint").textContent = msg;
-      if (key === "stable") {
-        setTimeout(() => {
-          window.location.href = "/grev-pets/stable.html";
-        }, 260);
-      }
-      if (key === "event") {
-        setTimeout(() => {
-          window.location.href = "/grev-pets/event-room.html";
-        }, 260);
-      }
-    });
-  });
+  byId("btn-run").addEventListener("click", runFromEncounter);
 }
 
 function startLoop() {
   const step = () => {
-    const speed = 2.8;
-    let dx = 0;
-    let dy = 0;
+    if (!world.encounter) {
+      const speed = 2.9;
+      let dx = 0;
+      let dy = 0;
+      if (world.keys.has("arrowup") || world.keys.has("w")) dy -= speed;
+      if (world.keys.has("arrowdown") || world.keys.has("s")) dy += speed;
+      if (world.keys.has("arrowleft") || world.keys.has("a")) dx -= speed;
+      if (world.keys.has("arrowright") || world.keys.has("d")) dx += speed;
 
-    if (world.keys.has("arrowup") || world.keys.has("w")) dy -= speed;
-    if (world.keys.has("arrowdown") || world.keys.has("s")) dy += speed;
-    if (world.keys.has("arrowleft") || world.keys.has("a")) dx -= speed;
-    if (world.keys.has("arrowright") || world.keys.has("d")) dx += speed;
-
-    if (dx !== 0 || dy !== 0) {
-      if (Math.abs(dx) > Math.abs(dy)) {
-        world.facing = dx > 0 ? "right" : "left";
+      if (dx !== 0 || dy !== 0) {
+        world.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+        world.x = clamp(world.x + dx, PLAYER_SIZE / 2, WORLD_WIDTH - PLAYER_SIZE / 2);
+        world.y = clamp(world.y + dy, PLAYER_SIZE / 2, WORLD_HEIGHT - PLAYER_SIZE / 2);
+        tryAreaTransition();
+        world.bob += 0.2;
       } else {
-        world.facing = dy > 0 ? "down" : "up";
-      }
-      attemptMove(dx, dy);
-      world.bob += 0.25;
-    } else {
-      world.bob += 0.08;
-    }
-
-    const zone = detectZone(world.x, world.y);
-    if (zone !== world.zone) {
-      const previousDanger = Boolean(zoneMeta[world.zone]?.danger);
-      world.zone = zone;
-      updateHUDForZone(zone);
-      const enteredDanger = Boolean(zoneMeta[zone]?.danger) && !previousDanger;
-      if (enteredDanger) {
-        log(`⚠️ Entered ${zoneMeta[zone]?.name || zone}. Wild encounters can trigger.`);
-      } else {
-        log(`Moved into ${zoneMeta[zone]?.name || zone}.`);
+        world.bob += 0.08;
       }
     }
 
@@ -206,36 +240,68 @@ function startLoop() {
   step();
 }
 
-function attemptMove(dx, dy) {
-  const targetX = clamp(world.x + dx, PLAYER_SIZE / 2, WORLD_WIDTH - PLAYER_SIZE / 2);
-  const targetY = clamp(world.y + dy, PLAYER_SIZE / 2, WORLD_HEIGHT - PLAYER_SIZE / 2);
+function tryAreaTransition() {
+  if (world.transitionLock || world.encounter) return;
+  const exits = currentArea().exits || {};
+  let edge = null;
 
-  if (!hitsBlocker(targetX, world.y)) {
-    world.x = targetX;
-  }
-  if (!hitsBlocker(world.x, targetY)) {
-    world.y = targetY;
-  }
+  if (world.y <= EDGE_BUFFER) edge = "north";
+  else if (world.y >= WORLD_HEIGHT - EDGE_BUFFER) edge = "south";
+  else if (world.x <= EDGE_BUFFER) edge = "west";
+  else if (world.x >= WORLD_WIDTH - EDGE_BUFFER) edge = "east";
+
+  const exit = edge ? exits[edge] : null;
+  if (!exit?.to) return;
+
+  world.transitionLock = true;
+  switchArea(exit.to, exit.spawn || opposite(edge));
+  setTimeout(() => {
+    world.transitionLock = false;
+  }, 280);
 }
 
-function hitsBlocker(px, py) {
-  const p = {
-    left: px - PLAYER_SIZE / 2,
-    right: px + PLAYER_SIZE / 2,
-    top: py - PLAYER_SIZE / 2,
-    bottom: py + PLAYER_SIZE / 2
-  };
+function switchArea(nextAreaId, spawnEdge) {
+  world.areaId = normalizeArea(nextAreaId);
 
-  return blockers.some((block) => {
-    const rect = {
-      left: (block.x / 100) * WORLD_WIDTH,
-      top: (block.y / 100) * WORLD_HEIGHT,
-      right: ((block.x + block.w) / 100) * WORLD_WIDTH,
-      bottom: ((block.y + block.h) / 100) * WORLD_HEIGHT
-    };
+  if (spawnEdge === "north") {
+    world.y = EDGE_BUFFER + 10;
+    world.x = WORLD_WIDTH / 2;
+  }
+  if (spawnEdge === "south") {
+    world.y = WORLD_HEIGHT - EDGE_BUFFER - 10;
+    world.x = WORLD_WIDTH / 2;
+  }
+  if (spawnEdge === "west") {
+    world.x = EDGE_BUFFER + 10;
+    world.y = WORLD_HEIGHT / 2;
+  }
+  if (spawnEdge === "east") {
+    world.x = WORLD_WIDTH - EDGE_BUFFER - 10;
+    world.y = WORLD_HEIGHT / 2;
+  }
 
-    return p.right > rect.left && p.left < rect.right && p.bottom > rect.top && p.top < rect.bottom;
-  });
+  renderAreaVisuals();
+  updateHUDForArea();
+  showAreaBanner(currentArea().name, currentArea().subtitle);
+  log(`➡️ Entered ${currentArea().name}.`);
+}
+
+function renderAreaVisuals() {
+  const area = currentArea();
+  const map = byId("overworld");
+  map.dataset.theme = area.theme;
+
+  const exitsMount = byId("map-exits");
+  exitsMount.innerHTML = Object.entries(area.exits || {}).map(([dir, exit]) => `
+    <div class="gp-exit-marker gp-exit-${dir}" title="${safeText(exit.to)}">
+      <span>${dir.toUpperCase()}</span>
+    </div>
+  `).join("");
+
+  const landmarksMount = byId("map-landmarks");
+  landmarksMount.innerHTML = (area.landmarks || []).map((item) => `
+    <div class="gp-scenery ${safeText(item.cls)}">${item.label ? `<span>${safeText(item.label)}</span>` : ""}</div>
+  `).join("");
 }
 
 function placeAvatar() {
@@ -249,33 +315,26 @@ function placeAvatar() {
   wrap.style.transform = `translate(-50%, calc(-50% + ${bobY}px))`;
 
   const avatarEl = wrap.querySelector(".gp-explorer-avatar");
-  if (avatarEl) {
-    avatarEl.dataset.facing = world.facing;
-  }
+  if (avatarEl) avatarEl.dataset.facing = world.facing;
 }
 
-function detectZone(x, y) {
-  const px = (x / WORLD_WIDTH) * 100;
-  const py = (y / WORLD_HEIGHT) * 100;
-  const found = zoneBounds.find((z) => px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h);
-  return found ? found.zone : "town_hub";
+function updateHUDForArea(initial = false) {
+  const area = currentArea();
+  byId("area-title").textContent = area.name;
+  byId("area-subtitle").textContent = area.subtitle;
+  byId("zone-label").textContent = `Area: ${area.name}`;
+  byId("danger-state").textContent = area.safe ? "Safe area. No random encounters." : "Wild area. Encounters are active.";
+  byId("objective").textContent = area.objective;
+  byId("area-mode-pill").textContent = area.safe ? "Safe Zone" : "Wild Zone";
+  byId("overworld").classList.toggle("is-danger", !area.safe);
+  if (!initial) byId("overworld-hint").textContent = area.safe ? "Safe district. Use exits to travel." : "Wild route. Stay ready for encounter overlays.";
 }
 
-function updateHUDForZone(zone, initial = false) {
-  const meta = zoneMeta[zone] || zoneMeta.town_hub;
-  world.inDanger = Boolean(meta.danger);
-  byId("zone-label").textContent = `Zone: ${meta.name}`;
-  byId("danger-state").textContent = meta.hint;
-  byId("objective").textContent = meta.objective;
-
-  const map = byId("overworld");
-  map.classList.toggle("is-danger", world.inDanger);
-
-  if (!initial) {
-    byId("overworld-hint").textContent = world.inDanger
-      ? "You are in a danger zone. Stay alert for wild Grev Pets."
-      : "Safe zone. Explore buildings, signs, and town paths.";
-  }
+function showAreaBanner(name, subtitle) {
+  const banner = byId("area-banner");
+  banner.innerHTML = `<strong>${safeText(name)}</strong><span>${safeText(subtitle)}</span>`;
+  banner.classList.remove("hidden");
+  setTimeout(() => banner.classList.add("hidden"), 1800);
 }
 
 function startPresence() {
@@ -283,9 +342,9 @@ function startPresence() {
     try {
       await api("/api/grev-pets/presence", {
         method: "POST",
-        body: JSON.stringify({ x: world.x, y: world.y, zone: world.zone })
+        body: JSON.stringify({ x: world.x, y: world.y, zone: world.areaId })
       });
-      const presence = await api(`/api/grev-pets/presence?zone=${encodeURIComponent(world.zone)}`);
+      const presence = await api(`/api/grev-pets/presence?zone=${encodeURIComponent(world.areaId)}`);
       drawOthers(presence.players || []);
     } catch (error) {
       log(`Presence issue: ${error.message}`);
@@ -332,59 +391,81 @@ function drawOthers(players) {
 
 function startEncounterChecks() {
   const tick = async () => {
-    const inDanger = world.zone.startsWith("wild_");
-    if (!inDanger || world.encounter) return;
+    const area = currentArea();
+    if (area.safe || world.encounter) return;
+    if (Math.random() > area.encounterRate) return;
 
-    if (Math.random() <= 0.35) {
-      try {
-        const data = await api("/api/grev-pets/encounter", {
-          method: "POST",
-          body: JSON.stringify({ zone: world.zone })
-        });
-        world.encounter = data.encounter;
-        showEncounter();
-        log(`A wild ${data.encounter.wildPet.name} appeared in ${zoneMeta[world.zone]?.name || world.zone}!`);
-      } catch (error) {
-        log(error.message);
-      }
+    try {
+      const data = await api("/api/grev-pets/encounter", {
+        method: "POST",
+        body: JSON.stringify({ zone: area.id })
+      });
+      world.encounter = data.encounter;
+      showEncounter();
+      log(`⚔️ ${data.encounter.wildPet.name} appeared in ${area.name}.`);
+    } catch (error) {
+      log(error.message);
     }
   };
 
-  encounterTimer = setInterval(tick, 4500);
+  encounterTimer = setInterval(tick, 4200);
 }
 
 function showEncounter() {
-  if (!world.encounter) return;
+  const overlay = byId("encounter-overlay");
+  const wild = world.encounter?.wildPet;
+  if (!wild) return;
 
-  const card = byId("encounter-card");
-  const wild = world.encounter.wildPet;
-  card.classList.remove("hidden");
-  card.innerHTML = `
-    <canvas id="encounter-pet" class="gp-pet-canvas" width="260" height="170"></canvas>
-    <h3>${safeText(wild.name)}</h3>
-    <p><span class="gp-pill ${rarityClass(wild.rarity)}">${safeText(wild.rarity)}</span> · Lv ${wild.level} · ${safeText(wild.species)}</p>
-    <p>${typeBadgePair(wild.primaryType, wild.secondaryType)}</p>
-    <p class="gp-small">HP: <span id="wild-hp">${world.encounter.wildCurrentHp}</span> / ${wild.stats.health}</p>
-  `;
+  byId("encounter-title").textContent = `A wild ${safeText(wild.name)} appeared!`;
+  byId("encounter-kicker").textContent = `${currentArea().name.toUpperCase()} ENCOUNTER`;
+  byId("encounter-flavor").textContent = currentArea().encounterFlavor;
+  byId("encounter-wild-meta").innerHTML = `<span class="gp-pill ${rarityClass(wild.rarity)}">${safeText(wild.rarity)}</span> · Lv ${wild.level} · ${safeText(wild.species)}`;
+  byId("encounter-wild-types").innerHTML = typeBadgePair(wild.primaryType, wild.secondaryType);
+  byId("wild-hp").textContent = String(world.encounter.wildCurrentHp);
+  byId("wild-max-hp").textContent = String(wild.stats.health || 1);
 
-  const canvas = byId("encounter-pet");
-  let idleBob = 0;
+  if (world.activePet) {
+    byId("encounter-active-meta").textContent = `${world.activePet.name} · Lv ${world.activePet.level} · ${world.activePet.species}`;
+    byId("encounter-active-types").innerHTML = typeBadgePair(world.activePet.primaryType, world.activePet.secondaryType);
+    animateEncounterPet("encounter-active-pet", world.activePet);
+  } else {
+    byId("encounter-active-meta").textContent = "No active pet selected. Capture odds are reduced.";
+    byId("encounter-active-types").innerHTML = "";
+    clearCanvas("encounter-active-pet");
+  }
+
+  byId("encounter-log").innerHTML = "";
+  animateEncounterPet("encounter-pet", wild);
+
+  overlay.classList.remove("hidden");
+  byId("encounter-status").textContent = `Encounter active: ${wild.name}`;
+}
+
+function animateEncounterPet(canvasId, pet) {
+  const canvas = byId(canvasId);
+  if (!canvas) return;
+  if (encounterAnimHandle) cancelAnimationFrame(encounterAnimHandle);
+
+  let bob = 0;
   const loop = () => {
     if (!world.encounter || !canvas.isConnected) return;
-    idleBob += 0.08;
-    renderPet(canvas, wild.traits, { bob: idleBob, primaryType: wild.primaryType });
-    requestAnimationFrame(loop);
+    bob += 0.09;
+    renderPet(canvas, pet.traits, { bob, primaryType: pet.primaryType });
+    encounterAnimHandle = requestAnimationFrame(loop);
   };
   loop();
+}
 
-  byId("encounter-status").textContent = `Encounter active: ${wild.name}.`;
+function clearCanvas(canvasId) {
+  const canvas = byId(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
 async function captureAction(mode, weaken) {
-  if (!world.encounter) {
-    log("No encounter to interact with.");
-    return;
-  }
+  if (!world.encounter) return;
 
   try {
     const data = await api("/api/grev-pets/capture", {
@@ -393,24 +474,40 @@ async function captureAction(mode, weaken) {
     });
 
     if (data.captured) {
-      log(`🎉 Captured ${data.pet.name}! (roll ${data.roll} vs ${data.chance}%)`);
-      byId("encounter-status").textContent = `Captured ${data.pet.name}!`;
-      world.encounter = null;
-      byId("encounter-card").classList.add("hidden");
-      byId("encounter-card").innerHTML = "";
+      overlayLog(`🎉 Captured ${data.pet.name}! (roll ${data.roll}/${data.chance})`);
+      log(`Captured ${data.pet.name} in ${currentArea().name}.`);
+      resolveEncounter(`Captured ${data.pet.name}!`);
       return;
     }
 
     if (data.wild_current_hp) {
       world.encounter.wildCurrentHp = data.wild_current_hp;
-      const hp = byId("wild-hp");
-      if (hp) hp.textContent = String(data.wild_current_hp);
+      byId("wild-hp").textContent = String(data.wild_current_hp);
     }
 
-    log(`Capture failed (roll ${data.roll} vs ${data.chance}%). ${weaken ? "You rattled the wild pet." : "Try weakening first."}`);
+    overlayLog(`Attempt failed (roll ${data.roll}/${data.chance}). ${weaken ? "You softened it up." : "Try weaken first."}`);
   } catch (error) {
-    log(error.message);
+    overlayLog(error.message);
   }
+}
+
+function runFromEncounter() {
+  if (!world.encounter) return;
+  overlayLog("You escaped safely.");
+  resolveEncounter("Escaped encounter.");
+}
+
+function resolveEncounter(status) {
+  world.encounter = null;
+  byId("encounter-overlay").classList.add("hidden");
+  byId("encounter-status").textContent = status;
+}
+
+function overlayLog(text) {
+  const mount = byId("encounter-log");
+  const p = document.createElement("p");
+  p.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+  mount.prepend(p);
 }
 
 function log(message) {
@@ -421,6 +518,19 @@ function log(message) {
   mount.prepend(p);
 }
 
+function normalizeArea(areaId) {
+  const normalized = String(areaId || "").trim().toLowerCase();
+  return AREAS[normalized] ? normalized : "spawn_town";
+}
+
+function currentArea() {
+  return AREAS[world.areaId] || AREAS.spawn_town;
+}
+
+function opposite(direction) {
+  return { north: "south", south: "north", east: "west", west: "east" }[direction] || "south";
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -429,6 +539,7 @@ window.addEventListener("beforeunload", () => {
   if (animationHandle) cancelAnimationFrame(animationHandle);
   if (presenceTimer) clearInterval(presenceTimer);
   if (encounterTimer) clearInterval(encounterTimer);
+  if (encounterAnimHandle) cancelAnimationFrame(encounterAnimHandle);
 });
 
 boot();

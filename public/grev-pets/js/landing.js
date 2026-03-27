@@ -5,15 +5,6 @@ import { renderPet, rarityClass, typeBadgePair } from "./pet-renderer.js";
 let profileData = null;
 let avatarDraft = null;
 
-const ZONES = [
-  { key: "town_hub", name: "Town Hub", vibe: "Meetups, social vibes, setup checks." },
-  { key: "stable_square", name: "Stable Square", vibe: "Trainers swap tips and comps." },
-  { key: "event_gate", name: "Event Gate", vibe: "Battle and race queue entry." },
-  { key: "wild_scrapyard", name: "Scrapyard Wilds", vibe: "Balanced captures and commons." },
-  { key: "wild_neon_abyss", name: "Neon Abyss", vibe: "Glitchy high-variance encounters." },
-  { key: "wild_mushroom_ruins", name: "Mushroom Ruins", vibe: "Odd typings and tricksters." }
-];
-
 async function boot() {
   try {
     await requireAuthOrRedirect();
@@ -30,86 +21,116 @@ async function loadProfile() {
   avatarDraft = { ...(data.profile.avatar || {}) };
 
   renderProfileSummary(data);
-  renderHighValueCards(data);
+  renderActivePet(data);
+  renderTeamPanel(data.featured_pets || [], data.profile.active_pet_id);
+  renderStoragePanel(data.featured_pets || [], data.pet_count || 0);
+  renderProgressPanel(data.profile);
   renderStarterOptions(data);
-  renderFeatured(data.featured_pets || []);
-  renderZones();
-  renderTypePreview(data.type_dex || []);
-  renderProgression(data.profile);
   renderAvatarEditor(data.avatar_options || {}, avatarDraft);
-
-  const starterStatus = byId("starter-status");
-  starterStatus.textContent = data.profile.starter_claimed
-    ? "Starter locked in. Grow your stable and challenge the event room."
-    : "No starter yet — choose one to kick off your story.";
 }
 
 function renderProfileSummary(data) {
   const profile = data.profile;
   const summary = byId("profile-summary");
+
   summary.innerHTML = `
     <div class="gp-profile-top">
       <div id="hero-avatar"></div>
       <div>
         <h2>${safeText(profile.username)}</h2>
         <p class="gp-small">${safeText(profile.title || "Rookie Wrangler")}</p>
-        <p class="gp-small">Current zone: ${safeText(profile.zone)}</p>
+        <p class="gp-small">Current area: ${safeText(profile.zone)}</p>
       </div>
     </div>
     <div class="gp-stats-grid">
       <div class="gp-stat-block"><h3>Trainer Lv</h3><p>${Number(profile.trainer_level || 1)}</p></div>
-      <div class="gp-stat-block"><h3>Total Pets</h3><p>${Number(data.pet_count || 0)}</p></div>
-      <div class="gp-stat-block"><h3>Fav Type</h3><p>${safeText(profile.favorite_type || "Unpicked")}</p></div>
+      <div class="gp-stat-block"><h3>Captured</h3><p>${Number(data.pet_count || 0)}</p></div>
       <div class="gp-stat-block"><h3>Battle W/L</h3><p>${profile.battle_record?.wins || 0}/${profile.battle_record?.losses || 0}</p></div>
       <div class="gp-stat-block"><h3>Race Wins</h3><p>${profile.race_record?.wins || 0}</p></div>
-      <div class="gp-stat-block"><h3>Starter</h3><p>${profile.starter_claimed ? "Claimed" : "Ready"}</p></div>
     </div>
-    ${profile.active_pet ? `<div class="gp-active-strip">Active: <strong>${safeText(profile.active_pet.name)}</strong> ${typeBadgePair(profile.active_pet.primaryType, profile.active_pet.secondaryType)}</div>` : `<div class="gp-active-strip">No active pet set yet.</div>`}
   `;
+
   mountAvatar(byId("hero-avatar"), profile.avatar, { size: "lg", label: "Explorer" });
 }
 
-function renderHighValueCards(data) {
+function renderActivePet(data) {
   const activePet = data.profile.active_pet;
-  const cards = byId("high-value-cards");
+  const mount = byId("active-pet-panel");
 
-  cards.innerHTML = `
-    <article class="gp-card gp-feature-card">
-      <h3>Active Pet Spotlight</h3>
-      ${activePet
-        ? `<canvas id="active-spotlight-canvas" class="gp-pet-canvas" width="280" height="180"></canvas>
-           <p><strong>${safeText(activePet.name)}</strong> · Lv ${activePet.level} · ${safeText(activePet.species)}</p>
-           <p>${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</p>
-           <a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Detail Card</a>`
-        : `<p>No active pet yet. Claim your starter or pick one from your stable.</p>
-           <a class="btn" href="/grev-pets/stable.html">Open Stable</a>`}
-    </article>
-    <article class="gp-card gp-feature-card">
-      <h3>Starter Collection Track</h3>
-      <p>Build your first squad around a core role and type spread.</p>
-      <ul class="gp-bullet-list">
-        <li>Adopt one starter with dual-typing flavor.</li>
-        <li>Capture in danger zones to patch team weaknesses.</li>
-        <li>Set your active pet before events.</li>
-      </ul>
-      <a class="btn" href="#starter-flow-card">Choose Starter</a>
-    </article>
-    <article class="gp-card gp-feature-card">
-      <h3>Quick Path</h3>
-      <ol class="gp-bullet-list">
-        <li>Customize explorer avatar.</li>
-        <li>Adopt first Grev Pet.</li>
-        <li>Enter overworld and capture.</li>
-        <li>Battle and race for progression.</li>
-      </ol>
-      <div class="gp-actions">
-        <a class="btn" href="/grev-pets/overworld.html">Explore</a>
-        <a class="btn" href="/grev-pets/event-room.html">Compete</a>
-      </div>
-    </article>
+  mount.innerHTML = `
+    <div class="gp-section-head">
+      <h2>Active Grev Pet</h2>
+      <a class="btn" href="/grev-pets/stable.html">Switch Active</a>
+    </div>
+    ${activePet
+      ? `<canvas id="active-pet-canvas" class="gp-pet-canvas" width="340" height="180"></canvas>
+         <p><strong>${safeText(activePet.name)}</strong> · Lv ${activePet.level} · ${safeText(activePet.species)}</p>
+         <p>${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</p>
+         <p class="gp-small">${safeText(activePet.temperament)}</p>
+         <a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Detail Card</a>`
+      : `<p>No active pet selected yet.</p><a class="btn btn-primary" href="/grev-pets/stable.html">Choose from Storage</a>`}
   `;
 
-  if (activePet) animatePetCanvas("active-spotlight-canvas", activePet);
+  if (activePet) animatePetCanvas("active-pet-canvas", activePet);
+}
+
+function renderTeamPanel(pets, activePetId) {
+  const mount = byId("team-panel");
+  const team = pets.slice(0, 4);
+  mount.innerHTML = `
+    <div class="gp-section-head">
+      <h2>Current Team</h2>
+      <a class="btn" href="/grev-pets/overworld.html">Travel</a>
+    </div>
+    <div class="gp-team-list" id="team-list"></div>
+  `;
+
+  const list = byId("team-list");
+  if (!team.length) {
+    list.innerHTML = `<p class="gp-small">No captured pets yet.</p>`;
+    return;
+  }
+
+  list.innerHTML = team.map((pet) => `
+    <div class="gp-team-item ${pet.petId === activePetId ? "is-active" : ""}">
+      <div>
+        <strong>${safeText(pet.name)}</strong>
+        <p class="gp-small">Lv ${pet.level} · ${safeText(pet.species)}</p>
+      </div>
+      <div>${typeBadgePair(pet.primaryType, pet.secondaryType)}</div>
+    </div>
+  `).join("");
+}
+
+function renderStoragePanel(pets, count) {
+  const recent = pets.slice(0, 3);
+  byId("storage-panel").innerHTML = `
+    <div class="gp-section-head">
+      <h2>Storage Vault</h2>
+      <a class="btn btn-primary" href="/grev-pets/stable.html">Open Storage</a>
+    </div>
+    <p class="gp-small">Total captured: <strong>${count}</strong></p>
+    <div class="gp-recent-captures">
+      ${recent.length
+        ? recent.map((pet) => `<p>${safeText(pet.name)} <span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span></p>`).join("")
+        : "<p class='gp-small'>Your vault is empty — capture pets in wild routes.</p>"}
+    </div>
+  `;
+}
+
+function renderProgressPanel(profile) {
+  byId("progress-panel").innerHTML = `
+    <div class="gp-section-head">
+      <h2>Explorer Snapshot</h2>
+      <a class="btn" href="/grev-pets/event-room.html">Events</a>
+    </div>
+    <div class="gp-stats-grid">
+      <div class="gp-stat-block"><h3>Favorite Type</h3><p>${safeText(profile.favorite_type || "Unpicked")}</p></div>
+      <div class="gp-stat-block"><h3>Starter</h3><p>${profile.starter_claimed ? "Claimed" : "Not Claimed"}</p></div>
+      <div class="gp-stat-block"><h3>Last Area</h3><p>${safeText(profile.zone)}</p></div>
+      <div class="gp-stat-block"><h3>Overworld</h3><p>Connected Zones</p></div>
+    </div>
+  `;
 }
 
 function renderStarterOptions(data) {
@@ -123,48 +144,35 @@ function renderStarterOptions(data) {
       <h3>${safeText(starter.name)}</h3>
       <p>${typeBadgePair(starter.primaryType, starter.secondaryType)}</p>
       <p class="gp-small">${safeText(starter.personality)}</p>
-      <p class="gp-small">Role: ${safeText(starter.roleStyle)}</p>
       <div class="gp-actions">
-        <button type="button" class="btn btn-primary" data-starter-key="${safeText(starter.key)}" ${claimed ? "disabled" : ""}>Adopt ${safeText(starter.name)}</button>
+        <button type="button" class="btn btn-primary" data-starter-key="${safeText(starter.key)}" ${claimed ? "disabled" : ""}>Adopt</button>
       </div>
     </article>
   `).join("");
 
+  byId("starter-status").textContent = claimed
+    ? "Starter already claimed. Build your route team from storage."
+    : "Pick one starter to begin your run.";
+
   options.forEach((starter, idx) => {
-    const fauxPet = {
+    animatePetCanvas(`starter-canvas-${idx}`, {
       primaryType: starter.primaryType,
       secondaryType: starter.secondaryType,
-      traits: {
-        bodyShape: starter.key === "mossguard" ? "chonk" : starter.key === "tidaltrick" ? "moth" : "drake",
-        widthScale: 1,
-        heightScale: 1,
-        eyeType: "wide",
-        mouthType: "smile",
-        earType: "satellite",
-        extra: starter.key === "emberling" ? "horn" : "fluff",
-        accessory: "bandana",
-        patternType: starter.key === "tidaltrick" ? "circuit" : "patch",
-        colorPalette: starter.key === "emberling"
-          ? { base: "#ff8b47", secondary: "#c23f2d", accent: "#ffd167" }
-          : starter.key === "mossguard"
-            ? { base: "#72bc6f", secondary: "#458244", accent: "#d9ff93" }
-            : { base: "#58c2ff", secondary: "#4769c8", accent: "#ff6cc7" }
-      }
-    };
-    animatePetCanvas(`starter-canvas-${idx}`, fauxPet);
+      traits: { bodyShape: "chonk", widthScale: 1, heightScale: 1, eyeType: "wide", mouthType: "smile", earType: "leaf", extra: "fluff", accessory: "bandana", patternType: "patch", colorPalette: { base: "#6aa8ff", secondary: "#4456a1", accent: "#ffcc66" } }
+    });
   });
 
   document.querySelectorAll("[data-starter-key]").forEach((button) => {
     button.addEventListener("click", async () => {
       const key = button.dataset.starterKey;
-      byId("starter-status").textContent = `Adopting ${key}...`;
       button.disabled = true;
+      byId("starter-status").textContent = `Adopting ${key}...`;
       try {
         await api("/api/grev-pets/starter", {
           method: "POST",
           body: JSON.stringify({ starterKey: key })
         });
-        byId("starter-status").textContent = "Starter adopted! Your profile and stable are updated.";
+        byId("starter-status").textContent = "Starter adopted.";
         await loadProfile();
       } catch (error) {
         byId("starter-status").textContent = safeText(error.message);
@@ -172,54 +180,6 @@ function renderStarterOptions(data) {
       }
     });
   });
-}
-
-function renderFeatured(pets) {
-  const mount = byId("featured-pets");
-  if (!pets.length) {
-    mount.innerHTML = `<p class="gp-small">Your stable is empty. Start with a first adoption above.</p>`;
-    return;
-  }
-
-  mount.innerHTML = pets.slice(0, 4).map((pet, i) => `
-    <article class="gp-card">
-      <canvas class="gp-pet-canvas" id="feat-pet-${i}" width="240" height="150"></canvas>
-      <h3>${safeText(pet.name)}</h3>
-      <p><span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span> · Lv ${pet.level}</p>
-      <p>${typeBadgePair(pet.primaryType, pet.secondaryType)}</p>
-      <a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(pet.petId)}">Open Card</a>
-    </article>
-  `).join("");
-
-  pets.slice(0, 4).forEach((pet, i) => animatePetCanvas(`feat-pet-${i}`, pet));
-}
-
-function renderZones() {
-  byId("zones-preview").innerHTML = ZONES.map((zone) => `
-    <article class="gp-zone-preview">
-      <h3>${safeText(zone.name)}</h3>
-      <p>${safeText(zone.vibe)}</p>
-    </article>
-  `).join("");
-}
-
-function renderTypePreview(types) {
-  byId("type-preview").innerHTML = types.slice(0, 8).map((entry) => `
-    <article class="gp-type-card">
-      <h3>${typeBadgePair(entry.type, null)}</h3>
-      <p class="gp-small">${safeText(entry.flavor)}</p>
-      <p class="gp-small">Strong vs: ${safeText((entry.strong || []).slice(0, 2).join(", "))}</p>
-    </article>
-  `).join("");
-}
-
-function renderProgression(profile) {
-  byId("progression-summary").innerHTML = `
-    <div class="gp-stat-block"><h3>Trainer Level</h3><p>${Number(profile.trainer_level || 1)}</p></div>
-    <div class="gp-stat-block"><h3>Battle Wins</h3><p>${profile.battle_record?.wins || 0}</p></div>
-    <div class="gp-stat-block"><h3>Race Wins</h3><p>${profile.race_record?.wins || 0}</p></div>
-    <div class="gp-stat-block"><h3>Average Race Place</h3><p>${profile.race_record?.places ? (profile.race_record.places / Math.max(1, profile.race_record.wins || 1)).toFixed(1) : "-"}</p></div>
-  `;
 }
 
 function renderAvatarEditor(options, state) {

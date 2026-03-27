@@ -111,6 +111,98 @@ export const TYPE_DEX = {
 
 export const TYPE_LIST = Object.keys(TYPE_DEX);
 
+export const AREA_ENCOUNTER_PROFILES = {
+  spawn_town: {
+    levelRange: [1, 2],
+    commonTypes: ["Feral", "Moss"],
+    uncommonTypes: ["Lunar", "Tidal"],
+    rareTypes: ["Spirit"],
+    species: {
+      common: ["Blooplet", "Skibble", "Woblin"],
+      uncommon: ["Nimphib", "Moonook"],
+      rare: ["Glimfix"]
+    }
+  },
+  tallgrass_route: {
+    levelRange: [2, 7],
+    commonTypes: ["Moss", "Feral", "Tidal"],
+    uncommonTypes: ["Stone", "Zap"],
+    rareTypes: ["Lunar"],
+    species: {
+      common: ["Blooplet", "Fangmop", "Nimphib"],
+      uncommon: ["Tunkhopper", "Pebblin"],
+      rare: ["Moonook"]
+    }
+  },
+  stable_district: {
+    levelRange: [2, 5],
+    commonTypes: ["Feral", "Moss"],
+    uncommonTypes: ["Stone", "Iron"],
+    rareTypes: ["Spirit"],
+    species: {
+      common: ["Woblin", "Skibble"],
+      uncommon: ["Pebblin", "Mossdrake"],
+      rare: ["Glimfix"]
+    }
+  },
+  event_plaza: {
+    levelRange: [3, 6],
+    commonTypes: ["Lunar", "Zap"],
+    uncommonTypes: ["Spirit", "Glitch"],
+    rareTypes: ["Frost"],
+    species: {
+      common: ["Moonook", "Voltuff"],
+      uncommon: ["Glimfix", "Grembryo"],
+      rare: ["Nimphib"]
+    }
+  },
+  mushroom_grove: {
+    levelRange: [5, 11],
+    commonTypes: ["Moss", "Toxic", "Spirit"],
+    uncommonTypes: ["Frost", "Stone"],
+    rareTypes: ["Glitch"],
+    species: {
+      common: ["Mossdrake", "Grembryo", "Blooplet"],
+      uncommon: ["Moonook", "Glimfix"],
+      rare: ["Voltuff"]
+    }
+  },
+  neon_rift: {
+    levelRange: [6, 13],
+    commonTypes: ["Glitch", "Zap", "Lunar"],
+    uncommonTypes: ["Spirit", "Toxic"],
+    rareTypes: ["Iron"],
+    species: {
+      common: ["Voltuff", "Glimfix", "Moonook"],
+      uncommon: ["Grembryo", "Nimphib"],
+      rare: ["Pebblin"]
+    }
+  },
+  scrapyard: {
+    levelRange: [5, 12],
+    commonTypes: ["Iron", "Stone", "Toxic"],
+    uncommonTypes: ["Feral", "Glitch"],
+    rareTypes: ["Zap"],
+    species: {
+      common: ["Pebblin", "Tunkhopper", "Woblin"],
+      uncommon: ["Grembryo", "Voltuff"],
+      rare: ["Fangmop"]
+    }
+  },
+  pondside_path: {
+    levelRange: [4, 10],
+    commonTypes: ["Tidal", "Moss", "Frost"],
+    uncommonTypes: ["Lunar", "Spirit"],
+    rareTypes: ["Zap"],
+    species: {
+      common: ["Nimphib", "Blooplet", "Moonook"],
+      uncommon: ["Mossdrake", "Glimfix"],
+      rare: ["Voltuff"]
+    }
+  }
+};
+
+
 export const STARTER_OPTIONS = [
   {
     key: "emberling",
@@ -238,17 +330,25 @@ export function createStarterPet(userId, username, starterKey) {
   return starter;
 }
 
-export function generateWildPet({ userId, zone = "wild_scrapyard", seed = Date.now() }) {
-  const zoneBias = zone.includes("abyss") ? 3 : zone.includes("ruins") ? 2 : 1;
-  const levelBase = 1 + (seededInt(`${seed}:${zone}`) % (4 + zoneBias * 2));
+export function generateWildPet({ userId, zone = "tallgrass_route", seed = Date.now() }) {
+  const profile = AREA_ENCOUNTER_PROFILES[zone] || AREA_ENCOUNTER_PROFILES.tallgrass_route;
+  const tierRoll = Math.abs(seededInt(`${seed}:${zone}:tier`)) % 100;
+  const tier = tierRoll < 66 ? "common" : tierRoll < 92 ? "uncommon" : "rare";
+
+  const levelMin = Number(profile.levelRange?.[0] || 1);
+  const levelMax = Number(profile.levelRange?.[1] || 4);
+  const forcedPrimaryType = pickEncounterType(profile, tier, seed + 21);
+  const forcedSpecies = pickEncounterSpecies(profile, tier, seed + 31);
 
   return generatePet({
     userId,
-    minLevel: levelBase,
-    maxLevel: levelBase + zoneBias + 2,
+    minLevel: levelMin,
+    maxLevel: Math.max(levelMin, levelMax),
     seed,
     source: "wild",
-    zoneHint: zone
+    zoneHint: zone,
+    forcedPrimaryType,
+    forcedSpecies
   });
 }
 
@@ -490,8 +590,10 @@ export function summarizePet(pet) {
 }
 
 function determinePrimaryType({ seed, zoneHint, growthBias }) {
-  if (zoneHint.includes("abyss")) return weightedType(seed, ["Glitch", "Spirit", "Lunar", "Zap"]);
-  if (zoneHint.includes("ruins")) return weightedType(seed, ["Moss", "Frost", "Toxic", "Stone"]);
+  const profile = AREA_ENCOUNTER_PROFILES[zoneHint];
+  if (profile) {
+    return pickEncounterType(profile, "common", seed + 7);
+  }
   if (growthBias === "Tank") return weightedType(seed, ["Stone", "Iron", "Moss", "Feral"]);
   if (growthBias === "Sprinter") return weightedType(seed, ["Zap", "Ember", "Lunar", "Feral"]);
   return TYPE_LIST[Math.abs(seededInt(`${seed}:${zoneHint}:${growthBias}`)) % TYPE_LIST.length];
@@ -502,6 +604,25 @@ function determineSecondaryType(primaryType, seed) {
   if (roll > 34) return null;
   const candidates = TYPE_LIST.filter((type) => type !== primaryType && !TYPE_DEX[primaryType].weak.includes(type));
   return candidates[Math.abs(seededInt(`${primaryType}:secondary:${seed}`)) % candidates.length] || null;
+}
+
+
+function pickEncounterType(profile, tier, seed) {
+  const buckets = {
+    common: profile.commonTypes || [],
+    uncommon: profile.uncommonTypes || profile.commonTypes || [],
+    rare: profile.rareTypes || profile.uncommonTypes || profile.commonTypes || []
+  };
+  const pool = buckets[tier] && buckets[tier].length ? buckets[tier] : (profile.commonTypes || TYPE_LIST);
+  return pickFrom(pool, seed);
+}
+
+function pickEncounterSpecies(profile, tier, seed) {
+  const speciesPool = profile?.species?.[tier]
+    || profile?.species?.uncommon
+    || profile?.species?.common
+    || SPECIES;
+  return pickFrom(speciesPool, seed);
 }
 
 function weightedType(seed, list) {
