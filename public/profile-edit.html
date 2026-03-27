@@ -10,28 +10,29 @@
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
-    <main class="page-main">
+    <main class="page-main page-main-tight">
       <p class="gambling-breadcrumb"><a href="/profile.html">← Back to profile</a></p>
       <section class="panel">
+        <p class="eyebrow">Profile studio</p>
         <h1 class="auth-title">Edit your profile</h1>
-        <p class="auth-subtitle">Update your profile details, media, music, avatar setup, gradient background colours, and your CS2 improvement accounts.</p>
-        <div id="profile-message" class="hidden"></div>
+        <p class="auth-subtitle">Update identity details, media, avatar setup, profile colors, and linked CS2 services.</p>
+        <div id="profile-message" class="hidden mt-16"></div>
         <form id="profile-form" class="form-grid mt-24">
-          <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+          <div class="detail-grid">
             <div class="form-group"><label class="form-label" for="real-name">Real name</label><input id="real-name" class="form-input" type="text" maxlength="80" /></div>
             <div class="form-group"><label class="form-label" for="motto">Motto</label><input id="motto" class="form-input" type="text" maxlength="140" /></div>
             <div class="form-group"><label class="form-label" for="avatar-url">Profile picture link (optional)</label><input id="avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://example.com/avatar.png" /></div>
-            <div class="form-group"><label class="form-label" for="avatar-initials">Avatar initials (used when no image link)</label><input id="avatar-initials" class="form-input" type="text" maxlength="3" placeholder="JD" /></div>
-            <div class="form-group"><label class="form-label" for="avatar-style">Avatar style</label><select id="avatar-style" class="form-input"><option value="rounded">Rounded</option><option value="circle">Circle</option><option value="diamond">Diamond</option></select></div>
-            <div class="form-group"><label class="form-label" for="profile-accent-color">Gradient colour 1</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
-            <div class="form-group"><label class="form-label" for="profile-accent-color-secondary">Gradient colour 2</label><input id="profile-accent-color-secondary" class="form-input" type="color" value="#0f172a" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-initials">Avatar initials (fallback)</label><input id="avatar-initials" class="form-input" type="text" maxlength="3" placeholder="JD" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-style">Avatar style</label><select id="avatar-style" class="form-select"><option value="rounded">Rounded</option><option value="circle">Circle</option><option value="diamond">Diamond</option></select></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color">Gradient color 1</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color-secondary">Gradient color 2</label><input id="profile-accent-color-secondary" class="form-input" type="color" value="#0f172a" /></div>
             <div class="form-group"><label class="form-label" for="pronouns">Pronouns</label><input id="pronouns" class="form-input" type="text" maxlength="50" placeholder="he/him" /></div>
             <div class="form-group"><label class="form-label" for="location">Location</label><input id="location" class="form-input" type="text" maxlength="120" placeholder="City, Country" /></div>
             <div class="form-group"><label class="form-label" for="favorite-game">Favourite game</label><input id="favorite-game" class="form-input" type="text" maxlength="120" placeholder="Counter-Strike 2" /></div>
           </div>
 
           <div class="form-group"><label class="form-label" for="bio">Bio</label><textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height:160px;"></textarea></div>
-          <div class="detail-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;">
+          <div class="detail-grid">
             <div class="form-group"><label class="form-label" for="media-1-url">Media 1 URL</label><input id="media-1-url" class="form-input" type="url" maxlength="1200" /></div>
             <div class="form-group"><label class="form-label" for="media-2-url">Media 2 URL</label><input id="media-2-url" class="form-input" type="url" maxlength="1200" /></div>
             <div class="form-group"><label class="form-label" for="media-3-url">Media 3 URL</label><input id="media-3-url" class="form-input" type="url" maxlength="1200" /></div>
@@ -46,7 +47,7 @@
     </main>
     <footer class="footer"><div class="footer-inner"></div></footer>
   </div>
-  <script>
+<script>
     const messageEl = document.getElementById('profile-message');
     const form = document.getElementById('profile-form');
     const saveBtn = document.getElementById('save-profile-btn');

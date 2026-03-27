@@ -12,60 +12,45 @@
     <div id="header-mount"></div>
 
     <main class="auth-wrap">
-      <section class="auth-card">
-        <p class="eyebrow">Welcome back</p>
-        <h1 class="auth-title">Login</h1>
-        <p class="auth-subtitle">
-          Sign in to Grev.dad to access the members area, forum, and chat.
-        </p>
+      <section class="auth-shell">
+        <aside class="auth-side">
+          <p class="eyebrow">Access hub</p>
+          <h1 class="auth-title">Welcome back</h1>
+          <p class="auth-subtitle">Sign in to re-enter your profile, the members network, forum discussions, and live global chat.</p>
+          <ul class="auth-side-list">
+            <li>⚡ Fast account login</li>
+            <li>👥 Full members access</li>
+            <li>💬 Forum + live chat privileges</li>
+          </ul>
+        </aside>
 
-        <div id="message-box" class="hidden"></div>
+        <section class="auth-card">
+          <p class="eyebrow">Member sign-in</p>
+          <h2 class="panel-title mt-12">Login</h2>
+          <div id="message-box" class="hidden mt-16"></div>
 
-        <form id="login-form" class="form-grid">
-          <div class="form-group">
-            <label class="form-label" for="username">Username</label>
-            <input
-              class="form-input"
-              id="username"
-              name="username"
-              type="text"
-              maxlength="32"
-              autocomplete="username"
-              required
-            />
-          </div>
+          <form id="login-form" class="form-grid mt-16">
+            <div class="form-group">
+              <label class="form-label" for="username">Username</label>
+              <input class="form-input" id="username" name="username" type="text" maxlength="32" autocomplete="username" required />
+            </div>
 
-          <div class="form-group">
-            <label class="form-label" for="password">Password</label>
-            <input
-              class="form-input"
-              id="password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              required
-            />
-          </div>
+            <div class="form-group">
+              <label class="form-label" for="password">Password</label>
+              <input class="form-input" id="password" name="password" type="password" autocomplete="current-password" required />
+            </div>
 
-          <div class="button-row mt-12">
-            <button class="btn btn-primary btn-full" id="login-btn" type="submit">
-              Login
-            </button>
-          </div>
-        </form>
+            <div class="button-row mt-12">
+              <button class="btn btn-primary btn-full" id="login-btn" type="submit">Login</button>
+            </div>
+          </form>
 
-        <p class="small-text center-text mt-20">
-          Need an account?
-          <a href="/register.html">Register here</a>
-        </p>
+          <p class="small-text center-text mt-20">Need an account? <a href="/register.html">Register here</a></p>
+        </section>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        Grev.dad — community login system rebuild phase 1
-      </div>
-    </footer>
+    <footer class="footer"><div class="footer-inner">Grev.dad — authentication gateway</div></footer>
   </div>
 
   <script>

@@ -6,323 +6,89 @@
   <title>Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
-  <style>
-    .main-stack,
-    .intro-stack,
-    .playground-list,
-    .chat-shell,
-    .home-footer-note,
-    .below-hero-grid,
-    .status-grid,
-    .hero-metrics {
-      display: grid;
-      gap: 16px;
-    }
-
-    .main-stack { width: min(100%, 1240px); margin: 0 auto; gap: 24px; }
-
-    .home-hero {
-      position: relative;
-      overflow: hidden;
-      border-radius: 28px;
-      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-      background:
-        radial-gradient(circle at 85% 0%, rgba(121, 184, 255, 0.2), transparent 35%),
-        radial-gradient(circle at 8% 80%, rgba(141, 125, 255, 0.2), transparent 40%),
-        linear-gradient(145deg, color-mix(in srgb, var(--surface) 35%, transparent), transparent);
-    }
-
-    .below-hero-grid {
-      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
-      gap: 24px;
-      align-items: start;
-    }
-
-    .eyebrow {
-      margin: 0;
-      color: var(--accent);
-      font-size: 0.95rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .home-title {
-      margin: 0;
-      font-size: clamp(2.2rem, 5vw, 3.7rem);
-      line-height: 0.98;
-      letter-spacing: -0.02em;
-    }
-
-    .home-copy,
-    .home-footer-copy {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.7;
-    }
-
-    .playground-list {
-      align-content: start;
-    }
-
-    .playground-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: color-mix(in srgb, var(--surface) 90%, transparent);
-      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-    }
-
-    .playground-card:hover {
-      transform: translateY(-2px);
-      border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-      background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
-    }
-
-    .playground-card__emoji {
-      font-size: 1.8rem;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-
-    .playground-card__title {
-      margin: 0;
-      color: var(--text);
-      font-size: 1rem;
-    }
-
-    .home-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .hero-metrics {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      margin-top: 22px;
-    }
-
-    .hero-metric {
-      border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-      background: color-mix(in srgb, var(--surface) 72%, transparent);
-      border-radius: 16px;
-      padding: 14px;
-    }
-
-    .hero-metric__label { margin: 0; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
-    .hero-metric__value { margin: 8px 0 0; font-size: 1.08rem; font-weight: 760; }
-
-    .chat-box {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: var(--surface-strong);
-      min-height: 420px;
-      max-height: 520px;
-      overflow-y: auto;
-      padding: 14px;
-      display: grid;
-      gap: 12px;
-    }
-
-    .chat-empty,
-    .chat-time { color: var(--muted); }
-    .chat-message {
-      padding: 12px 13px;
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius: 12px;
-      background: color-mix(in srgb, var(--surface) 90%, transparent);
-    }
-    .chat-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 0.86rem; }
-    .chat-author { display: inline-flex; align-items: center; gap: 10px; }
-    .chat-avatar,
-    .chat-avatar-placeholder { width: 32px; height: 32px; border-radius: 999px; flex-shrink: 0; }
-    .chat-avatar { object-fit: cover; border: 1px solid var(--border); }
-    .chat-avatar-placeholder { display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); font-weight: 800; }
-    .chat-user { font-weight: 700; color: var(--text); }
-    .chat-group {
-      color: var(--text);
-      background: color-mix(in srgb, var(--accent) 12%, transparent);
-      border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-      border-radius: 999px;
-      padding: 2px 8px;
-    }
-    .chat-text { color: var(--text); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
-    .chat-form { display: grid; gap: 12px; }
-    .chat-textarea { min-height: 100px; resize: vertical; }
-    .guest-note { margin-top: 12px; }
-
-    .footer-status {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      font-weight: 700;
-    }
-
-    .footer-status time {
-      color: var(--accent);
-    }
-
-    .status-grid {
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .status-card {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      background: color-mix(in srgb, var(--surface) 92%, transparent);
-      padding: 16px;
-      display: grid;
-      gap: 8px;
-    }
-
-    .status-label {
-      margin: 0;
-      color: var(--muted);
-      font-weight: 700;
-    }
-
-    .status-value {
-      margin: 0;
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--text);
-      letter-spacing: 0.02em;
-    }
-
-    @media (max-width: 980px) {
-      .below-hero-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-metrics {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
 
     <main class="page-main">
-      <div class="main-stack">
-        <section class="panel home-hero">
-          <div class="intro-stack">
-            <p class="eyebrow">Welcome to Grev.dad</p>
-            <h1 class="home-title">Your dark-mode community hub for chaos, games, and side quests.</h1>
-            <p class="home-copy">Grev.dad blends forum culture, profile identity, playful experiments, and social features into one polished platform. Jump into discussions, explore playgrounds, and make the space yours.</p>
-          </div>
+      <div class="home-shell">
+        <section class="home-hero">
+          <div class="home-hero-grid">
+            <div>
+              <p class="eyebrow">Welcome to Grev.dad</p>
+              <h1 class="home-title">A premium dark community world for games, threads, and chaos.</h1>
+              <p class="home-copy">Grev.dad combines social identity, member discovery, forum culture, and playful modules in one modern platform. Explore, post, chat live, and build your corner of the scene.</p>
 
-          <div class="home-actions" id="guest-actions">
-            <a class="btn btn-primary" href="/register.html">Create account</a>
-            <a class="btn" href="/login.html">Sign in</a>
-          </div>
+              <div class="home-actions" id="guest-actions">
+                <a class="btn btn-primary" href="/register.html">Create account</a>
+                <a class="btn" href="/login.html">Sign in</a>
+              </div>
 
-          <div class="home-actions hidden" id="member-actions">
-            <a class="btn btn-primary" href="/members.html">Browse members</a>
-            <a class="btn" href="/profile.html">Your profile</a>
-            <a class="btn" href="/forum.html">Open forum</a>
-          </div>
+              <div class="home-actions hidden" id="member-actions">
+                <a class="btn btn-primary" href="/members.html">Browse members</a>
+                <a class="btn" href="/profile.html">Your profile</a>
+                <a class="btn" href="/forum.html">Open forum</a>
+              </div>
+            </div>
 
-          <div class="hero-metrics">
-            <article class="hero-metric">
-              <p class="hero-metric__label">Community Focus</p>
-              <p class="hero-metric__value">Profiles · Forum · Live Chat</p>
-            </article>
-            <article class="hero-metric">
-              <p class="hero-metric__label">Platform Mood</p>
-              <p class="hero-metric__value">Dark, sleek, gaming-tech inspired</p>
-            </article>
-            <article class="hero-metric">
-              <p class="hero-metric__label">Always Evolving</p>
-              <p class="hero-metric__value">New modules and features drop often</p>
-            </article>
+            <div class="home-metrics">
+              <article class="metric-card">
+                <p class="metric-label">Community Core</p>
+                <p class="metric-value">Profiles · Forum · Global Chat</p>
+              </article>
+              <article class="metric-card">
+                <p class="metric-label">Design Language</p>
+                <p class="metric-value">Layered dark shell + premium cards</p>
+              </article>
+              <article class="metric-card">
+                <p class="metric-label">Live Status</p>
+                <p class="metric-value">Always evolving with new drops</p>
+              </article>
+            </div>
           </div>
         </section>
 
-        <div class="below-hero-grid">
+        <section class="home-grid-2">
           <aside class="panel">
             <p class="eyebrow">Playgrounds</p>
-            <h2 class="panel-title">Jump into the fun</h2>
-            <div class="playground-list">
-              <a class="playground-card" href="/playground/gambling/index.html">
-                <span class="playground-card__emoji" aria-hidden="true">🎰</span>
-                <h3 class="playground-card__title">Casino</h3>
-              </a>
-              <a class="playground-card" href="/playground/cs2/index.html">
-                <span class="playground-card__emoji" aria-hidden="true">🎮</span>
-                <h3 class="playground-card__title">Counter Strike</h3>
-              </a>
-              <a class="playground-card" href="/playground/misc/j-playground/index.html">
-                <span class="playground-card__emoji" aria-hidden="true">🧪</span>
-                <h3 class="playground-card__title">J Playground</h3>
-              </a>
-              <a class="playground-card" href="/playground/misc/dkpg/index.html">
-                <span class="playground-card__emoji" aria-hidden="true">🛝</span>
-                <h3 class="playground-card__title">DKPG</h3>
-              </a>
-              <a class="playground-card" href="/playground/grev-pets/index.html">
-                <span class="playground-card__emoji" aria-hidden="true">🐾</span>
-                <h3 class="playground-card__title">Grev Pets Playground</h3>
-              </a>
-              <a id="cpl-playground-card" class="playground-card hidden" href="/playground/cpl/">
-                <span class="playground-card__emoji" aria-hidden="true">⚽</span>
-                <h3 class="playground-card__title">CPL Playground</h3>
-              </a>
+            <h2 class="panel-title">Jump into hubs</h2>
+            <p class="panel-subtitle">Hand-picked spaces for casino games, experiments, and side projects.</p>
+            <div class="playground-list mt-16">
+              <a class="playground-card" href="/playground/gambling/index.html"><span class="playground-card__emoji" aria-hidden="true">🎰</span><h3 class="playground-card__title">Casino</h3></a>
+              <a class="playground-card" href="/playground/cs2/index.html"><span class="playground-card__emoji" aria-hidden="true">🎮</span><h3 class="playground-card__title">Counter Strike</h3></a>
+              <a class="playground-card" href="/playground/misc/j-playground/index.html"><span class="playground-card__emoji" aria-hidden="true">🧪</span><h3 class="playground-card__title">J Playground</h3></a>
+              <a class="playground-card" href="/playground/misc/dkpg/index.html"><span class="playground-card__emoji" aria-hidden="true">🛝</span><h3 class="playground-card__title">DKPG</h3></a>
+              <a class="playground-card" href="/playground/grev-pets/index.html"><span class="playground-card__emoji" aria-hidden="true">🐾</span><h3 class="playground-card__title">Grev Pets Playground</h3></a>
+              <a id="cpl-playground-card" class="playground-card hidden" href="/playground/cpl/"><span class="playground-card__emoji" aria-hidden="true">⚽</span><h3 class="playground-card__title">CPL Playground</h3></a>
             </div>
           </aside>
 
           <section class="panel chat-shell">
+            <p class="eyebrow">Live Community</p>
             <h2 class="panel-title">Global Chat</h2>
             <div id="chat-status" class="alert alert-info">Loading chat...</div>
+            <div id="global-chat-box" class="chat-box mt-16"><div class="chat-empty">No messages yet.</div></div>
 
-            <div class="mt-16">
-              <div id="global-chat-box" class="chat-box">
-                <div class="chat-empty">No messages yet.</div>
+            <div id="guest-chat-note" class="alert alert-info guest-note hidden">You need to be logged in to send messages in global chat.</div>
+
+            <form id="global-chat-form" class="chat-form hidden mt-16">
+              <div class="form-group">
+                <label class="form-label" for="chat-message">Say something</label>
+                <textarea id="chat-message" class="form-input form-textarea chat-textarea" maxlength="1000" placeholder="Type a message to the global chat..."></textarea>
               </div>
-
-              <div id="guest-chat-note" class="alert alert-info guest-note hidden">
-                You need to be logged in to send messages in global chat.
-              </div>
-
-              <form id="global-chat-form" class="chat-form hidden mt-16">
-                <div class="form-group">
-                  <label class="form-label" for="chat-message">Say something</label>
-                  <textarea
-                    id="chat-message"
-                    class="form-input form-textarea chat-textarea"
-                    maxlength="1000"
-                    placeholder="Type a message to the global chat..."
-                  ></textarea>
-                </div>
-
-                <div class="button-row">
-                  <button id="send-chat-btn" class="btn btn-primary" type="submit">
-                    Send message
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div class="button-row"><button id="send-chat-btn" class="btn btn-primary" type="submit">Send message</button></div>
+            </form>
           </section>
-        </div>
+        </section>
 
         <section class="panel">
           <p class="eyebrow">Local Watch</p>
-          <h2 class="panel-title">Status of the QEH</h2>
-          <div class="status-grid">
-            <article class="status-card">
-              <h3 class="status-label">New Hospital?</h3>
-              <p class="status-value">Current status: NO</p>
-            </article>
-            <article class="status-card">
-              <h3 class="status-label">Blown Up?</h3>
-              <p class="status-value">Current status: NO</p>
-            </article>
+          <h2 class="panel-title">QEH status board</h2>
+          <div class="status-grid mt-16">
+            <article class="status-card"><h3 class="status-label">New Hospital?</h3><p class="status-value">Current status: NO</p></article>
+            <article class="status-card"><h3 class="status-label">Blown Up?</h3><p class="status-value">Current status: NO</p></article>
+            <article class="status-card"><h3 class="status-label">Community Pulse</h3><p class="status-value">Current status: ONLINE</p></article>
           </div>
         </section>
       </div>
@@ -330,16 +96,13 @@
 
     <footer class="footer">
       <div class="footer-inner home-footer-note">
-        <div class="footer-status">
-          <span>Site Update —</span>
-          <time datetime="2026-03-23T16:28:34+00:00">23/03/2026, 16:28 UTC</time>
-        </div>
+        <div class="footer-status"><span>Site Update —</span><time datetime="2026-03-23T16:28:34+00:00">23/03/2026, 16:28 UTC</time></div>
         <p class="home-footer-copy">Latest GitHub main push visible from this workspace snapshot.</p>
       </div>
     </footer>
   </div>
 
-  <script>
+<script>
     let currentUser = null;
     let chatPollInterval = null;
     const guestActions = document.getElementById("guest-actions");

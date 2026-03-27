@@ -6,31 +6,6 @@
   <title>Profile | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
-  <style>
-    .profile-layout { display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(320px, .8fr); gap:24px; align-items:start; }
-    .profile-stack { display:grid; gap:24px; }
-    .profile-shell { border-radius:24px; border:1px solid color-mix(in srgb, var(--profile-accent, #1f2937) 50%, var(--border)); background:linear-gradient(135deg, color-mix(in srgb, var(--profile-accent, #1f2937) 60%, rgba(15,23,42,.95)), color-mix(in srgb, var(--profile-accent-2, #0f172a) 68%, rgba(15,23,42,.92))); box-shadow:var(--shadow); }
-    .profile-hero { display:grid; grid-template-columns:140px minmax(0,1fr); gap:20px; align-items:start; }
-    .profile-avatar,.profile-avatar-placeholder { width:140px; height:140px; border-radius:24px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); }
-    .profile-avatar { object-fit:cover; }
-    .profile-avatar-placeholder { display:grid; place-items:center; font-size:2rem; font-weight:800; color:#fff; }
-    .profile-title { margin:0 0 8px; font-size:clamp(2rem,4vw,2.6rem); }
-    .profile-subtitle,.muted-copy { color:rgba(255,255,255,.78); line-height:1.6; }
-    .profile-badges,.profile-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
-    .profile-badge { display:inline-flex; align-items:center; min-height:30px; padding:0 12px; border-radius:999px; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.13); font-weight:650; }
-    .profile-media-grid,.profile-info-grid { display:grid; gap:14px; }
-    .profile-media-grid { grid-template-columns:repeat(3, minmax(0,1fr)); }
-    .profile-media-grid img { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:16px; border:1px solid var(--border); background:rgba(255,255,255,.03); }
-    .profile-info-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .info-card { border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:16px; background:color-mix(in srgb, var(--surface) 74%, transparent); padding:16px; }
-    .info-card h3 { margin:0 0 6px; font-size:.95rem; }
-    .info-card p { margin:0; color:var(--muted); line-height:1.45; word-break:break-word; }
-    .profile-bio { white-space:pre-wrap; line-height:1.7; }
-    .music-frame { width:100%; border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); overflow:hidden; }
-    .music-frame iframe,.music-audio { width:100%; border:0; display:block; }
-    @media (max-width:980px){ .profile-layout{grid-template-columns:1fr;} }
-    @media (max-width:700px){ .profile-hero,.profile-media-grid,.profile-info-grid{grid-template-columns:1fr;} }
-  </style>
 </head>
 <body>
   <div class="page-shell">
@@ -44,6 +19,7 @@
             <div class="profile-hero">
               <div id="profile-avatar-wrap"></div>
               <div>
+                <p class="eyebrow">Member identity</p>
                 <h1 id="profile-title" class="profile-title">Loading profile...</h1>
                 <p id="profile-real-name" class="profile-subtitle"></p>
                 <p id="profile-motto" class="profile-subtitle"></p>
@@ -53,19 +29,19 @@
             </div>
           </section>
           <section class="panel"><h2 class="panel-title">Bio</h2><div id="profile-bio" class="profile-bio muted-copy">No bio set.</div></section>
-          <section class="panel"><h2 class="panel-title">Media</h2><div id="profile-media" class="profile-media-grid"></div><div id="profile-media-empty" class="muted-copy mt-12">No profile media added.</div></section>
-          <section class="panel"><h2 class="panel-title">Music</h2><div id="profile-music-wrap" class="muted-copy">No music saved.</div></section>
+          <section class="panel"><h2 class="panel-title">Media</h2><div id="profile-media" class="profile-media-grid mt-16"></div><div id="profile-media-empty" class="muted-copy mt-12">No profile media added.</div></section>
+          <section class="panel"><h2 class="panel-title">Music</h2><div id="profile-music-wrap" class="muted-copy mt-16">No music saved.</div></section>
         </section>
         <aside class="profile-stack">
-          <section class="panel"><h2 class="panel-title">Profile details</h2><div id="profile-info" class="profile-info-grid"></div></section>
-          <section class="panel"><h2 class="panel-title">Linked CS2 accounts</h2><div id="profile-cs-accounts" class="profile-info-grid"></div></section>
-          <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is now visible directly on your profile.</p><div id="casino-profile-balance" class="info-card"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
-          <section class="panel"><h2 class="panel-title">CS2 simulator showcase</h2><p class="panel-subtitle">Simulated Grev Coins balance, opens, and recent drops.</p><div id="cs2-profile-body" class="muted">Loading CS2 stats…</div><div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div><div class="mt-16" style="display:flex;flex-wrap:wrap;gap:10px;"><a class="btn btn-primary" href="/playground/gambling/index.html">Open gambling hub</a><a class="btn" href="/playground/gambling/index.html">Casino</a></div></section>
+          <section class="panel"><h2 class="panel-title">Profile details</h2><div id="profile-info" class="profile-info-grid mt-16"></div></section>
+          <section class="panel"><h2 class="panel-title">Linked CS2 accounts</h2><div id="profile-cs-accounts" class="profile-info-grid mt-16"></div></section>
+          <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is visible directly on profile.</p><div id="casino-profile-balance" class="info-card mt-16"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
+          <section class="panel"><h2 class="panel-title">Showcase</h2><p class="panel-subtitle">Simulated Grev Coins balance, opens, and drops.</p><div id="cs2-profile-body" class="muted mt-16">Loading CS2 stats…</div><div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div><div class="button-row mt-16"><a class="btn btn-primary" href="/playground/gambling/index.html">Open gambling hub</a><a class="btn" href="/playground/gambling/index.html">Casino</a></div></section>
         </aside>
       </div>
     </main>
   </div>
-  <script>
+<script>
     const AUTH_CACHE_KEY = 'grevdad_auth_user';
     const params = new URLSearchParams(window.location.search);
     const profileId = Number(params.get('id') || '');
