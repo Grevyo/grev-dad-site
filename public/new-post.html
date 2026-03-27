@@ -11,68 +11,47 @@
   <div class="page-shell">
     <div id="header-mount"></div>
 
-    <main class="page-main">
-      <section class="panel" style="max-width: 900px; margin: 0 auto;">
-        <h1 class="auth-title">Create a forum post</h1>
-        <p class="auth-subtitle">
-          Start a new thread for the whole site to see and reply to.
-        </p>
+    <main class="page-main page-main-tight">
+      <section class="composer-shell">
+        <section class="composer-card">
+          <p class="eyebrow">Create thread</p>
+          <h1 class="auth-title">Publish a new post</h1>
+          <p class="auth-subtitle">Launch a topic for the whole community to react to and discuss.</p>
+          <div id="post-message" class="hidden mt-16"></div>
 
-        <div id="post-message" class="hidden"></div>
-
-        <form id="new-post-form" class="form-grid">
-          <div class="form-group">
-            <label class="form-label" for="post-title">Title</label>
-            <input
-              id="post-title"
-              class="form-input"
-              type="text"
-              maxlength="140"
-              placeholder="Write a thread title..."
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="post-image-url">Image URL</label>
-            <input
-              id="post-image-url"
-              class="form-input"
-              type="url"
-              maxlength="1200"
-              placeholder="https://..."
-            />
-            <div class="form-help">
-              Optional. Paste a direct image link if you want the thread to show an image.
+          <form id="new-post-form" class="form-grid mt-20">
+            <div class="form-group">
+              <label class="form-label" for="post-title">Title</label>
+              <input id="post-title" class="form-input" type="text" maxlength="140" placeholder="Write a thread title..." required />
             </div>
-          </div>
+            <div class="form-group">
+              <label class="form-label" for="post-image-url">Image URL</label>
+              <input id="post-image-url" class="form-input" type="url" maxlength="1200" placeholder="https://..." />
+              <div class="form-help">Optional. Paste a direct image link for thread preview.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="post-body">Post body</label>
+              <textarea id="post-body" class="form-input form-textarea" style="min-height: 260px;" maxlength="12000" placeholder="Write your thread..." required></textarea>
+            </div>
+            <div class="button-row"><button id="create-post-btn" class="btn btn-primary" type="submit">Create post</button><a class="btn" href="/forum.html">Back to forum</a></div>
+          </form>
+        </section>
 
-          <div class="form-group">
-            <label class="form-label" for="post-body">Post body</label>
-            <textarea
-              id="post-body"
-              class="form-input form-textarea"
-              style="min-height: 260px;"
-              maxlength="12000"
-              placeholder="Write your thread..."
-              required
-            ></textarea>
-          </div>
-
-          <div class="button-row">
-            <button id="create-post-btn" class="btn btn-primary" type="submit">Create post</button>
-            <a class="btn" href="/forum.html">Back to forum</a>
-          </div>
-        </form>
+        <aside class="thread-side">
+          <h2 class="panel-title">Posting tips</h2>
+          <ul class="auth-side-list">
+            <li>🎯 Use a clear title with topic context.</li>
+            <li>🖼️ Add one strong image if it helps.</li>
+            <li>💬 Leave space for replies and follow-ups.</li>
+          </ul>
+        </aside>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">Grev.dad — new forum post</div>
-    </footer>
+    <footer class="footer"><div class="footer-inner">Grev.dad — new forum post</div></footer>
   </div>
 
-  <script>
+<script>
     const form = document.getElementById("new-post-form");
     const createPostBtn = document.getElementById("create-post-btn");
     const postMessage = document.getElementById("post-message");

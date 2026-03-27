@@ -6,146 +6,56 @@
   <title>Forum Thread | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
-  <style>
-    .thread-title {
-      margin: 0 0 12px;
-      font-size: 2rem;
-      line-height: 1.15;
-    }
-
-    .thread-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 0.92rem;
-      margin-bottom: 18px;
-    }
-
-    .thread-meta span {
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius: 999px;
-      padding: 4px 10px;
-      background: color-mix(in srgb, var(--surface) 70%, transparent);
-    }
-
-    .thread-image {
-      width: 100%;
-      max-height: 460px;
-      object-fit: cover;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      margin-bottom: 18px;
-      background: rgba(255,255,255,0.03);
-    }
-
-    .thread-body {
-      white-space: pre-wrap;
-      line-height: 1.65;
-      font-size: 1rem;
-      color: var(--text);
-    }
-
-    .thread-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .comments-list {
-      display: grid;
-      gap: 14px;
-      margin-top: 20px;
-    }
-
-    .comment-card {
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius: 16px;
-      background: color-mix(in srgb, var(--surface) 76%, transparent);
-      padding: 16px;
-    }
-
-    .comment-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 0.88rem;
-      margin-bottom: 10px;
-    }
-
-    .comment-body {
-      white-space: pre-wrap;
-      line-height: 1.55;
-    }
-
-    .empty-box {
-      border: 1px dashed var(--border);
-      border-radius: var(--radius-md);
-      padding: 22px;
-      text-align: center;
-      color: var(--muted);
-    }
-  </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
 
-    <main class="page-main">
-      <section class="panel">
-        <div id="thread-message" class="hidden"></div>
+    <main class="page-main page-main-tight">
+      <div id="thread-message" class="hidden"></div>
+      <section class="thread-layout">
+        <article class="thread-main">
+          <h1 id="thread-title" class="thread-title">Loading thread...</h1>
+          <div id="thread-meta" class="thread-meta"></div>
+          <div id="thread-image-wrap" class="mt-16"></div>
+          <div id="thread-body" class="thread-body mt-16"></div>
 
-        <h1 id="thread-title" class="thread-title">Loading thread...</h1>
-        <div id="thread-meta" class="thread-meta"></div>
-        <div id="thread-image-wrap"></div>
-        <div id="thread-body" class="thread-body"></div>
+          <div class="thread-actions">
+            <button id="like-btn" class="btn" type="button">👍 Like</button>
+            <button id="dislike-btn" class="btn" type="button">👎 Dislike</button>
+            <button id="remove-btn" class="btn btn-danger hidden" type="button">Remove post</button>
+            <a class="btn" href="/forum.html">Back to forum</a>
+          </div>
+        </article>
 
-        <div class="thread-actions">
-          <button id="like-btn" class="btn" type="button">👍 Like</button>
-          <button id="dislike-btn" class="btn" type="button">👎 Dislike</button>
-          <button id="remove-btn" class="btn hidden" type="button">Remove post</button>
-          <a class="btn" href="/forum.html">Back to forum</a>
-        </div>
+        <aside class="thread-side">
+          <p class="eyebrow">Thread tools</p>
+          <h2 class="panel-title">Discussion lane</h2>
+          <p class="panel-subtitle">React to posts, add comments, and keep the thread active.</p>
+          <div id="comment-login-note" class="alert alert-info mt-16">Log in to react to posts and add comments.</div>
+        </aside>
       </section>
 
       <section class="panel mt-24">
         <h2 class="panel-title">Comments</h2>
         <p class="panel-subtitle">Join the discussion below.</p>
 
-        <form id="comment-form" class="form-grid hidden">
+        <form id="comment-form" class="form-grid hidden mt-16">
           <div class="form-group">
             <label class="form-label" for="comment-input">Write a comment</label>
-            <textarea
-              id="comment-input"
-              class="form-input form-textarea"
-              maxlength="3000"
-              placeholder="Write your comment..."
-            ></textarea>
+            <textarea id="comment-input" class="form-input form-textarea" maxlength="3000" placeholder="Write your comment..."></textarea>
           </div>
-
-          <div class="button-row">
-            <button id="comment-submit-btn" class="btn btn-primary" type="submit">Post comment</button>
-          </div>
+          <div class="button-row"><button id="comment-submit-btn" class="btn btn-primary" type="submit">Post comment</button></div>
         </form>
 
-        <div id="comment-login-note" class="alert alert-info">
-          Log in to react to posts and add comments.
-        </div>
-
-        <div id="comments-list" class="comments-list">
-          <div class="empty-box">Loading comments...</div>
-        </div>
+        <div id="comments-list" class="comments-list mt-16"><div class="empty-box">Loading comments...</div></div>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">Grev.dad — forum thread</div>
-    </footer>
+    <footer class="footer"><div class="footer-inner">Grev.dad — forum thread</div></footer>
   </div>
 
-  <script>
+<script>
     const params = new URLSearchParams(window.location.search);
     const postId = Number(params.get("id") || "");
 

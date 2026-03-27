@@ -6,41 +6,16 @@
   <title>Admin | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
-  <style>
-    .admin-shell { display:grid; gap:24px; }
-    .admin-tabs, .tab-actions, .balance-actions, .hero-actions { display:flex; flex-wrap:wrap; gap:12px; }
-    .admin-layout { display:grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap:24px; align-items:start; }
-    .admin-stack { display:grid; gap:24px; }
-    .admin-tab { border:1px solid color-mix(in srgb, var(--border) 78%, transparent); background:color-mix(in srgb, var(--surface) 72%, transparent); color:var(--text); border-radius:999px; padding:10px 16px; font-weight:700; }
-    .admin-tab.active { background:color-mix(in srgb, var(--accent) 16%, transparent); border-color:var(--accent); }
-    .admin-panel.hidden { display:none; }
-    .user-list, .balance-list { display:grid; gap:10px; max-height:620px; overflow:auto; }
-    .list-card, .balance-row { border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:16px; background:color-mix(in srgb, var(--surface) 70%, transparent); padding:14px; }
-    .list-card.active { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 14%, transparent); }
-    .list-card button, .balance-row button { width:100%; text-align:left; background:none; border:0; color:inherit; padding:0; }
-    .list-main, .balance-main, .detail-grid { display:grid; gap:12px; }
-    .list-title, .balance-title { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-    .pill { display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:.82rem; background:rgba(255,255,255,.05); }
-    .muted-copy { color:var(--muted); line-height:1.5; }
-    .detail-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
-    .detail-card, .balance-summary, .casino-admin-hero { border:1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius:16px; background:color-mix(in srgb, var(--surface) 68%, transparent); padding:16px; }
-    .table-wrap { overflow:auto; }
-    .balance-table { width:100%; border-collapse:collapse; }
-    .balance-table th, .balance-table td { padding:12px; border-bottom:1px solid var(--border); text-align:left; }
-    .balance-table tr.active { background:rgba(142,197,255,.08); }
-    .balance-adjust-form { display:grid; gap:14px; }
-    .balance-value { font-size:1.5rem; font-weight:800; }
-    @media (max-width: 960px) { .admin-layout { grid-template-columns:1fr; } .detail-grid { grid-template-columns:1fr; } }
-  </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
     <main class="page-main admin-shell">
       <section class="panel">
+        <p class="eyebrow">Control Center</p>
         <h1 class="auth-title">Admin Portal</h1>
-        <p class="auth-subtitle">Manage site members, control casino access, and adjust casino balances from one place.</p>
-        <div id="page-message" class="hidden"></div>
+        <p class="auth-subtitle">Manage members, control casino access, and adjust balances from one unified command panel.</p>
+        <div id="page-message" class="hidden mt-16"></div>
       </section>
 
       <section class="panel">
@@ -55,8 +30,8 @@
           <aside class="admin-stack">
             <section class="detail-card">
               <h2 class="panel-title">Search members</h2>
-              <p class="muted-copy">Search all users, filter pending accounts, and open an account in the editor.</p>
-              <div class="form-grid">
+              <p class="muted-copy">Search users, filter pending accounts, and open user records in the editor.</p>
+              <div class="form-grid mt-16">
                 <div class="form-group"><label class="form-label" for="user-search">Search</label><input id="user-search" class="form-input" type="text" placeholder="username or role" /></div>
                 <div class="form-group"><label class="form-label" for="user-select">All users</label><select id="user-select" class="form-select"><option value="">Select a user...</option></select></div>
                 <div class="tab-actions">
@@ -68,7 +43,7 @@
             </section>
             <section class="detail-card">
               <h2 class="panel-title">User list</h2>
-              <div id="user-list" class="user-list"><div class="muted-copy">Loading users...</div></div>
+              <div id="user-list" class="user-list mt-16"><div class="muted-copy">Loading users...</div></div>
             </section>
           </aside>
 
@@ -76,7 +51,7 @@
             <section class="detail-card">
               <h2 class="panel-title">Edit member</h2>
               <div id="editor-empty" class="muted-copy">Select a user to start editing.</div>
-              <form id="user-editor-form" class="form-grid hidden">
+              <form id="user-editor-form" class="form-grid hidden mt-16">
                 <input type="hidden" id="edit-user-id" />
                 <div class="detail-grid">
                   <div class="detail-card"><h3>Username</h3><p id="detail-username">—</p></div>
@@ -110,27 +85,19 @@
       <section id="casino-admin-panel" class="admin-panel panel hidden">
         <div class="casino-admin-hero">
           <h2 class="panel-title">Casino admin</h2>
-          <p class="muted-copy">Approved casino admins can view everyone using the casino, audit balances, and add or remove Grev Coins without needing full site-admin rights.</p>
+          <p class="muted-copy">Audit balances, inspect approved status, and adjust Grev Coins without needing full site admin rights.</p>
           <div class="hero-actions"><button id="refresh-balances-btn" class="btn" type="button">Refresh balances</button></div>
         </div>
         <div class="admin-layout mt-24">
           <section class="admin-stack">
-            <div class="balance-summary">
-              <h3 class="panel-title">Balance tab</h3>
-              <p class="muted-copy">Every casino profile and current balance appears below.</p>
-            </div>
-            <div class="table-wrap">
-              <table class="balance-table">
-                <thead><tr><th>User</th><th>Balance</th><th>Status</th><th>Updated</th></tr></thead>
-                <tbody id="casino-balance-table-body"><tr><td colspan="4" class="muted-copy">Loading casino balances...</td></tr></tbody>
-              </table>
-            </div>
+            <div class="balance-summary"><h3 class="panel-title">Balance table</h3><p class="muted-copy">Every casino profile and wallet appears below.</p></div>
+            <div class="table-wrap"><table class="balance-table"><thead><tr><th>User</th><th>Balance</th><th>Status</th><th>Updated</th></tr></thead><tbody id="casino-balance-table-body"><tr><td colspan="4" class="muted-copy">Loading casino balances...</td></tr></tbody></table></div>
           </section>
           <aside class="admin-stack">
             <section class="balance-summary">
               <h3 class="panel-title">Selected player</h3>
-              <div id="casino-balance-empty" class="muted-copy">Pick a casino member from the balance tab to adjust their wallet.</div>
-              <form id="casino-balance-form" class="balance-adjust-form hidden">
+              <div id="casino-balance-empty" class="muted-copy">Pick a member from the balance table to adjust their wallet.</div>
+              <form id="casino-balance-form" class="form-grid hidden mt-16">
                 <input type="hidden" id="casino-balance-user-id" />
                 <div><div id="casino-balance-username" class="panel-title">—</div><p id="casino-balance-updated" class="muted-copy">—</p></div>
                 <div><div class="muted-copy">Current balance</div><div id="casino-balance-current" class="balance-value">0.00 GC</div></div>
@@ -144,7 +111,7 @@
     </main>
   </div>
 
-  <script>
+<script>
     const pageMessage = document.getElementById('page-message');
     const tabs = Array.from(document.querySelectorAll('[data-tab]'));
     const memberAdminPanel = document.getElementById('member-admin-panel');

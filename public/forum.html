@@ -6,143 +6,36 @@
   <title>Forum | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
-  <style>
-    .forum-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .forum-controls {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      margin-top: 18px;
-    }
-
-    .forum-list {
-      display: grid;
-      gap: 14px;
-      margin-top: 20px;
-    }
-
-    .forum-post-card {
-      display: block;
-      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      border-radius: 18px;
-      background: linear-gradient(155deg, color-mix(in srgb, var(--surface) 68%, transparent), color-mix(in srgb, var(--bg-soft) 90%, transparent));
-      padding: 18px;
-      color: var(--text);
-      text-decoration: none;
-      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .forum-post-card:hover {
-      transform: translateY(-2px);
-      border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-      background: color-mix(in srgb, var(--surface) 85%, transparent);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .forum-post-image {
-      width: 100%;
-      max-height: 260px;
-      object-fit: cover;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      margin-bottom: 14px;
-      background: rgba(255,255,255,0.03);
-    }
-
-    .forum-post-title {
-      margin: 0 0 10px;
-      font-size: 1.15rem;
-      font-weight: 800;
-      line-height: 1.3;
-    }
-
-    .forum-post-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 10px;
-    }
-
-    .forum-post-stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      font-size: 0.88rem;
-    }
-
-    .forum-pill {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 0 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text);
-    }
-
-    .forum-empty {
-      border: 1px dashed var(--border);
-      border-radius: var(--radius-md);
-      padding: 22px;
-      text-align: center;
-      color: var(--muted);
-    }
-
-    @media (max-width: 640px) {
-      .forum-controls {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
 </head>
 <body>
   <div class="page-shell">
     <div id="header-mount"></div>
 
-    <main class="page-main">
+    <main class="page-main page-main-tight">
       <section class="panel">
         <div class="forum-head">
           <div>
+            <p class="eyebrow">Community Threads</p>
             <h1 class="auth-title">Forum</h1>
-            <p class="auth-subtitle">
-              Search posts, open threads, react, and join the discussion.
-            </p>
+            <p class="auth-subtitle">Search posts, open threads, react, and join the discussion.</p>
           </div>
-
           <a class="btn btn-primary" href="/new-post.html">New post</a>
         </div>
 
-        <div class="forum-controls">
-          <input
-            id="forum-search"
-            class="form-input"
-            type="text"
-            placeholder="Search posts by title, body, or author..."
-          />
+        <div class="forum-controls mt-20">
+          <input id="forum-search" class="form-input" type="text" placeholder="Search posts by title, body, or author..." />
           <button id="forum-refresh" class="btn" type="button">Refresh</button>
         </div>
 
         <div id="forum-message" class="hidden mt-16"></div>
-        <div id="forum-list" class="forum-list"></div>
+        <div id="forum-list" class="forum-list mt-20"></div>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">Grev.dad — forum</div>
-    </footer>
+    <footer class="footer"><div class="footer-inner">Grev.dad — forum</div></footer>
   </div>
 
-  <script>
+<script>
     const forumSearch = document.getElementById("forum-search");
     const forumRefresh = document.getElementById("forum-refresh");
     const forumMessage = document.getElementById("forum-message");

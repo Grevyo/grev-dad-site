@@ -6,226 +6,6 @@
   <title>Members | Grev.dad</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <script src="/scripts/header.js" defer></script>
-  <style>
-    .members-page {
-      display: grid;
-      gap: 24px;
-    }
-
-    .members-top {
-      display: grid;
-      gap: 18px;
-    }
-
-    .members-controls {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 220px auto;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .members-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .member-card {
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius: 22px;
-      background: linear-gradient(160deg, color-mix(in srgb, var(--surface) 70%, transparent), color-mix(in srgb, var(--bg-soft) 90%, transparent));
-      overflow: hidden;
-      display: grid;
-      box-shadow: var(--shadow-soft);
-    }
-
-    .member-card-top {
-      padding: 18px;
-      display: grid;
-      grid-template-columns: 88px minmax(0, 1fr);
-      gap: 16px;
-      align-items: start;
-      border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    }
-
-    .member-avatar {
-      width: 88px;
-      height: 88px;
-      border-radius: 18px;
-      object-fit: cover;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-    }
-
-    .member-avatar-placeholder {
-      width: 88px;
-      height: 88px;
-      border-radius: 18px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      font-size: 1.4rem;
-      font-weight: 800;
-      color: var(--muted);
-    }
-
-    .member-name {
-      margin: 0 0 6px;
-      font-size: 1.15rem;
-      line-height: 1.15;
-    }
-
-    .member-real-name {
-      margin: 0 0 8px;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .member-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .member-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 0 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: color-mix(in srgb, var(--surface) 80%, transparent);
-      font-size: 0.84rem;
-    }
-
-    .member-motto {
-      color: var(--muted);
-      font-size: 0.93rem;
-      line-height: 1.45;
-    }
-
-    .member-body {
-      padding: 18px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .member-bio {
-      color: var(--text);
-      line-height: 1.55;
-      font-size: 0.95rem;
-      white-space: pre-wrap;
-    }
-
-    .member-empty {
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    .member-stats {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .member-stat {
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius: 14px;
-      background: color-mix(in srgb, var(--surface) 65%, transparent);
-      padding: 12px;
-    }
-
-    .member-stat-label {
-      display: block;
-      color: var(--muted);
-      font-size: 0.82rem;
-      margin-bottom: 4px;
-    }
-
-    .member-stat-value {
-      display: block;
-      color: var(--text);
-      font-weight: 700;
-      line-height: 1.3;
-      word-break: break-word;
-    }
-
-    .member-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .leaderboard-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .leaderboard-card {
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius: 18px;
-      background: color-mix(in srgb, var(--surface) 60%, transparent);
-      padding: 16px;
-    }
-
-    .leaderboard-card h3 {
-      margin: 0 0 10px;
-      font-size: 1rem;
-    }
-
-    .leaderboard-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .leaderboard-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 0.92rem;
-      color: var(--text);
-    }
-
-    .leaderboard-rank {
-      color: var(--muted);
-      min-width: 24px;
-    }
-
-    .members-empty {
-      border: 1px dashed var(--border);
-      border-radius: 18px;
-      padding: 26px;
-      text-align: center;
-      color: var(--muted);
-    }
-
-    @media (max-width: 1100px) {
-      .members-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .leaderboard-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 760px) {
-      .members-controls {
-        grid-template-columns: 1fr;
-      }
-
-      .members-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .member-card-top {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
 </head>
 <body>
   <div class="page-shell">
@@ -233,56 +13,33 @@
 
     <main class="page-main">
       <div class="members-page">
-        <section class="panel members-top">
-          <div>
-            <h1 class="auth-title">Members</h1>
-            <p class="auth-subtitle">
-              Browse everyone on Grev.dad, see their role, profile details, and recent activity.
-            </p>
-          </div>
+        <section class="panel">
+          <p class="eyebrow">Community Directory</p>
+          <h1 class="auth-title">Members</h1>
+          <p class="auth-subtitle">Browse everyone on Grev.dad, inspect profile identity, and quickly jump into member pages.</p>
 
-          <div class="members-controls">
-            <input
-              id="member-search"
-              class="form-input"
-              type="text"
-              placeholder="Search members by username, real name, role, motto..."
-            />
-
+          <div class="members-controls mt-20">
+            <input id="member-search" class="form-input" type="text" placeholder="Search members by username, real name, role, motto..." />
             <select id="member-filter" class="form-select">
-              <option value="all">All roles</option>
-              <option value="admin">Admin</option>
-              <option value="dev">Dev</option>
-              <option value="staff">Staff</option>
-              <option value="mod">Mod</option>
-              <option value="higher">Higher</option>
-              <option value="member">Member</option>
-              <option value="standard">Standard</option>
+              <option value="all">All roles</option><option value="admin">Admin</option><option value="dev">Dev</option><option value="staff">Staff</option><option value="mod">Mod</option><option value="higher">Higher</option><option value="member">Member</option><option value="standard">Standard</option>
             </select>
-
             <button id="members-refresh" class="btn" type="button">Refresh</button>
           </div>
-
-          <div id="members-message" class="hidden"></div>
+          <div id="members-message" class="hidden mt-16"></div>
         </section>
 
         <section class="panel">
           <h2 class="panel-title">All members</h2>
-          <p class="panel-subtitle">
-            Every approved member on the site.
-          </p>
-
-          <div id="members-grid" class="members-grid"></div>
+          <p class="panel-subtitle">Every approved member currently visible on-site.</p>
+          <div id="members-grid" class="members-grid mt-16"></div>
         </section>
       </div>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">Grev.dad — members</div>
-    </footer>
+    <footer class="footer"><div class="footer-inner">Grev.dad — members network</div></footer>
   </div>
 
-  <script>
+<script>
     let allMembers = [];
 
     const membersMessage = document.getElementById("members-message");

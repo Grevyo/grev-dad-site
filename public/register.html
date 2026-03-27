@@ -12,81 +12,55 @@
     <div id="header-mount"></div>
 
     <main class="auth-wrap">
-      <section class="auth-card">
-        <p class="eyebrow">Join the community</p>
-        <p class="register-warning">DO NOT USE EMAIL - CREATE A USERNAME!</p>
-        <h1 class="auth-title">Register</h1>
-        <p class="auth-subtitle">
-          Create an account for Grev.dad. You can log in right away after signing up, and member access unlocks once an admin approves you.
-        </p>
+      <section class="auth-shell">
+        <aside class="auth-side">
+          <p class="eyebrow">Join Grev.dad</p>
+          <h1 class="auth-title">Create your identity</h1>
+          <p class="auth-subtitle">Build your member account to unlock profiles, forum posting, social discovery, and community-driven updates.</p>
+          <ul class="auth-side-list">
+            <li>🧩 Unique username identity</li>
+            <li>🔒 Instant login after creation</li>
+            <li>🛡️ Admin approval unlocks full member access</li>
+          </ul>
+        </aside>
 
-        <div id="message-box" class="hidden"></div>
+        <section class="auth-card">
+          <p class="eyebrow">New account</p>
+          <p class="register-warning">DO NOT USE EMAIL — CREATE A USERNAME!</p>
+          <h2 class="panel-title">Register</h2>
+          <p class="auth-subtitle">Email is not required anywhere on Grev.dad.</p>
 
-        <form id="register-form" class="form-grid">
-          <div class="form-group">
-            <label class="form-label" for="username">Username</label>
-            <input
-              class="form-input"
-              id="username"
-              name="username"
-              type="text"
-              maxlength="30"
-              autocomplete="username"
-              required
-            />
-            <div class="form-help">
-              3 to 30 characters. This is your public username, not an email address. Email is not required anywhere on Grev.dad.
+          <div id="message-box" class="hidden mt-16"></div>
+
+          <form id="register-form" class="form-grid mt-16">
+            <div class="form-group">
+              <label class="form-label" for="username">Username</label>
+              <input class="form-input" id="username" name="username" type="text" maxlength="30" autocomplete="username" required />
+              <div class="form-help">3 to 30 characters. This is your public username, not an email address.</div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label class="form-label" for="password">Password</label>
-            <input
-              class="form-input"
-              id="password"
-              name="password"
-              type="password"
-              minlength="6"
-              autocomplete="new-password"
-              required
-            />
-            <div class="form-help">
-              Minimum 6 characters.
+            <div class="form-group">
+              <label class="form-label" for="password">Password</label>
+              <input class="form-input" id="password" name="password" type="password" minlength="6" autocomplete="new-password" required />
+              <div class="form-help">Minimum 6 characters.</div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label class="form-label" for="confirm-password">Confirm password</label>
-            <input
-              class="form-input"
-              id="confirm-password"
-              name="confirm-password"
-              type="password"
-              minlength="6"
-              autocomplete="new-password"
-              required
-            />
-          </div>
+            <div class="form-group">
+              <label class="form-label" for="confirm-password">Confirm password</label>
+              <input class="form-input" id="confirm-password" name="confirm-password" type="password" minlength="6" autocomplete="new-password" required />
+            </div>
 
-          <div class="button-row mt-12">
-            <button class="btn btn-primary btn-full" id="register-btn" type="submit">
-              Create account
-            </button>
-          </div>
-        </form>
+            <div class="button-row mt-12">
+              <button class="btn btn-primary btn-full" id="register-btn" type="submit">Create account</button>
+            </div>
+          </form>
 
-        <p class="small-text center-text mt-20">
-          Already have an account?
-          <a href="/login.html">Login here</a>
-        </p>
+          <p class="small-text center-text mt-20">Already have an account? <a href="/login.html">Login here</a></p>
+        </section>
       </section>
     </main>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        Grev.dad — community login system rebuild phase 1
-      </div>
-    </footer>
+    <footer class="footer"><div class="footer-inner">Grev.dad — account registration</div></footer>
   </div>
 
   <script>

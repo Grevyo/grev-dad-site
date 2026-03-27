@@ -148,6 +148,34 @@ function setupThemeToggle() {
 }
 
 
+
+function setupNavToggle() {
+  const topbar = document.getElementById("site-topbar");
+  const toggleBtn = document.getElementById("nav-toggle-btn");
+  const nav = document.getElementById("site-nav");
+  if (!topbar || !toggleBtn || !nav) return;
+
+  const closeNav = () => {
+    topbar.classList.remove("nav-open");
+    toggleBtn.setAttribute("aria-expanded", "false");
+  };
+
+  toggleBtn.addEventListener("click", () => {
+    const isOpen = topbar.classList.toggle("nav-open");
+    toggleBtn.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  nav.querySelectorAll("a, button").forEach((item) => {
+    item.addEventListener("click", () => {
+      if (window.matchMedia("(max-width: 820px)").matches) closeNav();
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    if (!window.matchMedia("(max-width: 820px)").matches) closeNav();
+  });
+}
+
 async function loadSharedHeader() {
   const mount = document.getElementById("header-mount");
   if (!mount) return;
@@ -161,6 +189,7 @@ async function loadSharedHeader() {
     const auth = await fetchCurrentUser({ preferCache: !cachedUser });
     applyHeaderAuthState(auth);
     setupThemeToggle();
+    setupNavToggle();
     applyCasinoBalance();
     refreshCasinoBalance();
     refreshSiteMeta();
