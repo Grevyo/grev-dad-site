@@ -205,7 +205,8 @@ const world = {
   activePet: null,
   facing: "down",
   bob: 0,
-  transitionLock: false
+  transitionLock: false,
+  touchDirs: new Set()
 };
 
 let animationHandle = null;
@@ -256,6 +257,8 @@ function setupControls() {
     world.keys.delete(event.key.toLowerCase());
   });
 
+  mountTouchControls();
+
   byId("btn-battle").addEventListener("click", () => captureAction("battle", true));
   byId("btn-weaken").addEventListener("click", () => captureAction("toss", true));
   byId("btn-capture").addEventListener("click", () => captureAction("toss", false));
@@ -267,12 +270,7 @@ function startLoop() {
   const step = () => {
     if (!world.encounter) {
       const speed = 3;
-      let dx = 0;
-      let dy = 0;
-      if (world.keys.has("arrowup") || world.keys.has("w")) dy -= speed;
-      if (world.keys.has("arrowdown") || world.keys.has("s")) dy += speed;
-      if (world.keys.has("arrowleft") || world.keys.has("a")) dx -= speed;
-      if (world.keys.has("arrowright") || world.keys.has("d")) dx += speed;
+      const { dx, dy } = getMovementVector(speed);
 
       if (dx !== 0 || dy !== 0) {
         world.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
@@ -290,6 +288,44 @@ function startLoop() {
   };
 
   step();
+}
+
+function mountTouchControls() {
+  const controls = document.querySelectorAll("[data-move]");
+  controls.forEach((button) => {
+    const direction = button.dataset.move;
+    if (!direction) return;
+
+    const start = (event) => {
+      event.preventDefault();
+      world.touchDirs.add(direction);
+      button.classList.add("is-active");
+    };
+
+    const end = (event) => {
+      event.preventDefault();
+      world.touchDirs.delete(direction);
+      button.classList.remove("is-active");
+    };
+
+    button.addEventListener("pointerdown", start);
+    button.addEventListener("pointerup", end);
+    button.addEventListener("pointercancel", end);
+    button.addEventListener("pointerleave", end);
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
+  });
+}
+
+function getMovementVector(speed) {
+  let dx = 0;
+  let dy = 0;
+
+  if (world.keys.has("arrowup") || world.keys.has("w") || world.touchDirs.has("up")) dy -= speed;
+  if (world.keys.has("arrowdown") || world.keys.has("s") || world.touchDirs.has("down")) dy += speed;
+  if (world.keys.has("arrowleft") || world.keys.has("a") || world.touchDirs.has("left")) dx -= speed;
+  if (world.keys.has("arrowright") || world.keys.has("d") || world.touchDirs.has("right")) dx += speed;
+
+  return { dx, dy };
 }
 
 function tryAreaTransition() {
@@ -523,6 +559,7 @@ function showEncounter() {
 
   overlay.classList.remove("hidden");
   byId("encounter-status").textContent = `Encounter active: ${wild.name}`;
+  byId("encounter-paused-note").textContent = "Movement paused during encounter";
 }
 
 function animateEncounterPet(canvasId, pet) {
@@ -585,6 +622,7 @@ function resolveEncounter(status) {
   world.encounter = null;
   byId("encounter-overlay").classList.add("hidden");
   byId("encounter-status").textContent = status;
+  byId("encounter-paused-note").textContent = "Movement active";
 }
 
 function overlayLog(text) {

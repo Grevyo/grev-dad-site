@@ -16,7 +16,7 @@
       <div class="gp-shell">
         <section class="gp-banner gp-overworld-banner">
           <h1>🌌 Grev Pets Connected Overworld</h1>
-          <p>Move with WASD / Arrow keys. Exits at map edges transition into fully separate areas.</p>
+          <p>Move with WASD / Arrow keys on desktop, or the on-screen D-pad on phone. Exits at map edges transition into fully separate areas.</p>
           <div class="gp-actions" style="margin-top:14px;">
             <a class="btn" href="/grev-pets/index.html">Home</a>
             <a class="btn" href="/grev-pets/stable.html">Storage</a>
@@ -46,6 +46,15 @@
 
               <div id="area-banner" class="gp-area-banner hidden"></div>
             </div>
+            <div class="gp-touch-controls-wrap" aria-label="Touch movement controls">
+              <p class="gp-small gp-touch-hint">Touch movement (mobile):</p>
+              <div class="gp-dpad" role="group" aria-label="Movement pad">
+                <button type="button" class="gp-dpad-btn up" data-move="up" aria-label="Move up">▲</button>
+                <button type="button" class="gp-dpad-btn left" data-move="left" aria-label="Move left">◀</button>
+                <button type="button" class="gp-dpad-btn right" data-move="right" aria-label="Move right">▶</button>
+                <button type="button" class="gp-dpad-btn down" data-move="down" aria-label="Move down">▼</button>
+              </div>
+            </div>
             <p id="overworld-hint" class="gp-small">Step into an exit marker to load another area map.</p>
           </article>
 
@@ -70,6 +79,7 @@
       <p class="gp-kicker" id="encounter-kicker">Wild encounter</p>
       <h2 id="encounter-title">A wild Grev Pet appeared!</h2>
       <p id="encounter-flavor" class="gp-small"></p>
+      <p id="encounter-paused-note" class="gp-status-pill gp-encounter-paused-note">Movement paused during encounter</p>
       <div class="gp-encounter-grid">
         <article class="gp-card">
           <h3>Wild Grev Pet</h3>
