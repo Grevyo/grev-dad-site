@@ -1,16 +1,12 @@
-<!-- public/header.html -->
-
 <header class="topbar">
   <div class="topbar-inner">
     <a class="brand" href="/index.html" aria-label="Go to home page">
-      <img
-        src="/grev-dad-logo.png"
-        alt="Grev.dad"
-        class="brand-logo"
-      />
+      <img src="/grev-dad-logo.png" alt="Grev.dad" class="brand-logo" />
     </a>
 
-    <nav class="nav" id="site-nav">
+    <nav class="nav" id="site-nav" aria-label="Primary navigation">
+      <a class="nav-link" href="/index.html">Home</a>
+      <a class="nav-link" href="/playground/index.html" title="Browse playground hubs">Playgrounds</a>
       <a class="nav-link" href="/playground/gambling/index.html" title="Open Grev.dad Casino">Casino</a>
       <div class="nav-casino-balance hidden" id="header-casino-balance" data-casino-balance aria-live="polite">
         <span class="nav-casino-balance__label">Casino balance</span>
@@ -25,9 +21,7 @@
         <span id="header-profile-name">Profile</span>
       </a>
       <a class="nav-link hidden" href="/admin.html" data-admin-only>Admin</a>
-      <button class="btn hidden" id="header-logout-btn" type="button" data-auth-only>
-        Logout
-      </button>
+      <button class="btn hidden" id="header-logout-btn" type="button" data-auth-only>Logout</button>
       <button class="theme-toggle" id="theme-toggle-btn" type="button" aria-label="Toggle color theme" aria-pressed="false">
         <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
         <span class="theme-toggle-label">Dark mode</span>

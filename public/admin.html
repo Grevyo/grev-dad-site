@@ -11,19 +11,19 @@
     .admin-tabs, .tab-actions, .balance-actions, .hero-actions { display:flex; flex-wrap:wrap; gap:12px; }
     .admin-layout { display:grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap:24px; align-items:start; }
     .admin-stack { display:grid; gap:24px; }
-    .admin-tab { border:1px solid var(--border); background:rgba(255,255,255,.03); color:var(--text); border-radius:999px; padding:10px 16px; font-weight:700; }
-    .admin-tab.active { background:rgba(142,197,255,.12); border-color:var(--accent); }
+    .admin-tab { border:1px solid color-mix(in srgb, var(--border) 78%, transparent); background:color-mix(in srgb, var(--surface) 72%, transparent); color:var(--text); border-radius:999px; padding:10px 16px; font-weight:700; }
+    .admin-tab.active { background:color-mix(in srgb, var(--accent) 16%, transparent); border-color:var(--accent); }
     .admin-panel.hidden { display:none; }
     .user-list, .balance-list { display:grid; gap:10px; max-height:620px; overflow:auto; }
-    .list-card, .balance-row { border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); padding:14px; }
-    .list-card.active { border-color:var(--accent); background:rgba(142,197,255,.08); }
+    .list-card, .balance-row { border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:16px; background:color-mix(in srgb, var(--surface) 70%, transparent); padding:14px; }
+    .list-card.active { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 14%, transparent); }
     .list-card button, .balance-row button { width:100%; text-align:left; background:none; border:0; color:inherit; padding:0; }
     .list-main, .balance-main, .detail-grid { display:grid; gap:12px; }
     .list-title, .balance-title { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
     .pill { display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:.82rem; background:rgba(255,255,255,.05); }
     .muted-copy { color:var(--muted); line-height:1.5; }
     .detail-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
-    .detail-card, .balance-summary, .casino-admin-hero { border:1px solid var(--border); border-radius:16px; background:rgba(255,255,255,.03); padding:16px; }
+    .detail-card, .balance-summary, .casino-admin-hero { border:1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius:16px; background:color-mix(in srgb, var(--surface) 68%, transparent); padding:16px; }
     .table-wrap { overflow:auto; }
     .balance-table { width:100%; border-collapse:collapse; }
     .balance-table th, .balance-table td { padding:12px; border-bottom:1px solid var(--border); text-align:left; }

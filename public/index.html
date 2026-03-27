@@ -13,19 +13,27 @@
     .chat-shell,
     .home-footer-note,
     .below-hero-grid,
-    .status-grid {
+    .status-grid,
+    .hero-metrics {
       display: grid;
       gap: 16px;
     }
 
-    .main-stack {
-      width: min(100%, 1240px);
-      margin: 0 auto;
-      gap: 24px;
+    .main-stack { width: min(100%, 1240px); margin: 0 auto; gap: 24px; }
+
+    .home-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+      background:
+        radial-gradient(circle at 85% 0%, rgba(121, 184, 255, 0.2), transparent 35%),
+        radial-gradient(circle at 8% 80%, rgba(141, 125, 255, 0.2), transparent 40%),
+        linear-gradient(145deg, color-mix(in srgb, var(--surface) 35%, transparent), transparent);
     }
 
     .below-hero-grid {
-      grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
       gap: 24px;
       align-items: start;
     }
@@ -41,8 +49,9 @@
 
     .home-title {
       margin: 0;
-      font-size: clamp(2rem, 4vw, 3.2rem);
-      line-height: 1;
+      font-size: clamp(2.2rem, 5vw, 3.7rem);
+      line-height: 0.98;
+      letter-spacing: -0.02em;
     }
 
     .home-copy,
@@ -91,6 +100,21 @@
       gap: 12px;
       margin-top: 20px;
     }
+
+    .hero-metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 22px;
+    }
+
+    .hero-metric {
+      border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+      background: color-mix(in srgb, var(--surface) 72%, transparent);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .hero-metric__label { margin: 0; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .hero-metric__value { margin: 8px 0 0; font-size: 1.08rem; font-weight: 760; }
 
     .chat-box {
       border: 1px solid var(--border);
@@ -174,6 +198,10 @@
       .below-hero-grid {
         grid-template-columns: 1fr;
       }
+
+      .hero-metrics {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -183,11 +211,11 @@
 
     <main class="page-main">
       <div class="main-stack">
-        <section class="panel">
+        <section class="panel home-hero">
           <div class="intro-stack">
             <p class="eyebrow">Welcome to Grev.dad</p>
-            <h1 class="home-title">What is Grev.dad?</h1>
-            <p class="home-copy">Grev.dad is a goofy little community site full of playful experiments, profile customization, chats, forum posts, and side quests. Nothing here is especially serious on purpose — the whole thing is meant to feel fun, silly, and a bit chaotic in the best way.</p>
+            <h1 class="home-title">Your dark-mode community hub for chaos, games, and side quests.</h1>
+            <p class="home-copy">Grev.dad blends forum culture, profile identity, playful experiments, and social features into one polished platform. Jump into discussions, explore playgrounds, and make the space yours.</p>
           </div>
 
           <div class="home-actions" id="guest-actions">
@@ -199,6 +227,21 @@
             <a class="btn btn-primary" href="/members.html">Browse members</a>
             <a class="btn" href="/profile.html">Your profile</a>
             <a class="btn" href="/forum.html">Open forum</a>
+          </div>
+
+          <div class="hero-metrics">
+            <article class="hero-metric">
+              <p class="hero-metric__label">Community Focus</p>
+              <p class="hero-metric__value">Profiles · Forum · Live Chat</p>
+            </article>
+            <article class="hero-metric">
+              <p class="hero-metric__label">Platform Mood</p>
+              <p class="hero-metric__value">Dark, sleek, gaming-tech inspired</p>
+            </article>
+            <article class="hero-metric">
+              <p class="hero-metric__label">Always Evolving</p>
+              <p class="hero-metric__value">New modules and features drop often</p>
+            </article>
           </div>
         </section>
 
