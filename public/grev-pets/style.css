@@ -1584,6 +1584,136 @@
   grid-row: 2;
 }
 
+/* ===== 2026 Home Base + Avatar Head Correction ===== */
+.gp-home-hub-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(260px, 0.75fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.gp-home-utility-stack {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.gp-home-active-card,
+.gp-home-team-card {
+  min-height: 100%;
+}
+
+.gp-home-lower-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.gp-home-status-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gp-stats-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#starter-status {
+  margin: 0;
+  padding: 0 4px;
+}
+
+.gp-profile-summary {
+  min-height: 100%;
+}
+
+@media (max-width: 1160px) {
+  .gp-home-hub-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .gp-home-utility-stack {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .gp-home-hub-grid,
+  .gp-home-utility-stack,
+  .gp-home-status-grid,
+  .gp-stats-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gp-av-head {
+  width: 64%;
+  height: 93%;
+  border-radius: 55% 55% 52% 52%;
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.28), transparent 40%),
+    linear-gradient(180deg, color-mix(in srgb, var(--skin) 84%, #ffe7d6), color-mix(in srgb, var(--skin) 92%, #af7d60));
+  border: 1px solid rgba(44, 30, 24, 0.26);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12), 0 2px 0 rgba(255, 255, 255, 0.15);
+}
+
+.gp-av-hair {
+  left: 4%;
+  right: 4%;
+  top: -12%;
+  height: 54%;
+  border-radius: 84% 84% 28% 28%;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.17);
+}
+
+.hair-bob { border-radius: 66% 66% 36% 36%; height: 66%; }
+.hair-mop { border-radius: 92% 92% 48% 48%; height: 70%; }
+.hair-puff { border-radius: 999px; height: 73%; }
+
+.gp-av-face {
+  inset: 0 0 2% 0;
+}
+
+.gp-av-eye {
+  top: 48%;
+  width: 11%;
+  height: 10%;
+}
+
+.gp-av-eye.left { left: 29%; }
+.gp-av-eye.right { right: 29%; }
+
+.gp-av-mouth {
+  bottom: 20%;
+  width: 22%;
+}
+
+.gp-av-hat {
+  top: -25%;
+  left: 11%;
+  right: 11%;
+  height: 27%;
+}
+
+.hat-beanie,
+.hat-cap,
+.hat-hornband,
+.hat-crown {
+  border-radius: 999px 999px 12px 12px;
+}
+
+.gp-explorer-avatar--mini .gp-av-head {
+  width: 66%;
+  height: 94%;
+}
+
+.gp-explorer-avatar--mini .gp-av-eye {
+  width: 12%;
+  height: 12%;
+  top: 49%;
+}
+
 .gp-dpad .right {
   grid-column: 3;
   grid-row: 2;
