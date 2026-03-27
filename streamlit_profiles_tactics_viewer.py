@@ -278,11 +278,8 @@ def render_table_section(
             st.info("No numeric fields available for quick metric chart.")
 
 
-st.title("🎯 Profiles and Tactics Viewer")
-st.write(
-    "Browse player profiles and tactical playbooks side-by-side. "
-    "Use sample records or upload your own JSON/CSV datasets."
-)
+st.title("HLTV CPL Profile Viewer")
+st.write("Player analytics, form, achievements, and performance breakdowns.")
 
 profiles_tab, tactics_tab = st.tabs(["Profiles", "Tactics Viewer"])
 
