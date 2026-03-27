@@ -160,7 +160,7 @@ export async function handleGrevPetsRequest(request, env, helpers) {
     if (session instanceof Response) return session;
 
     const payload = await safeJson(request);
-    const zone = sanitizeZone(payload?.zone || "wild_scrapyard");
+    const zone = sanitizeZone(payload?.zone || "tallgrass_route");
 
     const encounter = makeEncounter(zone, session.id);
 
@@ -404,7 +404,7 @@ async function ensurePlayerState(env, session) {
 
   await env.DB.prepare(`
     INSERT INTO gp_player_state (user_id, username, title, pos_x, pos_y, zone, starter_claimed, trainer_level, avatar_json, encounter_seed, updated_at)
-    VALUES (?, ?, 'Rookie Wrangler', 220, 240, 'town_hub', 0, 1, ?, ABS(RANDOM()), ?)
+    VALUES (?, ?, 'Rookie Wrangler', 450, 120, 'spawn_town', 0, 1, ?, ABS(RANDOM()), ?)
     ON CONFLICT(user_id) DO UPDATE SET
       username = excluded.username,
       updated_at = excluded.updated_at
@@ -555,8 +555,18 @@ function sanitizeNum(value, fallback, min, max) {
 
 function sanitizeZone(zone) {
   const normalized = String(zone || "").toLowerCase().trim();
-  const allowed = new Set(["town_hub", "stable_square", "event_gate", "wild_scrapyard", "wild_neon_abyss", "wild_mushroom_ruins"]);
-  return allowed.has(normalized) ? normalized : "town_hub";
+  const aliases = {
+    town_hub: "spawn_town",
+    stable_square: "stable_district",
+    event_gate: "event_plaza",
+    wild_scrapyard: "tallgrass_route",
+    wild_neon_abyss: "neon_rift",
+    wild_mushroom_ruins: "mushroom_grove"
+  };
+
+  const mapped = aliases[normalized] || normalized;
+  const allowed = new Set(["spawn_town", "tallgrass_route", "stable_district", "event_plaza", "mushroom_grove", "neon_rift", "scrapyard", "pondside_path"]);
+  return allowed.has(mapped) ? mapped : "spawn_town";
 }
 
 function sanitizeText(value, maxLen) {

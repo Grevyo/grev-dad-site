@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Grev Pets Playground</title>
+  <title>Grev Pets Home</title>
   <link rel="stylesheet" href="/styles/site.css" />
   <link rel="stylesheet" href="/grev-pets/style.css" />
   <script src="/scripts/header.js" defer></script>
@@ -14,21 +14,15 @@
     <div id="header-mount"></div>
     <main class="page-main">
       <div class="gp-shell">
-        <section class="gp-hero">
+        <section class="gp-hero gp-home-hero">
           <div>
-            <p class="gp-kicker">CREATURE-COLLECTION SOCIAL HUB</p>
-            <h1>🐾 Grev Pets Playground</h1>
-            <p class="gp-hero-copy">Build your explorer identity, adopt your first Grev Pet, then dive into overworld captures, battles, and races with the grev.dad crew.</p>
+            <p class="gp-kicker">GREV PETS DASHBOARD</p>
+            <h1>🐾 Grev Pets Home Base</h1>
+            <p class="gp-hero-copy">Manage your active pet, party lineup, and storage before diving into connected routes and area encounters.</p>
             <div class="gp-actions">
               <a class="btn btn-primary" href="/grev-pets/overworld.html">Enter Overworld</a>
-              <a class="btn" href="/grev-pets/stable.html">Open Stable</a>
-              <a class="btn" href="/grev-pets/event-room.html">Event Room</a>
-            </div>
-            <div class="gp-onboarding-track">
-              <div class="gp-track-step is-active">1. Customise Explorer</div>
-              <div class="gp-track-step">2. Choose First Pet</div>
-              <div class="gp-track-step">3. Enter Overworld</div>
-              <div class="gp-track-step">4. Battle + Race</div>
+              <a class="btn" href="/grev-pets/stable.html">Open Storage</a>
+              <a class="btn" href="/grev-pets/event-room.html">Event Plaza</a>
             </div>
           </div>
           <aside class="gp-card gp-profile-summary" id="profile-summary">
@@ -36,56 +30,28 @@
           </aside>
         </section>
 
-        <section class="gp-grid gp-grid-3" id="high-value-cards"></section>
+        <section class="gp-grid gp-grid-2">
+          <article class="gp-card" id="active-pet-panel"></article>
+          <article class="gp-card" id="team-panel"></article>
+        </section>
+
+        <section class="gp-grid gp-grid-2">
+          <article class="gp-card" id="storage-panel"></article>
+          <article class="gp-card" id="progress-panel"></article>
+        </section>
 
         <section class="gp-card" id="starter-flow-card">
           <div class="gp-section-head">
-            <h2>Choose Your First Grev Pet</h2>
-            <p class="gp-small">A proper starter moment: pick your vibe, lock it in, and begin your collection.</p>
+            <h2>Starter Adoption</h2>
+            <p class="gp-small">One quick pick if you still need your first companion.</p>
           </div>
           <div class="gp-grid gp-grid-3" id="starter-options"></div>
           <p id="starter-status" class="gp-small"></p>
         </section>
 
-        <section class="gp-grid gp-grid-2">
-          <article class="gp-card">
-            <div class="gp-section-head">
-              <h2>Stable Preview</h2>
-              <a class="btn" href="/grev-pets/stable.html">Manage Stable</a>
-            </div>
-            <div class="gp-grid" id="featured-pets"></div>
-          </article>
-
-          <article class="gp-card">
-            <div class="gp-section-head">
-              <h2>World Zones</h2>
-              <a class="btn" href="/grev-pets/overworld.html">Travel</a>
-            </div>
-            <div id="zones-preview" class="gp-zone-preview-grid"></div>
-          </article>
-        </section>
-
-        <section class="gp-grid gp-grid-2">
-          <article class="gp-card">
-            <div class="gp-section-head">
-              <h2>Type Chart Teaser</h2>
-              <p class="gp-small">Type identity affects visuals, flavor, and matchup pressure.</p>
-            </div>
-            <div id="type-preview" class="gp-type-grid"></div>
-          </article>
-
-          <article class="gp-card">
-            <div class="gp-section-head">
-              <h2>Battle + Race Loop</h2>
-              <a class="btn" href="/grev-pets/event-room.html">Compete</a>
-            </div>
-            <div id="progression-summary" class="gp-stats-grid"></div>
-          </article>
-        </section>
-
         <section class="gp-card">
           <div class="gp-section-head">
-            <h2>Explorer Identity Editor</h2>
+            <h2>Explorer Avatar</h2>
             <button class="btn" id="toggle-avatar-editor" type="button">Edit Explorer</button>
           </div>
           <div id="avatar-edit-shell" class="gp-avatar-edit-shell hidden">
