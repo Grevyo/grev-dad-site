@@ -9,7 +9,7 @@
   <script src="/scripts/header.js" defer></script>
   <script type="module" src="/grev-pets/js/landing.js" defer></script>
 </head>
-<body>
+<body class="gp-page">
   <div class="page-shell">
     <div id="header-mount"></div>
     <main class="page-main">
@@ -18,11 +18,11 @@
           <div>
             <p class="gp-kicker">GREV PETS DASHBOARD</p>
             <h1>🐾 Grev Pets Home Base</h1>
-            <p class="gp-hero-copy">Manage your active pet, party lineup, and storage before diving into connected routes and area encounters.</p>
+            <p class="gp-hero-copy">Your team and active companion, front and center.</p>
             <div class="gp-actions">
               <a class="btn btn-primary" href="/grev-pets/overworld.html">Enter Overworld</a>
-              <a class="btn" href="/grev-pets/stable.html">Open Storage</a>
-              <a class="btn" href="/grev-pets/event-room.html">Event Plaza</a>
+              <a class="btn" href="/grev-pets/stable.html">Open Storage / Stable</a>
+              <a class="btn" href="/grev-pets/event-room.html">Open Event Plaza</a>
             </div>
           </div>
           <aside class="gp-card gp-profile-summary" id="profile-summary">
@@ -30,20 +30,21 @@
           </aside>
         </section>
 
-        <section class="gp-grid gp-grid-2">
-          <article class="gp-card" id="active-pet-panel"></article>
-          <article class="gp-card" id="team-panel"></article>
-        </section>
-
-        <section class="gp-grid gp-grid-2">
-          <article class="gp-card" id="storage-panel"></article>
-          <article class="gp-card" id="progress-panel"></article>
+        <section class="gp-home-main-grid">
+          <div class="gp-grid">
+            <article class="gp-card" id="active-pet-panel"></article>
+            <article class="gp-card" id="team-panel"></article>
+          </div>
+          <div class="gp-grid">
+            <article class="gp-card" id="storage-panel"></article>
+            <article class="gp-card" id="progress-panel"></article>
+          </div>
         </section>
 
         <section class="gp-card" id="starter-flow-card">
           <div class="gp-section-head">
             <h2>Starter Adoption</h2>
-            <p class="gp-small">One quick pick if you still need your first companion.</p>
+            <p class="gp-small">Pick once if needed.</p>
           </div>
           <div class="gp-grid gp-grid-3" id="starter-options"></div>
           <p id="starter-status" class="gp-small"></p>

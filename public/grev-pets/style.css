@@ -935,3 +935,414 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== 2026 Corrective Upgrade ===== */
+.gp-page .page-main {
+  width: min(100%, 1880px);
+  padding: 24px 20px 52px;
+}
+
+.gp-page .gp-shell {
+  width: min(1760px, 100%);
+  gap: 20px;
+}
+
+.gp-home-hero {
+  grid-template-columns: minmax(0, 1.6fr) minmax(420px, 0.85fr);
+}
+
+.gp-control-grid--overworld {
+  grid-template-columns: minmax(0, 1.48fr) minmax(280px, 0.52fr);
+}
+
+.gp-overworld {
+  max-width: none;
+  min-height: clamp(520px, 62vh, 700px);
+  aspect-ratio: 16 / 10;
+  border-radius: 18px;
+}
+
+.gp-map-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.gp-map-scene::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 40px);
+}
+
+.gp-prop {
+  position: absolute;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 6px 16px rgba(0, 0, 0, 0.26);
+}
+
+.gp-prop span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #eaf6ff;
+  background: rgba(10, 16, 27, 0.7);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.scene-spawn-town {
+  background: linear-gradient(180deg, #4f8767 0%, #366148 54%, #254733 100%);
+}
+
+.path-cross {
+  inset: 0;
+  border: none;
+  box-shadow: none;
+  background:
+    linear-gradient(90deg, transparent 0 37%, rgba(197, 162, 119, 0.95) 37% 63%, transparent 63% 100%),
+    linear-gradient(180deg, transparent 0 39%, rgba(197, 162, 119, 0.95) 39% 61%, transparent 61% 100%);
+}
+
+.building-townhall { background: linear-gradient(180deg, #e8d0a5 0 68%, #b67b53 68% 100%); }
+.building-stable { background: linear-gradient(180deg, #9ee3b8, #598f70); }
+.building-event { background: linear-gradient(180deg, #f2b9ff, #9353bc); }
+.lamp-row {
+  border: none;
+  box-shadow: none;
+  background: repeating-linear-gradient(90deg, transparent 0 12%, #f9e3a4 12% 14%, transparent 14% 24%);
+}
+.garden-grid {
+  border: none;
+  box-shadow: none;
+  background:
+    radial-gradient(circle at 16% 24%, #ff8ed8 0 6%, transparent 8%),
+    radial-gradient(circle at 42% 68%, #93d5ff 0 7%, transparent 9%),
+    radial-gradient(circle at 70% 34%, #b8ff92 0 6%, transparent 9%),
+    radial-gradient(circle at 84% 72%, #ffd46c 0 7%, transparent 9%);
+}
+
+.scene-tallgrass-route {
+  background: linear-gradient(180deg, #648e43 0%, #476f34 56%, #2f4f24 100%);
+}
+.route-road {
+  background: linear-gradient(180deg, #b49467, #927349);
+}
+.tallgrass-block {
+  background:
+    radial-gradient(circle at 20% 70%, #89d45d 0 12%, transparent 15%),
+    radial-gradient(circle at 50% 30%, #78bf4f 0 11%, transparent 14%),
+    radial-gradient(circle at 76% 63%, #5f9f3e 0 12%, transparent 14%);
+}
+.route-sign { background: linear-gradient(180deg, #e7ddbf, #b18a58); }
+
+.scene-mushroom-grove {
+  background: linear-gradient(180deg, #4d6744 0%, #334a34 52%, #202f22 100%);
+}
+.grove-path { background: linear-gradient(180deg, #7b6e5a, #5d5343); }
+.mushroom-ring {
+  background:
+    radial-gradient(circle at 22% 72%, #e185ff 0 11%, transparent 14%),
+    radial-gradient(circle at 51% 32%, #ff7db8 0 10%, transparent 13%),
+    radial-gradient(circle at 76% 66%, #8fd3ff 0 10%, transparent 13%);
+}
+.tree-mass { background: radial-gradient(circle at 40% 40%, #3f7f4f 0 45%, #2f623a 46% 100%); }
+.spores {
+  border: none;
+  box-shadow: none;
+  background:
+    radial-gradient(circle at 14% 42%, rgba(255, 255, 255, 0.45) 0 4%, transparent 6%),
+    radial-gradient(circle at 44% 64%, rgba(227, 138, 255, 0.4) 0 5%, transparent 7%),
+    radial-gradient(circle at 76% 28%, rgba(156, 245, 170, 0.4) 0 5%, transparent 7%);
+}
+
+.scene-neon-rift {
+  background: linear-gradient(180deg, #34316f 0%, #241f53 56%, #161332 100%);
+}
+.rift-river {
+  border: none;
+  box-shadow: none;
+  background: linear-gradient(180deg, rgba(111, 238, 255, 0.88), rgba(143, 104, 255, 0.86));
+}
+.neon-grid {
+  background:
+    repeating-linear-gradient(0deg, rgba(103, 228, 255, 0.24) 0 7px, transparent 7px 16px),
+    repeating-linear-gradient(90deg, rgba(255, 116, 220, 0.24) 0 7px, transparent 7px 16px),
+    rgba(14, 21, 58, 0.68);
+}
+.crystal-stack {
+  background: linear-gradient(160deg, #8ae4ff, #f088ff 55%, #8f7bff);
+  clip-path: polygon(10% 100%, 20% 50%, 30% 80%, 40% 30%, 55% 88%, 67% 36%, 84% 100%);
+}
+
+.scene-scrapyard {
+  background: linear-gradient(180deg, #636f75 0%, #4b575f 54%, #323b42 100%);
+}
+.junk-road { background: linear-gradient(180deg, #7d756d, #5a534e); }
+.scrap-heap {
+  background:
+    repeating-linear-gradient(45deg, #6d7b84 0 8px, #8f9aa3 8px 15px, #57626b 15px 24px),
+    #516069;
+}
+.barrel-row {
+  background: repeating-linear-gradient(90deg, #8f5f47 0 12px, #6a4330 12px 20px);
+}
+
+.scene-pondside-path {
+  background: linear-gradient(180deg, #3f736f 0%, #335863 52%, #1f3d48 100%);
+}
+.water-strip {
+  background: linear-gradient(180deg, #70d2ff 0%, #4a9de4 42%, #2e6bb4 100%);
+}
+.boardwalk { background: repeating-linear-gradient(90deg, #c39a64 0 14px, #9a7546 14px 20px); }
+.reed-bed {
+  background: radial-gradient(circle at 16% 60%, #89d06c 0 11%, transparent 14%), radial-gradient(circle at 47% 30%, #6ebc5e 0 11%, transparent 14%), radial-gradient(circle at 80% 62%, #97da72 0 11%, transparent 14%);
+}
+.lily-cluster {
+  background: radial-gradient(circle at 22% 56%, #c4ffd1 0 11%, transparent 14%), radial-gradient(circle at 58% 42%, #9bffd7 0 10%, transparent 13%), radial-gradient(circle at 84% 64%, #b0ffb9 0 10%, transparent 13%);
+}
+
+.scene-stable-district {
+  background: linear-gradient(180deg, #657a82 0%, #4a5f67 54%, #33454e 100%);
+}
+.stable-road { background: linear-gradient(180deg, #9fa28b, #7b806e); }
+.barn-long { background: linear-gradient(180deg, #d9c8a2 0 63%, #a3714d 63% 100%); }
+.wagon-yard {
+  background: repeating-linear-gradient(45deg, #73634e 0 11px, #5a4c3a 11px 20px);
+}
+
+.scene-event-plaza {
+  background: linear-gradient(180deg, #675785 0%, #4e3f6f 56%, #342a4f 100%);
+}
+.plaza-stage { background: linear-gradient(180deg, #cf9aff, #8558bd); }
+.plaza-rings {
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at center, transparent 0 25%, rgba(255, 255, 255, 0.14) 26% 34%, transparent 35% 45%, rgba(155, 229, 255, 0.22) 46% 53%, transparent 54% 100%);
+}
+.neon-pillar {
+  background: linear-gradient(180deg, #8de8ff, #ff8de7);
+}
+
+.gp-exit-marker {
+  border: 1px dashed rgba(255, 255, 255, 0.62);
+  background: rgba(8, 13, 21, 0.55);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.gp-exit-marker span {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Avatar corrective renderer */
+.gp-explorer-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 98px;
+  height: 120px;
+  transform: scale(var(--scale, 1));
+}
+
+.gp-explorer-avatar--lg { width: 120px; height: 148px; }
+.gp-explorer-avatar--xl { width: 160px; height: 196px; }
+.gp-explorer-avatar--mini { width: 58px; height: 72px; }
+
+.gp-av-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  justify-items: center;
+  grid-template-rows: 36% 34% 30%;
+}
+
+.gp-av-head {
+  width: 50%;
+  height: 86%;
+  align-self: end;
+  border-radius: 42% 42% 46% 46%;
+  background: var(--skin);
+  position: relative;
+  border: 1px solid rgba(36, 27, 23, 0.28);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.gp-av-hair {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  top: -14%;
+  height: 50%;
+  background: var(--hair);
+}
+.hair-short { border-radius: 76% 76% 20% 20%; }
+.hair-bob { border-radius: 58% 58% 35% 35%; height: 62%; }
+.hair-spike { clip-path: polygon(0 80%, 14% 18%, 30% 76%, 48% 12%, 64% 77%, 82% 20%, 100% 80%); }
+.hair-mop { border-radius: 999px; height: 66%; }
+.hair-puff { border-radius: 999px; height: 70%; }
+.hair-none { display: none; }
+
+.gp-av-face { position: absolute; inset: 0; }
+.gp-av-eye {
+  position: absolute;
+  top: 48%;
+  width: 12%;
+  height: 11%;
+  border-radius: 999px;
+  background: var(--eyes);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+.gp-av-eye.left { left: 26%; }
+.gp-av-eye.right { right: 26%; }
+.gp-av-mouth {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  width: 24%;
+  height: 8%;
+  border-bottom: 2px solid rgba(38, 37, 51, 0.9);
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.eyes-sleepy .gp-av-eye { height: 4%; border-radius: 4px; }
+.eyes-wide .gp-av-eye { width: 14%; height: 13%; }
+.eyes-spark .gp-av-eye { box-shadow: 0 0 6px var(--eyes); }
+.eyes-cat .gp-av-eye { width: 10%; height: 14%; border-radius: 3px; }
+
+.gp-av-hat {
+  position: absolute;
+  top: -30%;
+  left: 12%;
+  right: 12%;
+  height: 26%;
+  display: none;
+}
+.hat-beanie,
+.hat-cap,
+.hat-hornband,
+.hat-crown { display: block; border-radius: 999px 999px 9px 9px; }
+.hat-beanie { background: #2f4477; }
+.hat-cap { background: #3a67ff; }
+.hat-hornband { background: #6e56ff; }
+.hat-crown { background: #d4b55f; clip-path: polygon(0 100%, 0 56%, 14% 38%, 32% 56%, 48% 28%, 65% 57%, 83% 38%, 100% 56%, 100% 100%); }
+
+.gp-av-torso {
+  width: 58%;
+  height: 92%;
+  align-self: center;
+  border-radius: 22% 22% 16% 16%;
+  background: var(--top);
+  border: 1px solid rgba(21, 24, 42, 0.25);
+  position: relative;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+}
+
+.top-jacket { border-radius: 18% 18% 16% 16%; }
+.top-tee { border-radius: 24% 24% 18% 18%; }
+.top-robe { border-radius: 12% 12% 18% 18%; }
+.top-armor { box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.24), inset 0 0 0 2px rgba(186, 222, 255, 0.3); }
+
+.gp-av-arm {
+  position: absolute;
+  top: 18%;
+  width: 19%;
+  height: 42%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--top) 72%, #f0f4ff);
+}
+.gp-av-arm.left { left: -14%; }
+.gp-av-arm.right { right: -14%; }
+
+.gp-av-legs {
+  width: 56%;
+  height: 96%;
+  align-self: start;
+  position: relative;
+}
+
+.gp-av-leg {
+  position: absolute;
+  width: 34%;
+  height: 76%;
+  top: 0;
+  border-radius: 8px 8px 10px 10px;
+  background: var(--bottom);
+  border: 1px solid rgba(18, 21, 35, 0.25);
+}
+.gp-av-leg.left { left: 11%; }
+.gp-av-leg.right { right: 11%; }
+
+.bottom-skirt .gp-av-leg { height: 64%; top: 12%; border-radius: 6px 6px 12px 12px; }
+.bottom-greaves .gp-av-leg { box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), inset 0 0 0 2px rgba(216, 236, 255, 0.25); }
+
+.gp-av-shoe {
+  position: absolute;
+  bottom: -4%;
+  width: 28%;
+  height: 14%;
+  border-radius: 999px;
+  background: #e3ebf6;
+}
+.gp-av-shoe.left { left: 14%; }
+.gp-av-shoe.right { right: 14%; }
+
+.gp-av-acc {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.acc-scarf::before,
+.acc-visor::before,
+.acc-headphones::before,
+.acc-badge::before {
+  content: "";
+  position: absolute;
+}
+
+.acc-scarf::before { left: 35%; top: 39%; width: 30%; height: 6%; border-radius: 999px; background: #ff79df; }
+.acc-visor::before { left: 34%; top: 14%; width: 32%; height: 8%; border-radius: 6px; background: rgba(113, 235, 255, 0.9); }
+.acc-headphones::before { left: 21%; top: 8%; width: 58%; height: 20%; border: 2px solid #b0c7ff; border-bottom: none; border-radius: 999px 999px 0 0; }
+.acc-badge::before { right: 31%; top: 47%; width: 8%; height: 8%; border-radius: 999px; background: #ffd86f; }
+
+.gp-player-wrap .gp-explorer-avatar[data-facing="left"] { transform: scaleX(-1) scale(var(--scale, 1)); }
+.gp-player-wrap .gp-explorer-avatar[data-facing="right"] { transform: scaleX(1) scale(var(--scale, 1)); }
+.gp-player-wrap .gp-explorer-avatar[data-facing="up"] { filter: brightness(0.9) saturate(0.84); }
+
+.gp-player-wrap .gp-explorer-avatar--mini,
+.gp-other .gp-explorer-avatar--mini {
+  animation: gp-avatar-idle 880ms ease-in-out infinite alternate;
+}
+
+.gp-home-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  gap: 14px;
+}
+
+@media (max-width: 1120px) {
+  .gp-home-main-grid,
+  .gp-home-hero,
+  .gp-control-grid--overworld {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .gp-page .page-main {
+    width: 100%;
+    padding: 22px 12px 44px;
+  }
+}

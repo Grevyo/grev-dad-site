@@ -63,11 +63,10 @@ function renderActivePet(data) {
       <a class="btn" href="/grev-pets/stable.html">Switch Active</a>
     </div>
     ${activePet
-      ? `<canvas id="active-pet-canvas" class="gp-pet-canvas" width="340" height="180"></canvas>
+      ? `<canvas id="active-pet-canvas" class="gp-pet-canvas" width="440" height="220"></canvas>
          <p><strong>${safeText(activePet.name)}</strong> · Lv ${activePet.level} · ${safeText(activePet.species)}</p>
          <p>${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</p>
-         <p class="gp-small">${safeText(activePet.temperament)}</p>
-         <a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Detail Card</a>`
+         <div class="gp-actions"><a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Detail Card</a><a class="btn btn-primary" href="/grev-pets/overworld.html">Go Explore</a></div>`
       : `<p>No active pet selected yet.</p><a class="btn btn-primary" href="/grev-pets/stable.html">Choose from Storage</a>`}
   `;
 
@@ -106,14 +105,14 @@ function renderStoragePanel(pets, count) {
   const recent = pets.slice(0, 3);
   byId("storage-panel").innerHTML = `
     <div class="gp-section-head">
-      <h2>Storage Vault</h2>
-      <a class="btn btn-primary" href="/grev-pets/stable.html">Open Storage</a>
+      <h2>Storage / Stable</h2>
+      <a class="btn btn-primary" href="/grev-pets/stable.html">Open Stable</a>
     </div>
-    <p class="gp-small">Total captured: <strong>${count}</strong></p>
+    <p class="gp-small">Captured total: <strong>${count}</strong></p>
     <div class="gp-recent-captures">
       ${recent.length
         ? recent.map((pet) => `<p>${safeText(pet.name)} <span class="gp-pill ${rarityClass(pet.rarity)}">${safeText(pet.rarity)}</span></p>`).join("")
-        : "<p class='gp-small'>Your vault is empty — capture pets in wild routes.</p>"}
+        : "<p class='gp-small'>No pets in storage yet.</p>"}
     </div>
   `;
 }
@@ -121,14 +120,19 @@ function renderStoragePanel(pets, count) {
 function renderProgressPanel(profile) {
   byId("progress-panel").innerHTML = `
     <div class="gp-section-head">
-      <h2>Explorer Snapshot</h2>
+      <h2>Quick Actions</h2>
       <a class="btn" href="/grev-pets/event-room.html">Events</a>
+    </div>
+    <div class="gp-actions">
+      <a class="btn btn-primary" href="/grev-pets/overworld.html">Resume Overworld</a>
+      <a class="btn" href="/grev-pets/stable.html">Manage Team</a>
+      <a class="btn" href="/grev-pets/event-room.html">Run Event Match</a>
     </div>
     <div class="gp-stats-grid">
       <div class="gp-stat-block"><h3>Favorite Type</h3><p>${safeText(profile.favorite_type || "Unpicked")}</p></div>
       <div class="gp-stat-block"><h3>Starter</h3><p>${profile.starter_claimed ? "Claimed" : "Not Claimed"}</p></div>
       <div class="gp-stat-block"><h3>Last Area</h3><p>${safeText(profile.zone)}</p></div>
-      <div class="gp-stat-block"><h3>Overworld</h3><p>Connected Zones</p></div>
+      <div class="gp-stat-block"><h3>Status</h3><p>Ready</p></div>
     </div>
   `;
 }

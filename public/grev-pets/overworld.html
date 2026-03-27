@@ -9,14 +9,14 @@
   <script src="/scripts/header.js" defer></script>
   <script type="module" src="/grev-pets/js/overworld.js" defer></script>
 </head>
-<body>
+<body class="gp-page">
   <div class="page-shell">
     <div id="header-mount"></div>
     <main class="page-main">
       <div class="gp-shell">
         <section class="gp-banner gp-overworld-banner">
           <h1>🌌 Grev Pets Connected Overworld</h1>
-          <p>WASD / Arrow keys to move. Walk through route exits to travel between areas.</p>
+          <p>Move with WASD / Arrow keys. Exits at map edges transition into fully separate areas.</p>
           <div class="gp-actions" style="margin-top:14px;">
             <a class="btn" href="/grev-pets/index.html">Home</a>
             <a class="btn" href="/grev-pets/stable.html">Storage</a>
@@ -35,11 +35,7 @@
             </div>
 
             <div id="overworld" class="gp-overworld" data-theme="spawn_town">
-              <div class="gp-map-layer gp-map-base"></div>
-              <div class="gp-map-layer gp-map-paths"></div>
-              <div class="gp-map-layer gp-map-water"></div>
-              <div class="gp-map-layer gp-map-flora"></div>
-              <div class="gp-map-layer" id="map-landmarks"></div>
+              <div id="map-scene" class="gp-map-scene scene-spawn-town"></div>
               <div class="gp-map-layer" id="map-exits"></div>
 
               <div id="player-wrap" class="gp-player-wrap">
@@ -50,7 +46,7 @@
 
               <div id="area-banner" class="gp-area-banner hidden"></div>
             </div>
-            <p id="overworld-hint" class="gp-small">Move into an edge gate to transition to a connected area.</p>
+            <p id="overworld-hint" class="gp-small">Step into an exit marker to load another area map.</p>
           </article>
 
           <article class="gp-card gp-overworld-sidebar">
