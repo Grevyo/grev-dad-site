@@ -10,9 +10,9 @@ const SKIN = {
 };
 
 const BODY_SCALE = {
-  small: 0.88,
+  small: 0.9,
   medium: 1,
-  broad: 1.14
+  broad: 1.1
 };
 
 const ALLOWED = {
@@ -40,34 +40,38 @@ export function avatarMarkup(config = {}, options = {}) {
 
   return `
     <div class="gp-explorer-avatar gp-explorer-avatar--${size} ${body}" style="--skin:${skin};--hair:${safeText(config.hairColor || "#47362f")};--eyes:${safeText(config.eyeColor || "#8be7ff")};--top:${safeText(config.topColor || "#7d6dff")};--bottom:${safeText(config.bottomColor || "#2a3757")};--scale:${BODY_SCALE[config.bodyType] || 1};">
-      <div class="gp-av-shell">
-        <div class="gp-av-head-wrap">
-          <div class="gp-av-head">
-            <div class="gp-av-hair ${hairStyle}"></div>
-            <div class="gp-av-face ${eyeStyle}">
-              <span class="gp-av-eye left"></span>
-              <span class="gp-av-eye right"></span>
-              <span class="gp-av-mouth"></span>
-            </div>
-            <div class="gp-av-hat ${hat}"></div>
-          </div>
-          <span class="gp-av-neck"></span>
-        </div>
+      <div class="gp-av-shell ${topStyle} ${bottomStyle} ${hairStyle} ${eyeStyle} ${hat} ${accessory}">
+        <span class="gp-av-ground-shadow"></span>
 
-        <div class="gp-av-torso ${topStyle}">
-          <span class="gp-av-arm left"></span>
-          <span class="gp-av-arm right"></span>
-        </div>
-
-        <div class="gp-av-legs ${bottomStyle}">
+        <div class="gp-av-lower">
+          <span class="gp-av-hip"></span>
           <span class="gp-av-leg left"></span>
           <span class="gp-av-leg right"></span>
           <span class="gp-av-shoe left"></span>
           <span class="gp-av-shoe right"></span>
         </div>
 
-        <div class="gp-av-acc ${accessory}"></div>
-        <span class="gp-av-ground-shadow"></span>
+        <div class="gp-av-torso-wrap">
+          <span class="gp-av-arm left"><span class="gp-av-hand"></span></span>
+          <span class="gp-av-arm right"><span class="gp-av-hand"></span></span>
+          <span class="gp-av-neck"></span>
+          <span class="gp-av-torso"></span>
+        </div>
+
+        <div class="gp-av-head-wrap">
+          <span class="gp-av-hair-back"></span>
+          <span class="gp-av-head"></span>
+          <div class="gp-av-face">
+            <span class="gp-av-brow left"></span>
+            <span class="gp-av-brow right"></span>
+            <span class="gp-av-eye left"></span>
+            <span class="gp-av-eye right"></span>
+            <span class="gp-av-mouth"></span>
+          </div>
+          <span class="gp-av-hair-front"></span>
+          <span class="gp-av-hat"></span>
+          <span class="gp-av-accessory"></span>
+        </div>
       </div>
       ${label}
     </div>
