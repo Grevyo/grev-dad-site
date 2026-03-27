@@ -1,5 +1,6 @@
 import { api, byId, requireAuthOrRedirect, safeText } from "./api.js";
-import { renderPet, rarityClass } from "./pet-renderer.js";
+import { renderPet, rarityClass, typeBadgePair } from "./pet-renderer.js";
+import { avatarMarkup } from "./avatar-renderer.js";
 
 const world = {
   x: 220,
@@ -7,7 +8,8 @@ const world = {
   zone: "town_hub",
   encounter: null,
   keys: new Set(),
-  others: new Map()
+  others: new Map(),
+  avatar: null
 };
 
 const zoneBounds = [
@@ -31,7 +33,10 @@ async function boot() {
     world.x = me.profile.pos_x || 220;
     world.y = me.profile.pos_y || 240;
     world.zone = me.profile.zone || "town_hub";
+    world.avatar = me.profile.avatar;
+    mountPlayerAvatar();
     placeAvatar();
+    byId("zone-label").textContent = `Zone: ${world.zone}`;
     setupControls();
     startLoop();
     startPresence();
@@ -40,6 +45,11 @@ async function boot() {
   } catch (error) {
     log(error.message);
   }
+}
+
+function mountPlayerAvatar() {
+  const node = byId("player-avatar");
+  node.innerHTML = avatarMarkup(world.avatar, { size: "mini" });
 }
 
 function setupControls() {
@@ -94,8 +104,6 @@ function startLoop() {
 
 function placeAvatar() {
   const avatar = byId("player-avatar");
-  const overworld = byId("overworld");
-  const rect = overworld.getBoundingClientRect();
   const percentX = (world.x / 900) * 100;
   const percentY = (world.y / 580) * 100;
   avatar.style.left = `${percentX}%`;
@@ -130,26 +138,27 @@ function startPresence() {
 function drawOthers(players) {
   const map = byId("overworld");
   world.others.forEach((item) => {
-    item.dot.remove();
+    item.node.remove();
     item.label.remove();
   });
   world.others.clear();
 
   players.forEach((player) => {
-    const dot = document.createElement("div");
-    dot.className = "gp-other";
-    dot.style.left = `${(Number(player.pos_x || 0) / 900) * 100}%`;
-    dot.style.top = `${(Number(player.pos_y || 0) / 580) * 100}%`;
+    const node = document.createElement("div");
+    node.className = "gp-other";
+    node.style.left = `${(Number(player.pos_x || 0) / 900) * 100}%`;
+    node.style.top = `${(Number(player.pos_y || 0) / 580) * 100}%`;
+    node.innerHTML = avatarMarkup(player.avatar || {}, { size: "mini" });
 
     const label = document.createElement("div");
     label.className = "gp-name-tag";
     label.textContent = safeText(player.username);
-    label.style.left = dot.style.left;
-    label.style.top = dot.style.top;
+    label.style.left = node.style.left;
+    label.style.top = node.style.top;
 
-    map.appendChild(dot);
+    map.appendChild(node);
     map.appendChild(label);
-    world.others.set(player.user_id, { dot, label });
+    world.others.set(player.user_id, { node, label });
   });
 }
 
@@ -186,6 +195,7 @@ function showEncounter() {
     <canvas id="encounter-pet" class="gp-pet-canvas" width="260" height="170"></canvas>
     <h3>${safeText(wild.name)}</h3>
     <p><span class="gp-pill ${rarityClass(wild.rarity)}">${safeText(wild.rarity)}</span> · Lv ${wild.level} · ${safeText(wild.species)}</p>
+    <p>${typeBadgePair(wild.primaryType, wild.secondaryType)}</p>
     <p class="gp-small">HP: <span id="wild-hp">${world.encounter.wildCurrentHp}</span> / ${wild.stats.health}</p>
   `;
 
@@ -193,7 +203,7 @@ function showEncounter() {
   const loop = () => {
     if (!world.encounter || !canvas.isConnected) return;
     idleBob += 0.08;
-    renderPet(canvas, wild.traits, { bob: idleBob });
+    renderPet(canvas, wild.traits, { bob: idleBob, primaryType: wild.primaryType });
     requestAnimationFrame(loop);
   };
   loop();
