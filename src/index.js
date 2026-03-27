@@ -1,11 +1,13 @@
 // src/index.js
 
-import { STARTING_BALANCE_PENCE } from "./cs2/constants.js";
+import { STARTING_BALANCE_PENCE } from "./features/cs2/constants.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
-import { handleCasinoRequest } from "./casino/handlers.js";
-import { recordCasinoGameEarning } from "./casino/leaderboards.js";
-import { handleGrevPetsRequest } from "./grev-pets/handlers.js";
+import { handleCasinoRequest } from "./features/casino/handlers.js";
+import { recordCasinoGameEarning } from "./features/casino/leaderboards.js";
+import { handleGrevPetsRequest } from "./features/grev-pets/handlers.js";
+import { dispatchCoreRoute, isLegacyCasesPath } from "./routes/core.js";
+import { isRetiredGamblingPath, retiredGamblingPayload } from "./routes/playground.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -47,52 +49,56 @@ const MODERATION_GROUPS = new Set(["admin", "dev", "staff"]);
 let coreTablesReadyPromise = null;
 
 async function handleRequest(request, env, ctx) {
-  const url = new URL(request.url);
-  const { pathname } = url;
+  const { pathname } = new URL(request.url);
 
   if (request.method === "OPTIONS") {
     return handleOptions(request);
   }
 
-  if (pathname === "/api/casino/profile" && request.method === "GET") {
-    return await handleCasinoProfile(request, env);
-  }
-
-  if (pathname === "/api/casino/profile/balance" && request.method === "POST") {
-    return await handleCasinoProfileBalanceUpdate(request, env);
-  }
-
-  if (pathname === "/api/site/meta" && request.method === "GET") {
-    return await handleSiteMeta(request, env);
-  }
-
-  if (pathname === "/api/casino/daily-spin" && request.method === "POST") {
-    return await handleCasinoDailySpin(request, env);
-  }
-
-  if (pathname === "/api/casino/classic-spin" && request.method === "POST") {
-    return await handleCasinoClassicSpin(request, env);
-  }
-
-  if (pathname === "/api/casino/roulette/state" && request.method === "GET") {
-    return await handleCasinoRouletteState(request, env);
-  }
-
-  if (pathname === "/api/casino/roulette/bet" && request.method === "POST") {
-    return await handleCasinoRouletteBet(request, env);
-  }
-
-  if (pathname === "/api/casino/crash-sprint/state" && request.method === "GET") {
-    return await handleCasinoCrashSprintState(request, env);
-  }
-
-  if (pathname === "/api/casino/crash-sprint/join" && request.method === "POST") {
-    return await handleCasinoCrashSprintJoin(request, env);
-  }
-
-  if (pathname === "/api/casino/crash-sprint/cashout" && request.method === "POST") {
-    return await handleCasinoCrashSprintCashout(request, env);
-  }
+  const coreRouteResponse = await dispatchCoreRoute(request, env, ctx, {
+    handleCasinoProfile,
+    handleCasinoProfileBalanceUpdate,
+    handleSiteMeta,
+    handleCasinoDailySpin,
+    handleCasinoClassicSpin,
+    handleCasinoRouletteState,
+    handleCasinoRouletteBet,
+    handleCasinoCrashSprintState,
+    handleCasinoCrashSprintJoin,
+    handleCasinoCrashSprintCashout,
+    handleHealth: (currentRequest) => json({ success: true, message: "grev.dad worker is running" }, 200, currentRequest),
+    handleHltvOverview,
+    handleSetup: (currentRequest, currentEnv) => handleSetup(currentEnv, currentRequest),
+    handleRegister,
+    handleLogin,
+    handleLogout,
+    handleMe,
+    handleProfileMe,
+    handleProfileUpdate,
+    handleProfileView,
+    handleMembers,
+    handlePresence: (currentRequest) => json({ success: true, disabled: true }, 202, currentRequest),
+    handleGetGlobalChat,
+    handlePostGlobalChat,
+    handleGetCasinoChat,
+    handlePostCasinoChat,
+    handleForumPosts,
+    handleForumPost,
+    handleForumComments,
+    handleForumCreatePost,
+    handleForumCreateComment,
+    handleForumReact,
+    handleForumRemovePost,
+    handleAdminUsers,
+    handleAdminUser,
+    handleAdminUpdateUser,
+    handleAdminDeleteUser,
+    handleAdminPendingUsers,
+    handleAdminReadCasinoDatabase,
+    handlePrivateChatPlaceholderGet: (currentRequest) => json({ success: true, messages: [], note: "Private chat route is ready for a later phase" }, 200, currentRequest),
+    handlePrivateChatPlaceholderPost: (currentRequest) => json({ success: false, error: "Private chat sending will be added in a later phase" }, 501, currentRequest)
+  });
+  if (coreRouteResponse) return coreRouteResponse;
 
   const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
   if (casinoRouteResponse) return casinoRouteResponse;
@@ -101,164 +107,10 @@ async function handleRequest(request, env, ctx) {
   if (grevPetsRouteResponse) return grevPetsRouteResponse;
 
   if (isRetiredGamblingPath(pathname)) {
-    return retiredGamblingResponse(request);
+    return json(retiredGamblingPayload(), 410, request);
   }
 
-  if (pathname === "/api/health" && request.method === "GET") {
-    return json(
-      {
-        success: true,
-        message: "grev.dad worker is running"
-      },
-      200,
-      request
-    );
-  }
-
-  if (pathname === "/api/hltv/overview" && request.method === "GET") {
-    return await handleHltvOverview(request, env);
-  }
-
-  if (pathname === "/api/setup" && request.method === "POST") {
-    return await handleSetup(env, request);
-  }
-
-  // Auth
-  if (pathname === "/api/auth/register" && request.method === "POST") {
-    return await handleRegister(request, env);
-  }
-
-  if (pathname === "/api/auth/login" && request.method === "POST") {
-    return await handleLogin(request, env);
-  }
-
-  if (pathname === "/api/auth/logout" && request.method === "POST") {
-    return await handleLogout(request, env);
-  }
-
-  if (pathname === "/api/auth/me" && request.method === "GET") {
-    return await handleMe(request, env);
-  }
-
-  // Profile
-  if (pathname === "/api/profile/me" && request.method === "GET") {
-    return await handleProfileMe(request, env);
-  }
-
-  if (pathname === "/api/profile/update" && request.method === "POST") {
-    return await handleProfileUpdate(request, env);
-  }
-
-  if (pathname === "/api/profile/view" && request.method === "GET") {
-    return await handleProfileView(request, env);
-  }
-
-  // Members
-  if (pathname === "/api/users/members" && request.method === "GET") {
-    return await handleMembers(request, env);
-  }
-
-  if (pathname === "/api/presence" && request.method === "POST") {
-    return json({ success: true, disabled: true }, 202, request);
-  }
-
-  // Global chat
-  if (pathname === "/api/chat/global" && request.method === "GET") {
-    return await handleGetGlobalChat(request, env);
-  }
-
-  if (pathname === "/api/chat/global" && request.method === "POST") {
-    return await handlePostGlobalChat(request, env);
-  }
-
-  if (pathname === "/api/chat/casino" && request.method === "GET") {
-    return await handleGetCasinoChat(request, env);
-  }
-
-  if (pathname === "/api/chat/casino" && request.method === "POST") {
-    return await handlePostCasinoChat(request, env);
-  }
-
-  // Forum
-  if (pathname === "/api/forum/posts" && request.method === "GET") {
-    return await handleForumPosts(request, env);
-  }
-
-  if (pathname === "/api/forum/post" && request.method === "GET") {
-    return await handleForumPost(request, env);
-  }
-
-  if (pathname === "/api/forum/comments" && request.method === "GET") {
-    return await handleForumComments(request, env);
-  }
-
-  if (pathname === "/api/forum/create-post" && request.method === "POST") {
-    return await handleForumCreatePost(request, env);
-  }
-
-  if (pathname === "/api/forum/create-comment" && request.method === "POST") {
-    return await handleForumCreateComment(request, env);
-  }
-
-  if (pathname === "/api/forum/react" && request.method === "POST") {
-    return await handleForumReact(request, env);
-  }
-
-  if (pathname === "/api/forum/remove-post" && request.method === "POST") {
-    return await handleForumRemovePost(request, env);
-  }
-
-
-  // Admin
-  if (pathname === "/api/admin/users" && request.method === "GET") {
-    return await handleAdminUsers(request, env);
-  }
-
-  if (pathname === "/api/admin/user" && request.method === "GET") {
-    return await handleAdminUser(request, env);
-  }
-
-  if (pathname === "/api/admin/user/update" && request.method === "POST") {
-    return await handleAdminUpdateUser(request, env);
-  }
-
-  if (pathname === "/api/admin/user/delete" && request.method === "POST") {
-    return await handleAdminDeleteUser(request, env);
-  }
-
-  if (pathname === "/api/admin/pending-users" && request.method === "GET") {
-    return await handleAdminPendingUsers(request, env);
-  }
-
-  if (pathname === "/api/admin/casino/read-database" && request.method === "POST") {
-    return await handleAdminReadCasinoDatabase(request, env);
-  }
-
-  // Future routes
-  if (pathname === "/api/chat/private" && request.method === "GET") {
-    return json(
-      {
-        success: true,
-        messages: [],
-        note: "Private chat route is ready for a later phase"
-      },
-      200,
-      request
-    );
-  }
-
-  if (pathname === "/api/chat/private" && request.method === "POST") {
-    return json(
-      {
-        success: false,
-        error: "Private chat sending will be added in a later phase"
-      },
-      501,
-      request
-    );
-  }
-
-  if (pathname.startsWith("/api/cases")) {
+  if (isLegacyCasesPath(pathname)) {
     return json(
       {
         success: false,
@@ -296,30 +148,6 @@ async function handleSetup(env, request) {
       message: "Core database tables applied; gambling playground reset remains in effect"
     },
     200,
-    request
-  );
-}
-
-function isRetiredGamblingPath(pathname) {
-  return pathname === "/api/gambling/profile"
-    || pathname === "/api/gambling/event"
-    || pathname.startsWith("/api/gambling/admin/")
-    || pathname === "/api/cases"
-    || pathname === "/api/cases/catalog"
-    || pathname.startsWith("/api/admin/cases")
-    || pathname.startsWith("/api/cs2")
-    || pathname.startsWith("/api/ygo")
-    || pathname.startsWith("/api/blackjack")
-    || pathname.startsWith("/api/casino");
-}
-
-function retiredGamblingResponse(request) {
-  return json(
-    {
-      success: false,
-      error: "The gambling playground has been cleared out and is being rebuilt from scratch."
-    },
-    410,
     request
   );
 }

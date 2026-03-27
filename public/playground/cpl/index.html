@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CPL Playground</title>
+    <style>
+      :root {
+        --bg: #070b12;
+        --panel: #111927;
+        --border: #24344d;
+        --text: #e8eef8;
+        --muted: #9db0cd;
+        --accent: #4f9dff;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top, #17243a 0%, var(--bg) 52%);
+      }
+
+      main {
+        width: min(1200px, 100%);
+        margin: 0 auto;
+        padding: 28px 16px 32px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel) 92%, black);
+        border-radius: 16px;
+        padding: 18px;
+      }
+
+      h1 { margin: 0 0 8px; }
+      p { margin: 0; color: var(--muted); line-height: 1.45; }
+
+      .row {
+        margin-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .btn {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 13px;
+        text-decoration: none;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .btn-primary {
+        border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+        background: color-mix(in srgb, var(--accent) 28%, transparent);
+      }
+
+      iframe {
+        width: 100%;
+        min-height: calc(100vh - 220px);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #05080e;
+      }
+
+      code {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 2px 6px;
+        background: #0a111b;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <h1>CPL Playground</h1>
+        <p>
+          Rebuilt CPL Playground shell connected to your hosted Streamlit app:
+          <code id="streamlit-url-label"></code>
+        </p>
+        <div class="row">
+          <a id="open-streamlit" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">Open Streamlit in new tab</a>
+          <a class="btn" href="/">Back to home</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <iframe id="streamlit-frame" title="CPL Streamlit"></iframe>
+      </section>
+    </main>
+
+    <script>
+      const streamlitUrl = 'https://grev-profiles-and-tactics.streamlit.app/#hltv-cpl-profile-viewer';
+      document.getElementById('streamlit-url-label').textContent = streamlitUrl;
+      document.getElementById('open-streamlit').href = streamlitUrl;
+      document.getElementById('streamlit-frame').src = streamlitUrl;
+    </script>
+  </body>
+</html>
