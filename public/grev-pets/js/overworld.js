@@ -291,27 +291,50 @@ function startLoop() {
 }
 
 function mountTouchControls() {
+  const controlWrap = document.querySelector(".gp-touch-controls-wrap");
+  if (controlWrap) {
+    const stopSelection = (event) => event.preventDefault();
+    controlWrap.addEventListener("selectstart", stopSelection);
+    controlWrap.addEventListener("dragstart", stopSelection);
+  }
+
   const controls = document.querySelectorAll("[data-move]");
   controls.forEach((button) => {
     const direction = button.dataset.move;
     if (!direction) return;
 
+    const clearState = () => {
+      world.touchDirs.delete(direction);
+      button.classList.remove("is-active");
+      if (button.hasPointerCapture?.(activePointerId)) {
+        button.releasePointerCapture(activePointerId);
+      }
+      activePointerId = null;
+    };
+
+    let activePointerId = null;
+
     const start = (event) => {
       event.preventDefault();
+      activePointerId = event.pointerId;
+      button.setPointerCapture?.(event.pointerId);
       world.touchDirs.add(direction);
       button.classList.add("is-active");
     };
 
     const end = (event) => {
       event.preventDefault();
-      world.touchDirs.delete(direction);
-      button.classList.remove("is-active");
+      if (activePointerId !== null && event.pointerId !== activePointerId) return;
+      clearState();
     };
 
     button.addEventListener("pointerdown", start);
     button.addEventListener("pointerup", end);
     button.addEventListener("pointercancel", end);
     button.addEventListener("pointerleave", end);
+    button.addEventListener("lostpointercapture", clearState);
+    button.addEventListener("dragstart", (event) => event.preventDefault());
+    button.addEventListener("selectstart", (event) => event.preventDefault());
     button.addEventListener("contextmenu", (event) => event.preventDefault());
   });
 }
