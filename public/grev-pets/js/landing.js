@@ -25,7 +25,9 @@ async function loadProfile() {
   renderTeamPanel(data.featured_pets || [], data.profile.active_pet_id);
   renderStoragePanel(data.featured_pets || [], data.pet_count || 0);
   renderProgressPanel(data.profile);
+  renderRecentPanel(data);
   renderStarterOptions(data);
+  renderStarterClaimedCard(data);
   renderAvatarEditor(data.avatar_options || {}, avatarDraft);
 }
 
@@ -66,6 +68,7 @@ function renderActivePet(data) {
       ? `<canvas id="active-pet-canvas" class="gp-pet-canvas" width="440" height="220"></canvas>
          <p><strong>${safeText(activePet.name)}</strong> · Lv ${activePet.level} · ${safeText(activePet.species)}</p>
          <p>${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</p>
+         <p class="gp-small">Current route partner ready for overworld movement, captures, and events.</p>
          <div class="gp-actions"><a class="btn" href="/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Detail Card</a><a class="btn btn-primary" href="/grev-pets/overworld.html">Go Explore</a></div>`
       : `<p>No active pet selected yet.</p><a class="btn btn-primary" href="/grev-pets/stable.html">Choose from Storage</a>`}
   `;
@@ -128,19 +131,54 @@ function renderProgressPanel(profile) {
       <a class="btn" href="/grev-pets/stable.html">Manage Team</a>
       <a class="btn" href="/grev-pets/event-room.html">Run Event Match</a>
     </div>
-    <div class="gp-stats-grid">
+    <div class="gp-stats-grid gp-stats-grid-2">
       <div class="gp-stat-block"><h3>Favorite Type</h3><p>${safeText(profile.favorite_type || "Unpicked")}</p></div>
-      <div class="gp-stat-block"><h3>Starter</h3><p>${profile.starter_claimed ? "Claimed" : "Not Claimed"}</p></div>
       <div class="gp-stat-block"><h3>Last Area</h3><p>${safeText(profile.zone)}</p></div>
-      <div class="gp-stat-block"><h3>Status</h3><p>Ready</p></div>
+    </div>
+  `;
+}
+
+function renderRecentPanel(data) {
+  const mount = byId("recent-panel");
+  const activePet = data.profile.active_pet;
+  mount.innerHTML = `
+    <div class="gp-section-head">
+      <h2>Area + Event Status</h2>
+      <a class="btn" href="/grev-pets/event-room.html">Open Event Plaza</a>
+    </div>
+    <div class="gp-home-status-grid">
+      <div class="gp-stat-block">
+        <h3>Last Visited Area</h3>
+        <p>${safeText(data.profile.zone)}</p>
+      </div>
+      <div class="gp-stat-block">
+        <h3>Explorer Readiness</h3>
+        <p>${activePet ? "Team Ready" : "Select Active Pet"}</p>
+      </div>
+      <div class="gp-stat-block">
+        <h3>Starter Status</h3>
+        <p>${data.profile.starter_claimed ? "Starter Claimed" : "Starter Pending"}</p>
+      </div>
+      <div class="gp-stat-block">
+        <h3>Recommended Next Step</h3>
+        <p>${activePet ? "Resume Overworld" : "Open Storage"}</p>
+      </div>
     </div>
   `;
 }
 
 function renderStarterOptions(data) {
+  const section = byId("starter-flow-card");
   const mount = byId("starter-options");
   const claimed = data.profile.starter_claimed;
   const options = data.starter_options || [];
+
+  section.classList.toggle("hidden", claimed);
+  if (claimed) {
+    mount.innerHTML = "";
+    byId("starter-status").textContent = "Starter already claimed. Home base now focuses on your active team.";
+    return;
+  }
 
   mount.innerHTML = options.map((starter, idx) => `
     <article class="gp-card gp-starter-card ${claimed ? "is-locked" : ""}">
@@ -154,9 +192,7 @@ function renderStarterOptions(data) {
     </article>
   `).join("");
 
-  byId("starter-status").textContent = claimed
-    ? "Starter already claimed. Build your route team from storage."
-    : "Pick one starter to begin your run.";
+  byId("starter-status").textContent = "Pick one starter to begin your run.";
 
   options.forEach((starter, idx) => {
     animatePetCanvas(`starter-canvas-${idx}`, {
@@ -184,6 +220,26 @@ function renderStarterOptions(data) {
       }
     });
   });
+}
+
+function renderStarterClaimedCard(data) {
+  const card = byId("starter-claimed-card");
+  const activePet = data.profile.active_pet;
+  const starterPet = data.featured_pets?.find((pet) => pet.petId === data.profile.starter_pet_id) || activePet;
+  if (!data.profile.starter_claimed) {
+    card.classList.add("hidden");
+    card.innerHTML = "";
+    return;
+  }
+
+  card.classList.remove("hidden");
+  card.innerHTML = `
+    <div class="gp-section-head">
+      <h2>Your First Partner</h2>
+      <span class="gp-pill">Starter Claimed</span>
+    </div>
+    <p class="gp-small">${starterPet ? `${safeText(starterPet.name)} is part of your roster.` : "Starter is secured in your roster."}</p>
+  `;
 }
 
 function renderAvatarEditor(options, state) {

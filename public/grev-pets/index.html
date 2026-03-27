@@ -30,25 +30,27 @@
           </aside>
         </section>
 
-        <section class="gp-home-main-grid">
-          <div class="gp-grid">
-            <article class="gp-card" id="active-pet-panel"></article>
-            <article class="gp-card" id="team-panel"></article>
-          </div>
-          <div class="gp-grid">
+        <section class="gp-home-hub-grid">
+          <article class="gp-card gp-home-active-card" id="active-pet-panel"></article>
+          <article class="gp-card gp-home-team-card" id="team-panel"></article>
+          <aside class="gp-home-utility-stack">
             <article class="gp-card" id="storage-panel"></article>
             <article class="gp-card" id="progress-panel"></article>
-          </div>
+            <article class="gp-card hidden" id="starter-claimed-card"></article>
+          </aside>
         </section>
 
-        <section class="gp-card" id="starter-flow-card">
-          <div class="gp-section-head">
-            <h2>Starter Adoption</h2>
-            <p class="gp-small">Pick once if needed.</p>
-          </div>
-          <div class="gp-grid gp-grid-3" id="starter-options"></div>
-          <p id="starter-status" class="gp-small"></p>
+        <section class="gp-home-lower-grid">
+          <article class="gp-card hidden" id="starter-flow-card">
+            <div class="gp-section-head">
+              <h2>Starter Adoption</h2>
+              <p class="gp-small">Pick once if needed.</p>
+            </div>
+            <div class="gp-grid gp-grid-3" id="starter-options"></div>
+          </article>
+          <article class="gp-card" id="recent-panel"></article>
         </section>
+        <p id="starter-status" class="gp-small"></p>
 
         <section class="gp-card">
           <div class="gp-section-head">
