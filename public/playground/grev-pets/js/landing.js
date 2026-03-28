@@ -63,11 +63,11 @@ function renderProfileSummary(data) {
 function renderActivePet(data) {
   const activePet = data.profile.active_pet;
   const mount = byId("active-pet-panel");
-  const readiness = activePet ? "Deployment ready" : "Link a pet to deploy";
+  const readiness = activePet ? "Garden bond active" : "Welcome a companion";
 
   mount.innerHTML = `
     <div class="gp-active-topline">
-      <p class="gp-kicker">Active Companion</p>
+      <p class="gp-kicker">Companion Garden</p>
       <span class="gp-home-tag">${safeText(readiness)}</span>
     </div>
     ${activePet
@@ -80,19 +80,19 @@ function renderActivePet(data) {
             <h2>${safeText(activePet.name)}</h2>
             <p class="gp-small">Lv ${activePet.level} • ${safeText(activePet.species)}</p>
             <div class="gp-active-chip-row">${typeBadgePair(activePet.primaryType, activePet.secondaryType)}</div>
-            <p class="gp-small">Mood: Energized • Bond sync stable • Route tracking online.</p>
-            <p class="gp-small">Your lead companion is tuned for captures, encounters, and event entries.</p>
+            <p class="gp-small">Mood: Bright-eyed • Bond: Cozy • Energy: Ready for a short route walk.</p>
+            <p class="gp-small">Spend time feeding, grooming, and playing so your partner grows before tougher zones.</p>
             <div class="gp-actions gp-active-actions">
-              <a class="btn btn-primary" href="/playground/grev-pets/overworld.html">Launch Adventure</a>
-              <a class="btn" href="/playground/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Open Companion Card</a>
-              <a class="btn" href="/playground/grev-pets/stable.html">Switch Active</a>
+              <a class="btn btn-primary" href="/playground/grev-pets/overworld.html">Walk in Overworld</a>
+              <a class="btn" href="/playground/grev-pets/pet.html?petId=${encodeURIComponent(activePet.petId)}">Pet Habitat View</a>
+              <a class="btn" href="/playground/grev-pets/stable.html">Rest / Switch Companion</a>
             </div>
           </div>
         </div>`
       : `<div class="gp-active-empty">
           <h2>No Active Companion</h2>
-          <p class="gp-small">Choose your first route partner from storage to activate exploration and events.</p>
-          <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Choose from Storage</a>
+          <p class="gp-small">Adopt your first companion to unlock the habitat and route exploration flow.</p>
+          <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Choose from Stable</a>
         </div>`}
   `;
 

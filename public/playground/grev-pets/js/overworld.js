@@ -198,15 +198,20 @@ const world = {
   y: WORLD_HEIGHT / 2,
   areaId: "spawn_town",
   encounter: null,
+  encounterResult: null,
   keys: new Set(),
   others: new Map(),
   avatar: null,
   username: "Explorer",
   activePet: null,
+  profile: null,
+  featuredPets: [],
+  petCount: 0,
   facing: "down",
   bob: 0,
   transitionLock: false,
-  touchDirs: new Set()
+  touchDirs: new Set(),
+  panelState: null
 };
 
 let animationHandle = null;
@@ -223,6 +228,9 @@ async function boot() {
     world.x = Number(me.profile.pos_x || WORLD_WIDTH / 2);
     world.y = Number(me.profile.pos_y || WORLD_HEIGHT / 2);
     world.avatar = me.profile.avatar;
+    world.profile = me.profile;
+    world.featuredPets = me.featured_pets || [];
+    world.petCount = Number(me.pet_count || 0);
     world.username = user?.username || me.profile.username || "Explorer";
     world.activePet = me.profile.active_pet || null;
 
@@ -230,6 +238,7 @@ async function boot() {
     renderAreaVisuals();
     updateHUDForArea(true);
     setupControls();
+    setupUIOverlays();
     startLoop();
     startPresence();
     startEncounterChecks();
@@ -251,6 +260,15 @@ function setupControls() {
       event.preventDefault();
       world.keys.add(event.key.toLowerCase());
     }
+    if (event.key === "Escape") {
+      const menu = byId("menu-overlay");
+      const panel = byId("panel-overlay");
+      if (!menu.classList.contains("hidden") || !panel.classList.contains("hidden")) {
+        hideOverlays();
+      } else {
+        showMenuOverlay();
+      }
+    }
   });
 
   window.addEventListener("keyup", (event) => {
@@ -264,6 +282,30 @@ function setupControls() {
   byId("btn-capture").addEventListener("click", () => captureAction("toss", false));
   byId("btn-lure").addEventListener("click", () => captureAction("snack-lure", false));
   byId("btn-run").addEventListener("click", runFromEncounter);
+  byId("btn-continue-overworld").addEventListener("click", clearBattleResult);
+  byId("btn-return-overworld").addEventListener("click", clearBattleResult);
+  byId("btn-home-base").addEventListener("click", () => {
+    window.location.href = "/playground/grev-pets/stable.html";
+  });
+  byId("btn-view-results").addEventListener("click", () => {
+    const result = world.encounterResult;
+    if (!result) return;
+    overlayLog(`Result: ${result.title}. ${result.summary}`);
+  });
+}
+
+function setupUIOverlays() {
+  byId("btn-main-menu").addEventListener("click", showMenuOverlay);
+
+  document.querySelectorAll("[data-overlay-close]").forEach((el) => {
+    el.addEventListener("click", hideOverlays);
+  });
+
+  document.querySelectorAll("[data-panel-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openPanel(button.dataset.panelOpen);
+    });
+  });
 }
 
 function startLoop() {
@@ -358,8 +400,7 @@ function tryAreaTransition() {
   const xPercent = (world.x / WORLD_WIDTH) * 100;
   const yPercent = (world.y / WORLD_HEIGHT) * 100;
 
-  const candidates = Object.entries(exits);
-  for (const [edge, exit] of candidates) {
+  for (const [edge, exit] of Object.entries(exits)) {
     if (!exit?.to) continue;
 
     const [laneMin, laneMax] = exit.lane || [0, 100];
@@ -428,6 +469,20 @@ function renderAreaVisuals() {
 
   const exitsMount = byId("map-exits");
   exitsMount.innerHTML = Object.entries(area.exits || {}).map(([dir, exit]) => exitMarkerMarkup(dir, exit)).join("");
+
+  const zones = byId("map-zone-markers");
+  zones.innerHTML = Object.entries(AREAS).map(([areaId, areaMeta], idx) => {
+    const left = 6 + ((idx % 4) * 23);
+    const top = 8 + (Math.floor(idx / 4) * 42);
+    const active = areaId === world.areaId ? "is-active" : "";
+    return `<button type="button" class="gp-zone-chip ${active}" data-zone-jump="${safeText(areaId)}" style="left:${left}%;top:${top}%;">${safeText(areaMeta.name)}</button>`;
+  }).join("");
+
+  zones.querySelectorAll("[data-zone-jump]").forEach((button) => {
+    button.addEventListener("click", () => {
+      switchArea(button.dataset.zoneJump, "south");
+    });
+  });
 }
 
 function exitMarkerMarkup(dir, exit) {
@@ -544,6 +599,7 @@ function startEncounterChecks() {
         body: JSON.stringify({ zone: area.id })
       });
       world.encounter = data.encounter;
+      world.encounterResult = null;
       showEncounter();
       log(`⚔️ ${data.encounter.wildPet.name} appeared in ${area.name}.`);
     } catch (error) {
@@ -577,6 +633,10 @@ function showEncounter() {
     clearCanvas("encounter-active-pet");
   }
 
+  byId("battle-end-banner").classList.add("hidden");
+  byId("battle-end-banner").innerHTML = "";
+  byId("encounter-action-buttons").classList.remove("hidden");
+  byId("battle-result-actions").classList.add("hidden");
   byId("encounter-log").innerHTML = "";
   animateEncounterPet("encounter-pet", wild);
 
@@ -609,7 +669,7 @@ function clearCanvas(canvasId) {
 }
 
 async function captureAction(mode, weaken) {
-  if (!world.encounter) return;
+  if (!world.encounter || world.encounterResult) return;
 
   try {
     const data = await api("/api/playground/grev-pets/capture", {
@@ -618,15 +678,30 @@ async function captureAction(mode, weaken) {
     });
 
     if (data.captured) {
-      overlayLog(`🎉 Captured ${data.pet.name}! (roll ${data.roll}/${data.chance})`);
-      log(`Captured ${data.pet.name} in ${currentArea().name}.`);
-      resolveEncounter(`Captured ${data.pet.name}!`);
+      const summary = `Captured ${data.pet.name}! (roll ${data.roll}/${data.chance})`;
+      overlayLog(`🎉 ${summary}`);
+      log(summary);
+      finishBattleState({
+        state: "victory",
+        title: `Captured ${data.pet.name}!`,
+        summary,
+        rewards: ["New companion joined stable", "+Trainer capture progress"]
+      });
       return;
     }
 
     if (data.wild_current_hp) {
       world.encounter.wildCurrentHp = data.wild_current_hp;
       byId("wild-hp").textContent = String(data.wild_current_hp);
+      if (Number(data.wild_current_hp) <= 0) {
+        finishBattleState({
+          state: "victory",
+          title: "Wild pet subdued",
+          summary: "The wild pet can no longer fight. Throw an orb next encounter.",
+          rewards: ["Battle XP gained", "Control bonus applied"]
+        });
+        return;
+      }
     }
 
     overlayLog(`Attempt failed (roll ${data.roll}/${data.chance}). ${weaken ? "You softened it up." : "Try weaken first."}`);
@@ -636,16 +711,178 @@ async function captureAction(mode, weaken) {
 }
 
 function runFromEncounter() {
-  if (!world.encounter) return;
-  overlayLog("You escaped safely.");
-  resolveEncounter("Escaped encounter.");
+  if (!world.encounter || world.encounterResult) return;
+  finishBattleState({
+    state: "retreat",
+    title: "Retreated safely",
+    summary: "You escaped before the encounter finished.",
+    rewards: ["No rewards earned"]
+  });
 }
 
-function resolveEncounter(status) {
+function finishBattleState(result) {
+  world.encounterResult = result;
+
+  const banner = byId("battle-end-banner");
+  banner.className = `gp-battle-result gp-battle-result--${safeText(result.state || "neutral")}`;
+  banner.innerHTML = `
+    <h3>${safeText(result.title)}</h3>
+    <p>${safeText(result.summary)}</p>
+    <ul>
+      ${(result.rewards || []).map((item) => `<li>${safeText(item)}</li>`).join("")}
+    </ul>
+  `;
+  banner.classList.remove("hidden");
+
+  byId("encounter-action-buttons").classList.add("hidden");
+  byId("battle-result-actions").classList.remove("hidden");
+  byId("encounter-paused-note").textContent = "Battle complete · choose next step";
+  byId("encounter-status").textContent = `Battle complete: ${result.title}`;
+}
+
+function clearBattleResult() {
+  if (!world.encounterResult) return;
+  const status = world.encounterResult.title;
+  world.encounterResult = null;
   world.encounter = null;
   byId("encounter-overlay").classList.add("hidden");
   byId("encounter-status").textContent = status;
   byId("encounter-paused-note").textContent = "Movement active";
+}
+
+function showMenuOverlay() {
+  byId("menu-overlay").classList.remove("hidden");
+}
+
+function hideOverlays() {
+  byId("menu-overlay").classList.add("hidden");
+  byId("panel-overlay").classList.add("hidden");
+}
+
+function openPanel(panelName) {
+  hideOverlays();
+  const title = byId("panel-title");
+  const body = byId("panel-body");
+
+  const panels = {
+    team: renderTeamPanel,
+    stable: renderStablePanel,
+    events: renderEventsPanel,
+    inventory: renderInventoryPanel,
+    travel: renderTravelPanel,
+    settings: renderSettingsPanel
+  };
+
+  const renderer = panels[panelName];
+  if (!renderer) return;
+
+  const panelContent = renderer();
+  title.textContent = panelContent.title;
+  body.innerHTML = panelContent.html;
+  byId("panel-overlay").classList.remove("hidden");
+
+  body.querySelectorAll("[data-zone-jump]").forEach((button) => {
+    button.addEventListener("click", () => {
+      switchArea(button.dataset.zoneJump, "south");
+      hideOverlays();
+    });
+  });
+}
+
+function renderTeamPanel() {
+  const pets = world.featuredPets || [];
+  const list = pets.length
+    ? pets.map((pet) => `
+      <article class="gp-card gp-panel-pet-item ${pet.petId === world.profile?.active_pet_id ? "is-active" : ""}">
+        <strong>${safeText(pet.name)}</strong>
+        <p class="gp-small">Lv ${pet.level} · ${safeText(pet.species)}</p>
+        <p>${typeBadgePair(pet.primaryType, pet.secondaryType)}</p>
+      </article>
+    `).join("")
+    : "<p class='gp-small'>No pets captured yet.</p>";
+
+  return {
+    title: "Team / Pets",
+    html: `
+      <p class="gp-small">Manage your active lineup while staying in the overworld.</p>
+      <div class="gp-grid gp-grid-2">${list}</div>
+      <div class="gp-actions">
+        <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Open Full Stable</a>
+      </div>
+    `
+  };
+}
+
+function renderStablePanel() {
+  return {
+    title: "Stable",
+    html: `
+      <p class="gp-small">Total Stored Companions: <strong>${world.petCount}</strong></p>
+      <p class="gp-small">Stable District remains part of your world map. You can walk there or open full management.</p>
+      <div class="gp-actions">
+        <button class="btn" type="button" data-zone-jump="stable_district">Travel to Stable District</button>
+        <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Open Stable Manager</a>
+      </div>
+    `
+  };
+}
+
+function renderEventsPanel() {
+  return {
+    title: "Events",
+    html: `
+      <p class="gp-small">Event Plaza is linked directly into the overworld travel loop.</p>
+      <div class="gp-actions">
+        <button class="btn" type="button" data-zone-jump="event_plaza">Travel to Event Plaza</button>
+        <a class="btn btn-primary" href="/playground/grev-pets/event-room.html">Open Event Room</a>
+      </div>
+    `
+  };
+}
+
+function renderInventoryPanel() {
+  return {
+    title: "Inventory",
+    html: `
+      <div class="gp-grid gp-grid-2">
+        <article class="gp-card"><h3>Tame Orbs</h3><p class="gp-small">Used for captures after weakening.</p></article>
+        <article class="gp-card"><h3>Snack Lures</h3><p class="gp-small">Boost chance for shy wild pets.</p></article>
+        <article class="gp-card"><h3>Grooming Kit</h3><p class="gp-small">For companion care and bond events.</p></article>
+        <article class="gp-card"><h3>Rest Tonic</h3><p class="gp-small">Recover energy between routes.</p></article>
+      </div>
+      <p class="gp-small">(Placeholder inventory UI in overworld panel; can be wired to real items next.)</p>
+    `
+  };
+}
+
+function renderTravelPanel() {
+  const areaButtons = Object.entries(AREAS).map(([id, area]) => `
+    <button class="btn" type="button" data-zone-jump="${safeText(id)}">${safeText(area.name)}</button>
+  `).join("");
+
+  return {
+    title: "Travel Map",
+    html: `
+      <p class="gp-small">Jump between connected zones or continue walking through route exits.</p>
+      <div class="gp-actions">${areaButtons}</div>
+    `
+  };
+}
+
+function renderSettingsPanel() {
+  return {
+    title: "Settings / Save",
+    html: `
+      <div class="gp-grid gp-grid-2">
+        <article class="gp-card"><h3>Save Position</h3><p class="gp-small">Presence sync saves your current zone and coordinates.</p></article>
+        <article class="gp-card"><h3>Home Base Layer</h3><p class="gp-small">Home Base is now a utility layer, not the main dashboard.</p></article>
+      </div>
+      <div class="gp-actions">
+        <a class="btn" href="/playground/grev-pets/stable.html">Back to Home Base</a>
+        <a class="btn" href="/playground/grev-pets/index.html">Reload Overworld Entry</a>
+      </div>
+    `
+  };
 }
 
 function overlayLog(text) {
