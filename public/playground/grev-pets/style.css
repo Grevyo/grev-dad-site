@@ -2163,3 +2163,277 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Overworld-first UX redesign ===== */
+.gp-shell-overworld-primary {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+}
+
+.gp-overworld-stage-card {
+  border: 1px solid rgba(130, 213, 255, 0.35);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(14, 22, 41, 0.95), rgba(8, 12, 24, 0.95));
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.gp-overworld-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.gp-overworld-topbar h1 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+}
+
+.gp-hud-right {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.gp-overworld {
+  min-height: clamp(540px, 72vh, 760px);
+  max-width: 100%;
+}
+
+.gp-overworld-bottom-hud {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(6, 11, 21, 0.62);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.gp-overworld-hud-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+}
+
+.gp-overworld-shortcuts .btn {
+  min-width: 112px;
+}
+
+.gp-overworld-rail {
+  max-height: calc(100vh - 190px);
+  position: sticky;
+  top: 84px;
+}
+
+.gp-overworld-rail .gp-log {
+  min-height: 220px;
+  max-height: 62vh;
+}
+
+.gp-zone-chip {
+  position: absolute;
+  z-index: 3;
+  font-size: 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  color: #f3fbff;
+  background: rgba(12, 16, 29, 0.82);
+  border-radius: 999px;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.gp-zone-chip.is-active {
+  border-color: rgba(157, 248, 170, 0.9);
+  box-shadow: 0 0 0 1px rgba(157, 248, 170, 0.45);
+}
+
+.gp-ui-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.gp-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 15, 0.72);
+}
+
+.gp-overlay-panel {
+  position: relative;
+  width: min(900px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  border: 1px solid rgba(139, 228, 255, 0.4);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(20, 29, 50, 0.98), rgba(9, 13, 25, 0.98));
+  padding: 14px;
+  z-index: 2;
+}
+
+.gp-overlay-panel--menu {
+  width: min(720px, 100%);
+}
+
+.gp-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gp-menu-tile {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8f6ff;
+  font-weight: 700;
+  text-align: left;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.gp-panel-pet-item.is-active {
+  border-color: rgba(160, 250, 189, 0.7);
+}
+
+.gp-battle-result {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 8px 0 12px;
+  background: rgba(12, 18, 33, 0.82);
+}
+
+.gp-battle-result h3,
+.gp-battle-result p {
+  margin: 0;
+}
+
+.gp-battle-result ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.gp-battle-result--victory {
+  border-color: rgba(145, 251, 172, 0.72);
+  background: linear-gradient(180deg, rgba(26, 64, 40, 0.8), rgba(13, 31, 23, 0.84));
+}
+
+.gp-battle-result--retreat,
+.gp-battle-result--defeat {
+  border-color: rgba(255, 171, 171, 0.62);
+  background: linear-gradient(180deg, rgba(73, 34, 45, 0.75), rgba(33, 15, 24, 0.84));
+}
+
+.gp-battle-result-actions {
+  margin-top: 6px;
+}
+
+/* Chao-garden-ish companion vibe on home/stable panels */
+.gp-active-feature {
+  background:
+    radial-gradient(circle at 20% 16%, rgba(255, 191, 225, 0.16), transparent 30%),
+    radial-gradient(circle at 82% 12%, rgba(133, 236, 181, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(20, 31, 53, 0.96), rgba(9, 15, 30, 0.95));
+}
+
+.gp-pet-stage {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid rgba(210, 255, 228, 0.3);
+  background:
+    radial-gradient(circle at 50% 85%, rgba(137, 229, 153, 0.18) 0 40%, transparent 66%),
+    radial-gradient(circle at 50% 14%, rgba(157, 220, 255, 0.24) 0 20%, transparent 42%),
+    linear-gradient(180deg, rgba(18, 28, 47, 0.95), rgba(9, 15, 27, 0.96));
+  padding: 10px;
+}
+
+.gp-pet-stage::after {
+  content: "Companion Habitat";
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: #c6ffd9;
+}
+
+/* Avatar proportion rebalance for overworld readability */
+.gp-explorer-avatar {
+  width: 98px;
+  height: 146px;
+}
+
+.gp-explorer-avatar--mini {
+  width: 66px;
+  height: 102px;
+}
+
+.gp-av-shell {
+  grid-template-rows: 47% 26% 27%;
+}
+
+.gp-av-head {
+  width: 62%;
+  height: 92%;
+}
+
+.gp-av-torso {
+  width: 42%;
+  height: 70%;
+}
+
+.gp-av-arm {
+  width: 12%;
+  height: 34%;
+}
+
+.gp-av-legs {
+  width: 44%;
+}
+
+@media (max-width: 1180px) {
+  .gp-shell-overworld-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .gp-overworld-rail {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .gp-overworld {
+    min-height: 62vh;
+  }
+
+  .gp-menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gp-overworld-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .gp-overworld-topbar {
+    flex-direction: column;
+  }
+
+  .gp-hud-right {
+    justify-items: start;
+  }
+
+  .gp-overworld-shortcuts {
+    grid-template-columns: 1fr;
+  }
+}

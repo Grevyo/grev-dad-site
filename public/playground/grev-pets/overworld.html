@@ -9,69 +9,102 @@
   <script src="/scripts/header.js" defer></script>
   <script type="module" src="/playground/grev-pets/js/overworld.js" defer></script>
 </head>
-<body class="gp-page">
+<body class="gp-page gp-page-overworld">
   <div class="page-shell">
     <div id="header-mount"></div>
     <main class="page-main">
-      <div class="gp-shell">
-        <section class="gp-banner gp-overworld-banner">
-          <h1>🌌 Grev Pets Connected Overworld</h1>
-          <p>Move with WASD / Arrow keys on desktop, or the on-screen D-pad on phone. Exits at map edges transition into fully separate areas.</p>
-          <div class="gp-actions" style="margin-top:14px;">
-            <a class="btn" href="/playground/grev-pets/index.html">Home</a>
-            <a class="btn" href="/playground/grev-pets/stable.html">Storage</a>
-            <a class="btn" href="/playground/grev-pets/event-room.html">Event Plaza</a>
+      <div class="gp-shell gp-shell-overworld-primary">
+        <section class="gp-overworld-stage-card">
+          <header class="gp-overworld-topbar">
+            <div>
+              <p class="gp-kicker">PLAYABLE OVERWORLD</p>
+              <h1 id="area-title">Spawn Town</h1>
+              <p id="area-subtitle" class="gp-small">Safe hub with exits to routes and districts.</p>
+            </div>
+            <div class="gp-hud-right">
+              <p id="area-mode-pill" class="gp-status-pill">Safe Zone</p>
+              <button id="btn-main-menu" class="btn" type="button">Menu</button>
+            </div>
+          </header>
+
+          <div id="overworld" class="gp-overworld" data-theme="spawn_town">
+            <div id="map-scene" class="gp-map-scene scene-spawn-town"></div>
+            <div class="gp-map-layer" id="map-exits"></div>
+            <div class="gp-map-layer" id="map-zone-markers"></div>
+
+            <div id="player-wrap" class="gp-player-wrap">
+              <div class="gp-player-shadow"></div>
+              <div id="player-avatar" class="gp-avatar"></div>
+              <div id="player-name" class="gp-name-tag"></div>
+            </div>
+
+            <div id="area-banner" class="gp-area-banner hidden"></div>
+          </div>
+
+          <footer class="gp-overworld-bottom-hud">
+            <div class="gp-overworld-hud-row">
+              <p id="zone-label" class="gp-status-pill">Area: Spawn Town</p>
+              <p id="active-pet" class="gp-small">Active Pet: none</p>
+              <p id="encounter-status" class="gp-small">No encounter active.</p>
+            </div>
+            <p id="objective" class="gp-small">Objective: Leave town and find route encounters.</p>
+            <div class="gp-overworld-shortcuts gp-actions">
+              <button class="btn btn-primary" type="button" data-panel-open="team">Team / Pets</button>
+              <button class="btn" type="button" data-panel-open="stable">Stable</button>
+              <button class="btn" type="button" data-panel-open="events">Events</button>
+              <button class="btn" type="button" data-panel-open="travel">Travel</button>
+              <button class="btn" type="button" data-panel-open="settings">Settings</button>
+            </div>
+          </footer>
+
+          <div class="gp-touch-controls-wrap" aria-label="Touch movement controls">
+            <p class="gp-small gp-touch-hint">Touch movement (mobile):</p>
+            <div class="gp-dpad" role="group" aria-label="Movement pad">
+              <button type="button" class="gp-dpad-btn up" data-move="up" aria-label="Move up">▲</button>
+              <button type="button" class="gp-dpad-btn left" data-move="left" aria-label="Move left">◀</button>
+              <button type="button" class="gp-dpad-btn right" data-move="right" aria-label="Move right">▶</button>
+              <button type="button" class="gp-dpad-btn down" data-move="down" aria-label="Move down">▼</button>
+            </div>
           </div>
         </section>
 
-        <section class="gp-control-grid gp-control-grid--overworld">
-          <article class="gp-card gp-overworld-card">
-            <div class="gp-area-head">
-              <div>
-                <h2 id="area-title">Spawn Town</h2>
-                <p id="area-subtitle" class="gp-small">Safe hub with exits to routes and districts.</p>
-              </div>
-              <p id="area-mode-pill" class="gp-status-pill">Safe Zone</p>
-            </div>
-
-            <div id="overworld" class="gp-overworld" data-theme="spawn_town">
-              <div id="map-scene" class="gp-map-scene scene-spawn-town"></div>
-              <div class="gp-map-layer" id="map-exits"></div>
-
-              <div id="player-wrap" class="gp-player-wrap">
-                <div class="gp-player-shadow"></div>
-                <div id="player-avatar" class="gp-avatar"></div>
-                <div id="player-name" class="gp-name-tag"></div>
-              </div>
-
-              <div id="area-banner" class="gp-area-banner hidden"></div>
-            </div>
-            <div class="gp-touch-controls-wrap" aria-label="Touch movement controls">
-              <p class="gp-small gp-touch-hint">Touch movement (mobile):</p>
-              <div class="gp-dpad" role="group" aria-label="Movement pad">
-                <button type="button" class="gp-dpad-btn up" data-move="up" aria-label="Move up">▲</button>
-                <button type="button" class="gp-dpad-btn left" data-move="left" aria-label="Move left">◀</button>
-                <button type="button" class="gp-dpad-btn right" data-move="right" aria-label="Move right">▶</button>
-                <button type="button" class="gp-dpad-btn down" data-move="down" aria-label="Move down">▼</button>
-              </div>
-            </div>
-            <p id="overworld-hint" class="gp-small">Step into an exit marker to load another area map.</p>
-          </article>
-
-          <article class="gp-card gp-overworld-sidebar">
-            <h2>Explorer Status</h2>
-            <div class="gp-status-stack">
-              <p id="zone-label" class="gp-status-pill">Area: Spawn Town</p>
-              <p id="danger-state" class="gp-small">Safe zone for prep and travel.</p>
-              <p id="encounter-status" class="gp-small">No encounter active.</p>
-              <p id="active-pet" class="gp-small">Active Pet: none</p>
-              <p id="objective" class="gp-small">Objective: Leave town and find route encounters.</p>
-            </div>
-            <div class="gp-log" id="overworld-log"></div>
-          </article>
-        </section>
+        <aside class="gp-overworld-rail gp-card">
+          <h2>Explorer HUD</h2>
+          <p id="danger-state" class="gp-small">Safe zone for prep and travel.</p>
+          <p id="overworld-hint" class="gp-small">Step into an exit marker to load another area map.</p>
+          <div class="gp-log" id="overworld-log"></div>
+        </aside>
       </div>
     </main>
+  </div>
+
+  <div id="menu-overlay" class="gp-ui-overlay hidden" aria-hidden="true">
+    <div class="gp-overlay-backdrop" data-overlay-close></div>
+    <div class="gp-overlay-panel gp-overlay-panel--menu">
+      <div class="gp-section-head">
+        <h2>Overworld Menu</h2>
+        <button class="btn" type="button" data-overlay-close>Close</button>
+      </div>
+      <div class="gp-menu-grid">
+        <button class="gp-menu-tile" type="button" data-panel-open="team">🐾 Team / Pets</button>
+        <button class="gp-menu-tile" type="button" data-panel-open="stable">🏠 Stable</button>
+        <button class="gp-menu-tile" type="button" data-panel-open="events">🎉 Events</button>
+        <button class="gp-menu-tile" type="button" data-panel-open="inventory">🎒 Inventory</button>
+        <button class="gp-menu-tile" type="button" data-panel-open="travel">🗺️ Travel</button>
+        <button class="gp-menu-tile" type="button" data-panel-open="settings">⚙️ Settings / Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-overlay" class="gp-ui-overlay hidden" aria-hidden="true">
+    <div class="gp-overlay-backdrop" data-overlay-close></div>
+    <div class="gp-overlay-panel">
+      <div class="gp-section-head">
+        <h2 id="panel-title">Panel</h2>
+        <button class="btn" type="button" data-overlay-close>Close</button>
+      </div>
+      <div id="panel-body"></div>
+    </div>
   </div>
 
   <div id="encounter-overlay" class="gp-encounter-overlay hidden" aria-live="polite">
@@ -80,6 +113,9 @@
       <h2 id="encounter-title">A wild Grev Pet appeared!</h2>
       <p id="encounter-flavor" class="gp-small"></p>
       <p id="encounter-paused-note" class="gp-status-pill gp-encounter-paused-note">Movement paused during encounter</p>
+
+      <div id="battle-end-banner" class="gp-battle-result hidden"></div>
+
       <div class="gp-encounter-grid">
         <article class="gp-card">
           <h3>Wild Grev Pet</h3>
@@ -93,12 +129,18 @@
           <canvas id="encounter-active-pet" class="gp-pet-canvas" width="280" height="170"></canvas>
           <p id="encounter-active-meta" class="gp-small">No active pet selected.</p>
           <p id="encounter-active-types"></p>
-          <div class="gp-actions gp-encounter-actions">
+          <div class="gp-actions gp-encounter-actions" id="encounter-action-buttons">
             <button class="btn" id="btn-battle" type="button">Battle / Attack</button>
             <button class="btn" id="btn-weaken" type="button">Weaken</button>
             <button class="btn btn-primary" id="btn-capture" type="button">Throw Tame Orb</button>
             <button class="btn" id="btn-lure" type="button">Use Snack Lure</button>
             <button class="btn" id="btn-run" type="button">Run Away</button>
+          </div>
+          <div class="gp-actions gp-battle-result-actions hidden" id="battle-result-actions">
+            <button class="btn btn-primary" id="btn-continue-overworld" type="button">Continue</button>
+            <button class="btn" id="btn-return-overworld" type="button">Return to Overworld</button>
+            <button class="btn" id="btn-home-base" type="button">Back to Home Base</button>
+            <button class="btn" id="btn-view-results" type="button">View Results</button>
           </div>
           <div class="gp-log gp-overlay-log" id="encounter-log"></div>
         </article>
