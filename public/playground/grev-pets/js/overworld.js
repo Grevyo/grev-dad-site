@@ -211,7 +211,8 @@ const world = {
   bob: 0,
   transitionLock: false,
   touchDirs: new Set(),
-  panelState: null
+  panelState: null,
+  logEntries: []
 };
 
 let animationHandle = null;
@@ -285,7 +286,7 @@ function setupControls() {
   byId("btn-continue-overworld").addEventListener("click", clearBattleResult);
   byId("btn-return-overworld").addEventListener("click", clearBattleResult);
   byId("btn-home-base").addEventListener("click", () => {
-    window.location.href = "/playground/grev-pets/stable.html";
+    openPanel("home");
   });
   byId("btn-view-results").addEventListener("click", () => {
     const result = world.encounterResult;
@@ -766,11 +767,13 @@ function openPanel(panelName) {
 
   const panels = {
     team: renderTeamPanel,
+    home: renderHomeBasePanel,
     stable: renderStablePanel,
     events: renderEventsPanel,
     inventory: renderInventoryPanel,
     travel: renderTravelPanel,
-    settings: renderSettingsPanel
+    settings: renderSettingsPanel,
+    logs: renderLogsPanel
   };
 
   const renderer = panels[panelName];
@@ -802,29 +805,49 @@ function renderTeamPanel() {
     : "<p class='gp-small'>No pets captured yet.</p>";
 
   return {
-    title: "Team / Pets",
+    title: "Companion Garden",
     html: `
-      <p class="gp-small">Manage your active lineup while staying in the overworld.</p>
-      <div class="gp-grid gp-grid-2">${list}</div>
+      <section class="gp-companion-garden">
+        <article class="gp-pet-stage">
+          <h3>Habitat Nook</h3>
+          <p class="gp-small">Spend time with your active companion in a cozy garden enclosure.</p>
+          <div class="gp-garden-metrics">
+            <span>💖 Affection: ${world.activePet ? "Warm" : "Need a companion"}</span>
+            <span>⚡ Energy: ${world.activePet ? "Ready to explore" : "--"}</span>
+            <span>😊 Mood: ${world.activePet ? "Curious" : "Waiting"}</span>
+          </div>
+          <div class="gp-actions">
+            <button class="btn" type="button">Interact</button>
+            <button class="btn" type="button">Feed</button>
+            <button class="btn" type="button">Rest</button>
+            <button class="btn" type="button">Inspect</button>
+          </div>
+        </article>
+        <div class="gp-grid gp-grid-2">${list}</div>
+      </section>
+    `
+  };
+}
+
+function renderHomeBasePanel() {
+  return {
+    title: "Home Base",
+    html: `
+      <p class="gp-small">Home Base is now an overworld service layer, not a landing dashboard.</p>
+      <div class="gp-grid gp-grid-2">
+        <article class="gp-card"><h3>Care Station</h3><p class="gp-small">Bond, groom, and recover your companions.</p></article>
+        <article class="gp-card"><h3>Storage Loft</h3><p class="gp-small">Stored companions: <strong>${world.petCount}</strong></p></article>
+      </div>
       <div class="gp-actions">
-        <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Open Full Stable</a>
+        <button class="btn" type="button" data-zone-jump="stable_district">Walk to Home Base District</button>
+        <a class="btn" href="/playground/grev-pets/stable.html">Open Legacy Stable Manager</a>
       </div>
     `
   };
 }
 
 function renderStablePanel() {
-  return {
-    title: "Stable",
-    html: `
-      <p class="gp-small">Total Stored Companions: <strong>${world.petCount}</strong></p>
-      <p class="gp-small">Stable District remains part of your world map. You can walk there or open full management.</p>
-      <div class="gp-actions">
-        <button class="btn" type="button" data-zone-jump="stable_district">Travel to Stable District</button>
-        <a class="btn btn-primary" href="/playground/grev-pets/stable.html">Open Stable Manager</a>
-      </div>
-    `
-  };
+  return renderHomeBasePanel();
 }
 
 function renderEventsPanel() {
@@ -875,13 +898,24 @@ function renderSettingsPanel() {
     html: `
       <div class="gp-grid gp-grid-2">
         <article class="gp-card"><h3>Save Position</h3><p class="gp-small">Presence sync saves your current zone and coordinates.</p></article>
-        <article class="gp-card"><h3>Home Base Layer</h3><p class="gp-small">Home Base is now a utility layer, not the main dashboard.</p></article>
+        <article class="gp-card"><h3>Overworld-First Flow</h3><p class="gp-small">You always load into exploration. Menus and Home Base open as overlays.</p></article>
       </div>
       <div class="gp-actions">
-        <a class="btn" href="/playground/grev-pets/stable.html">Back to Home Base</a>
+        <button class="btn" type="button" data-zone-jump="spawn_town">Return to Spawn Town</button>
         <a class="btn" href="/playground/grev-pets/index.html">Reload Overworld Entry</a>
       </div>
     `
+  };
+}
+
+function renderLogsPanel() {
+  const lines = world.logEntries.length
+    ? world.logEntries.map((entry) => `<p>${safeText(entry)}</p>`).join("")
+    : "<p class='gp-small'>No entries yet. Move around to populate the explorer log.</p>";
+
+  return {
+    title: "Explorer Log",
+    html: `<div class="gp-log">${lines}</div>`
   };
 }
 
@@ -893,11 +927,9 @@ function overlayLog(text) {
 }
 
 function log(message) {
-  const mount = byId("overworld-log");
-  if (!mount) return;
-  const p = document.createElement("p");
-  p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-  mount.prepend(p);
+  const line = `[${new Date().toLocaleTimeString()}] ${message}`;
+  world.logEntries.unshift(line);
+  world.logEntries = world.logEntries.slice(0, 60);
 }
 
 function normalizeArea(areaId) {
