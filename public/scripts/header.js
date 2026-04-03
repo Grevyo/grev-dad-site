@@ -343,7 +343,6 @@ function applyHeaderAuthState(user) {
   const guestOnlyItems = document.querySelectorAll("[data-guest-only]");
   const adminOnlyItems = document.querySelectorAll("[data-admin-only]");
   const siteAdminOnlyItems = document.querySelectorAll("[data-site-admin-only]");
-  const homeCplCard = document.querySelector(".playground-card[data-site-admin-only]");
   const profileName = document.getElementById("header-profile-name");
   const profileAvatar = document.getElementById("header-profile-avatar");
   const profileLink = document.getElementById("header-profile-link");
@@ -367,11 +366,6 @@ function applyHeaderAuthState(user) {
     item.classList.toggle("hidden", !isSiteAdmin);
   });
 
-  if (!homeCplCard) {
-    console.error("[auth-debug][header] CPL card not found: .playground-card[data-site-admin-only]");
-  } else {
-    authDebugLog("CPL card visibility updated", { hidden: homeCplCard.classList.contains("hidden") });
-  }
 
   if (profileName) profileName.textContent = user?.username || "Profile";
   if (profileAvatar) {
