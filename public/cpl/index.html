@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CPL | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .cpl-main {
+      width: min(1280px, 100%);
+      margin: 0 auto;
+      padding: 8px 0 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .cpl-frame-wrap {
+      padding: 10px;
+    }
+
+    .cpl-frame {
+      width: 100%;
+      height: min(82vh, 980px);
+      min-height: 560px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface) 86%, black);
+    }
+
+    .cpl-fallback {
+      margin-top: 10px;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+      border-radius: 12px;
+      padding: 14px;
+      background: color-mix(in srgb, var(--surface-strong) 75%, transparent);
+    }
+
+    @media (max-width: 700px) {
+      .cpl-main {
+        gap: 10px;
+      }
+
+      .cpl-frame-wrap {
+        padding: 8px;
+      }
+
+      .cpl-frame {
+        min-height: 72vh;
+        height: 72vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main cpl-main">
+      <section class="panel">
+        <p class="eyebrow">Dashboard</p>
+        <h1 class="panel-title">CPL</h1>
+        <p class="panel-subtitle">Embedded Streamlit dashboard inside the native Grev.dad shell.</p>
+      </section>
+
+      <section class="panel cpl-frame-wrap">
+        <iframe
+          id="cpl-frame"
+          class="cpl-frame"
+          title="CPL Dashboard"
+          src="https://grev-game-dashboard-wmgdpqhrtult4aefo33tij.streamlit.app/"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+
+        <div id="cpl-fallback" class="cpl-fallback hidden">
+          <p class="muted-copy">This dashboard may be blocked from loading in an embedded frame. You can open it directly below.</p>
+          <div class="button-row mt-12">
+            <a class="btn btn-primary" href="https://grev-game-dashboard-wmgdpqhrtult4aefo33tij.streamlit.app/" target="_blank" rel="noopener noreferrer">Open CPL Dashboard</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const frame = document.getElementById("cpl-frame");
+    const fallback = document.getElementById("cpl-fallback");
+    let loaded = false;
+
+    const showFallback = () => fallback.classList.remove("hidden");
+
+    frame.addEventListener("load", () => {
+      loaded = true;
+      fallback.classList.add("hidden");
+    });
+
+    frame.addEventListener("error", showFallback);
+
+    window.setTimeout(() => {
+      if (!loaded) showFallback();
+    }, 7000);
+  </script>
+</body>
+</html>
