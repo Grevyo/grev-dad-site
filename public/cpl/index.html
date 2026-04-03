@@ -60,7 +60,7 @@
         <p class="panel-subtitle">Embedded Streamlit dashboard inside the native Grev.dad shell.</p>
       </section>
 
-      <section class="panel cpl-frame-wrap">
+      <section id="cpl-dashboard" class="panel cpl-frame-wrap hidden">
         <iframe
           id="cpl-frame"
           class="cpl-frame"
@@ -77,26 +77,72 @@
           </div>
         </div>
       </section>
+
+      <section id="cpl-access-denied" class="panel hidden">
+        <p class="eyebrow">Restricted</p>
+        <h2 class="panel-title">Access denied</h2>
+        <p class="panel-subtitle">The CPL dashboard is available to full site admins only.</p>
+        <div class="button-row mt-12">
+          <a class="btn btn-primary" href="/">Back to home</a>
+        </div>
+      </section>
     </main>
   </div>
 
   <script>
+    const dashboardSection = document.getElementById("cpl-dashboard");
+    const deniedSection = document.getElementById("cpl-access-denied");
     const frame = document.getElementById("cpl-frame");
     const fallback = document.getElementById("cpl-fallback");
-    let loaded = false;
 
-    const showFallback = () => fallback.classList.remove("hidden");
+    const fetchUserWithFallback = async () => {
+      if (typeof window.fetchCurrentUser === "function") {
+        return window.fetchCurrentUser({ preferCache: true });
+      }
 
-    frame.addEventListener("load", () => {
-      loaded = true;
-      fallback.classList.add("hidden");
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) return null;
+        return data.user || null;
+      } catch (error) {
+        console.error("Failed to fetch current user for CPL access check:", error);
+        return null;
+      }
+    };
+
+    const enableDashboard = () => {
+      dashboardSection.classList.remove("hidden");
+      deniedSection.classList.add("hidden");
+      let loaded = false;
+
+      const showFallback = () => fallback.classList.remove("hidden");
+
+      frame.addEventListener("load", () => {
+        loaded = true;
+        fallback.classList.add("hidden");
+      });
+
+      frame.addEventListener("error", showFallback);
+
+      window.setTimeout(() => {
+        if (!loaded) showFallback();
+      }, 7000);
+    };
+
+    const showAccessDenied = () => {
+      dashboardSection.classList.add("hidden");
+      deniedSection.classList.remove("hidden");
+    };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = await fetchUserWithFallback();
+      if (user?.is_admin === true) enableDashboard();
+      else showAccessDenied();
     });
-
-    frame.addEventListener("error", showFallback);
-
-    window.setTimeout(() => {
-      if (!loaded) showFallback();
-    }, 7000);
   </script>
 </body>
 </html>
