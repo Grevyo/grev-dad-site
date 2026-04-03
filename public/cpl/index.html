@@ -16,13 +16,13 @@
     }
 
     .cpl-frame-wrap {
-      padding: 10px;
+      padding: clamp(8px, 1vw, 12px);
     }
 
     .cpl-frame {
       width: 100%;
-      height: min(82vh, 980px);
-      min-height: 560px;
+      height: min(84vh, 980px);
+      min-height: 70vh;
       border: 1px solid var(--border);
       border-radius: 12px;
       background: color-mix(in srgb, var(--surface) 86%, black);
@@ -45,10 +45,7 @@
         padding: 8px;
       }
 
-      .cpl-frame {
-        min-height: 72vh;
-        height: 72vh;
-      }
+      .cpl-frame { min-height: 74vh; height: 74vh; }
     }
   </style>
 </head>
@@ -74,7 +71,7 @@
         ></iframe>
 
         <div id="cpl-fallback" class="cpl-fallback hidden">
-          <p class="muted-copy">This dashboard may be blocked from loading in an embedded frame. You can open it directly below.</p>
+          <p class="muted-copy">The CPL dashboard could not be embedded here. You can open it directly below.</p>
           <div class="button-row mt-12">
             <a class="btn btn-primary" href="https://grev-game-dashboard-wmgdpqhrtult4aefo33tij.streamlit.app/" target="_blank" rel="noopener noreferrer">Open CPL Dashboard</a>
           </div>
