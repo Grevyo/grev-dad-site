@@ -343,7 +343,7 @@ function applyHeaderAuthState(user) {
     item.classList.toggle("hidden", !canAccessAdminPortal);
   });
 
-  const isSiteAdmin = user?.is_admin === true;
+  const isSiteAdmin = Boolean(user?.is_admin);
   siteAdminOnlyItems.forEach((item) => {
     item.classList.toggle("hidden", !isSiteAdmin);
   });
