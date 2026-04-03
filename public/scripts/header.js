@@ -5,6 +5,22 @@ const THEME_STORAGE_KEY = "grevdad_theme";
 const CASINO_BALANCE_STORAGE_KEY = "grevdad_casino_balance";
 const CASINO_BALANCE_EVENT = "grevdad-casino-balance-changed";
 const SITE_META_EVENT = "grevdad-site-meta-changed";
+const AUTH_DEBUG_QUERY_PARAM = "debugAuth";
+
+function isAuthDebugEnabled() {
+  try {
+    return new URLSearchParams(window.location.search).get(AUTH_DEBUG_QUERY_PARAM) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function authDebugLog(message, details) {
+  if (!isAuthDebugEnabled()) return;
+  if (typeof details === "undefined") console.log(`[auth-debug][header] ${message}`);
+  else console.log(`[auth-debug][header] ${message}`, details);
+}
+
 
 function formatFooterTimestamp(value) {
   if (!value) return "Unavailable";
@@ -322,10 +338,12 @@ async function refreshProfileChipStyle() {
 }
 
 function applyHeaderAuthState(user) {
+  authDebugLog("applyHeaderAuthState invoked.", user);
   const authOnlyItems = document.querySelectorAll("[data-auth-only]");
   const guestOnlyItems = document.querySelectorAll("[data-guest-only]");
   const adminOnlyItems = document.querySelectorAll("[data-admin-only]");
   const siteAdminOnlyItems = document.querySelectorAll("[data-site-admin-only]");
+  const homeCplCard = document.querySelector(".playground-card[data-site-admin-only]");
   const profileName = document.getElementById("header-profile-name");
   const profileAvatar = document.getElementById("header-profile-avatar");
   const profileLink = document.getElementById("header-profile-link");
@@ -344,9 +362,16 @@ function applyHeaderAuthState(user) {
   });
 
   const isSiteAdmin = Boolean(user?.is_admin);
+  authDebugLog("Computed admin flags", { is_admin: Boolean(user?.is_admin), gambling_admin: Boolean(user?.gambling_admin), canAccessAdminPortal, isSiteAdmin });
   siteAdminOnlyItems.forEach((item) => {
     item.classList.toggle("hidden", !isSiteAdmin);
   });
+
+  if (!homeCplCard) {
+    console.error("[auth-debug][header] CPL card not found: .playground-card[data-site-admin-only]");
+  } else {
+    authDebugLog("CPL card visibility updated", { hidden: homeCplCard.classList.contains("hidden") });
+  }
 
   if (profileName) profileName.textContent = user?.username || "Profile";
   if (profileAvatar) {
@@ -367,6 +392,7 @@ function applyHeaderAuthState(user) {
 
 
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("[auth-debug][header] header.js loaded");
   applyTheme(getInitialTheme());
   loadSharedHeader();
 });
@@ -374,3 +400,4 @@ document.addEventListener("DOMContentLoaded", () => {
 window.fetchCurrentUser = fetchCurrentUser;
 window.readCachedAuthUser = readCachedAuthUser;
 window.writeCasinoBalance = writeCasinoBalance;
+window.applyHeaderAuthState = applyHeaderAuthState;
