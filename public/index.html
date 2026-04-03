@@ -62,6 +62,7 @@
               <a class="playground-card" href="/playground/grev-pets/index.html"><span class="playground-card__emoji" aria-hidden="true">🐾</span><h3 class="playground-card__title">Grev Pets Playground</h3></a>
               <a class="playground-card hidden" data-site-admin-only href="/cpl"><span class="playground-card__emoji" aria-hidden="true">⚽</span><h3 class="playground-card__title">CPL</h3></a>
             </div>
+            <div id="auth-debug-panel" class="alert alert-info mt-16 hidden" style="font-size: 0.9rem;"></div>
           </aside>
 
           <section class="panel chat-shell">
@@ -105,6 +106,15 @@
 <script>
     let currentUser = null;
     let chatPollInterval = null;
+    const authDebugEnabled = new URLSearchParams(window.location.search).get("debugAuth") === "1";
+    const authDebugState = {
+      headerJsLoaded: false,
+      currentUserPresent: false,
+      isAdmin: false,
+      gamblingAdmin: false,
+      cplCardFound: false,
+      cplCardHiddenAfterAuthCheck: true
+    };
     const guestActions = document.getElementById("guest-actions");
     const memberActions = document.getElementById("member-actions");
     const guestChatNote = document.getElementById("guest-chat-note");
@@ -113,6 +123,36 @@
     const chatStatus = document.getElementById("chat-status");
     const sendChatBtn = document.getElementById("send-chat-btn");
     const chatMessageInput = document.getElementById("chat-message");
+
+    function updateAuthDebugPanel() {
+      if (!authDebugEnabled) return;
+      const panel = document.getElementById("auth-debug-panel");
+      if (!panel) return;
+      panel.classList.remove("hidden");
+      panel.innerHTML = `
+        <strong>Auth Debug</strong><br>
+        header.js loaded: ${authDebugState.headerJsLoaded ? "yes" : "no"}<br>
+        current user present: ${authDebugState.currentUserPresent ? "yes" : "no"}<br>
+        is_admin: ${authDebugState.isAdmin}<br>
+        gambling_admin: ${authDebugState.gamblingAdmin}<br>
+        CPL card found: ${authDebugState.cplCardFound ? "yes" : "no"}<br>
+        CPL card hidden after auth check: ${authDebugState.cplCardHiddenAfterAuthCheck ? "yes" : "no"}
+      `;
+    }
+
+    function inspectCplCardState(contextLabel) {
+      const cplCard = document.querySelector(".playground-card[data-site-admin-only]");
+      authDebugState.cplCardFound = Boolean(cplCard);
+      authDebugState.cplCardHiddenAfterAuthCheck = cplCard ? cplCard.classList.contains("hidden") : true;
+      if (!cplCard) {
+        console.error(`[auth-debug][home] CPL card not found during ${contextLabel}.`);
+      } else {
+        console.log(`[auth-debug][home] CPL card hidden during ${contextLabel}:`, authDebugState.cplCardHiddenAfterAuthCheck);
+      }
+      updateAuthDebugPanel();
+      return cplCard;
+    }
+
     function setAuthView(user) {
       if (user) {
         guestActions.classList.add("hidden");
@@ -206,13 +246,40 @@
     }
 
     async function loadCurrentUser() {
+      if (typeof window.fetchCurrentUser !== "function") {
+        console.error("[auth-debug][home] window.fetchCurrentUser is unavailable. header.js may not have loaded correctly.");
+        currentUser = null;
+        authDebugState.currentUserPresent = false;
+        authDebugState.isAdmin = false;
+        authDebugState.gamblingAdmin = false;
+        setAuthView(currentUser);
+        inspectCplCardState("missing fetchCurrentUser");
+        return;
+      }
+
       try {
         currentUser = await window.fetchCurrentUser({ preferCache: true });
+        console.log("[auth-debug][home] fetched current user:", currentUser);
       } catch (error) {
-        console.error(error);
+        console.error("[auth-debug][home] Failed to fetch current user:", error);
         currentUser = null;
       }
+
+      authDebugState.currentUserPresent = Boolean(currentUser);
+      authDebugState.isAdmin = Boolean(currentUser?.is_admin);
+      authDebugState.gamblingAdmin = Boolean(currentUser?.gambling_admin);
+      console.log("[auth-debug][home] user.is_admin:", authDebugState.isAdmin);
+
       setAuthView(currentUser);
+
+      if (typeof window.applyHeaderAuthState === "function") {
+        window.applyHeaderAuthState(currentUser);
+      } else {
+        console.error("[auth-debug][home] window.applyHeaderAuthState is unavailable. [data-site-admin-only] elements cannot be updated from homepage script.");
+      }
+
+      inspectCplCardState("loadCurrentUser");
+      updateAuthDebugPanel();
     }
 
     async function handleChatSubmit(event) {
@@ -245,6 +312,11 @@
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
+      authDebugState.headerJsLoaded = Boolean(window.fetchCurrentUser);
+      console.log("[auth-debug][home] header.js loaded:", authDebugState.headerJsLoaded ? "yes" : "no");
+      inspectCplCardState("DOMContentLoaded");
+      updateAuthDebugPanel();
+
       await loadCurrentUser();
       await loadChat(true);
 
