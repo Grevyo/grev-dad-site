@@ -325,6 +325,7 @@ function applyHeaderAuthState(user) {
   const authOnlyItems = document.querySelectorAll("[data-auth-only]");
   const guestOnlyItems = document.querySelectorAll("[data-guest-only]");
   const adminOnlyItems = document.querySelectorAll("[data-admin-only]");
+  const siteAdminOnlyItems = document.querySelectorAll("[data-site-admin-only]");
   const profileName = document.getElementById("header-profile-name");
   const profileAvatar = document.getElementById("header-profile-avatar");
   const profileLink = document.getElementById("header-profile-link");
@@ -340,6 +341,11 @@ function applyHeaderAuthState(user) {
   const canAccessAdminPortal = Boolean(user?.is_admin || user?.gambling_admin);
   adminOnlyItems.forEach((item) => {
     item.classList.toggle("hidden", !canAccessAdminPortal);
+  });
+
+  const isSiteAdmin = user?.is_admin === true;
+  siteAdminOnlyItems.forEach((item) => {
+    item.classList.toggle("hidden", !isSiteAdmin);
   });
 
   if (profileName) profileName.textContent = user?.username || "Profile";
