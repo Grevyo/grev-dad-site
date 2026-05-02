@@ -8,7 +8,7 @@
   },
   "d1_databases": [
     {
-      "binding": "PROFILE_DB",
+      "binding": "DB",
       "database_name": "profile-db",
       "database_id": "REPLACE_WITH_REAL_DATABASE_ID",
       "migrations_dir": "migrations"
