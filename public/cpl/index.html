@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CPL | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+  <style>
+    .cpl-main {
+      width: min(1280px, 100%);
+      margin: 0 auto;
+      padding: 8px 0 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .cpl-frame-wrap {
+      padding: clamp(8px, 1vw, 12px);
+    }
+
+    .cpl-frame {
+      width: 100%;
+      height: min(84vh, 980px);
+      min-height: 70vh;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface) 86%, black);
+    }
+
+    .cpl-fallback {
+      margin-top: 10px;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+      border-radius: 12px;
+      padding: 14px;
+      background: color-mix(in srgb, var(--surface-strong) 75%, transparent);
+    }
+
+    @media (max-width: 700px) {
+      .cpl-main {
+        gap: 10px;
+      }
+
+      .cpl-frame-wrap {
+        padding: 8px;
+      }
+
+      .cpl-frame { min-height: 74vh; height: 74vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main cpl-main">
+      <section class="panel">
+        <p class="eyebrow">Dashboard</p>
+        <h1 class="panel-title">CPL</h1>
+        <p class="panel-subtitle">Embedded Streamlit dashboard inside the native Grev.dad shell.</p>
+      </section>
+
+      <section id="cpl-dashboard" class="panel cpl-frame-wrap hidden">
+        <iframe
+          id="cpl-frame"
+          class="cpl-frame"
+          title="CPL Dashboard"
+          src="https://grev-game-dashboard-wmgdpqhrtult4aefo33tij.streamlit.app/"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+
+        <div id="cpl-fallback" class="cpl-fallback hidden">
+          <p class="muted-copy">The CPL dashboard could not be embedded here. You can open it directly below.</p>
+          <div class="button-row mt-12">
+            <a class="btn btn-primary" href="https://grev-game-dashboard-wmgdpqhrtult4aefo33tij.streamlit.app/" target="_blank" rel="noopener noreferrer">Open CPL Dashboard</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="cpl-access-denied" class="panel hidden">
+        <p class="eyebrow">Restricted</p>
+        <h2 class="panel-title">Access denied</h2>
+        <p class="panel-subtitle">The CPL dashboard is available to full site admins only.</p>
+        <div class="button-row mt-12">
+          <a class="btn btn-primary" href="/">Back to home</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const dashboardSection = document.getElementById("cpl-dashboard");
+    const deniedSection = document.getElementById("cpl-access-denied");
+    const frame = document.getElementById("cpl-frame");
+    const fallback = document.getElementById("cpl-fallback");
+
+    const fetchUserWithFallback = async () => {
+      if (typeof window.fetchCurrentUser === "function") {
+        return window.fetchCurrentUser({ preferCache: true });
+      }
+
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.authenticated) return null;
+        return data.user || null;
+      } catch (error) {
+        console.error("Failed to fetch current user for CPL access check:", error);
+        return null;
+      }
+    };
+
+    const enableDashboard = () => {
+      dashboardSection.classList.remove("hidden");
+      deniedSection.classList.add("hidden");
+      let loaded = false;
+
+      const showFallback = () => fallback.classList.remove("hidden");
+
+      frame.addEventListener("load", () => {
+        loaded = true;
+        fallback.classList.add("hidden");
+      });
+
+      frame.addEventListener("error", showFallback);
+
+      window.setTimeout(() => {
+        if (!loaded) showFallback();
+      }, 7000);
+    };
+
+    const showAccessDenied = () => {
+      dashboardSection.classList.add("hidden");
+      deniedSection.classList.remove("hidden");
+    };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const user = await fetchUserWithFallback();
+      if (user?.is_admin === true) enableDashboard();
+      else showAccessDenied();
+    });
+  </script>
+</body>
+</html>

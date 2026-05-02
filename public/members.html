@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Members | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main">
+      <div class="members-page">
+        <section class="panel">
+          <p class="eyebrow">Community Directory</p>
+          <h1 class="auth-title">Members</h1>
+          <p class="auth-subtitle">Browse everyone on Grev.dad, inspect profile identity, and quickly jump into member pages.</p>
+
+          <div class="members-controls mt-20">
+            <input id="member-search" class="form-input" type="text" placeholder="Search members by username, real name, role, motto..." />
+            <select id="member-filter" class="form-select">
+              <option value="all">All roles</option><option value="admin">Admin</option><option value="dev">Dev</option><option value="staff">Staff</option><option value="mod">Mod</option><option value="higher">Higher</option><option value="member">Member</option><option value="standard">Standard</option>
+            </select>
+            <button id="members-refresh" class="btn" type="button">Refresh</button>
+          </div>
+          <div id="members-message" class="hidden mt-16"></div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title">All members</h2>
+          <p class="panel-subtitle">Every approved member currently visible on-site.</p>
+          <div id="members-grid" class="members-grid mt-16"></div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer"><div class="footer-inner">Grev.dad — members network</div></footer>
+  </div>
+
+<script>
+    let allMembers = [];
+
+    const membersMessage = document.getElementById("members-message");
+    const memberSearch = document.getElementById("member-search");
+    const memberFilter = document.getElementById("member-filter");
+    const membersRefresh = document.getElementById("members-refresh");
+    const membersGrid = document.getElementById("members-grid");
+
+    function showMessage(type, text) {
+      membersMessage.className = `alert alert-${type}`;
+      membersMessage.textContent = text;
+    }
+
+    function clearMessage() {
+      membersMessage.className = "hidden";
+      membersMessage.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function toTitleCase(value) {
+      if (!value) return "Standard";
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+
+    function renderMembers(members) {
+      if (!members.length) {
+        membersGrid.innerHTML = `<div class="members-empty">No members found.</div>`;
+        return;
+      }
+
+      membersGrid.innerHTML = members.map((member) => {
+        const firstLetter = (member.username || "U").charAt(0).toUpperCase();
+
+        return `
+          <article class="member-card">
+            <div class="member-card-top">
+              ${
+                member.avatar_url
+                  ? `<img class="member-avatar" src="${escapeHtml(member.avatar_url)}" alt="${escapeHtml(member.username)} avatar" />`
+                  : `<div class="member-avatar-placeholder">${escapeHtml(firstLetter)}</div>`
+              }
+
+              <div>
+                <h3 class="member-name">${escapeHtml(member.username || "Unknown")}</h3>
+                <p class="member-real-name">${escapeHtml(member.real_name || "No real name set")}</p>
+
+                <div class="member-badges">
+                  <span class="member-badge">${escapeHtml(toTitleCase(member.group || "standard"))}</span>
+                </div>
+
+                <div class="member-motto">
+                  ${member.motto ? escapeHtml(member.motto) : "No motto set."}
+                </div>
+              </div>
+            </div>
+
+            <div class="member-body">
+              <div class="member-bio ${member.bio ? "" : "member-empty"}">
+                ${member.bio ? escapeHtml(member.bio) : "No bio set."}
+              </div>
+
+              <div class="member-stats">
+                <div class="member-stat">
+                  <span class="member-stat-label">Last Seen</span>
+                  <span class="member-stat-value">${escapeHtml(formatDate(member.last_seen_at))}</span>
+                </div>
+
+                <div class="member-stat">
+                  <span class="member-stat-label">Profile</span>
+                  <span class="member-stat-value">
+                    <a href="/profile.html?id=${encodeURIComponent(member.id)}">View profile</a>
+                  </span>
+                </div>
+
+              </div>
+
+              <div class="member-actions">
+                <a class="btn" href="/profile.html?id=${encodeURIComponent(member.id)}">Open Profile</a>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function applyFilters() {
+      const search = memberSearch.value.trim().toLowerCase();
+      const role = memberFilter.value;
+
+      let filtered = [...allMembers];
+
+      if (role !== "all") {
+        filtered = filtered.filter((member) => String(member.group || "").toLowerCase() === role);
+      }
+
+      if (search) {
+        filtered = filtered.filter((member) => {
+          const haystack = [
+            member.username,
+            member.real_name,
+            member.group,
+            member.motto,
+            member.bio
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          return haystack.includes(search);
+        });
+      }
+
+      renderMembers(filtered);
+    }
+
+    async function loadMembers() {
+      clearMessage();
+
+      try {
+        const response = await fetch("/api/users/members", {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load members.");
+          renderMembers([]);
+          return;
+        }
+
+        allMembers = Array.isArray(data.members) ? data.members : [];
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load members.");
+        renderMembers([]);
+      }
+    }
+
+    memberSearch.addEventListener("input", applyFilters);
+    memberFilter.addEventListener("change", applyFilters);
+    membersRefresh.addEventListener("click", loadMembers);
+    document.addEventListener("DOMContentLoaded", loadMembers);
+  </script>
+</body>
+</html>

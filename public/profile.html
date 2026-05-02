@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <p class="gambling-breadcrumb"><a href="/index.html">← Back to home</a></p>
+      <div id="profile-message" class="hidden"></div>
+      <div id="profile-root" class="profile-layout" style="--profile-accent:#1f2937;--profile-accent-2:#0f172a;">
+        <section class="profile-stack">
+          <section class="panel profile-shell">
+            <div class="profile-hero">
+              <div id="profile-avatar-wrap"></div>
+              <div>
+                <p class="eyebrow">Member identity</p>
+                <h1 id="profile-title" class="profile-title">Loading profile...</h1>
+                <p id="profile-real-name" class="profile-subtitle"></p>
+                <p id="profile-motto" class="profile-subtitle"></p>
+                <div id="profile-badges" class="profile-badges"></div>
+                <div id="profile-actions" class="profile-actions"></div>
+              </div>
+            </div>
+          </section>
+          <section class="panel"><h2 class="panel-title">Bio</h2><div id="profile-bio" class="profile-bio muted-copy">No bio set.</div></section>
+          <section class="panel"><h2 class="panel-title">Media</h2><div id="profile-media" class="profile-media-grid mt-16"></div><div id="profile-media-empty" class="muted-copy mt-12">No profile media added.</div></section>
+          <section class="panel"><h2 class="panel-title">Music</h2><div id="profile-music-wrap" class="muted-copy mt-16">No music saved.</div></section>
+        </section>
+        <aside class="profile-stack">
+          <section class="panel"><h2 class="panel-title">Profile details</h2><div id="profile-info" class="profile-info-grid mt-16"></div></section>
+          <section class="panel"><h2 class="panel-title">Linked CS2 accounts</h2><div id="profile-cs-accounts" class="profile-info-grid mt-16"></div></section>
+          <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is visible directly on profile.</p><div id="casino-profile-balance" class="info-card mt-16"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
+          <section class="panel"><h2 class="panel-title">Showcase</h2><p class="panel-subtitle">Simulated Grev Coins balance, opens, and drops.</p><div id="cs2-profile-body" class="muted mt-16">Loading CS2 stats…</div><div id="ygo-profile-body" class="muted mt-16">Loading Yu-Gi-Oh showcase…</div><div class="button-row mt-16"><a class="btn btn-primary" href="/playground/gambling/index.html">Open gambling hub</a><a class="btn" href="/playground/gambling/index.html">Casino</a></div></section>
+        </aside>
+      </div>
+    </main>
+  </div>
+<script>
+    const AUTH_CACHE_KEY = 'grevdad_auth_user';
+    const params = new URLSearchParams(window.location.search);
+    const profileId = Number(params.get('id') || '');
+    const isSpecificProfile = Number.isInteger(profileId) && profileId > 0;
+    let currentUser = null;
+    let loadedProfile = null;
+    const profileMessage = document.getElementById('profile-message');
+    const profileRoot = document.getElementById('profile-root');
+    const profileAvatarWrap = document.getElementById('profile-avatar-wrap');
+    const profileTitle = document.getElementById('profile-title');
+    const profileRealName = document.getElementById('profile-real-name');
+    const profileMotto = document.getElementById('profile-motto');
+    const profileBadges = document.getElementById('profile-badges');
+    const profileActions = document.getElementById('profile-actions');
+    const profileBio = document.getElementById('profile-bio');
+    const profileMedia = document.getElementById('profile-media');
+    const profileMediaEmpty = document.getElementById('profile-media-empty');
+    const profileMusicWrap = document.getElementById('profile-music-wrap');
+    const profileInfo = document.getElementById('profile-info');
+    const profileCsAccounts = document.getElementById('profile-cs-accounts');
+    const casinoProfileBalance = document.getElementById('casino-profile-balance');
+    const cs2ProfileBody = document.getElementById('cs2-profile-body');
+    const ygoProfileBody = document.getElementById('ygo-profile-body');
+
+    function showMessage(type, text) { profileMessage.className = `alert alert-${type}`; profileMessage.textContent = text; }
+    function escapeHtml(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+    function formatDate(value) { if (!value) return '—'; const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    function formatGc(value) { return `${Number(value || 0).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`; }
+    function readCachedAuthUser() { try { const raw = sessionStorage.getItem(AUTH_CACHE_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } }
+
+    function renderMusic(url) {
+      if (!url) { profileMusicWrap.textContent = 'No music saved.'; return; }
+      if (url.includes('spotify.com')) { const embed = url.replace('/track/', '/embed/track/').replace('/playlist/', '/embed/playlist/').replace('/album/', '/embed/album/'); profileMusicWrap.innerHTML = `<div class="music-frame"><iframe src="${escapeHtml(embed)}" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe></div>`; return; }
+      if (url.includes('youtube.com') || url.includes('youtu.be')) { const match = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/); if (match) { profileMusicWrap.innerHTML = `<div class="music-frame"><iframe src="https://www.youtube.com/embed/${escapeHtml(match[1])}" height="315" allowfullscreen></iframe></div>`; return; } }
+      if (/\.(mp3|wav|ogg)(\?|#|$)/i.test(url)) { profileMusicWrap.innerHTML = `<audio class="music-audio" controls src="${escapeHtml(url)}"></audio>`; return; }
+      profileMusicWrap.innerHTML = `<div class="muted-copy">Saved link: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open music link</a></div>`;
+    }
+
+    function avatarShapeClass(style) {
+      if (style === 'circle') return 'border-radius:50%;';
+      if (style === 'diamond') return 'border-radius:20px;transform:rotate(45deg);';
+      return 'border-radius:24px;';
+    }
+
+    function renderProfile(profile) {
+      const firstLetter = (profile.username || 'U').charAt(0).toUpperCase();
+      profileRoot.style.setProperty('--profile-accent', profile.profile_accent_color || '#1f2937');
+      profileRoot.style.setProperty('--profile-accent-2', profile.profile_accent_color_secondary || '#0f172a');
+      const avatarLabel = (profile.avatar_initials || firstLetter || 'U').slice(0, 3).toUpperCase();
+      const shape = avatarShapeClass(profile.avatar_style || 'rounded');
+      if (profile.avatar_url) {
+        profileAvatarWrap.innerHTML = `<img class="profile-avatar" style="${shape}" src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(profile.username)} avatar" />`;
+      } else {
+        const initialsMarkup = (profile.avatar_style || 'rounded') === 'diamond'
+          ? `<span style="display:inline-block;transform:rotate(-45deg);">${escapeHtml(avatarLabel)}</span>`
+          : escapeHtml(avatarLabel);
+        profileAvatarWrap.innerHTML = `<div class="profile-avatar-placeholder" style="${shape}background:linear-gradient(145deg, ${escapeHtml(profile.profile_accent_color || '#1f2937')}, ${escapeHtml(profile.profile_accent_color_secondary || '#0f172a')});">${initialsMarkup}</div>`;
+      }
+      profileTitle.textContent = profile.username || 'Profile';
+      profileRealName.textContent = profile.real_name ? `Real name: ${profile.real_name}` : 'No real name added.';
+      profileMotto.textContent = profile.motto ? `“${profile.motto}”` : 'No motto added.';
+      profileBadges.innerHTML = `<span class="profile-badge">${escapeHtml(profile.group_display || 'Standard')}</span>${profile.is_admin ? '<span class="profile-badge">Admin Access</span>' : ''}${profile.gambling_admin ? '<span class="profile-badge">Casino Admin</span>' : ''}`;
+      const isOwnProfile = !isSpecificProfile || (currentUser && Number(currentUser.id) === Number(profile.id));
+      profileActions.innerHTML = isOwnProfile ? `<a class="btn btn-primary" href="/profile-edit.html">Edit your profile</a>` : '';
+      profileBio.textContent = profile.bio || 'No bio set.';
+      profileBio.classList.toggle('muted-copy', !profile.bio);
+      const media = Array.isArray(profile.media) ? profile.media : [];
+      profileMedia.innerHTML = media.map((url) => `<img src="${escapeHtml(url)}" alt="Profile media" loading="lazy" />`).join('');
+      profileMediaEmpty.style.display = media.length ? 'none' : 'block';
+      renderMusic(profile.music_url || '');
+      profileInfo.innerHTML = `
+        <div class="info-card"><h3>Username</h3><p>${escapeHtml(profile.username || '—')}</p></div>
+        <div class="info-card"><h3>Role</h3><p>${escapeHtml(profile.group_display || 'Standard')}</p></div>
+        <div class="info-card"><h3>Joined</h3><p>${escapeHtml(formatDate(profile.created_at))}</p></div>
+        <div class="info-card"><h3>Last seen</h3><p>${escapeHtml(formatDate(profile.last_seen_at))}</p></div>
+        <div class="info-card"><h3>Gradient colours</h3><p>${escapeHtml(profile.profile_accent_color || '#1f2937')} → ${escapeHtml(profile.profile_accent_color_secondary || '#0f172a')}</p></div>
+        <div class="info-card"><h3>Pronouns</h3><p>${escapeHtml(profile.pronouns || '—')}</p></div>
+        <div class="info-card"><h3>Location</h3><p>${escapeHtml(profile.location || '—')}</p></div>
+        <div class="info-card"><h3>Favourite game</h3><p>${escapeHtml(profile.favorite_game || '—')}</p></div>
+        <div class="info-card"><h3>Casino admin</h3><p>${profile.gambling_admin ? 'Yes' : 'No'}</p></div>`;
+      profileCsAccounts.innerHTML = `
+        <div class="info-card"><h3>Steam</h3><p>${profile.steam_url ? `<a href="${escapeHtml(profile.steam_url)}" target="_blank" rel="noopener noreferrer">Open Steam profile</a>` : 'Not linked'}</p></div>
+        <div class="info-card"><h3>Leetify</h3><p>${profile.leetify_url ? `<a href="${escapeHtml(profile.leetify_url)}" target="_blank" rel="noopener noreferrer">Open Leetify profile</a>` : 'Not linked'}</p></div>
+        <div class="info-card"><h3>Refrag</h3><p>${profile.refrag_url ? `<a href="${escapeHtml(profile.refrag_url)}" target="_blank" rel="noopener noreferrer">Open Refrag profile</a>` : 'Not linked'}</p></div>`;
+      casinoProfileBalance.innerHTML = `<h3>Balance</h3><p>${escapeHtml(formatGc(profile.casino_balance || 0))}</p>`;
+    }
+
+    async function loadCs2Profile(userId) {
+      try {
+        const response = await fetch(`/api/cs2/profile/public?user_id=${encodeURIComponent(userId)}`, { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.profile) { cs2ProfileBody.textContent = 'CS2 stats are unavailable.'; return; }
+        const p = data.profile;
+        cs2ProfileBody.innerHTML = `<div class="profile-info-grid"><div class="info-card"><h3>Balance</h3><p>${escapeHtml(`${Number((p.balance_pence || 0) / 100).toLocaleString('en-GB', { minimumFractionDigits:2, maximumFractionDigits:2 })} GC`)}</p></div><div class="info-card"><h3>Cases opened</h3><p>${escapeHtml(String(p.total_opened || 0))}</p></div></div>`;
+      } catch { cs2ProfileBody.textContent = 'Could not load CS2 stats.'; }
+    }
+    async function loadYgoProfile(userId) {
+      try {
+        const response = await fetch(`/api/ygo/profile/public?user_id=${encodeURIComponent(userId)}`, { credentials: 'same-origin' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success || !data.profile) { ygoProfileBody.textContent = 'No Yu-Gi-Oh showcase yet.'; return; }
+        ygoProfileBody.innerHTML = `<div class="profile-info-grid"><div class="info-card"><h3>Wallet</h3><p>${escapeHtml(formatGc(data.profile.wallet_balance || 0))}</p></div><div class="info-card"><h3>Packs opened</h3><p>${escapeHtml(String(data.profile.packs_opened || 0))}</p></div></div>`;
+      } catch { ygoProfileBody.textContent = 'Could not load Yu-Gi-Oh showcase.'; }
+    }
+
+    async function loadProfile() {
+      const endpoint = isSpecificProfile ? `/api/profile/view?id=${encodeURIComponent(profileId)}` : '/api/profile/me';
+      const response = await fetch(endpoint, { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        if (response.status === 401 && !isSpecificProfile) { window.location.href = '/login.html'; return; }
+        throw new Error(data?.error || 'Failed to load profile.');
+      }
+      loadedProfile = data.profile;
+      renderProfile(loadedProfile);
+      await Promise.all([loadCs2Profile(loadedProfile.id), loadYgoProfile(loadedProfile.id)]);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        currentUser = readCachedAuthUser();
+        if (isSpecificProfile) {
+          try { const me = await fetch('/api/auth/me', { credentials:'same-origin' }); const meData = await me.json().catch(() => null); if (me.ok && meData?.authenticated) currentUser = meData.user; } catch {}
+        }
+        await loadProfile();
+      } catch (error) {
+        console.error(error);
+        showMessage('error', error.message || 'Could not load profile.');
+      }
+    });
+  </script>
+</body>
+</html>
