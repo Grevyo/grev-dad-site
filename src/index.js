@@ -166,11 +166,36 @@ async function currentUser(request, env) {
 async function requireAdmin(request, env) { const u = await currentUser(request, env); return u && (Number(u.is_admin) === 1 || u.role === "admin") ? u : null; }
 
 async function ensureSchema(env) {
+  await migrateLegacyUserSchema(env);
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', is_admin INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)").run();
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS balances (user_id INTEGER PRIMARY KEY, balance_cents INTEGER NOT NULL DEFAULT 10000, updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, amount_cents INTEGER NOT NULL, reason TEXT NOT NULL DEFAULT 'init', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
   await env.DB.prepare("INSERT INTO balances (user_id,balance_cents) SELECT id, ? FROM users WHERE id NOT IN (SELECT user_id FROM balances)").bind(STARTING_BALANCE_CENTS).run();
+}
+
+async function migrateLegacyUserSchema(env) {
+  const usersTable = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1").first();
+  if (!usersTable) return;
+
+  const tableInfo = await env.DB.prepare("PRAGMA table_info(users)").all();
+  const columns = tableInfo.results || [];
+  const hasEmail = columns.some((col) => col.name === "email");
+  const hasUsername = columns.some((col) => col.name === "username");
+  const hasPasswordHash = columns.some((col) => col.name === "password_hash");
+  const emailColumn = columns.find((col) => col.name === "email");
+  const requiresMigration = !hasUsername || !hasPasswordHash || (hasEmail && Number(emailColumn.notnull) === 1);
+
+  if (!requiresMigration) return;
+
+  await env.DB.prepare("DROP TABLE IF EXISTS users_new").run();
+  await env.DB.prepare("CREATE TABLE users_new (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', is_admin INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now'))) ").run();
+  await env.DB.prepare(`INSERT INTO users_new (id, username, password_hash, role, is_admin, created_at)
+    SELECT id, username, password_hash, COALESCE(role, 'user'), COALESCE(is_admin, 0), COALESCE(created_at, datetime('now'))
+    FROM users
+    WHERE username IS NOT NULL AND password_hash IS NOT NULL`).run();
+  await env.DB.prepare("DROP TABLE users").run();
+  await env.DB.prepare("ALTER TABLE users_new RENAME TO users").run();
 }
 
 function hashPassword(password) { const salt = randomBytes(16).toString("hex"); return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`; }
