@@ -8,46 +8,40 @@
   </head>
   <body>
     <main>
+      <button id="theme-toggle" type="button">Light mode</button>
       <div id="authStatus">Checking login...</div>
       <h1>Members</h1>
-      <p><a href="/">Back/Home</a></p>
-      <p id="members-status" role="status" aria-live="polite">Loading members...</p>
+      <p><a href="/">Home</a> | <a href="/profile.html">Profile</a></p>
+      <p id="members-status">Loading members...</p>
       <table>
         <thead><tr><th>Username</th><th>Role</th><th>Created</th></tr></thead>
         <tbody id="members-body"></tbody>
       </table>
     </main>
-
     <script>
       function renderMembers(members) {
-        const membersBody = document.getElementById('members-body');
-        membersBody.textContent = '';
+        const body = document.getElementById('members-body');
+        body.textContent = '';
         members.forEach((member) => {
           const row = document.createElement('tr');
-          row.innerHTML = `<td>${member.username || ''}</td><td>${member.roleLabel || ''}</td><td>${member.created_at || ''}</td>`;
-          membersBody.append(row);
+          row.innerHTML = `<td><a href="/profile.html?id=${member.id}">${member.username || ''}</a></td><td>${member.roleLabel || ''}</td><td>${member.created_at || ''}</td>`;
+          body.append(row);
         });
       }
-
       async function loadMembers() {
         const statusEl = document.getElementById('members-status');
         try {
-          const response = await fetch('/api/members', { method: 'GET' });
+          const response = await fetch('/api/members');
           const data = await response.json();
-          if (!response.ok) {
-            statusEl.textContent = data?.error || 'Unable to load members.';
-            return;
-          }
+          if (!response.ok) { statusEl.textContent = data?.error || 'Unable to load members.'; return; }
           const members = Array.isArray(data?.members) ? data.members : [];
           renderMembers(members);
           statusEl.textContent = `Loaded ${members.length} members.`;
-        } catch {
-          statusEl.textContent = 'Unable to load members.';
-        }
+        } catch { statusEl.textContent = 'Unable to load members.'; }
       }
-
       loadMembers();
     </script>
+    <script src="/scripts/theme.js"></script>
     <script src="/scripts/auth-status.js"></script>
   </body>
 </html>
