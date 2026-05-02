@@ -8,7 +8,6 @@
   </head>
   <body>
     <main>
-      <div id="authStatus">Checking login...</div>
       <h1>Login</h1>
 
       <form id="login-form">
@@ -28,6 +27,20 @@
     <script>
       const form = document.getElementById('login-form');
       const statusEl = document.getElementById('status');
+
+      async function redirectIfLoggedIn() {
+        try {
+          const response = await fetch('/api/auth/me', { method: 'GET' });
+          const data = await response.json();
+          if (response.ok && data?.ok && data?.user) {
+            window.location.href = '/';
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      redirectIfLoggedIn();
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -68,16 +81,11 @@
             return;
           }
 
-          if (data.user?.is_admin || data.user?.role === 'admin') {
-            window.location.href = '/admin.html';
-            return;
-          }
           window.location.href = '/';
         } catch {
           statusEl.textContent = 'Network error. Please try again.';
         }
       });
     </script>
-      <script src="/scripts/auth-status.js"></script>
   </body>
 </html>
