@@ -20,6 +20,12 @@ export default {
     if (url.pathname === '/api/debug/db' && request.method === 'GET') {
       return handleDebugDb(env);
     }
+    if (url.pathname === '/api/setup/status' && request.method === 'GET') {
+      return handleSetupStatus(env);
+    }
+    if (url.pathname === '/api/setup/schema' && request.method === 'POST') {
+      return handleSetupSchema(request, env);
+    }
 
     if (url.pathname === '/api/admin/refresh/status' && request.method === 'GET') {
       return handleRefreshStatus(request, env);
@@ -49,6 +55,10 @@ async function handleRegister(request, env) {
     }
 
     const db = getDatabase(env);
+    const schema = await getSchemaStatus(db);
+    if (!schema.allPresent) {
+      return json({ ok: false, error: 'Database schema is missing. Run setup or apply D1 migrations.' }, 503);
+    }
 
     const existing = await db
       .prepare('SELECT id FROM users WHERE username = ?')
@@ -91,6 +101,10 @@ async function handleLogin(request, env) {
     }
 
     const db = getDatabase(env);
+    const schema = await getSchemaStatus(db);
+    if (!schema.allPresent) {
+      return json({ ok: false, error: 'Database schema is missing. Run setup or apply D1 migrations.' }, 503);
+    }
 
     const user = await db
       .prepare('SELECT id, username, role, is_admin, password_hash FROM users WHERE username = ?')
@@ -334,6 +348,40 @@ function handleDebugDb(env) {
   }
 }
 
+async function handleSetupStatus(env) {
+  try {
+    const db = getDatabase(env);
+    const schema = await getSchemaStatus(db);
+    return json({
+      ok: true,
+      hasDb: true,
+      tables: schema.tables,
+    });
+  } catch (error) {
+    return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500);
+  }
+}
+
+async function handleSetupSchema(request, env) {
+  try {
+    const expectedSecret = env.ADMIN_SETUP_SECRET;
+    if (!expectedSecret) {
+      return json({ ok: false, error: 'Schema setup is not configured' }, 500);
+    }
+
+    const body = await readJsonBody(request);
+    if (!body?.secret || body.secret !== expectedSecret) {
+      return json({ ok: false, error: 'Forbidden' }, 403);
+    }
+
+    const db = getDatabase(env);
+    await createSchemaTables(db);
+    return json({ ok: true, message: 'Schema created' });
+  } catch (error) {
+    return json({ ok: false, error: friendlyError(error) }, 500);
+  }
+}
+
 async function readJsonBody(request) {
   const text = await request.text();
   if (!text) return {};
@@ -440,10 +488,53 @@ async function initializeBalanceIfExists(db, userId) {
 
   if (table) {
     await db
-      .prepare('INSERT INTO balances (user_id, balance) VALUES (?, ?)')
-      .bind(userId, 0)
+      .prepare('INSERT INTO balances (user_id, balance_cents) VALUES (?, ?)')
+      .bind(userId, 10000)
       .run();
   }
+}
+
+async function getSchemaStatus(db) {
+  const required = ['users', 'sessions', 'balances', 'ledger'];
+  const rows = await db
+    .prepare(\"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('users', 'sessions', 'balances', 'ledger')\")
+    .all();
+  const found = new Set((rows?.results || []).map((row) => row.name));
+  const tables = Object.fromEntries(required.map((name) => [name, found.has(name)]));
+  return { tables, allPresent: required.every((name) => tables[name]) };
+}
+
+async function createSchemaTables(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`).run();
+
+  await db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL UNIQUE,
+    user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL
+  )`).run();
+
+  await db.prepare(`CREATE TABLE IF NOT EXISTS balances (
+    user_id INTEGER PRIMARY KEY,
+    balance_cents INTEGER NOT NULL DEFAULT 10000,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`).run();
+
+  await db.prepare(`CREATE TABLE IF NOT EXISTS ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    reason TEXT NOT NULL DEFAULT 'init',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`).run();
 }
 
 function friendlyError(error) {

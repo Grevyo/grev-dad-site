@@ -1,16 +1,12 @@
 # Grev
 
-This repository has been reset to a fresh homepage-only foundation.
+This repository includes a Cloudflare Worker with auth APIs backed by D1.
 
 ## Current routes
 - `/`
 - `/login.html`
 - `/register.html`
 - `/admin.html`
-
-## Current status
-- Auth, admin, and database systems will be added later.
-- No D1 database is required for this homepage-only version.
 
 ## D1 binding setup
 - Binding name must be `DB` (the Worker code expects `env.DB`).
@@ -30,6 +26,56 @@ Examples:
 - `game-db`
 - `casino-db`
 - `stats-db`
+
+Example `wrangler.jsonc` section:
+
+```jsonc
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "profile-db",
+    "database_id": "25b0b37a-b855-46c3-a787-ffef7f04fb64"
+  }
+]
+```
+
+## Apply D1 migrations
+
+Run from this repo root:
+
+```bash
+npx wrangler d1 migrations apply profile-db --remote
+```
+
+For local dev database:
+
+```bash
+npx wrangler d1 migrations apply profile-db --local
+```
+
+The auth foundation tables are created by migrations in `migrations/` (`users`, `sessions`, `balances`, `ledger`).
+
+## Manual schema setup via API
+
+If you need to initialize schema from the Worker API, set secret `ADMIN_SETUP_SECRET` and call:
+
+```bash
+curl -X POST https://<your-domain>/api/setup/schema \
+  -H "Content-Type: application/json" \
+  -d '{"secret":"<ADMIN_SETUP_SECRET>"}'
+```
+
+Success response:
+
+```json
+{"ok":true,"message":"Schema created"}
+```
+
+Check status:
+
+```bash
+curl https://<your-domain>/api/setup/status
+```
 
 ## Admin Force Refresh Site
 
