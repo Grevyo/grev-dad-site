@@ -497,7 +497,7 @@ async function initializeBalanceIfExists(db, userId) {
 async function getSchemaStatus(db) {
   const required = ['users', 'sessions', 'balances', 'ledger'];
   const rows = await db
-    .prepare(\"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('users', 'sessions', 'balances', 'ledger')\")
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('users', 'sessions', 'balances', 'ledger')")
     .all();
   const found = new Set((rows?.results || []).map((row) => row.name));
   const tables = Object.fromEntries(required.map((name) => [name, found.has(name)]));
