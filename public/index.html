@@ -1,4 +1,5 @@
-<!doctype html><html><head><meta charset='utf-8'><title>grev.dad</title><link rel='stylesheet' href='/styles/site.css'></head><body><header><a href='/'>Home</a> <a href='/login.html'>Login</a> <a href='/register.html'>Register</a> <a href='/admin.html'>Admin</a> <button id='logoutBtn'>Logout</button></header><main><h1>grev.dad foundation</h1><pre id='status'>Loading...</pre></main><script>
-async function refresh(){const r=await fetch('/api/auth/me');const d=await r.json();document.getElementById('status').textContent=JSON.stringify(d,null,2)}
-document.getElementById('logoutBtn').onclick=async()=>{await fetch('/api/auth/logout',{method:'POST'});refresh()};refresh();
+<!doctype html><html><head><meta charset='utf-8'><title>grev.dad</title><link rel='stylesheet' href='/styles/site.css'></head><body><header><a href='/'>Home</a> <a href='/login.html'>Login</a> <a href='/register.html'>Register</a> <a href='/admin.html'>Admin</a> <button id='logoutBtn'>Logout</button></header><main><h1>Foundation</h1><pre id='status'>Loading...</pre></main><script>
+async function parseResponse(res){const text=await res.text();try{return text?JSON.parse(text):{success:false,error:'Empty response body'};}catch{return{success:false,error:'Invalid JSON response',raw:text};}}
+async function refresh(){const r=await fetch('/api/auth/me');const d=await parseResponse(r);document.getElementById('status').textContent=JSON.stringify(d,null,2)}
+document.getElementById('logoutBtn').onclick=async()=>{const r=await fetch('/api/auth/logout',{method:'POST'});await parseResponse(r);refresh()};refresh();
 </script></body></html>
