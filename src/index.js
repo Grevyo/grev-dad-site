@@ -2880,56 +2880,90 @@ function bufferToHex(buffer) {
 }
 
 
+async function requireAdminSession(request, env) {
+  const sessionOrResponse = await requireAdmin(request, env);
+  if (sessionOrResponse instanceof Response) {
+    return { deniedResponse: sessionOrResponse, session: null };
+  }
+  return { deniedResponse: null, session: sessionOrResponse };
+}
+
 async function handleAdminDeployStatus(request, env) {
-  await requireAdmin(request, env);
+  const { deniedResponse } = await requireAdminSession(request, env);
+  if (deniedResponse) return deniedResponse;
+
   return json({
-    success: true,
-    deploy: {
-      commit_sha: env.DEPLOY_COMMIT_SHA || env.CF_PAGES_COMMIT_SHA || null,
-      branch: env.DEPLOY_BRANCH || env.CF_PAGES_BRANCH || null
-    },
-    last_refresh_attempt_at: env.DEPLOY_LAST_REFRESH_ATTEMPT_AT || null
+    ok: true,
+    commit: env.DEPLOY_COMMIT_SHA || env.CF_PAGES_COMMIT_SHA || null,
+    branch: env.DEPLOY_BRANCH || env.CF_PAGES_BRANCH || null,
+    hasDeployHook: Boolean(env.CLOUDFLARE_DEPLOY_HOOK_URL),
+    hasApiToken: Boolean(env.CLOUDFLARE_API_TOKEN),
+    hasZoneId: Boolean(env.CLOUDFLARE_ZONE_ID)
   }, 200, request);
 }
 
 async function triggerRedeploy(env) {
   if (!env.CLOUDFLARE_DEPLOY_HOOK_URL) {
-    return { success: false, error: 'Missing CLOUDFLARE_DEPLOY_HOOK_URL' };
+    return { ok: false, status: 500, message: 'CLOUDFLARE_DEPLOY_HOOK_URL is not configured' };
   }
+
   const response = await fetch(env.CLOUDFLARE_DEPLOY_HOOK_URL, { method: 'POST' });
-  const text = await response.text();
-  return { success: response.ok, status: response.status, body: text.slice(0, 500), error: response.ok ? null : 'Deploy hook request failed' };
+  const providerResponseText = (await response.text()).slice(0, 1000);
+  return {
+    ok: response.ok,
+    status: response.status,
+    message: response.ok ? 'Redeploy hook triggered.' : 'Redeploy hook request failed.',
+    providerResponseText
+  };
 }
 
 async function purgeCloudflareCache(env) {
-  if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
-    return { success: false, error: 'Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ZONE_ID' };
+  if (!env.CLOUDFLARE_API_TOKEN) {
+    return { ok: false, status: 500, message: 'CLOUDFLARE_API_TOKEN is not configured' };
   }
+
+  if (!env.CLOUDFLARE_ZONE_ID) {
+    return { ok: false, status: 500, message: 'CLOUDFLARE_ZONE_ID is not configured' };
+  }
+
   const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ purge_everything: true })
   });
-  const data = await safeJson(response);
-  return { success: response.ok && data?.success !== false, status: response.status, result: data || null, error: response.ok ? null : 'Cloudflare purge failed' };
+
+  const provider = await safeJson(response);
+  return {
+    ok: response.ok && provider?.success !== false,
+    status: response.status,
+    message: response.ok ? 'Cloudflare cache purge requested.' : 'Cloudflare cache purge failed.',
+    provider
+  };
 }
 
 async function handleAdminDeployRedeploy(request, env) {
-  await requireAdmin(request, env);
+  const { deniedResponse } = await requireAdminSession(request, env);
+  if (deniedResponse) return deniedResponse;
+
   const redeploy = await triggerRedeploy(env);
-  return json({ success: redeploy.success, redeploy, attempted_at: isoNow() }, redeploy.success ? 200 : 500, request);
+  return json({ ok: redeploy.ok, ...redeploy }, redeploy.ok ? 200 : 500, request);
 }
 
 async function handleAdminDeployPurgeCache(request, env) {
-  await requireAdmin(request, env);
+  const { deniedResponse } = await requireAdminSession(request, env);
+  if (deniedResponse) return deniedResponse;
+
   const purge = await purgeCloudflareCache(env);
-  return json({ success: purge.success, purge, attempted_at: isoNow() }, purge.success ? 200 : 500, request);
+  return json({ ok: purge.ok, ...purge }, purge.ok ? 200 : 500, request);
 }
 
 async function handleAdminDeployRefreshLiveSite(request, env) {
-  await requireAdmin(request, env);
+  const { deniedResponse } = await requireAdminSession(request, env);
+  if (deniedResponse) return deniedResponse;
+
   const redeploy = await triggerRedeploy(env);
   const purge = await purgeCloudflareCache(env);
-  const success = redeploy.success && purge.success;
-  return json({ success, redeploy, purge, attempted_at: isoNow() }, success ? 200 : 500, request);
+  const ok = redeploy.ok && purge.ok;
+
+  return json({ ok, redeploy, purge }, ok ? 200 : 500, request);
 }
