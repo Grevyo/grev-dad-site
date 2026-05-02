@@ -115,11 +115,108 @@ const isTruthy = (value) => ['1', 'true', 'yes', 'on'].includes(String(value).to
 const friendlyError = (error) => (error instanceof Error ? error.message : 'Unexpected error');
 
 
-function getRankIdFromName(rankName) { return String(rankName || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, ''); }
-function parseRankCsv(csvText) { const lines = String(csvText || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean); if (!lines.length) return []; const headers = lines[0].split(',').map((h) => h.trim().toLowerCase()); const levelIndex = headers.indexOf('level'); const idIndex = headers.indexOf('rank_id'); const nameIndex = headers.indexOf('rank_name'); if (levelIndex < 0 || nameIndex < 0) return []; const out = []; for (let i = 1; i < lines.length; i += 1) { const cols = lines[i].split(',').map((c) => c.trim()); const level = Number(cols[levelIndex]); const name = cols[nameIndex]; if (!Number.isInteger(level) || level < 1 || !name) continue; const id = (idIndex >= 0 ? cols[idIndex] : '') || getRankIdFromName(name); if (!id) continue; out.push({ id, name, level }); } return out.sort((a, b) => a.level - b.level); }
-/).map((l) => l.trim()).filter(Boolean); if (!lines.length) return []; const headers = lines[0].split(',').map((h) => h.trim().toLowerCase()); const levelIndex = headers.indexOf('level'); const idIndex = headers.indexOf('rank_id'); const nameIndex = headers.indexOf('rank_name'); if (levelIndex < 0 || nameIndex < 0) return []; const out = []; for (let i = 1; i < lines.length; i += 1) { const cols = lines[i].split(',').map((c) => c.trim()); const level = Number(cols[levelIndex]); const name = cols[nameIndex]; if (!Number.isInteger(level) || level < 1 || !name) continue; const id = (idIndex >= 0 ? cols[idIndex] : '') || getRankIdFromName(name); if (!id) continue; out.push({ id, name, level }); } return out.sort((a, b) => a.level - b.level); }
-function getUnlockedRanks(accountLevel, ranks) { return (ranks || []).filter((r) => r.level <= accountLevel); }
-function getDefaultRankForLevel(accountLevel, ranks) { const unlocked = getUnlockedRanks(accountLevel, ranks); return unlocked.length ? unlocked[unlocked.length - 1] : null; }
-function getRankById(rankId, ranks) { return (ranks || []).find((r) => r.id === rankId) || null; }
-function getDisplayedRank(accountLevel, selectedRankId, ranks) { const selected = selectedRankId ? getRankById(selectedRankId, ranks) : null; if (selected && selected.level <= accountLevel) return selected; return getDefaultRankForLevel(accountLevel, ranks); }
+function parseRankCsv(csvText) {
+  const lines = String(csvText || "").replace(new RegExp("\r", "g"), "").split("\n");
+  if (!lines.length) return [];
+
+  const header = parseCsvLine(lines.shift() || "").map((value) => value.trim().toLowerCase());
+  const levelIndex = header.indexOf("level");
+  const rankNameIndex = header.indexOf("rank_name");
+  const rankIdIndex = header.indexOf("rank_id");
+
+  if (levelIndex === -1 || rankNameIndex === -1) return [];
+
+  const ranks = [];
+
+  for (const line of lines) {
+    if (!line || !line.trim()) continue;
+
+    const cells = parseCsvLine(line);
+    const level = Number.parseInt(String(cells[levelIndex] || "").trim(), 10);
+    const name = String(cells[rankNameIndex] || "").trim();
+    const explicitId = rankIdIndex >= 0 ? String(cells[rankIdIndex] || "").trim() : "";
+
+    if (!Number.isFinite(level) || level < 1 || !name) continue;
+
+    const id = explicitId ? getRankIdFromName(explicitId) : getRankIdFromName(name);
+
+    ranks.push({
+      id,
+      name,
+      level
+    });
+  }
+
+  return ranks.sort((a, b) => a.level - b.level);
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values;
+}
+
+function getRankIdFromName(rankName) {
+  return String(rankName || "")
+    .trim()
+    .toLowerCase()
+    .replace(new RegExp("[^a-z0-9]+", "g"), "_")
+    .replace(new RegExp("_+", "g"), "_")
+    .replace(new RegExp("^_+|_+$", "g"), "");
+}
+
+function getUnlockedRanks(accountLevel, ranks) {
+  const level = Number(accountLevel) || 1;
+  return ranks.filter((rank) => rank.level <= level);
+}
+
+function getDefaultRankForLevel(accountLevel, ranks) {
+  const unlocked = getUnlockedRanks(accountLevel, ranks);
+  return unlocked.length ? unlocked[unlocked.length - 1] : null;
+}
+
+function getRankById(rankId, ranks) {
+  const id = String(rankId || "").trim();
+  if (!id) return null;
+  return ranks.find((rank) => rank.id === id) || null;
+}
+
+function getDisplayedRank(accountLevel, selectedRankId, ranks) {
+  const unlocked = getUnlockedRanks(accountLevel, ranks);
+  const selected = getRankById(selectedRankId, ranks);
+
+  if (selected && unlocked.some((rank) => rank.id === selected.id)) {
+    return selected;
+  }
+
+  return getDefaultRankForLevel(accountLevel, ranks);
+}
+
 async function loadAccountRanks(env) { try { const response = await env.ASSETS.fetch(new Request('https://site.local/data/grev_dad_account_ranks.csv')); if (!response.ok) return { ok: false, error: 'Could not load account rank CSV' }; const ranks = parseRankCsv(await response.text()); return { ok: true, ranks }; } catch { return { ok: false, error: 'Could not load account rank CSV' }; } }
