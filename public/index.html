@@ -1,11 +1,18 @@
 <!doctype html>
-<html><head><meta charset='utf-8'><title>grev.dad</title></head>
-<body>
-  <h1>grev.dad</h1>
-  <p><a href='/login.html'>Login</a> · <a href='/register.html'>Register</a> · <a href='/admin.html'>Admin</a></p>
-  <pre id='status'>Loading...</pre>
-<script>
-async function parseJsonSafe(response){const text=await response.text();if(!text){return{ok:response.ok,error:response.ok?null:'Empty response body'}};try{return JSON.parse(text);}catch{return{ok:false,error:'Invalid JSON response',status:response.status,raw:text}}}
-(async()=>{const data=await parseJsonSafe(await fetch('/api/auth/me'));document.getElementById('status').textContent=data.authenticated?'Logged in as '+data.user.username+(data.user.isAdmin?' (admin)':''):'Logged out';})();
-</script>
-</body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grev</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Grev</h1>
+      <nav>
+        <a href="/login.html">Log in</a>
+        <a href="/register.html">Register</a>
+      </nav>
+    </main>
+  </body>
+</html>
