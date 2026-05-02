@@ -1,4 +1,13 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Admin</title><link rel="stylesheet" href="/styles.css" /></head><body><main><div><button id="theme-toggle" type="button">Light mode</button></div><div id="authStatus">Checking login...</div><h1>Admin</h1>
+<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Admin</title><link rel="stylesheet" href="/styles.css" /></head><body>
+    <header class="site-header">
+      <a class="site-logo-link" href="/" aria-label="Grev home">
+        <img class="site-logo" src="/grev.dad.logo.png" alt="Grev" />
+      </a>
+      <div class="site-header-right">
+        <button id="theme-toggle" type="button">Light mode</button>
+      </div>
+    </header>
+    <main><div id="authStatus">Checking login...</div><h1>Admin</h1>
 <section><h2>Site Settings</h2><p id="settings-status">Loading settings...</p><form id="settings-form"><label>Registration Enabled <select id="registration_enabled"><option value="true">true</option><option value="false">false</option></select></label><label>Default New User Role <select id="default_new_user_role"></select></label><label>Starting Coins <input id="starting_coins" type="number" step="1" /></label><label>Maintenance Mode <select id="maintenance_mode"><option value="false">false</option><option value="true">true</option></select></label><button type="submit">Save Settings</button></form></section>
 <section><h2>Users</h2><p id="users-status">Loading users...</p><table><thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Coins</th><th>Created</th><th>Status</th><th>Set Role</th><th>Set Status</th><th>Adjust Coins</th></tr></thead><tbody id="users-body"></tbody></table></section>
 <section><h2>Recent Audit Logs</h2><p id="audit-status">Loading audit logs...</p><table><thead><tr><th>ID</th><th>Actor</th><th>Target</th><th>Action</th><th>Details</th><th>Created</th></tr></thead><tbody id="audit-body"></tbody></table></section>
