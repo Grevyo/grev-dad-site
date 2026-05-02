@@ -55,6 +55,9 @@ npx wrangler d1 migrations apply profile-db --local
 
 The auth foundation tables are created by migrations in `migrations/` (`users`, `sessions`, `balances`, `ledger`).
 
+The Worker now also auto-creates these required auth tables on first register/login using `CREATE TABLE IF NOT EXISTS`, so a fresh D1 database can work without running setup first.
+You can still apply migrations manually with Wrangler if you prefer that workflow.
+
 ## Manual schema setup via API
 
 If you need to initialize schema from the Worker API, set secret `ADMIN_SETUP_SECRET` and call:
