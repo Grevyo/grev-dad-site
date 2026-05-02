@@ -24,15 +24,18 @@
       return;
     }
 
-    const roleLabel = typeof user?.roleLabel === 'string' && user.roleLabel ? user.roleLabel : 'Admin';
     const isAdmin = user?.is_admin === true || Number(user?.is_admin) === 1 || user?.role === 'admin';
 
     container.textContent = '';
-    container.append(document.createTextNode('Logged in as: ' + username + ' (' + roleLabel + ')'));
+    container.append(createLink('/profile.html', username));
+    container.append(createSeparator());
+    container.append(createLink('/members.html', 'Members'));
+
     if (isAdmin) {
       container.append(createSeparator());
       container.append(createLink('/admin.html', 'Admin'));
     }
+
     container.append(createSeparator());
 
     const logoutButton = document.createElement('button');

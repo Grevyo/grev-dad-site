@@ -28,6 +28,9 @@ export default {
     if (url.pathname === '/api/auth/me' && request.method === 'GET') {
       return handleMe(request, env);
     }
+    if (url.pathname === '/api/members' && request.method === 'GET') {
+      return handleMembers(request, env);
+    }
     if (url.pathname === '/api/debug/db' && request.method === 'GET') {
       return handleDebugDb(env);
     }
@@ -191,6 +194,49 @@ async function handleMe(request, env) {
   }
 }
 
+
+
+async function handleMembers(request, env) {
+  const token = getSessionToken(request);
+  if (!token) {
+    return json({ ok: false, error: 'Not logged in' }, 401);
+  }
+
+  const db = getDatabase(env);
+  await ensureSchema(db);
+
+  const record = await db
+    .prepare(`SELECT u.id
+      FROM sessions s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.token = ? AND s.expires_at > datetime('now')`)
+    .bind(token)
+    .first();
+
+  if (!record) {
+    return json({ ok: false, error: 'Not logged in' }, 401);
+  }
+
+  const rows = await db
+    .prepare(`SELECT id, username, role, is_admin, created_at
+      FROM users
+      ORDER BY created_at DESC, id DESC`)
+    .all();
+
+  const members = (rows?.results || []).map((row) => {
+    const user = normalizeUserRole(row);
+    return {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      roleLabel: getRoleLabel(user.role),
+      is_admin: user.is_admin,
+      created_at: row.created_at || null,
+    };
+  });
+
+  return json({ ok: true, members });
+}
 
 async function enforceAuthGate(request, env, pathname) {
   if (isPublicPath(pathname)) {
