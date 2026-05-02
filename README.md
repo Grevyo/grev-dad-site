@@ -1,13 +1,10 @@
 # grev-dad-site
 
-## CPL Playground
+## CPL Dashboard Shell
 
-`/CPL_Playground/` now acts as a lightweight shell that loads the external Streamlit app directly:
+`/cpl/` is a lightweight shell that embeds the external Streamlit dashboard:
 
 - https://grev-profiles-and-tactics.streamlit.app/#hltv-cpl-profile-viewer
-
-The previous in-repo CPL Streamlit source/data files were removed from `public/CPL_Playground/`.
-
 
 ## Admin Deployment Controls
 

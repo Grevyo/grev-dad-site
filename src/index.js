@@ -5,7 +5,7 @@ import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
 import { handleCasinoRequest } from "./features/casino/handlers.js";
 import { recordCasinoGameEarning } from "./features/casino/leaderboards.js";
-import { dispatchCoreRoute, isLegacyCasesPath } from "./routes/core.js";
+import { dispatchCoreRoute } from "./routes/core.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -65,7 +65,6 @@ async function handleRequest(request, env, ctx) {
     handleCasinoCrashSprintJoin,
     handleCasinoCrashSprintCashout,
     handleHealth: (currentRequest) => json({ success: true, message: "grev.dad worker is running" }, 200, currentRequest),
-    handleHltvOverview,
     handleSetup: (currentRequest, currentEnv) => handleSetup(currentEnv, currentRequest),
     handleRegister,
     handleLogin,
@@ -75,7 +74,6 @@ async function handleRequest(request, env, ctx) {
     handleProfileUpdate,
     handleProfileView,
     handleMembers,
-    handlePresence: (currentRequest) => json({ success: true, disabled: true }, 202, currentRequest),
     handleGetGlobalChat,
     handlePostGlobalChat,
     handleGetCasinoChat,
@@ -105,17 +103,6 @@ async function handleRequest(request, env, ctx) {
   const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
   if (casinoRouteResponse) return casinoRouteResponse;
 
-
-  if (isLegacyCasesPath(pathname)) {
-    return json(
-      {
-        success: false,
-        error: "Unknown legacy cases route. Supported aliases: GET /api/cases and GET /api/cases/catalog."
-      },
-      404,
-      request
-    );
-  }
 
   if (env.ASSETS) {
     return env.ASSETS.fetch(request);
@@ -250,9 +237,6 @@ async function ensureCoreTablesOnce(env) {
   await ensureColumn(env.DB, "user_profiles", "pronouns", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "location", "TEXT");
   await ensureColumn(env.DB, "user_profiles", "favorite_game", "TEXT");
-  await ensureColumn(env.DB, "user_profiles", "steam_url", "TEXT");
-  await ensureColumn(env.DB, "user_profiles", "leetify_url", "TEXT");
-  await ensureColumn(env.DB, "user_profiles", "refrag_url", "TEXT");
 
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS global_chat_messages (
@@ -1531,9 +1515,6 @@ async function handleProfileMe(request, env) {
       p.pronouns,
       p.location,
       p.favorite_game,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -1593,9 +1574,6 @@ async function handleProfileView(request, env) {
       p.pronouns,
       p.location,
       p.favorite_game,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -1632,9 +1610,6 @@ async function handleProfileUpdate(request, env) {
   const media2 = cleanUrl(body?.media_2_url, 1200);
   const media3 = cleanUrl(body?.media_3_url, 1200);
   const musicUrl = cleanUrl(body?.music_url, 1200);
-  const steamUrl = cleanUrl(body?.steam_url, 1200);
-  const leetifyUrl = cleanUrl(body?.leetify_url, 1200);
-  const refragUrl = cleanUrl(body?.refrag_url, 1200);
   const profileAccentColor = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || "").trim()) ? String(body.profile_accent_color).trim() : "#1f2937";
   const profileAccentColorSecondary = /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color_secondary || "").trim()) ? String(body.profile_accent_color_secondary).trim() : "#0f172a";
   const avatarInitials = cleanShortText(body?.avatar_initials, 3).toUpperCase();
@@ -1660,12 +1635,9 @@ async function handleProfileUpdate(request, env) {
       avatar_style,
       pronouns,
       location,
-      favorite_game,
-      steam_url,
-      leetify_url,
-      refrag_url
+      favorite_game
     )
-    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '#0f172a', '', 'rounded', '', '', '', '', '', '')
+    VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '#0f172a', '', 'rounded', '', '', '')
   `).bind(session.id).run();
 
   await env.DB.prepare(`
@@ -1685,10 +1657,7 @@ async function handleProfileUpdate(request, env) {
       avatar_style = ?,
       pronouns = ?,
       location = ?,
-      favorite_game = ?,
-      steam_url = ?,
-      leetify_url = ?,
-      refrag_url = ?
+      favorite_game = ?
     WHERE user_id = ?
   `).bind(
     realName,
@@ -1706,9 +1675,6 @@ async function handleProfileUpdate(request, env) {
     pronouns,
     location,
     favoriteGame,
-    steamUrl,
-    leetifyUrl,
-    refragUrl,
     session.id
   ).run();
 
@@ -1737,9 +1703,6 @@ async function handleProfileUpdate(request, env) {
       p.pronouns,
       p.location,
       p.favorite_game,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -1783,9 +1746,6 @@ function formatProfileRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
-    steam_url: row.steam_url || "",
-    leetify_url: row.leetify_url || "",
-    refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937",
     profile_accent_color_secondary: row.profile_accent_color_secondary || "#0f172a",
     avatar_initials: row.avatar_initials || "",
@@ -1823,10 +1783,7 @@ async function handleMembers(request, env) {
       p.bio,
       p.avatar_url,
       p.real_name,
-      p.motto,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url
+      p.motto
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
     WHERE u.approved = 1
@@ -1849,10 +1806,7 @@ async function handleMembers(request, env) {
       avatar_url: row.avatar_url || "",
       real_name: row.real_name || "",
       motto: row.motto || "",
-      steam_url: row.steam_url || "",
-      leetify_url: row.leetify_url || "",
-      refrag_url: row.refrag_url || "",
-      current_activity: null
+            current_activity: null
     });
   }
 
@@ -2397,9 +2351,6 @@ async function handleAdminUsers(request, env) {
       p.pronouns,
       p.location,
       p.favorite_game,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -2462,9 +2413,6 @@ async function handleAdminUser(request, env) {
       p.pronouns,
       p.location,
       p.favorite_game,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -2564,9 +2512,6 @@ async function handleAdminUpdateUser(request, env) {
     media_2_url: cleanUrl(body?.media_2_url, 1200),
     media_3_url: cleanUrl(body?.media_3_url, 1200),
     music_url: cleanUrl(body?.music_url, 1200),
-    steam_url: cleanUrl(body?.steam_url, 1200),
-    leetify_url: cleanUrl(body?.leetify_url, 1200),
-    refrag_url: cleanUrl(body?.refrag_url, 1200),
     profile_accent_color: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color || '').trim()) ? String(body.profile_accent_color).trim() : '#1f2937',
     profile_accent_color_secondary: /^#[0-9a-fA-F]{6}$/.test(String(body?.profile_accent_color_secondary || '').trim()) ? String(body.profile_accent_color_secondary).trim() : '#0f172a',
     avatar_initials: typeof body?.avatar_initials === "string" ? body.avatar_initials.trim().slice(0, 3).toUpperCase() : "",
@@ -2630,13 +2575,13 @@ async function handleAdminUpdateUser(request, env) {
 
   await env.DB.prepare(`
     INSERT OR IGNORE INTO user_profiles (
-      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, profile_accent_color_secondary, avatar_initials, avatar_style, pronouns, location, favorite_game, steam_url, leetify_url, refrag_url
-    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '#0f172a', '', 'rounded', '', '', '', '', '', '')
+      user_id, bio, avatar_url, real_name, motto, media_1_url, media_2_url, media_3_url, music_url, profile_accent_color, profile_accent_color_secondary, avatar_initials, avatar_style, pronouns, location, favorite_game
+    ) VALUES (?, '', '', '', '', '', '', '', '', '#1f2937', '#0f172a', '', 'rounded', '', '', '')
   `).bind(userId).run();
 
   await env.DB.prepare(`
     UPDATE user_profiles
-    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, profile_accent_color_secondary = ?, avatar_initials = ?, avatar_style = ?, pronouns = ?, location = ?, favorite_game = ?, steam_url = ?, leetify_url = ?, refrag_url = ?
+    SET real_name = ?, motto = ?, bio = ?, avatar_url = COALESCE(?, avatar_url), media_1_url = ?, media_2_url = ?, media_3_url = ?, music_url = ?, profile_accent_color = ?, profile_accent_color_secondary = ?, avatar_initials = ?, avatar_style = ?, pronouns = ?, location = ?, favorite_game = ?
     WHERE user_id = ?
   `).bind(
     profileFields.real_name,
@@ -2654,9 +2599,6 @@ async function handleAdminUpdateUser(request, env) {
     profileFields.pronouns,
     profileFields.location,
     profileFields.favorite_game,
-    profileFields.steam_url,
-    profileFields.leetify_url,
-    profileFields.refrag_url,
     userId
   ).run();
 
@@ -2701,9 +2643,6 @@ async function handleAdminUpdateUser(request, env) {
       p.pronouns,
       p.location,
       p.favorite_game,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
       c.grev_coin_balance
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -2872,655 +2811,6 @@ function parseCookies(cookieHeader) {
   return out;
 }
 
-async function handleHltvOverview(request, env) {
-  const startedAt = Date.now();
-  await ensureCoreTables(env);
-
-  const [newsRes, matchesRes, resultsRes, eventsRes, rankingsRes, ukicMatchesRes, egwRankingsRes] = await Promise.allSettled([
-    fetchTextPage("https://www.hltv.org/news"),
-    fetchTextPage("https://www.hltv.org/matches"),
-    fetchTextPage("https://www.hltv.org/results"),
-    fetchTextPage("https://www.hltv.org/events"),
-    fetchTextPage("https://www.hltv.org/ranking/teams"),
-    fetchTextPage("https://ukicircuit.com/leagues/"),
-    fetchTextPage("https://egamersworld.com/counterstrike/teams")
-  ]);
-
-  const news = newsRes.status === "fulfilled" ? extractHltvLinks(newsRes.value, /^\/news\/\d+\//, 8) : [];
-  const upcomingMatches = matchesRes.status === "fulfilled" ? extractUpcomingMatches(matchesRes.value, 8) : [];
-  const latestResults = resultsRes.status === "fulfilled" ? extractHltvLinks(resultsRes.value, /^\/matches\/\d+\//, 8) : [];
-  const bigEvents = eventsRes.status === "fulfilled"
-    ? extractBigEvents(eventsRes.value, 8)
-    : [];
-  const featuredUkicLeagues = getFeaturedUkicLeagues();
-  const ukicScrapedItems = ukicMatchesRes.status === "fulfilled"
-    ? extractSourcedLinks(
-      ukicMatchesRes.value,
-      /\/(leagues|matches|events)\//,
-      "https://ukicircuit.com",
-      8,
-      title => !/login|sign up|register|about|contact|cookie|privacy/i.test(title)
-    )
-    : [];
-  const ukCsMainGames = await enrichUkicLeagueItems(
-    mergeUniqueLinks(featuredUkicLeagues, ukicScrapedItems, 8)
-  );
-  const hltvVrsRankings = rankingsRes.status === "fulfilled"
-    ? extractHltvVrsRankings(rankingsRes.value, 10)
-    : [];
-  const egamersworldRankings = egwRankingsRes.status === "fulfilled"
-    ? extractEgwTeamLinks(egwRankingsRes.value, 10)
-    : [];
-  const communityRankings = await buildCommunityProfileRankings(env, 20);
-  const tier2Matches = filterTierTwoMatches(upcomingMatches, 8);
-
-  const sourceStatus = {
-    hltv: newsRes.status === "fulfilled" || matchesRes.status === "fulfilled" || resultsRes.status === "fulfilled" || eventsRes.status === "fulfilled" || rankingsRes.status === "fulfilled",
-    ukic: ukicMatchesRes.status === "fulfilled",
-    egamersworld: egwRankingsRes.status === "fulfilled"
-  };
-
-  const success = Object.values(sourceStatus).some(Boolean);
-  return json(
-    {
-      success,
-      source: "HLTV + UKIC + EGamersWorld",
-      source_status: sourceStatus,
-      fetched_at: new Date().toISOString(),
-      elapsed_ms: Date.now() - startedAt,
-      sections: {
-        community_rankings: communityRankings,
-        news,
-        big_events: bigEvents,
-        uk_cs_main_games: ukCsMainGames,
-        upcoming_matches: upcomingMatches,
-        tier2_matches: tier2Matches,
-        latest_results: latestResults,
-        hltv_vrs_rankings: hltvVrsRankings,
-        egamersworld_rankings: egamersworldRankings
-      }
-    },
-    success ? 200 : 502,
-    request
-  );
-}
-
-async function fetchTextPage(url) {
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": "Mozilla/5.0 (compatible; grev-dad-site/1.0; +https://grev.dad)",
-      accept: "text/html,application/xhtml+xml"
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Request failed (${response.status}) for ${url}`);
-  }
-
-  return await response.text();
-}
-
-function extractHltvLinks(html, hrefPattern, limit = 8) {
-  return extractSourcedLinks(html, hrefPattern, "https://www.hltv.org", limit);
-}
-
-function extractUpcomingMatches(html, limit = 8) {
-  if (!html || typeof html !== "string") return [];
-  const blocks = html.match(/<a\b[^>]*class="[^"]*match[^"]*"[^>]*href="\/matches\/\d+\/[^"]+"[\s\S]*?<\/a>/gi) || [];
-  const seen = new Set();
-  const items = [];
-
-  for (const block of blocks) {
-    if (items.length >= limit) break;
-
-    const hrefMatch = block.match(/href="(\/matches\/\d+\/[^"]+)"/i);
-    const href = hrefMatch ? `https://www.hltv.org${hrefMatch[1]}` : "";
-    if (!href || seen.has(href)) continue;
-
-    const teamNames = [...block.matchAll(/(?:team|matchTeamName)[^>]*>([^<]+)</gi)]
-      .map((m) => decodeHtmlEntities(stripHtml(m[1])).replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    const parsedFromTitle = parseMatchTeams(stripHtml(block));
-    const team1 = teamNames[0] || parsedFromTitle.team1;
-    const team2 = teamNames[1] || parsedFromTitle.team2;
-    if (!team1 || !team2) continue;
-
-    const logoUrls = [...block.matchAll(/<img[^>]+src="([^"]+)"[^>]*>/gi)]
-      .map((m) => makeAbsoluteUrl(m[1], "https://www.hltv.org"))
-      .filter(Boolean);
-
-    const eventNameMatch = block.match(/(?:event|matchEventName)[^>]*>([^<]+)</i);
-    const eventName = eventNameMatch
-      ? decodeHtmlEntities(stripHtml(eventNameMatch[1])).replace(/\s+/g, " ").trim()
-      : "";
-
-    const summary = eventName ? `Event: ${eventName}` : "";
-    seen.add(href);
-    items.push({
-      title: `${team1} vs ${team2}`,
-      href,
-      summary,
-      teams: { team1, team2 },
-      logos: {
-        team1: logoUrls[0] || "",
-        team2: logoUrls[1] || ""
-      }
-    });
-  }
-
-  if (items.length) return items;
-
-  return extractSourcedLinks(
-    html,
-    /^\/matches\/\d+\//,
-    "https://www.hltv.org",
-    limit,
-    (title) => / vs /i.test(title)
-  ).map((item) => ({ ...item, teams: parseMatchTeams(item.title), logos: { team1: "", team2: "" } }));
-}
-
-function parseMatchTeams(title) {
-  const cleanTitle = String(title || "").replace(/\s+/g, " ").trim();
-  const parts = cleanTitle.split(/\s+vs\.?\s+/i).map((part) => part.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    return { team1: parts[0], team2: parts[1] };
-  }
-  return { team1: cleanTitle || "Team 1", team2: "Team 2" };
-}
-
-function extractBigEvents(html, limit = 8) {
-  if (!html || typeof html !== "string") return [];
-  const links = extractSourcedLinks(
-    html,
-    /^\/events\/\d+\//,
-    "https://www.hltv.org",
-    limit * 2,
-    title => /major|iem|katowice|cologne|blast|pro league|pgl|championship|masters|global finals|world/i.test(title)
-  );
-
-  const unixDates = [...html.matchAll(/data-unix="(\d{10,13})"/g)].map((m) => Number(m[1]));
-
-  return links.slice(0, limit).map((event, index) => ({
-    ...event,
-    start_date: toIsoFromUnix(unixDates[index * 2]),
-    end_date: toIsoFromUnix(unixDates[(index * 2) + 1])
-  }));
-}
-
-function toIsoFromUnix(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return null;
-  const ms = number > 1e12 ? number : number * 1000;
-  const date = new Date(ms);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-function extractEgwTeamLinks(html, limit = 12) {
-  return extractSourcedLinks(
-    html,
-    /\/counterstrike\/team\/[^"?#]+/i,
-    "https://egamersworld.com",
-    limit,
-    title => /^[a-z0-9 ._'&+-]{2,30}$/i.test(title) && !/counter[-\s]?strike|team ranking|matches|bet|news/i.test(title)
-  );
-}
-
-function extractHltvVrsRankings(html, limit = 10) {
-  if (!html || typeof html !== "string") return [];
-  const blockMatches = html.match(/<a\b[^>]*href="\/team\/\d+\/[^"]+"[\s\S]*?<\/a>/gi) || [];
-  const seen = new Set();
-  const items = [];
-
-  for (const block of blockMatches) {
-    if (items.length >= limit) break;
-    const hrefMatch = block.match(/href="(\/team\/\d+\/[^"]+)"/i);
-    const href = hrefMatch ? `https://www.hltv.org${hrefMatch[1]}` : "";
-    if (!href || seen.has(href)) continue;
-
-    const titleMatch = block.match(/(?:teamLine|ranking-header|teamName)[^>]*>([^<]+)</i);
-    const title = titleMatch ? decodeHtmlEntities(stripHtml(titleMatch[1])).trim() : "";
-    const rankMatch = block.match(/#\s*(\d{1,2})/);
-    const logoMatch = block.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
-
-    if (!title) continue;
-    seen.add(href);
-    items.push({
-      title: `${rankMatch ? `#${rankMatch[1]} ` : ""}${title}`.trim(),
-      href,
-      logos: { team1: makeAbsoluteUrl(logoMatch?.[1] || "", "https://www.hltv.org"), team2: "" }
-    });
-  }
-
-  return items;
-}
-
-function extractSourcedLinks(html, hrefPattern, baseUrl, limit = 8, titleFilter = null) {
-  if (!html || typeof html !== "string") return [];
-
-  const linkRegex = /<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-  const seen = new Set();
-  const items = [];
-  let match;
-
-  while ((match = linkRegex.exec(html)) && items.length < limit) {
-    const rawHref = match[1] || "";
-    if (!hrefPattern.test(rawHref)) continue;
-
-    const href = rawHref.startsWith("http") ? rawHref : `${baseUrl}${rawHref}`;
-    if (seen.has(href)) continue;
-
-    const title = decodeHtmlEntities(stripHtml(match[2] || "")).replace(/\s+/g, " ").trim();
-    if (!title || title.length < 5) continue;
-    if (typeof titleFilter === "function" && !titleFilter(title)) continue;
-
-    seen.add(href);
-    items.push({ title, href });
-  }
-
-  return items;
-}
-
-
-function filterTierTwoMatches(matches, limit = 8) {
-  if (!Array.isArray(matches)) return [];
-
-  const tierOneKeywords = [
-    "major",
-    "iem",
-    "katowice",
-    "cologne",
-    "blast",
-    "pro league",
-    "pgl",
-    "world finals",
-    "masters"
-  ];
-
-  const filtered = matches.filter(item => {
-    const title = String(item?.title || "").toLowerCase();
-    if (!title) return false;
-    return !tierOneKeywords.some(keyword => title.includes(keyword));
-  });
-
-  return filtered.slice(0, limit);
-}
-
-function normaliseTeamName(raw) {
-  return String(raw || "")
-    .toLowerCase()
-    .replace(/&amp;/gi, "&")
-    .replace(/[^a-z0-9&+\- ]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function buildCommunityProfileRankings(env, limit = 20) {
-  const rows = await env.DB.prepare(`
-    SELECT
-      u.id,
-      u.username,
-      p.steam_url,
-      p.leetify_url,
-      p.refrag_url,
-      p.avatar_url,
-      u.last_seen_at
-    FROM users u
-    LEFT JOIN user_profiles p ON p.user_id = u.id
-    WHERE u.approved = 1
-  `).all();
-
-  const linkedRows = (rows.results || []).filter((row) => hasAnyCounterStrikeProfile(row));
-  const rankings = await Promise.all(linkedRows.map(async (row) => {
-    const linkedAccounts = [
-      row.steam_url,
-      row.leetify_url,
-      row.refrag_url
-    ].filter(Boolean);
-
-    const profileInsights = await collectProfileInsights({
-      steamUrl: row.steam_url,
-      leetifyUrl: row.leetify_url,
-      refragUrl: row.refrag_url
-    });
-
-    const insightScore = profileInsights.reduce((total, item) => total + Number(item.score || 0), 0);
-    const score = (linkedAccounts.length * 100)
-      + (row.last_seen_at ? 15 : 0)
-      + (row.steam_url ? 25 : 0)
-      + insightScore;
-
-    return {
-      title: row.username,
-      href: `/profile.html?id=${encodeURIComponent(row.id)}`,
-      avatar_url: row.avatar_url || "",
-      score,
-      linked_accounts: linkedAccounts.length,
-      source_count: linkedAccounts.length,
-      profile_insights: profileInsights,
-      summary: profileInsights.map((item) => item.headline).filter(Boolean).slice(0, 2).join(" · ")
-    };
-  }));
-
-  return rankings
-    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
-    .slice(0, limit)
-    .map((item, index) => ({
-      ...item,
-      rank: index + 1
-    }));
-}
-
-function hasAnyCounterStrikeProfile(row) {
-  return Boolean(row?.steam_url || row?.leetify_url || row?.refrag_url);
-}
-
-async function collectProfileInsights({ steamUrl, leetifyUrl, refragUrl }) {
-  const checks = [
-    buildProfileCheck("Steam", steamUrl, /(steamcommunity\.com|store\.steampowered\.com)/i),
-    buildProfileCheck("Leetify", leetifyUrl, /leetify\.com/i),
-    buildProfileCheck("Refrag", refragUrl, /refrag\.gg/i)
-  ].filter(Boolean);
-
-  const results = await Promise.allSettled(checks.map(async (check) => {
-    const html = await fetchTextPage(check.url);
-    return parseProfileInsight(check.label, check.url, html);
-  }));
-
-  return results
-    .filter((result) => result.status === "fulfilled" && result.value)
-    .map((result) => result.value);
-}
-
-function buildProfileCheck(label, rawUrl, allowedDomainPattern) {
-  const url = cleanUrl(rawUrl, 1200);
-  if (!url || !allowedDomainPattern.test(url)) return null;
-  return { label, url };
-}
-
-function parseProfileInsight(provider, href, html) {
-  const title = decodeHtmlEntities(extractTitleFromHtml(html));
-  const description = decodeHtmlEntities(extractMetaDescription(html));
-  const rankHints = extractRankHints(`${title} ${description}`);
-  const statsHints = extractStatHints(`${title} ${description}`);
-  const headlineParts = [];
-  if (rankHints.length) headlineParts.push(`Rank: ${rankHints.slice(0, 2).join(", ")}`);
-  if (statsHints.length) headlineParts.push(statsHints[0]);
-  if (!headlineParts.length && description) headlineParts.push(description.slice(0, 120));
-  if (!headlineParts.length && title) headlineParts.push(title);
-
-  const score = (rankHints.length * 18) + (statsHints.length * 10) + (title ? 6 : 0) + (description ? 4 : 0);
-  return {
-    provider,
-    href,
-    headline: `${provider}: ${headlineParts.join(" · ")}`.trim(),
-    score
-  };
-}
-
-function extractTitleFromHtml(html) {
-  if (!html || typeof html !== "string") return "";
-  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return match ? stripHtml(match[1]).replace(/\s+/g, " ").trim() : "";
-}
-
-function extractMetaDescription(html) {
-  if (!html || typeof html !== "string") return "";
-  const match = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i)
-    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["'][^>]*>/i);
-  return match ? stripHtml(match[1]).replace(/\s+/g, " ").trim() : "";
-}
-
-function extractRankHints(text) {
-  const source = String(text || "");
-  const rankMatches = source.match(/(?:rank|rating|elo|faceit|premier|level)\s*[:#]?\s*([a-z0-9.+\- ]{1,24})/gi) || [];
-  const cleaned = rankMatches
-    .map((item) => item.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-  return [...new Set(cleaned)].slice(0, 3);
-}
-
-function extractStatHints(text) {
-  const source = String(text || "");
-  const statMatches = source.match(/(?:win\s*rate|headshot|hs%|kd|k\/d|adr|clutch|entry|matches|rounds|rating)\s*[:#]?\s*[0-9]+(?:\.[0-9]+)?%?/gi) || [];
-  const cleaned = statMatches
-    .map((item) => item.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-  return [...new Set(cleaned)].slice(0, 3);
-}
-
-async function enrichUkicLeagueItems(items) {
-  const seeded = Array.isArray(items) ? items.slice(0, 8) : [];
-  const results = await Promise.allSettled(seeded.map(async (item) => {
-    const html = await fetchTextPage(item.href);
-    const details = extractUkicCompetitionDetails(html);
-    return {
-      ...item,
-      summary: details.summary,
-      meta_lines: details.lines
-    };
-  }));
-
-  return seeded.map((item, index) => (
-    results[index]?.status === "fulfilled"
-      ? results[index].value
-      : item
-  ));
-}
-
-function extractUkicCompetitionDetails(html) {
-  const title = extractTitleFromHtml(html);
-  const description = extractMetaDescription(html);
-  const groupMentions = (html.match(/group\s+[a-z0-9]+/gi) || []).slice(0, 3);
-  const standings = (html.match(/(?:#?\d+\s*[-–]\s*[a-z0-9 ._'&+-]{2,30}\s*[-–]\s*\d+\s*(?:pts|points))/gi) || []).slice(0, 3);
-  const positionLines = standings.length
-    ? standings.map((line) => line.replace(/\s+/g, " ").trim())
-    : groupMentions.map((line) => line.replace(/\s+/g, " ").trim());
-
-  const summary = description || title || "UKIC competition details";
-  return {
-    summary: summary.slice(0, 180),
-    lines: positionLines
-  };
-}
-
-function stripHtml(input) {
-  return String(input || "").replace(/<[^>]*>/g, " ");
-}
-
-function decodeHtmlEntities(input) {
-  return String(input || "")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
-
-function makeAbsoluteUrl(rawUrl, base) {
-  const source = String(rawUrl || "").trim();
-  if (!source) return "";
-  if (source.startsWith("http://") || source.startsWith("https://")) return source;
-  if (source.startsWith("//")) return `https:${source}`;
-  if (source.startsWith("/")) return `${base}${source}`;
-  return `${base}/${source.replace(/^\.?\//, "")}`;
-}
-
-function getFeaturedUkicLeagues() {
-  return [
-    {
-      title: "UKIC Challengers Season 9 — Group Stage",
-      href: "https://ukicircuit.com/leagues/38efbc98-ec65-46a7-af50-fabe2a0b149e"
-    },
-    {
-      title: "UKIC Contenders Season 9 — Group Stage",
-      href: "https://ukicircuit.com/leagues/39eb286a-10f2-40a9-ae1e-6cd1c03e551c"
-    },
-    {
-      title: "UKIC Rising Season 9 — Group Stage",
-      href: "https://ukicircuit.com/leagues/cea75113-fd46-4c49-8f66-df9add564f1b"
-    }
-  ];
-}
-
-function mergeUniqueLinks(primaryItems, secondaryItems, limit = 8) {
-  const merged = [];
-  const seen = new Set();
-
-  for (const item of [...(primaryItems || []), ...(secondaryItems || [])]) {
-    const href = String(item?.href || "").trim();
-    if (!href || seen.has(href)) continue;
-    seen.add(href);
-    merged.push(item);
-    if (merged.length >= limit) break;
-  }
-
-  return merged;
-}
-
-function buildSessionCookie(sessionToken, expires) {
-  return [
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(sessionToken)}`,
-    "Path=/",
-    "HttpOnly",
-    "Secure",
-    "SameSite=Lax",
-    `Expires=${expires.toUTCString()}`
-  ].join("; ");
-}
-
-function clearSessionCookie() {
-  return [
-    `${SESSION_COOKIE_NAME}=`,
-    "Path=/",
-    "HttpOnly",
-    "Secure",
-    "SameSite=Lax",
-    "Expires=Thu, 01 Jan 1970 00:00:00 GMT"
-  ].join("; ");
-}
-
-function cleanUsername(value) {
-  if (typeof value !== "string") return "";
-  return value.trim().replace(/\s+/g, " ").slice(0, 30);
-}
-
-function cleanMessage(value) {
-  if (typeof value !== "string") return "";
-  return value.replace(/\r\n/g, "\n").trim().slice(0, 1000);
-}
-
-function cleanForumTitle(value) {
-  if (typeof value !== "string") return "";
-  return value.trim().replace(/\s+/g, " ").slice(0, 140);
-}
-
-function cleanForumBody(value) {
-  if (typeof value !== "string") return "";
-  return value.replace(/\r\n/g, "\n").trim().slice(0, 12000);
-}
-
-function cleanForumComment(value) {
-  if (typeof value !== "string") return "";
-  return value.replace(/\r\n/g, "\n").trim().slice(0, 3000);
-}
-
-function cleanShortText(value, maxLen = 255) {
-  if (typeof value !== "string") return "";
-  return value.trim().slice(0, maxLen);
-}
-
-function cleanLongText(value, maxLen = 3000) {
-  if (typeof value !== "string") return "";
-  return value.replace(/\r\n/g, "\n").trim().slice(0, maxLen);
-}
-
-function cleanUrl(value, maxLen = 1200) {
-  if (typeof value !== "string") return "";
-  const cleaned = value.trim().slice(0, maxLen);
-  if (!cleaned) return "";
-  if (/^https?:\/\//i.test(cleaned)) return cleaned;
-  return "";
-}
-
-function cleanAvatarUrl(value) {
-  return cleanUrl(value, 1200);
-}
-
-function normaliseReactionType(value) {
-  if (typeof value !== "string") return "";
-  const cleaned = value.trim().toLowerCase();
-  return cleaned === "like" || cleaned === "dislike" ? cleaned : "";
-}
-
-function sanitiseGroupName(value) {
-  if (typeof value !== "string") return "";
-  const cleaned = value.trim().toLowerCase();
-  return ALLOWED_GROUPS.includes(cleaned) ? cleaned : "";
-}
-
-function normaliseGroupName(groupName, isAdmin = false) {
-  if (isAdmin) return "admin";
-  const cleaned = sanitiseGroupName(groupName);
-  return cleaned || DEFAULT_USER_GROUP;
-}
-
-function buildUserGroups(groupName, isAdmin = false) {
-  const groups = new Set();
-  if (groupName) groups.add(groupName);
-  if (isAdmin) groups.add("admin");
-  return [...groups];
-}
-
-async function handleAdminDeleteUser(request, env) {
-  await ensureCoreTables(env);
-
-  const adminUser = await requireAdmin(request, env);
-  if (adminUser instanceof Response) return adminUser;
-
-  const body = await safeJson(request);
-  const userId = Number(body?.user_id);
-
-  if (!Number.isInteger(userId) || userId <= 0) {
-    return json({ success: false, error: "A valid user id is required" }, 400, request);
-  }
-
-  if (userId === adminUser.id) {
-    return json({ success: false, error: "You cannot delete your own account" }, 400, request);
-  }
-
-  const existingUser = await env.DB.prepare(`
-    SELECT id, username
-    FROM users
-    WHERE id = ?
-    LIMIT 1
-  `).bind(userId).first();
-
-  if (!existingUser) {
-    return json({ success: false, error: "User not found" }, 404, request);
-  }
-
-  await env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM forum_reactions WHERE user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM forum_comments WHERE author_user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM forum_comments WHERE post_id IN (SELECT id FROM forum_posts WHERE author_user_id = ? )`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM forum_reactions WHERE post_id IN (SELECT id FROM forum_posts WHERE author_user_id = ? )`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM forum_posts WHERE author_user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM global_chat_messages WHERE author_user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM user_profiles WHERE user_id = ?`).bind(userId).run();
-  await env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(userId).run();
-
-  try {
-    await env.DB.prepare(`DELETE FROM casino_profiles WHERE user_id = ?`).bind(userId).run();
-  } catch (error) {
-    console.error("Failed to fully clean casino data during account deletion:", error);
-  }
-
-  return json({
-    success: true,
-    message: `Deleted account ${existingUser.username}.`
-  }, 200, request);
-}
-
 function resolveUserGroupName(groupName, approved = false, isAdmin = false) {
   if (isAdmin) return "admin";
   if (approved && sanitiseGroupName(groupName) === "standard") return "member";
@@ -3564,9 +2854,6 @@ function formatAdminUserRow(row) {
     media_2_url: row.media_2_url || "",
     media_3_url: row.media_3_url || "",
     music_url: row.music_url || "",
-    steam_url: row.steam_url || "",
-    leetify_url: row.leetify_url || "",
-    refrag_url: row.refrag_url || "",
     profile_accent_color: row.profile_accent_color || "#1f2937"
   };
 }
