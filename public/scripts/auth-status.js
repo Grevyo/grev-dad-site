@@ -42,7 +42,6 @@
 
     container.textContent = '';
     container.append(createLink('/members.html', 'Members'));
-    container.append(createLink('/account.html', 'Account'));
 
     if (isAdmin) {
       container.append(createLink('/admin.html', 'Admin', 'nav-button admin-link'));

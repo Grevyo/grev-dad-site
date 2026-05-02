@@ -18,7 +18,7 @@
       <p><a href="/">Home</a> | <a href="/profile.html">Profile</a></p>
       <p id="members-status">Loading members...</p>
       <table>
-        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Level</th><th>Title</th></tr></thead>
+        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Level</th><th>Rank</th><th>Title</th></tr></thead>
         <tbody id="members-body"></tbody>
       </table>
     </main>
@@ -28,7 +28,7 @@
         body.textContent = '';
         members.forEach((member) => {
           const row = document.createElement('tr');
-          row.innerHTML = `<td>${member.display_name || member.username || ''}</td><td><a href="/profile.html?id=${member.id}">${member.username || ''}</a></td><td>${member.roleLabel || ''}</td><td>${member.accountLevel || 1}</td><td>${member.profile_title || ''}</td>`;
+          row.innerHTML = `<td>${member.display_name || member.username || ''}</td><td><a href="/profile.html?id=${member.id}">${member.username || ''}</a></td><td>${member.roleLabel || ''}</td><td>${member.accountLevel || 1}</td><td>${member.rank?.name || 'Unranked'}</td><td>${member.profile_title || ''}</td>`;
           body.append(row);
         });
       }
