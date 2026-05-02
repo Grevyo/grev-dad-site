@@ -55,10 +55,7 @@ async function handleRegister(request, env) {
     }
 
     const db = getDatabase(env);
-    const schema = await getSchemaStatus(db);
-    if (!schema.allPresent) {
-      return json({ ok: false, error: 'Database schema is missing. Run setup or apply D1 migrations.' }, 503);
-    }
+    await ensureSchema(db);
 
     const existing = await db
       .prepare('SELECT id FROM users WHERE username = ?')
@@ -101,10 +98,7 @@ async function handleLogin(request, env) {
     }
 
     const db = getDatabase(env);
-    const schema = await getSchemaStatus(db);
-    if (!schema.allPresent) {
-      return json({ ok: false, error: 'Database schema is missing. Run setup or apply D1 migrations.' }, 503);
-    }
+    await ensureSchema(db);
 
     const user = await db
       .prepare('SELECT id, username, role, is_admin, password_hash FROM users WHERE username = ?')
@@ -144,6 +138,7 @@ async function handleLogout(request, env) {
     const token = getSessionToken(request);
     if (token) {
       const db = getDatabase(env);
+      await ensureSchema(db);
       await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
     }
 
@@ -163,6 +158,7 @@ async function handleMe(request, env) {
     }
 
     const db = getDatabase(env);
+    await ensureSchema(db);
 
     const record = await db
       .prepare(
@@ -309,6 +305,7 @@ async function requireAdmin(request, env) {
   }
 
   const db = getDatabase(env);
+  await ensureSchema(db);
 
   const user = await db
     .prepare(
@@ -488,10 +485,19 @@ async function initializeBalanceIfExists(db, userId) {
 
   if (table) {
     await db
-      .prepare('INSERT INTO balances (user_id, balance_cents) VALUES (?, ?)')
+      .prepare('INSERT OR IGNORE INTO balances (user_id, balance_cents) VALUES (?, ?)')
       .bind(userId, 10000)
       .run();
   }
+}
+
+async function ensureSchema(db) {
+  await createSchemaTables(db);
+  const schema = await getSchemaStatus(db);
+  if (!schema.allPresent) {
+    throw new Error('Database schema could not be created. Check D1 permissions and migrations.');
+  }
+  return schema;
 }
 
 async function getSchemaStatus(db) {
