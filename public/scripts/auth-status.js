@@ -1,20 +1,41 @@
 (function () {
-  function createLink(href, label) {
+  function createLink(href, label, className) {
     const link = document.createElement('a');
     link.href = href;
     link.textContent = label;
+    link.className = className || 'nav-button';
     return link;
   }
 
-  function createSeparator() {
-    return document.createTextNode(' | ');
+  function createThemeToggle() {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'theme-toggle';
+    button.className = 'nav-button icon-button theme-toggle';
+    button.textContent = '💡';
+
+    const current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    const action = current === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    button.setAttribute('aria-label', action);
+    button.title = action;
+
+    button.addEventListener('click', function () {
+      if (window.GREVTheme?.toggleTheme) {
+        window.GREVTheme.toggleTheme();
+      }
+      const next = document.documentElement.dataset.theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+      button.setAttribute('aria-label', next);
+      button.title = next;
+    });
+
+    return button;
   }
 
   function renderLoggedOut(container) {
     container.textContent = '';
     container.append(createLink('/login.html', 'Login'));
-    container.append(createSeparator());
     container.append(createLink('/register.html', 'Register'));
+    container.append(createThemeToggle());
   }
 
   function renderLoggedIn(container, user) {
@@ -27,19 +48,18 @@
     const isAdmin = user?.is_admin === true || Number(user?.is_admin) === 1 || user?.role === 'admin';
 
     container.textContent = '';
-    container.append(createLink('/profile.html', username));
-    container.append(createSeparator());
     container.append(createLink('/members.html', 'Members'));
 
     if (isAdmin) {
-      container.append(createSeparator());
-      container.append(createLink('/admin.html', 'Admin'));
+      container.append(createLink('/admin.html', 'Admin', 'nav-button admin-link'));
     }
 
-    container.append(createSeparator());
+    container.append(createThemeToggle());
+    container.append(createLink('/profile.html', username, 'nav-button user-button'));
 
     const logoutButton = document.createElement('button');
     logoutButton.type = 'button';
+    logoutButton.className = 'nav-button logout-button';
     logoutButton.textContent = 'Logout';
     logoutButton.addEventListener('click', async function () {
       logoutButton.disabled = true;
