@@ -1,4 +1,16 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Login</title><link rel='stylesheet' href='/styles/site.css'></head><body><main><h1>Login</h1><form id='f'><input name='identity' placeholder='username or email' required><input name='password' type='password' placeholder='password' required><button>Login</button></form><pre id='out'></pre></main><script>
-async function j(r){const t=await r.text();try{return t?JSON.parse(t):{ok:false,error:'Empty response body'};}catch{return{ok:false,error:'Invalid JSON response',raw:t};}}
-document.getElementById('f').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.target);const d=await j(await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:f.get('identity'),password:f.get('password')})}));document.getElementById('out').textContent=JSON.stringify(d,null,2)};
-</script></body></html>
+<!doctype html>
+<html><head><meta charset='utf-8'><title>Login</title></head>
+<body>
+  <h1>Login</h1>
+  <p>Email addresses are not required. Log in using your username and password.</p>
+  <form id='f'>
+    <input name='username' placeholder='username' required>
+    <input name='password' type='password' placeholder='password' required>
+    <button>Login</button>
+  </form>
+  <pre id='out'></pre>
+<script>
+async function parseJsonSafe(response){const text=await response.text();if(!text){return{ok:response.ok,error:response.ok?null:'Empty response body'}};try{return JSON.parse(text);}catch{return{ok:false,error:'Invalid JSON response',status:response.status,raw:text}}}
+document.getElementById('f').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.target);const response=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:f.get('username'),password:f.get('password')})});const data=await parseJsonSafe(response);document.getElementById('out').textContent=data.ok?'Success: logged in as '+(data.user&&data.user.username?data.user.username:'user'):'Error: '+(data.error||'Login failed');};
+</script>
+</body></html>
