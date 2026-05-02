@@ -215,79 +215,21 @@
     }
 
 
-    let deployBusy = false;
-    let deployLastAction = 'None';
-    let deployLastResult = 'None';
-
-    function setDeployButtonsDisabled(disabled) {
-      [deployRedeployBtn, deployPurgeBtn, deployRefreshBtn].forEach((button) => {
-        if (button) button.disabled = disabled;
-      });
-    }
-
-    function renderDeployStatus(statusData = null) {
-      if (!statusData) {
-        deployStatus.innerHTML = 'Deployment status unavailable.';
-        return;
-      }
-
-      const warning = (!statusData.hasDeployHook || !statusData.hasApiToken || !statusData.hasZoneId)
-        ? '<div class="muted-copy mt-8">Deployment controls are installed, but Cloudflare secrets are missing.</div>'
-        : '';
-
-      deployStatus.innerHTML = `
-        <div>Commit SHA: ${escapeHtml(statusData.commit || 'n/a')}</div>
-        <div>Branch: ${escapeHtml(statusData.branch || 'n/a')}</div>
-        <div>Deploy hook configured: ${statusData.hasDeployHook ? 'yes' : 'no'}</div>
-        <div>API token configured: ${statusData.hasApiToken ? 'yes' : 'no'}</div>
-        <div>Zone ID configured: ${statusData.hasZoneId ? 'yes' : 'no'}</div>
-        <div>Last refresh action: ${escapeHtml(deployLastAction)}</div>
-        <div>Last result: ${escapeHtml(deployLastResult)}</div>
-        ${warning}
-      `;
-    }
-
     async function loadDeployStatus() {
-      console.debug('[admin deploy] loading status');
       const response = await fetch('/api/admin/deploy/status', { credentials:'same-origin' });
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.error || 'Failed to load deployment status');
-      }
-      renderDeployStatus(data);
-      return data;
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load deployment status');
+      deployStatus.innerHTML = `Commit SHA: ${escapeHtml(data.deploy?.commit_sha || 'n/a')}<br>Branch: ${escapeHtml(data.deploy?.branch || 'n/a')}<br>Last refresh attempt time: ${escapeHtml(data.last_refresh_attempt_at || 'n/a')}`;
     }
-
-    async function runDeployAction(endpoint, actionLabel) {
-      if (deployBusy) return;
-      deployBusy = true;
-      deployLastAction = actionLabel;
-      deployLastResult = `Loading: ${actionLabel}`;
-      setDeployButtonsDisabled(true);
-      renderDeployStatus(await loadDeployStatus().catch(() => null));
-
+    async function runDeployAction(endpoint, button) {
+      button.disabled = true;
       try {
-        console.debug('[admin deploy] action start', { endpoint, actionLabel });
         const response = await fetch(endpoint, { method:'POST', credentials:'same-origin' });
         const data = await response.json().catch(() => null);
-        if (!response.ok || !data) {
-          throw new Error(data?.error || data?.message || `Action failed (${response.status})`);
-        }
-        deployLastResult = data.ok ? `Success (${response.status}): ${data.message || 'Completed'}` : `Error (${response.status}): ${data.message || 'Failed'}`;
-        showMessage(data.ok ? 'success' : 'error', `${actionLabel}: ${data.message || 'Completed'}${data.error ? ` | ${data.error}` : ''}`);
-        console.debug('[admin deploy] action result', data);
-      } catch (error) {
-        deployLastResult = `Error: ${error.message}`;
-        showMessage('error', `${actionLabel} failed: ${error.message}`);
-        console.debug('[admin deploy] action error', error);
-      } finally {
-        await loadDeployStatus().catch((error) => {
-          console.debug('[admin deploy] status refresh error', error);
-          renderDeployStatus(null);
-        });
-        setDeployButtonsDisabled(false);
-        deployBusy = false;
-      }
+        if (!response.ok || !data) throw new Error(data?.error || 'Action failed');
+        showMessage(data.success ? 'success' : 'error', JSON.stringify(data));
+        await loadDeployStatus();
+      } finally { button.disabled = false; }
     }
 
     function renderGroupOptions() { editGroup.innerHTML = allowedGroups.map((group) => `<option value="${group}">${toTitleCase(group)}</option>`).join(''); }
@@ -450,9 +392,9 @@
     casinoBalanceForm.addEventListener('submit', async (event) => { try { clearMessage(); casinoBalanceSaveBtn.disabled = true; await submitCasinoBalance(event); } catch (error) { showMessage('error', error.message); } finally { casinoBalanceSaveBtn.disabled = false; } });
     document.querySelectorAll('[data-quick-delta]').forEach((button) => button.addEventListener('click', () => { casinoBalanceDelta.value = button.dataset.quickDelta; }));
 
-    deployRedeployBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/redeploy', 'Trigger Redeploy'));
-    deployPurgeBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/purge-cache', 'Purge Cloudflare Cache'));
-    deployRefreshBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/refresh-live-site', 'Trigger Redeploy + Purge Cache'));
+    deployRedeployBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/redeploy', deployRedeployBtn));
+    deployPurgeBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/purge-cache', deployPurgeBtn));
+    deployRefreshBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/refresh-live-site', deployRefreshBtn));
 
     document.addEventListener('DOMContentLoaded', async () => {
       try {
@@ -460,7 +402,6 @@
         if (!await checkAccess()) return;
         if (currentUser?.is_admin) await loadUsers();
         if (currentUser?.gambling_admin || currentUser?.is_admin) await loadCasinoBalances();
-        if (currentUser?.is_admin) await loadDeployStatus();
       } catch (error) {
         console.error(error);
         showMessage('error', error.message || 'Could not load admin portal.');
