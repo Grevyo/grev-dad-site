@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grev - Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Admin</h1>
+
+      <section aria-labelledby="force-refresh-heading">
+        <h2 id="force-refresh-heading">Force Refresh Site</h2>
+        <p>Use this after pushing changes if the live site still looks stale.</p>
+
+        <div>
+          <button id="purge-cache-btn" type="button">Purge Cache</button>
+          <button id="redeploy-btn" type="button">Trigger Redeploy</button>
+          <button id="refresh-all-btn" type="button">Purge Cache + Trigger Redeploy</button>
+        </div>
+
+        <p id="refresh-config" role="status" aria-live="polite">Loading configuration status...</p>
+        <p id="refresh-loading" role="status" aria-live="polite"></p>
+        <p id="refresh-message" role="status" aria-live="polite"></p>
+        <pre id="refresh-last-result" aria-live="polite"></pre>
+      </section>
+    </main>
+
+    <script>
+      const refreshConfigEl = document.getElementById('refresh-config');
+      const refreshLoadingEl = document.getElementById('refresh-loading');
+      const refreshMessageEl = document.getElementById('refresh-message');
+      const refreshLastResultEl = document.getElementById('refresh-last-result');
+
+      const buttons = {
+        purge: document.getElementById('purge-cache-btn'),
+        redeploy: document.getElementById('redeploy-btn'),
+        all: document.getElementById('refresh-all-btn'),
+      };
+
+      function setLoading(isLoading, label) {
+        buttons.purge.disabled = isLoading;
+        buttons.redeploy.disabled = isLoading;
+        buttons.all.disabled = isLoading;
+        refreshLoadingEl.textContent = isLoading ? `Working: ${label}...` : '';
+      }
+
+      async function safeJsonRequest(path, options) {
+        const response = await fetch(path, options);
+        const text = await response.text();
+        let data = null;
+
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            throw new Error('Server returned invalid JSON');
+          }
+        }
+
+        if (!response.ok) {
+          const message = data?.error || text || `Request failed (${response.status})`;
+          throw new Error(message);
+        }
+
+        return data || {};
+      }
+
+      function showLastResult(data) {
+        refreshLastResultEl.textContent = JSON.stringify(data, null, 2);
+      }
+
+      function renderConfig(config) {
+        refreshConfigEl.textContent =
+          `Configured — API Token: ${config.cloudflareApiToken ? 'Yes' : 'No'}, ` +
+          `Zone ID: ${config.cloudflareZoneId ? 'Yes' : 'No'}, ` +
+          `Deploy Hook: ${config.cloudflareDeployHookUrl ? 'Yes' : 'No'}`;
+      }
+
+      async function loadStatus() {
+        refreshMessageEl.textContent = '';
+        try {
+          const data = await safeJsonRequest('/api/admin/refresh/status', { method: 'GET' });
+          if (!data.ok || !data.configured) {
+            refreshConfigEl.textContent = data.error || 'Failed to load configuration status';
+            showLastResult(data);
+            return;
+          }
+
+          renderConfig(data.configured);
+          showLastResult(data);
+        } catch (error) {
+          refreshConfigEl.textContent = error.message || 'Failed to load configuration status';
+        }
+      }
+
+      async function runAction(label, path) {
+        refreshMessageEl.textContent = '';
+        setLoading(true, label);
+
+        try {
+          const data = await safeJsonRequest(path, { method: 'POST' });
+          refreshMessageEl.textContent = data.ok ? `${label} succeeded.` : `${label} finished with errors.`;
+          showLastResult(data);
+          await loadStatus();
+        } catch (error) {
+          refreshMessageEl.textContent = `${label} failed: ${error.message || 'Unknown error'}`;
+        } finally {
+          setLoading(false, label);
+        }
+      }
+
+      buttons.purge.addEventListener('click', () => runAction('Purge Cache', '/api/admin/refresh/purge-cache'));
+      buttons.redeploy.addEventListener('click', () => runAction('Trigger Redeploy', '/api/admin/refresh/redeploy'));
+      buttons.all.addEventListener('click', () => runAction('Purge Cache + Trigger Redeploy', '/api/admin/refresh/all'));
+
+      loadStatus();
+    </script>
+  </body>
+</html>

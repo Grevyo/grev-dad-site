@@ -18,6 +18,19 @@ export default {
       return handleMe(request, env);
     }
 
+    if (url.pathname === '/api/admin/refresh/status' && request.method === 'GET') {
+      return handleRefreshStatus(request, env);
+    }
+    if (url.pathname === '/api/admin/refresh/purge-cache' && request.method === 'POST') {
+      return handlePurgeCache(request, env);
+    }
+    if (url.pathname === '/api/admin/refresh/redeploy' && request.method === 'POST') {
+      return handleRedeploy(request, env);
+    }
+    if (url.pathname === '/api/admin/refresh/all' && request.method === 'POST') {
+      return handleRefreshAll(request, env);
+    }
+
     return env.ASSETS.fetch(request);
   },
 };
@@ -147,6 +160,151 @@ async function handleMe(request, env) {
   }
 }
 
+async function handleRefreshStatus(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+
+  return json({
+    ok: true,
+    configured: getRefreshConfig(env),
+  });
+}
+
+async function handlePurgeCache(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+
+  const purge = await purgeCache(env);
+  return json(purge, purge.ok ? 200 : 500);
+}
+
+async function handleRedeploy(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+
+  const redeploy = await triggerRedeploy(env);
+  return json(redeploy, redeploy.ok ? 200 : 500);
+}
+
+async function handleRefreshAll(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+
+  const purge = await purgeCache(env);
+  const redeploy = env.CLOUDFLARE_DEPLOY_HOOK_URL ? await triggerRedeploy(env) : { ok: false, error: 'Cloudflare deploy hook is not configured' };
+
+  return json({
+    ok: purge.ok && (redeploy.ok || !env.CLOUDFLARE_DEPLOY_HOOK_URL),
+    purge,
+    redeploy,
+  }, purge.ok ? 200 : 500);
+}
+
+function getRefreshConfig(env) {
+  return {
+    cloudflareApiToken: Boolean(env.CLOUDFLARE_API_TOKEN),
+    cloudflareZoneId: Boolean(env.CLOUDFLARE_ZONE_ID),
+    cloudflareDeployHookUrl: Boolean(env.CLOUDFLARE_DEPLOY_HOOK_URL),
+  };
+}
+
+async function purgeCache(env) {
+  if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
+    return { ok: false, error: 'Cloudflare cache purge is not configured' };
+  }
+
+  try {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ purge_everything: true }),
+    });
+
+    const text = await response.text();
+    let body = null;
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = null;
+      }
+    }
+
+    if (!response.ok || !body?.success) {
+      return {
+        ok: false,
+        error: 'Cloudflare cache purge failed',
+        status: response.status,
+        details: sanitizeCloudflareErrors(body?.errors),
+      };
+    }
+
+    return { ok: true, status: response.status };
+  } catch (error) {
+    return { ok: false, error: `Cloudflare cache purge request failed: ${friendlyError(error)}` };
+  }
+}
+
+async function triggerRedeploy(env) {
+  if (!env.CLOUDFLARE_DEPLOY_HOOK_URL) {
+    return { ok: false, error: 'Cloudflare deploy hook is not configured' };
+  }
+
+  try {
+    const response = await fetch(env.CLOUDFLARE_DEPLOY_HOOK_URL, { method: 'POST' });
+    const text = await response.text();
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: 'Cloudflare deploy hook failed',
+        status: response.status,
+        details: text ? text.slice(0, 300) : 'No response body',
+      };
+    }
+
+    return { ok: true, status: response.status };
+  } catch (error) {
+    return { ok: false, error: `Cloudflare deploy hook request failed: ${friendlyError(error)}` };
+  }
+}
+
+function sanitizeCloudflareErrors(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return 'Unknown Cloudflare API error';
+  }
+  return errors.map((item) => `${item?.code ?? 'unknown'}: ${item?.message ?? 'Unknown error'}`).join('; ');
+}
+
+async function requireAdmin(request, env) {
+  const token = getSessionToken(request);
+  if (!token) {
+    return json({ ok: false, error: 'Not logged in' }, 401);
+  }
+
+  const user = await env.PROFILE_DB
+    .prepare(
+      `SELECT u.id, u.is_admin
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token = ? AND s.expires_at > datetime('now')`
+    )
+    .bind(token)
+    .first();
+
+  if (!user) {
+    return json({ ok: false, error: 'Not logged in' }, 401);
+  }
+
+  if (!user.is_admin) {
+    return json({ ok: false, error: 'Admin access required' }, 403);
+  }
+
+  return null;
+}
+
 async function readJsonBody(request) {
   const text = await request.text();
   if (!text) return {};
@@ -260,5 +418,5 @@ async function initializeBalanceIfExists(env, userId) {
 }
 
 function friendlyError(error) {
-  return error instanceof Error ? error.message : 'Unexpected server error';
+  return error instanceof Error ? error.message : 'Unexpected error';
 }

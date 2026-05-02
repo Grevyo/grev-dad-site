@@ -6,6 +6,7 @@ This repository has been reset to a fresh homepage-only foundation.
 - `/`
 - `/login.html`
 - `/register.html`
+- `/admin.html`
 
 ## Current status
 - Auth, admin, and database systems will be added later.
@@ -20,3 +21,21 @@ Examples:
 - `game-db`
 - `casino-db`
 - `stats-db`
+
+## Admin Force Refresh Site
+
+Admins can use **Force Refresh Site** on `/admin.html` to run Cloudflare refresh actions from the Worker API.
+
+Required secrets:
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ZONE_ID`
+- `CLOUDFLARE_DEPLOY_HOOK_URL` (optional)
+
+What each action does:
+- **Purge Cache** clears Cloudflare CDN cache for the configured zone.
+- **Trigger Redeploy** calls the configured deploy hook URL.
+- **Purge Cache + Trigger Redeploy** runs purge first, then redeploy if the hook is configured.
+
+Notes:
+- The deploy button cannot deploy changes that have not already been pushed to GitHub.
+- If any required secrets are missing, `/admin.html` shows a clear error/configuration message.
