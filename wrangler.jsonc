@@ -10,8 +10,7 @@
     {
       "binding": "DB",
       "database_name": "profile-db",
-      "database_id": "PASTE_REAL_DATABASE_ID_HERE",
-      "migrations_dir": "migrations"
+      "database_id": "3eb52e67-7e41-48a0-8d74-a5924e926f28"
     }
   ]
 }
