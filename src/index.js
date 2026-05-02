@@ -1,6 +1,13 @@
 const SESSION_COOKIE = 'session_token';
 const SESSION_DAYS = 7;
 const PBKDF2_ITERATIONS = 100000;
+const DEFAULT_NEW_USER_ROLE = 'admin';
+const ROLES = {
+  admin: { label: 'Admin', level: 100 },
+  operator: { label: 'Operator', level: 80 },
+  og: { label: 'OG', level: 50 },
+  member: { label: 'Member', level: 10 },
+};
 
 export default {
   async fetch(request, env) {
@@ -40,6 +47,12 @@ export default {
     if (url.pathname === '/api/admin/refresh/all' && request.method === 'POST') {
       return handleRefreshAll(request, env);
     }
+    if (url.pathname === '/api/admin/users' && request.method === 'GET') {
+      return handleAdminUsers(request, env);
+    }
+    if (url.pathname.match(/^\/api\/admin\/users\/\d+\/role$/) && request.method === 'POST') {
+      return handleAdminUpdateRole(request, env, url.pathname);
+    }
 
     return env.ASSETS.fetch(request);
   },
@@ -69,8 +82,8 @@ async function handleRegister(request, env) {
 
     const passwordHash = await hashPassword(password);
     const result = await db
-      .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
-      .bind(username, passwordHash)
+      .prepare('INSERT INTO users (username, password_hash, role, is_admin) VALUES (?, ?, ?, ?)')
+      .bind(username, passwordHash, DEFAULT_NEW_USER_ROLE, DEFAULT_NEW_USER_ROLE === 'admin' ? 1 : 0)
       .run();
 
     const userId = result.meta.last_row_id;
@@ -175,7 +188,8 @@ async function handleMe(request, env) {
       return json({ ok: false, user: null, error: 'Not logged in' }, 401);
     }
 
-    return json({ ok: true, user: record });
+    const user = normalizeUserRole(record);
+    return json({ ok: true, user: { ...user, roleLabel: getRoleLabel(user.role) } });
   } catch (error) {
     return json({ ok: false, error: friendlyError(error) }, 500);
   }
@@ -322,11 +336,52 @@ async function requireAdmin(request, env) {
     return json({ ok: false, error: 'Not logged in' }, 401);
   }
 
-  if (!user.is_admin) {
+  if (!isUserAdmin(user)) {
     return json({ ok: false, error: 'Admin access required' }, 403);
   }
 
   return null;
+}
+
+async function handleAdminUsers(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+  const db = getDatabase(env);
+  const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, b.balance_cents
+    FROM users u
+    LEFT JOIN balances b ON b.user_id = u.id
+    ORDER BY u.created_at DESC`).all();
+  const users = (rows?.results || []).map((row) => {
+    const user = normalizeUserRole(row);
+    return { ...user, roleLabel: getRoleLabel(user.role), balance_cents: row.balance_cents, created_at: row.created_at };
+  });
+  return json({ ok: true, users, roles: ROLES });
+}
+
+async function handleAdminUpdateRole(request, env, pathname) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+  const db = getDatabase(env);
+  const userId = Number(pathname.split('/')[4]);
+  const body = await readJsonBody(request);
+  const role = String(body?.role || '').trim().toLowerCase();
+  if (!ROLES[role]) return json({ ok: false, error: 'Invalid role' }, 400);
+  await db.prepare('UPDATE users SET role = ?, is_admin = ? WHERE id = ?').bind(role, role === 'admin' ? 1 : 0, userId).run();
+  return json({ ok: true, role, roleLabel: getRoleLabel(role), is_admin: role === 'admin' ? 1 : 0 });
+}
+
+function normalizeUserRole(user) {
+  const role = typeof user?.role === 'string' && ROLES[user.role] ? user.role : 'admin';
+  return { ...user, role };
+}
+
+function getRoleLabel(role) {
+  return ROLES[role]?.label || ROLES.admin.label;
+}
+
+function isUserAdmin(user) {
+  const normalized = normalizeUserRole(user);
+  return normalized.role === 'admin' || Number(normalized.is_admin) === 1 || normalized.is_admin === true;
 }
 
 
@@ -516,8 +571,8 @@ async function createSchemaTables(db) {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user',
-    is_admin INTEGER NOT NULL DEFAULT 0,
+    role TEXT NOT NULL DEFAULT 'admin',
+    is_admin INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`).run();
 
@@ -542,6 +597,13 @@ async function createSchemaTables(db) {
     reason TEXT NOT NULL DEFAULT 'init',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`).run();
+
+  const columns = await db.prepare("PRAGMA table_info(users)").all();
+  const names = new Set((columns?.results || []).map((c) => c.name));
+  if (!names.has('role')) await db.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'").run();
+  if (!names.has('is_admin')) await db.prepare("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 1").run();
+  await db.prepare("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = '' OR role = 'user'").run();
+  await db.prepare("UPDATE users SET is_admin = 1 WHERE is_admin IS NULL").run();
 }
 
 function friendlyError(error) {

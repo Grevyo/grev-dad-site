@@ -26,6 +26,15 @@
         <p id="refresh-message" role="status" aria-live="polite"></p>
         <pre id="refresh-last-result" aria-live="polite"></pre>
       </section>
+
+      <section aria-labelledby="users-heading">
+        <h2 id="users-heading">Users</h2>
+        <p id="users-status" role="status" aria-live="polite">Loading users...</p>
+        <table>
+          <thead><tr><th>Username</th><th>Role</th><th>Balance</th><th>Created</th><th>Set Role</th></tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </section>
     </main>
 
     <script>
@@ -33,6 +42,9 @@
       const refreshLoadingEl = document.getElementById('refresh-loading');
       const refreshMessageEl = document.getElementById('refresh-message');
       const refreshLastResultEl = document.getElementById('refresh-last-result');
+      const usersStatusEl = document.getElementById('users-status');
+      const usersBodyEl = document.getElementById('users-body');
+      const roleOptions = ['admin', 'operator', 'og', 'member'];
 
       const buttons = {
         purge: document.getElementById('purge-cache-btn'),
@@ -96,6 +108,56 @@
         }
       }
 
+      async function updateRole(userId, role) {
+        await safeJsonRequest(`/api/admin/users/${userId}/role`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role }),
+        });
+      }
+
+      function renderUsers(users) {
+        usersBodyEl.textContent = '';
+        users.forEach((user) => {
+          const tr = document.createElement('tr');
+          const roleSelect = document.createElement('select');
+          roleOptions.forEach((role) => {
+            const option = document.createElement('option');
+            option.value = role;
+            option.textContent = role === 'og' ? 'OG' : role[0].toUpperCase() + role.slice(1);
+            if (user.role === role) option.selected = true;
+            roleSelect.append(option);
+          });
+          roleSelect.addEventListener('change', async () => {
+            roleSelect.disabled = true;
+            usersStatusEl.textContent = `Updating role for ${user.username}...`;
+            try {
+              await updateRole(user.id, roleSelect.value);
+              usersStatusEl.textContent = `Updated role for ${user.username}.`;
+              await loadUsers();
+            } catch (error) {
+              usersStatusEl.textContent = `Failed role update: ${error.message}`;
+              roleSelect.disabled = false;
+            }
+          });
+          tr.innerHTML = `<td>${user.username}</td><td>${user.roleLabel}</td><td>${user.balance_cents ?? ''}</td><td>${user.created_at ?? ''}</td>`;
+          const roleCell = document.createElement('td');
+          roleCell.append(roleSelect);
+          tr.append(roleCell);
+          usersBodyEl.append(tr);
+        });
+      }
+
+      async function loadUsers() {
+        try {
+          const data = await safeJsonRequest('/api/admin/users', { method: 'GET' });
+          renderUsers(data.users || []);
+          usersStatusEl.textContent = `Loaded ${data.users?.length || 0} users.`;
+        } catch (error) {
+          usersStatusEl.textContent = `Failed to load users: ${error.message}`;
+        }
+      }
+
       async function runAction(label, path) {
         refreshMessageEl.textContent = '';
         setLoading(true, label);
@@ -117,6 +179,7 @@
       buttons.all.addEventListener('click', () => runAction('Purge Cache + Trigger Redeploy', '/api/admin/refresh/all'));
 
       loadStatus();
+      loadUsers();
     </script>
       <script src="/scripts/auth-status.js"></script>
   </body>
