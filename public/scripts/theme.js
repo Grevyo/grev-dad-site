@@ -33,7 +33,10 @@
   function syncButtonText(theme) {
     const button = getButton();
     if (!button) return;
-    button.textContent = theme === DARK ? 'Light mode' : 'Dark mode';
+    const action = theme === DARK ? 'Switch to light mode' : 'Switch to dark mode';
+    button.textContent = '💡';
+    button.setAttribute('aria-label', action);
+    button.title = action;
   }
 
   function setTheme(theme, shouldPersist) {

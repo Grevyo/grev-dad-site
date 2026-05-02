@@ -3,14 +3,12 @@
   <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Profile</title><link rel="stylesheet" href="/styles.css" /></head>
   <body>
     <header class="site-header">
-      <a class="site-logo-link" href="/" aria-label="Grev home">
+      <a class="site-brand" href="/" aria-label="Grev home">
         <img class="site-logo" src="/grev.dad.logo.png" alt="Grev" />
       </a>
-      <div class="site-header-right">
-        <button id="theme-toggle" type="button">Light mode</button>
-      </div>
+      <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
     </header>
-    <main><div id="authStatus">Checking login...</div><h1>Profile</h1><p><a href="/">Home</a> | <a href="/members.html">Members</a></p><p id="profile-status">Loading profile...</p><p>Username: <span id="profile-username">-</span></p><p>Role: <span id="profile-role">-</span></p><p>User ID: <span id="profile-id">-</span></p><p>Joined: <span id="profile-joined">-</span></p><p>Grev Coins: <span id="profile-coins">-</span></p></main>
+    <main><h1>Profile</h1><p><a href="/">Home</a> | <a href="/members.html">Members</a></p><p id="profile-status">Loading profile...</p><p>Username: <span id="profile-username">-</span></p><p>Role: <span id="profile-role">-</span></p><p>User ID: <span id="profile-id">-</span></p><p>Joined: <span id="profile-joined">-</span></p><p>Grev Coins: <span id="profile-coins">-</span></p></main>
 <script>
 async function loadProfile(){const s=document.getElementById('profile-status');try{const params=new URLSearchParams(window.location.search);const id=params.get('id');const user=params.get('user');const api=id?`/api/profile?id=${encodeURIComponent(id)}`:user?`/api/profile?user=${encodeURIComponent(user)}`:'/api/profile/me';const res=await fetch(api);const data=await res.json();if(!res.ok||!data?.profile){s.textContent=data?.error||'Unable to load profile.';return;}const p=data.profile;document.getElementById('profile-username').textContent=p.username||'-';document.getElementById('profile-role').textContent=p.roleLabel||p.role||'-';document.getElementById('profile-id').textContent=p.id!=null?String(p.id):'-';document.getElementById('profile-joined').textContent=p.created_at||'-';document.getElementById('profile-coins').textContent=Number.isInteger(p.coins)?String(p.coins):'-';s.textContent='Profile loaded.';}catch{s.textContent='Unable to load profile.';}}
 loadProfile();
