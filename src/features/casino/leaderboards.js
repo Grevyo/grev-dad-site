@@ -1,4 +1,4 @@
-import { getCasesDb } from '../lib/cases-binding.js';
+import { getCasesDb } from '../../lib/cases-binding.js';
 
 export const CASINO_LEADERBOARD_REFRESH_MS = 6 * 60 * 60 * 1000;
 const LEADERBOARD_SCOPE_ALL = 'all-games';

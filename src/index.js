@@ -6,7 +6,6 @@ import { getCasesDb } from "./lib/cases-binding.js";
 import { handleCasinoRequest } from "./features/casino/handlers.js";
 import { recordCasinoGameEarning } from "./features/casino/leaderboards.js";
 import { dispatchCoreRoute, isLegacyCasesPath } from "./routes/core.js";
-import { isRetiredGamblingPath, retiredGamblingPayload } from "./routes/playground.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -94,6 +93,10 @@ async function handleRequest(request, env, ctx) {
     handleAdminDeleteUser,
     handleAdminPendingUsers,
     handleAdminReadCasinoDatabase,
+    handleAdminDeployStatus,
+    handleAdminDeployRedeploy,
+    handleAdminDeployPurgeCache,
+    handleAdminDeployRefreshLiveSite,
     handlePrivateChatPlaceholderGet: (currentRequest) => json({ success: true, messages: [], note: "Private chat route is ready for a later phase" }, 200, currentRequest),
     handlePrivateChatPlaceholderPost: (currentRequest) => json({ success: false, error: "Private chat sending will be added in a later phase" }, 501, currentRequest)
   });
@@ -102,10 +105,6 @@ async function handleRequest(request, env, ctx) {
   const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
   if (casinoRouteResponse) return casinoRouteResponse;
 
-
-  if (isRetiredGamblingPath(pathname)) {
-    return json(retiredGamblingPayload(), 410, request);
-  }
 
   if (isLegacyCasesPath(pathname)) {
     return json(
@@ -3591,4 +3590,59 @@ function bufferToHex(buffer) {
   return [...new Uint8Array(buffer)]
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+
+async function handleAdminDeployStatus(request, env) {
+  await requireAdmin(request, env);
+  return json({
+    success: true,
+    deploy: {
+      commit_sha: env.DEPLOY_COMMIT_SHA || env.CF_PAGES_COMMIT_SHA || null,
+      branch: env.DEPLOY_BRANCH || env.CF_PAGES_BRANCH || null
+    },
+    last_refresh_attempt_at: env.DEPLOY_LAST_REFRESH_ATTEMPT_AT || null
+  }, 200, request);
+}
+
+async function triggerRedeploy(env) {
+  if (!env.CLOUDFLARE_DEPLOY_HOOK_URL) {
+    return { success: false, error: 'Missing CLOUDFLARE_DEPLOY_HOOK_URL' };
+  }
+  const response = await fetch(env.CLOUDFLARE_DEPLOY_HOOK_URL, { method: 'POST' });
+  const text = await response.text();
+  return { success: response.ok, status: response.status, body: text.slice(0, 500), error: response.ok ? null : 'Deploy hook request failed' };
+}
+
+async function purgeCloudflareCache(env) {
+  if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
+    return { success: false, error: 'Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ZONE_ID' };
+  }
+  const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ purge_everything: true })
+  });
+  const data = await safeJson(response);
+  return { success: response.ok && data?.success !== false, status: response.status, result: data || null, error: response.ok ? null : 'Cloudflare purge failed' };
+}
+
+async function handleAdminDeployRedeploy(request, env) {
+  await requireAdmin(request, env);
+  const redeploy = await triggerRedeploy(env);
+  return json({ success: redeploy.success, redeploy, attempted_at: isoNow() }, redeploy.success ? 200 : 500, request);
+}
+
+async function handleAdminDeployPurgeCache(request, env) {
+  await requireAdmin(request, env);
+  const purge = await purgeCloudflareCache(env);
+  return json({ success: purge.success, purge, attempted_at: isoNow() }, purge.success ? 200 : 500, request);
+}
+
+async function handleAdminDeployRefreshLiveSite(request, env) {
+  await requireAdmin(request, env);
+  const redeploy = await triggerRedeploy(env);
+  const purge = await purgeCloudflareCache(env);
+  const success = redeploy.success && purge.success;
+  return json({ success, redeploy, purge, attempted_at: isoNow() }, success ? 200 : 500, request);
 }

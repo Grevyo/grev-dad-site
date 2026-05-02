@@ -34,8 +34,7 @@
         </section>
         <aside class="profile-stack">
           <section class="panel"><h2 class="panel-title">Profile details</h2><div id="profile-info" class="profile-info-grid mt-16"></div></section>
-          <section class="panel"><h2 class="panel-title">Linked CS2 accounts</h2><div id="profile-cs-accounts" class="profile-info-grid mt-16"></div></section>
-          <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is visible directly on profile.</p><div id="casino-profile-balance" class="info-card mt-16"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
+                    <section class="panel"><h2 class="panel-title">Casino balance</h2><p class="muted-copy">Your current casino wallet is visible directly on profile.</p><div id="casino-profile-balance" class="info-card mt-16"><h3>Balance</h3><p>Loading casino balance…</p></div></section>
           <section class="panel"><h2 class="panel-title">Casino Showcase</h2><p class="panel-subtitle">Casino balance and activity live in the casino hub.</p><div class="button-row mt-16"><a class="btn btn-primary" href="/playground/gambling/index.html">Open gambling hub</a><a class="btn" href="/playground/gambling/index.html">Casino</a></div></section>
         </aside>
       </div>
@@ -61,7 +60,6 @@
     const profileMediaEmpty = document.getElementById('profile-media-empty');
     const profileMusicWrap = document.getElementById('profile-music-wrap');
     const profileInfo = document.getElementById('profile-info');
-    const profileCsAccounts = document.getElementById('profile-cs-accounts');
     const casinoProfileBalance = document.getElementById('casino-profile-balance');
 
     function showMessage(type, text) { profileMessage.className = `alert alert-${type}`; profileMessage.textContent = text; }
@@ -120,10 +118,6 @@
         <div class="info-card"><h3>Location</h3><p>${escapeHtml(profile.location || '—')}</p></div>
         <div class="info-card"><h3>Favourite game</h3><p>${escapeHtml(profile.favorite_game || '—')}</p></div>
         <div class="info-card"><h3>Casino admin</h3><p>${profile.gambling_admin ? 'Yes' : 'No'}</p></div>`;
-      profileCsAccounts.innerHTML = `
-        <div class="info-card"><h3>Steam</h3><p>${profile.steam_url ? `<a href="${escapeHtml(profile.steam_url)}" target="_blank" rel="noopener noreferrer">Open Steam profile</a>` : 'Not linked'}</p></div>
-        <div class="info-card"><h3>Leetify</h3><p>${profile.leetify_url ? `<a href="${escapeHtml(profile.leetify_url)}" target="_blank" rel="noopener noreferrer">Open Leetify profile</a>` : 'Not linked'}</p></div>
-        <div class="info-card"><h3>Refrag</h3><p>${profile.refrag_url ? `<a href="${escapeHtml(profile.refrag_url)}" target="_blank" rel="noopener noreferrer">Open Refrag profile</a>` : 'Not linked'}</p></div>`;
       casinoProfileBalance.innerHTML = `<h3>Balance</h3><p>${escapeHtml(formatGc(profile.casino_balance || 0))}</p>`;
     }
 
