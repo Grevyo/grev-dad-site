@@ -24,10 +24,11 @@
       return;
     }
 
-    const isAdmin = user?.is_admin === true || user?.role === 'admin';
+    const roleLabel = typeof user?.roleLabel === 'string' && user.roleLabel ? user.roleLabel : 'Admin';
+    const isAdmin = user?.is_admin === true || Number(user?.is_admin) === 1 || user?.role === 'admin';
 
     container.textContent = '';
-    container.append(document.createTextNode('Logged in as: ' + username));
+    container.append(document.createTextNode('Logged in as: ' + username + ' (' + roleLabel + ')'));
     if (isAdmin) {
       container.append(createSeparator());
       container.append(createLink('/admin.html', 'Admin'));

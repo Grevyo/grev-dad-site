@@ -68,7 +68,7 @@
             return;
           }
 
-          if (data.user?.is_admin) {
+          if (data.user?.is_admin || data.user?.role === 'admin') {
             window.location.href = '/admin.html';
             return;
           }
