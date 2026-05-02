@@ -15,7 +15,7 @@
       <section class="panel">
         <p class="eyebrow">Profile studio</p>
         <h1 class="auth-title">Edit your profile</h1>
-        <p class="auth-subtitle">Update identity details, media, avatar setup, and profile colors.</p>
+        <p class="auth-subtitle">Update identity details, media, avatar setup, profile colors, and linked CS2 services.</p>
         <div id="profile-message" class="hidden mt-16"></div>
         <form id="profile-form" class="form-grid mt-24">
           <div class="detail-grid">
@@ -28,7 +28,7 @@
             <div class="form-group"><label class="form-label" for="profile-accent-color-secondary">Gradient color 2</label><input id="profile-accent-color-secondary" class="form-input" type="color" value="#0f172a" /></div>
             <div class="form-group"><label class="form-label" for="pronouns">Pronouns</label><input id="pronouns" class="form-input" type="text" maxlength="50" placeholder="he/him" /></div>
             <div class="form-group"><label class="form-label" for="location">Location</label><input id="location" class="form-input" type="text" maxlength="120" placeholder="City, Country" /></div>
-            <div class="form-group"><label class="form-label" for="favorite-game">Favourite game</label><input id="favorite-game" class="form-input" type="text" maxlength="120" placeholder="Your favourite game" /></div>
+            <div class="form-group"><label class="form-label" for="favorite-game">Favourite game</label><input id="favorite-game" class="form-input" type="text" maxlength="120" placeholder="Counter-Strike 2" /></div>
           </div>
 
           <div class="form-group"><label class="form-label" for="bio">Bio</label><textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height:160px;"></textarea></div>
@@ -37,6 +37,9 @@
             <div class="form-group"><label class="form-label" for="media-2-url">Media 2 URL</label><input id="media-2-url" class="form-input" type="url" maxlength="1200" /></div>
             <div class="form-group"><label class="form-label" for="media-3-url">Media 3 URL</label><input id="media-3-url" class="form-input" type="url" maxlength="1200" /></div>
             <div class="form-group"><label class="form-label" for="music-url">Music link</label><input id="music-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="steam-url">Steam profile</label><input id="steam-url" class="form-input" type="url" maxlength="1200" placeholder="https://steamcommunity.com/..." /></div>
+            <div class="form-group"><label class="form-label" for="leetify-url">Leetify profile</label><input id="leetify-url" class="form-input" type="url" maxlength="1200" placeholder="https://leetify.com/..." /></div>
+            <div class="form-group"><label class="form-label" for="refrag-url">Refrag profile</label><input id="refrag-url" class="form-input" type="url" maxlength="1200" placeholder="https://refrag.gg/..." /></div>
           </div>
           <div class="button-row"><button id="save-profile-btn" class="btn btn-primary" type="submit">Save profile</button><a class="btn" href="/profile.html">Cancel</a></div>
         </form>
@@ -64,6 +67,9 @@
       media_2_url: document.getElementById('media-2-url'),
       media_3_url: document.getElementById('media-3-url'),
       music_url: document.getElementById('music-url'),
+      steam_url: document.getElementById('steam-url'),
+      leetify_url: document.getElementById('leetify-url'),
+      refrag_url: document.getElementById('refrag-url')
     };
     function showMessage(type, text) { messageEl.className = `alert alert-${type}`; messageEl.textContent = text; }
     async function loadProfile() {

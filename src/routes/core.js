@@ -27,3 +27,6 @@ export async function dispatchCoreRoute(request, env, ctx, handlers) {
   return await route.handler(request, env, ctx);
 }
 
+export function isLegacyCasesPath(pathname) {
+  return pathname.startsWith("/api/cases");
+}

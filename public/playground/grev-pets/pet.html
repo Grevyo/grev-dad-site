@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grev Pet Details</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="stylesheet" href="/playground/grev-pets/style.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script type="module" src="/playground/grev-pets/js/pet-detail.js" defer></script>
+</head>
+<body class="gp-page">
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <div class="gp-shell">
+        <section class="gp-banner">
+          <h1>📇 Pet Detail Card</h1>
+          <p>Deep stats, event history, and temperament flavor text for your selected Grev Pet.</p>
+          <div class="gp-actions" style="margin-top: 14px;">
+            <a class="btn" href="/playground/grev-pets/stable.html">Back to Stable</a>
+            <a class="btn" href="/playground/grev-pets/event-room.html">Event Room</a>
+          </div>
+        </section>
+
+        <section class="gp-control-grid">
+          <article class="gp-card" id="pet-card"></article>
+          <article class="gp-card">
+            <h2>Recent Event Feed</h2>
+            <div id="event-feed" class="gp-log"></div>
+          </article>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
