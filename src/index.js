@@ -17,6 +17,9 @@ export default {
     if (url.pathname === '/api/auth/me' && request.method === 'GET') {
       return handleMe(request, env);
     }
+    if (url.pathname === '/api/debug/db' && request.method === 'GET') {
+      return handleDebugDb(env);
+    }
 
     if (url.pathname === '/api/admin/refresh/status' && request.method === 'GET') {
       return handleRefreshStatus(request, env);
@@ -45,7 +48,9 @@ async function handleRegister(request, env) {
       return json({ ok: false, error: 'Username and password are required' }, 400);
     }
 
-    const existing = await env.PROFILE_DB
+    const db = getDatabase(env);
+
+    const existing = await db
       .prepare('SELECT id FROM users WHERE username = ?')
       .bind(username)
       .first();
@@ -55,16 +60,16 @@ async function handleRegister(request, env) {
     }
 
     const passwordHash = await hashPassword(password);
-    const result = await env.PROFILE_DB
+    const result = await db
       .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
       .bind(username, passwordHash)
       .run();
 
     const userId = result.meta.last_row_id;
 
-    await initializeBalanceIfExists(env, userId);
+    await initializeBalanceIfExists(db, userId);
 
-    const user = await env.PROFILE_DB
+    const user = await db
       .prepare('SELECT id, username, role, is_admin FROM users WHERE id = ?')
       .bind(userId)
       .first();
@@ -85,7 +90,9 @@ async function handleLogin(request, env) {
       return json({ ok: false, error: 'Username and password are required' }, 400);
     }
 
-    const user = await env.PROFILE_DB
+    const db = getDatabase(env);
+
+    const user = await db
       .prepare('SELECT id, username, role, is_admin, password_hash FROM users WHERE username = ?')
       .bind(username)
       .first();
@@ -100,7 +107,7 @@ async function handleLogin(request, env) {
     }
 
     const { token, expiresAt } = makeSessionToken();
-    await env.PROFILE_DB
+    await db
       .prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
       .bind(token, user.id, expiresAt)
       .run();
@@ -122,7 +129,8 @@ async function handleLogout(request, env) {
   try {
     const token = getSessionToken(request);
     if (token) {
-      await env.PROFILE_DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+      const db = getDatabase(env);
+      await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
     }
 
     const response = json({ ok: true });
@@ -140,7 +148,9 @@ async function handleMe(request, env) {
       return json({ ok: false, user: null, error: 'Not logged in' }, 401);
     }
 
-    const record = await env.PROFILE_DB
+    const db = getDatabase(env);
+
+    const record = await db
       .prepare(
         `SELECT u.id, u.username, u.role, u.is_admin
          FROM sessions s
@@ -284,7 +294,9 @@ async function requireAdmin(request, env) {
     return json({ ok: false, error: 'Not logged in' }, 401);
   }
 
-  const user = await env.PROFILE_DB
+  const db = getDatabase(env);
+
+  const user = await db
     .prepare(
       `SELECT u.id, u.is_admin
        FROM sessions s
@@ -303,6 +315,23 @@ async function requireAdmin(request, env) {
   }
 
   return null;
+}
+
+
+function getDatabase(env) {
+  if (!env || !env.DB) {
+    throw new Error('Database binding DB is not configured');
+  }
+  return env.DB;
+}
+
+function handleDebugDb(env) {
+  try {
+    getDatabase(env);
+    return json({ ok: true, hasDb: true });
+  } catch (error) {
+    return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500);
+  }
 }
 
 async function readJsonBody(request) {
@@ -404,13 +433,13 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
-async function initializeBalanceIfExists(env, userId) {
-  const table = await env.PROFILE_DB
+async function initializeBalanceIfExists(db, userId) {
+  const table = await db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='balances'")
     .first();
 
   if (table) {
-    await env.PROFILE_DB
+    await db
       .prepare('INSERT INTO balances (user_id, balance) VALUES (?, ?)')
       .bind(userId, 0)
       .run();
