@@ -1,7 +1,8 @@
 const SESSION_COOKIE = 'session_token';
 const SESSION_DAYS = 7;
 const PBKDF2_ITERATIONS = 100000;
-const STARTING_BALANCE_CENTS = 10000;
+const SITE_CURRENCY_NAME = 'Grev Coins';
+const STARTING_COINS = 1000;
 const DEFAULT_NEW_USER_ROLE = 'admin';
 const ROLES = {
   admin: { label: 'Admin', level: 100 },
@@ -17,655 +18,76 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === '/api/auth/register' && request.method === 'POST') {
-      return handleRegister(request, env);
-    }
-    if (url.pathname === '/api/auth/login' && request.method === 'POST') {
-      return handleLogin(request, env);
-    }
-    if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
-      return handleLogout(request, env);
-    }
-    if (url.pathname === '/api/auth/me' && request.method === 'GET') {
-      return handleMe(request, env);
-    }
-    if (url.pathname === '/api/members' && request.method === 'GET') {
-      return handleMembers(request, env);
-    }
-    if (url.pathname === '/api/balance' && request.method === 'GET') {
-      return handleBalance(request, env);
-    }
-    if (url.pathname === '/api/ledger/me' && request.method === 'GET') {
-      return handleLedgerMe(request, env);
-    }
-    if (url.pathname === '/api/debug/db' && request.method === 'GET') {
-      return handleDebugDb(env);
-    }
-    if (url.pathname === '/api/setup/status' && request.method === 'GET') {
-      return handleSetupStatus(env);
-    }
-    if (url.pathname === '/api/setup/schema' && request.method === 'POST') {
-      return handleSetupSchema(request, env);
-    }
+    if (url.pathname === '/api/auth/register' && request.method === 'POST') return handleRegister(request, env);
+    if (url.pathname === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
+    if (url.pathname === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
+    if (url.pathname === '/api/auth/me' && request.method === 'GET') return handleMe(request, env);
+    if (url.pathname === '/api/members' && request.method === 'GET') return handleMembers(request, env);
+    if (url.pathname === '/api/wallet/me' && request.method === 'GET') return handleWalletMe(request, env);
+    if (url.pathname === '/api/wallet/me/transactions' && request.method === 'GET') return handleWalletTransactionsMe(request, env);
+    if (url.pathname === '/api/debug/db' && request.method === 'GET') return handleDebugDb(env);
+    if (url.pathname === '/api/setup/status' && request.method === 'GET') return handleSetupStatus(env);
+    if (url.pathname === '/api/setup/schema' && request.method === 'POST') return handleSetupSchema(request, env);
 
-    if (url.pathname === '/api/admin/users' && request.method === 'GET') {
-      return handleAdminUsers(request, env);
-    }
-    if (url.pathname.match(/^\/api\/admin\/users\/\d+\/role$/) && request.method === 'POST') {
-      return handleAdminUpdateRole(request, env, url.pathname);
-    }
-    if (url.pathname.match(/^\/api\/admin\/users\/\d+\/balance$/) && request.method === 'POST') {
-      return handleAdminAdjustBalance(request, env, url.pathname);
-    }
+    if (url.pathname === '/api/admin/users' && request.method === 'GET') return handleAdminUsers(request, env);
+    if (url.pathname === '/api/admin/wallets' && request.method === 'GET') return handleAdminWallets(request, env);
+    if (url.pathname.match(/^\/api\/admin\/users\/\d+\/role$/) && request.method === 'POST') return handleAdminUpdateRole(request, env, url.pathname);
+    if (url.pathname.match(/^\/api\/admin\/users\/\d+\/wallet-adjust$/) && request.method === 'POST') return handleAdminWalletAdjust(request, env, url.pathname);
 
     const authGateResponse = await enforceAuthGate(request, env, url.pathname);
-    if (authGateResponse) {
-      return authGateResponse;
-    }
+    if (authGateResponse) return authGateResponse;
 
     return env.ASSETS.fetch(request);
   },
 };
 
-async function handleRegister(request, env) {
-  try {
-    const body = await readJsonBody(request);
-    const username = (body?.username ?? '').trim();
-    const password = body?.password ?? '';
-
-    if (!username || !password) {
-      return json({ ok: false, error: 'Username and password are required' }, 400);
-    }
-
-    const db = getDatabase(env);
-    await ensureSchema(db);
-
-    const existing = await db
-      .prepare('SELECT id FROM users WHERE username = ?')
-      .bind(username)
-      .first();
-
-    if (existing) {
-      return json({ ok: false, error: 'Username is already taken' }, 409);
-    }
-
-    const passwordHash = await hashPassword(password);
-    const result = await db
-      .prepare('INSERT INTO users (username, password_hash, role, is_admin) VALUES (?, ?, ?, ?)')
-      .bind(username, passwordHash, DEFAULT_NEW_USER_ROLE, DEFAULT_NEW_USER_ROLE === 'admin' ? 1 : 0)
-      .run();
-
-    const userId = result.meta.last_row_id;
-
-    await initializeBalanceIfExists(db, userId);
-
-    const user = await db
-      .prepare('SELECT id, username, role, is_admin FROM users WHERE id = ?')
-      .bind(userId)
-      .first();
-
-    return json({ ok: true, user }, 201);
-  } catch (error) {
-    return json({ ok: false, error: friendlyError(error) }, 500);
-  }
-}
-
-async function handleLogin(request, env) {
-  try {
-    const body = await readJsonBody(request);
-    const username = (body?.username ?? '').trim();
-    const password = body?.password ?? '';
-
-    if (!username || !password) {
-      return json({ ok: false, error: 'Username and password are required' }, 400);
-    }
-
-    const db = getDatabase(env);
-    await ensureSchema(db);
-
-    const user = await db
-      .prepare('SELECT id, username, role, is_admin, password_hash FROM users WHERE username = ?')
-      .bind(username)
-      .first();
-
-    if (!user) {
-      return json({ ok: false, error: 'Invalid username or password' }, 401);
-    }
-
-    const valid = await verifyPassword(password, user.password_hash);
-    if (!valid) {
-      return json({ ok: false, error: 'Invalid username or password' }, 401);
-    }
-
-    const { token, expiresAt } = makeSessionToken();
-    await db
-      .prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)')
-      .bind(token, user.id, expiresAt)
-      .run();
-
-    const safeUser = {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      is_admin: user.is_admin,
-    };
-
-    return withSessionCookie(json({ ok: true, user: safeUser }), token, expiresAt);
-  } catch (error) {
-    return json({ ok: false, error: friendlyError(error) }, 500);
-  }
-}
-
-async function handleLogout(request, env) {
-  try {
-    const token = getSessionToken(request);
-    if (token) {
-      const db = getDatabase(env);
-      await ensureSchema(db);
-      await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
-    }
-
-    const response = json({ ok: true });
-    response.headers.append('Set-Cookie', clearSessionCookie());
-    return response;
-  } catch (error) {
-    return json({ ok: false, error: friendlyError(error) }, 500);
-  }
-}
-
-async function handleMe(request, env) {
-  try {
-    const token = getSessionToken(request);
-    if (!token) {
-      return json({ ok: false, user: null, error: 'Not logged in' }, 401);
-    }
-
-    const db = getDatabase(env);
-    await ensureSchema(db);
-
-    const record = await db
-      .prepare(
-        `SELECT u.id, u.username, u.role, u.is_admin
-         FROM sessions s
-         JOIN users u ON u.id = s.user_id
-         WHERE s.token = ? AND s.expires_at > datetime('now')`
-      )
-      .bind(token)
-      .first();
-
-    if (!record) {
-      return json({ ok: false, user: null, error: 'Not logged in' }, 401);
-    }
-
-    const user = normalizeUserRole(record);
-    return json({ ok: true, user: { ...user, roleLabel: getRoleLabel(user.role), roleLevel: getRoleLevel(user.role) } });
-  } catch (error) {
-    return json({ ok: false, error: friendlyError(error) }, 500);
-  }
-}
-
-
-
-async function handleMembers(request, env) {
-  const token = getSessionToken(request);
-  if (!token) {
-    return json({ ok: false, error: 'Not logged in' }, 401);
-  }
-
-  const db = getDatabase(env);
-  await ensureSchema(db);
-
-  const record = await db
-    .prepare(`SELECT u.id
-      FROM sessions s
-      JOIN users u ON u.id = s.user_id
-      WHERE s.token = ? AND s.expires_at > datetime('now')`)
-    .bind(token)
-    .first();
-
-  if (!record) {
-    return json({ ok: false, error: 'Not logged in' }, 401);
-  }
-
-  const rows = await db
-    .prepare(`SELECT id, username, role, is_admin, created_at
-      FROM users
-      ORDER BY created_at DESC, id DESC`)
-    .all();
-
-  const members = (rows?.results || []).map((row) => {
-    const user = normalizeUserRole(row);
-    return {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      roleLabel: getRoleLabel(user.role),
-      roleLevel: getRoleLevel(user.role),
-      is_admin: user.is_admin,
-      created_at: row.created_at || null,
-    };
-  });
-
-  return json({ ok: true, members });
-}
-
-
-async function handleBalance(request, env) {
-  const user = await getCurrentUser(request, env);
-  if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
-
-  const db = getDatabase(env);
-  await ensureSchema(db);
-  const balance = await getOrCreateBalance(db, user.id);
-  return json({ ok: true, balance_cents: balance.balance_cents });
-}
-
-async function handleLedgerMe(request, env) {
-  const user = await getCurrentUser(request, env);
-  if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
-
-  const db = getDatabase(env);
-  await ensureSchema(db);
-  const rows = await db
-    .prepare(`SELECT id, amount_cents, reason, created_at
-      FROM ledger
-      WHERE user_id = ?
-      ORDER BY id DESC
-      LIMIT 50`)
-    .bind(user.id)
-    .all();
-
-  return json({ ok: true, entries: rows?.results || [] });
-}
-
-async function enforceAuthGate(request, env, pathname) {
-  if (isPublicPath(pathname)) {
-    if (pathname === '/unregistered.html') {
-      const user = await getCurrentUser(request, env);
-      if (user) {
-        return Response.redirect(new URL('/', request.url), 302);
-      }
-    }
-    return null;
-  }
-
-  const user = await getCurrentUser(request, env);
-  if (user) {
-    return null;
-  }
-
-  if (pathname.startsWith('/api/')) {
-    return json({ ok: false, error: 'Not logged in' }, 401);
-  }
-
-  return Response.redirect(new URL('/unregistered.html', request.url), 302);
-}
-
-function isPublicPath(pathname) {
-  if (PUBLIC_HTML_PATHS.has(pathname) || PUBLIC_API_PATHS.has(pathname)) {
-    return true;
-  }
-  if (pathname === '/favicon.ico') {
-    return true;
-  }
-  if (pathname.startsWith('/styles') || pathname.startsWith('/scripts/')) {
-    return true;
-  }
-  return false;
-}
-
-async function getCurrentUser(request, env) {
-  const token = getSessionToken(request);
-  if (!token) return null;
-
-  const db = getDatabase(env);
-  await ensureSchema(db);
-
-  const record = await db
-    .prepare(
-      `SELECT u.id, u.username, u.role, u.is_admin
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token = ? AND s.expires_at > datetime('now')`
-    )
-    .bind(token)
-    .first();
-
-  return record ? normalizeUserRole(record) : null;
-}
-
-async function requireAdmin(request, env) {
-  const token = getSessionToken(request);
-  if (!token) {
-    return json({ ok: false, error: 'Not logged in' }, 401);
-  }
-
-  const db = getDatabase(env);
-  await ensureSchema(db);
-
-  const user = await db
-    .prepare(
-      `SELECT u.id, u.is_admin
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token = ? AND s.expires_at > datetime('now')`
-    )
-    .bind(token)
-    .first();
-
-  if (!user) {
-    return json({ ok: false, error: 'Not logged in' }, 401);
-  }
-
-  if (!isUserAdmin(user)) {
-    return json({ ok: false, error: 'Admin access required' }, 403);
-  }
-
-  return null;
-}
-
-async function handleAdminUsers(request, env) {
-  const auth = await requireAdmin(request, env);
-  if (auth) return auth;
-  const db = getDatabase(env);
-  await ensureSchema(db);
-  const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, b.balance_cents
-    FROM users u
-    LEFT JOIN balances b ON b.user_id = u.id
-    ORDER BY u.created_at DESC`).all();
-  const users = (rows?.results || []).map((row) => {
-    const user = normalizeUserRole(row);
-    return { ...user, roleLabel: getRoleLabel(user.role), roleLevel: getRoleLevel(user.role), balance_cents: row.balance_cents ?? STARTING_BALANCE_CENTS, created_at: row.created_at };
-  });
-  return json({ ok: true, users, roles: ROLES });
-}
-
-async function handleAdminUpdateRole(request, env, pathname) {
-  const auth = await requireAdmin(request, env);
-  if (auth) return auth;
-  const db = getDatabase(env);
-  const userId = Number(pathname.split('/')[4]);
-  const body = await readJsonBody(request);
-  const role = String(body?.role || '').trim().toLowerCase();
-  if (!ROLES[role]) return json({ ok: false, error: 'Invalid role' }, 400);
-  const result = await db.prepare('UPDATE users SET role = ?, is_admin = ? WHERE id = ?').bind(role, role === 'admin' ? 1 : 0, userId).run();
-  if (!result.meta.changes) return json({ ok: false, error: 'User not found' }, 404);
-  return json({ ok: true, role, roleLabel: getRoleLabel(role), roleLevel: getRoleLevel(role), is_admin: role === 'admin' ? 1 : 0 });
-}
-
-
-async function handleAdminAdjustBalance(request, env, pathname) {
-  const auth = await requireAdmin(request, env);
-  if (auth) return auth;
-
-  const db = getDatabase(env);
-  await ensureSchema(db);
-  const userId = Number(pathname.split('/')[4]);
-
-  const user = await db.prepare('SELECT id FROM users WHERE id = ?').bind(userId).first();
-  if (!user) return json({ ok: false, error: 'User not found' }, 404);
-
-  const body = await readJsonBody(request);
-  const amountCents = body?.amount_cents;
-  const reason = String(body?.reason || '').trim();
-  if (!Number.isInteger(amountCents)) return json({ ok: false, error: 'amount_cents must be an integer' }, 400);
-  if (!reason) return json({ ok: false, error: 'reason is required' }, 400);
-
-  const current = await getOrCreateBalance(db, userId);
-  const updated = Number(current.balance_cents) + amountCents;
-
-  await db.prepare(`UPDATE balances SET balance_cents = ?, updated_at = datetime('now') WHERE user_id = ?`).bind(updated, userId).run();
-  await db.prepare('INSERT INTO ledger (user_id, amount_cents, reason) VALUES (?, ?, ?)').bind(userId, amountCents, reason).run();
-
-  return json({ ok: true, user_id: userId, balance_cents: updated });
-}
-
-function normalizeUserRole(user) {
-  const role = typeof user?.role === 'string' && ROLES[user.role] ? user.role : 'member';
-  return { ...user, role };
-}
-
-function getRoleLabel(role) {
-  return ROLES[role]?.label || ROLES.member.label;
-}
-
-function getRoleLevel(role) {
-  return ROLES[role]?.level || ROLES.member.level;
-}
-
-function isUserAdmin(user) {
-  const normalized = normalizeUserRole(user);
-  return normalized.role === 'admin' || Number(normalized.is_admin) === 1 || normalized.is_admin === true;
-}
-
-
-function getDatabase(env) {
-  if (!env || !env.DB) {
-    throw new Error('Database binding DB is not configured');
-  }
-  return env.DB;
-}
-
-function handleDebugDb(env) {
-  try {
-    getDatabase(env);
-    return json({ ok: true, hasDb: true });
-  } catch (error) {
-    return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500);
-  }
-}
-
-async function handleSetupStatus(env) {
-  try {
-    const db = getDatabase(env);
-    const schema = await getSchemaStatus(db);
-    return json({
-      ok: true,
-      hasDb: true,
-      tables: schema.tables,
-    });
-  } catch (error) {
-    return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500);
-  }
-}
-
-async function handleSetupSchema(request, env) {
-  try {
-    const expectedSecret = env.ADMIN_SETUP_SECRET;
-    if (!expectedSecret) {
-      return json({ ok: false, error: 'Schema setup is not configured' }, 500);
-    }
-
-    const body = await readJsonBody(request);
-    if (!body?.secret || body.secret !== expectedSecret) {
-      return json({ ok: false, error: 'Forbidden' }, 403);
-    }
-
-    const db = getDatabase(env);
-    await createSchemaTables(db);
-    return json({ ok: true, message: 'Schema created' });
-  } catch (error) {
-    return json({ ok: false, error: friendlyError(error) }, 500);
-  }
-}
-
-async function readJsonBody(request) {
-  const text = await request.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error('Invalid JSON body');
-  }
-}
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  });
-}
-
-function makeSessionToken() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  const token = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
-  return { token, expiresAt };
-}
-
-function withSessionCookie(response, token, expiresAt) {
-  response.headers.append(
-    'Set-Cookie',
-    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Secure; Expires=${new Date(expiresAt).toUTCString()}`
-  );
-  return response;
-}
-
-function clearSessionCookie() {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0`;
-}
-
-function getSessionToken(request) {
-  const header = request.headers.get('Cookie') || '';
-  const parts = header.split(';').map((p) => p.trim());
-  for (const part of parts) {
-    if (part.startsWith(`${SESSION_COOKIE}=`)) {
-      return part.slice(SESSION_COOKIE.length + 1);
-    }
-  }
-  return null;
-}
-
-async function hashPassword(password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
-    keyMaterial,
-    256
-  );
-  const hash = new Uint8Array(bits);
-  return `pbkdf2$${PBKDF2_ITERATIONS}$${toBase64(salt)}$${toBase64(hash)}`;
-}
-
-async function verifyPassword(password, stored) {
-  const [algo, roundsStr, saltB64, hashB64] = (stored || '').split('$');
-  if (algo !== 'pbkdf2') return false;
-  const rounds = Number(roundsStr);
-  if (!Number.isFinite(rounds) || rounds < 1 || rounds > PBKDF2_ITERATIONS) return false;
-
-  const salt = fromBase64(saltB64);
-  const expected = fromBase64(hashB64);
-
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: rounds, hash: 'SHA-256' },
-    keyMaterial,
-    expected.length * 8
-  );
-  return timingSafeEqual(expected, new Uint8Array(bits));
-}
-
-function toBase64(bytes) {
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
-}
-
-function fromBase64(b64) {
-  const bin = atob(b64 || '');
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i];
-  return diff === 0;
-}
-
-async function initializeBalanceIfExists(db, userId) {
-  const table = await db
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='balances'")
-    .first();
-
-  if (table) {
-    await db
-      .prepare('INSERT OR IGNORE INTO balances (user_id, balance_cents) VALUES (?, ?)')
-.bind(userId, STARTING_BALANCE_CENTS)
-      .run();
-  }
-}
-
-async function getOrCreateBalance(db, userId) {
-  await db.prepare('INSERT OR IGNORE INTO balances (user_id, balance_cents) VALUES (?, ?)').bind(userId, STARTING_BALANCE_CENTS).run();
-  const balance = await db.prepare('SELECT balance_cents FROM balances WHERE user_id = ?').bind(userId).first();
-  return { balance_cents: Number(balance?.balance_cents ?? STARTING_BALANCE_CENTS) };
-}
-
-async function ensureSchema(db) {
-  await createSchemaTables(db);
-  const schema = await getSchemaStatus(db);
-  if (!schema.allPresent) {
-    throw new Error('Database schema could not be created. Check D1 permissions and migrations.');
-  }
-  return schema;
-}
-
-async function getSchemaStatus(db) {
-  const required = ['users', 'sessions', 'balances', 'ledger'];
-  const rows = await db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('users', 'sessions', 'balances', 'ledger')")
-    .all();
-  const found = new Set((rows?.results || []).map((row) => row.name));
-  const tables = Object.fromEntries(required.map((name) => [name, found.has(name)]));
-  return { tables, allPresent: required.every((name) => tables[name]) };
-}
-
-async function createSchemaTables(db) {
-  await db.prepare(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'admin',
-    is_admin INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`).run();
-
-  await db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    token TEXT NOT NULL UNIQUE,
-    user_id INTEGER NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    expires_at TEXT NOT NULL
-  )`).run();
-
-  await db.prepare(`CREATE TABLE IF NOT EXISTS balances (
-    user_id INTEGER PRIMARY KEY,
-    balance_cents INTEGER NOT NULL DEFAULT 10000,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`).run();
-
-  await db.prepare(`CREATE TABLE IF NOT EXISTS ledger (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    amount_cents INTEGER NOT NULL,
-    reason TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`).run();
-
-  const columns = await db.prepare("PRAGMA table_info(users)").all();
-  const names = new Set((columns?.results || []).map((c) => c.name));
-  if (!names.has('role')) await db.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'").run();
-  if (!names.has('is_admin')) await db.prepare("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 1").run();
-  await db.prepare("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = '' OR role = 'user'").run();
-  await db.prepare("UPDATE users SET is_admin = 1 WHERE is_admin IS NULL").run();
-}
-
-function friendlyError(error) {
-  return error instanceof Error ? error.message : 'Unexpected error';
-}
+async function handleRegister(request, env) { try { const body = await readJsonBody(request); const username = (body?.username ?? '').trim(); const password = body?.password ?? ''; if (!username || !password) return json({ ok: false, error: 'Username and password are required' }, 400); const db = getDatabase(env); await ensureSchema(db); const existing = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first(); if (existing) return json({ ok: false, error: 'Username is already taken' }, 409); const passwordHash = await hashPassword(password); const result = await db.prepare('INSERT INTO users (username, password_hash, role, is_admin) VALUES (?, ?, ?, ?)').bind(username, passwordHash, DEFAULT_NEW_USER_ROLE, DEFAULT_NEW_USER_ROLE === 'admin' ? 1 : 0).run(); const userId = result.meta.last_row_id; await getOrCreateWallet(db, userId); const user = await db.prepare('SELECT id, username, role, is_admin FROM users WHERE id = ?').bind(userId).first(); return json({ ok: true, user }, 201); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+
+async function handleLogin(request, env) { try { const body = await readJsonBody(request); const username = (body?.username ?? '').trim(); const password = body?.password ?? ''; if (!username || !password) return json({ ok: false, error: 'Username and password are required' }, 400); const db = getDatabase(env); await ensureSchema(db); const user = await db.prepare('SELECT id, username, role, is_admin, password_hash FROM users WHERE username = ?').bind(username).first(); if (!user) return json({ ok: false, error: 'Invalid username or password' }, 401); const valid = await verifyPassword(password, user.password_hash); if (!valid) return json({ ok: false, error: 'Invalid username or password' }, 401); const { token, expiresAt } = makeSessionToken(); await db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').bind(token, user.id, expiresAt).run(); const safeUser = { id: user.id, username: user.username, role: user.role, is_admin: user.is_admin }; return withSessionCookie(json({ ok: true, user: safeUser }), token, expiresAt); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+
+async function handleLogout(request, env) { try { const token = getSessionToken(request); if (token) { const db = getDatabase(env); await ensureSchema(db); await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run(); } const response = json({ ok: true }); response.headers.append('Set-Cookie', clearSessionCookie()); return response; } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+
+async function handleMe(request, env) { try { const token = getSessionToken(request); if (!token) return json({ ok: false, user: null, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); const record = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')`).bind(token).first(); if (!record) return json({ ok: false, user: null, error: 'Not logged in' }, 401); const user = normalizeUserRole(record); return json({ ok: true, user: { ...user, roleLabel: getRoleLabel(user.role), roleLevel: getRoleLevel(user.role) } }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleMembers(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); const rows = await db.prepare(`SELECT id, username, role, is_admin, created_at FROM users ORDER BY created_at DESC, id DESC`).all(); const members = (rows?.results || []).map((row) => { const m = normalizeUserRole(row); return { id: m.id, username: m.username, role: m.role, roleLabel: getRoleLabel(m.role), roleLevel: getRoleLevel(m.role), is_admin: m.is_admin, created_at: row.created_at || null }; }); return json({ ok: true, members }); }
+
+async function handleWalletMe(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); const wallet = await getOrCreateWallet(db, user.id); return json({ ok: true, currency: SITE_CURRENCY_NAME, coins: wallet.coins }); }
+async function handleWalletTransactionsMe(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); await getOrCreateWallet(db, user.id); const rows = await db.prepare(`SELECT id, amount, balance_after, type, reason, created_at FROM wallet_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50`).bind(user.id).all(); return json({ ok: true, currency: SITE_CURRENCY_NAME, transactions: rows?.results || [] }); }
+
+async function enforceAuthGate(request, env, pathname) { if (isPublicPath(pathname)) { if (pathname === '/unregistered.html') { const user = await getCurrentUser(request, env); if (user) return Response.redirect(new URL('/', request.url), 302); } return null; } const user = await getCurrentUser(request, env); if (user) return null; if (pathname.startsWith('/api/')) return json({ ok: false, error: 'Not logged in' }, 401); return Response.redirect(new URL('/unregistered.html', request.url), 302); }
+function isPublicPath(pathname) { return PUBLIC_HTML_PATHS.has(pathname) || PUBLIC_API_PATHS.has(pathname) || pathname === '/favicon.ico' || pathname.startsWith('/styles') || pathname.startsWith('/scripts/'); }
+async function getCurrentUser(request, env) { const token = getSessionToken(request); if (!token) return null; const db = getDatabase(env); await ensureSchema(db); const record = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')`).bind(token).first(); return record ? normalizeUserRole(record) : null; }
+async function requireAdmin(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); if (!isUserAdmin(user)) return json({ ok: false, error: 'Admin access required' }, 403); return null; }
+
+async function handleAdminUsers(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); await ensureSchema(db); const rows = await db.prepare(`SELECT id, username, role, is_admin, created_at FROM users ORDER BY created_at DESC`).all(); const users = (rows?.results || []).map((row) => { const user = normalizeUserRole(row); return { ...user, roleLabel: getRoleLabel(user.role), roleLevel: getRoleLevel(user.role), created_at: row.created_at }; }); return json({ ok: true, users, roles: ROLES }); }
+
+async function handleAdminWallets(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); await ensureSchema(db); const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, COALESCE(w.coins, ?) AS coins FROM users u LEFT JOIN wallets w ON w.user_id = u.id ORDER BY u.created_at DESC`).bind(STARTING_COINS).all(); const users = (rows?.results || []).map((row) => { const user = normalizeUserRole(row); return { id: user.id, username: user.username, role: user.role, roleLabel: getRoleLabel(user.role), coins: Number(row.coins), created_at: row.created_at || null }; }); return json({ ok: true, currency: SITE_CURRENCY_NAME, users }); }
+
+async function handleAdminUpdateRole(request, env, pathname) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); const userId = Number(pathname.split('/')[4]); const body = await readJsonBody(request); const role = String(body?.role || '').trim().toLowerCase(); if (!ROLES[role]) return json({ ok: false, error: 'Invalid role' }, 400); const result = await db.prepare('UPDATE users SET role = ?, is_admin = ? WHERE id = ?').bind(role, role === 'admin' ? 1 : 0, userId).run(); if (!result.meta.changes) return json({ ok: false, error: 'User not found' }, 404); return json({ ok: true, role, roleLabel: getRoleLabel(role), roleLevel: getRoleLevel(role), is_admin: role === 'admin' ? 1 : 0 }); }
+async function handleAdminWalletAdjust(request, env, pathname) { const auth = await requireAdmin(request, env); if (auth) return auth; const adminUser = await getCurrentUser(request, env); const db = getDatabase(env); await ensureSchema(db); const userId = Number(pathname.split('/')[4]); if (!Number.isInteger(userId) || userId < 1) return json({ ok: false, error: 'Invalid user id' }, 400); const target = await db.prepare('SELECT id FROM users WHERE id = ?').bind(userId).first(); if (!target) return json({ ok: false, error: 'User not found' }, 404); const body = await readJsonBody(request); const amount = body?.amount; const reason = String(body?.reason || '').trim(); if (!Number.isInteger(amount)) return json({ ok: false, error: 'amount must be an integer' }, 400); if (!reason) return json({ ok: false, error: 'reason is required' }, 400); const wallet = await getOrCreateWallet(db, userId); const newBalance = wallet.coins + amount; await db.prepare(`UPDATE wallets SET coins = ?, updated_at = datetime('now') WHERE user_id = ?`).bind(newBalance, userId).run(); await db.prepare(`INSERT INTO wallet_transactions (user_id, actor_user_id, amount, balance_after, type, reason) VALUES (?, ?, ?, ?, 'admin_adjustment', ?)`).bind(userId, adminUser.id, amount, newBalance, reason).run(); return json({ ok: true, currency: SITE_CURRENCY_NAME, user_id: userId, coins: newBalance }); }
+
+function normalizeUserRole(user) { const role = typeof user?.role === 'string' && ROLES[user.role] ? user.role : 'member'; return { ...user, role }; }
+const getRoleLabel = (role) => ROLES[role]?.label || ROLES.member.label;
+const getRoleLevel = (role) => ROLES[role]?.level || ROLES.member.level;
+const isUserAdmin = (user) => normalizeUserRole(user).role === 'admin' || Number(user?.is_admin) === 1 || user?.is_admin === true;
+const getDatabase = (env) => { if (!env || !env.DB) throw new Error('Database binding DB is not configured'); return env.DB; };
+function handleDebugDb(env) { try { getDatabase(env); return json({ ok: true, hasDb: true }); } catch (error) { return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500); } }
+async function handleSetupStatus(env) { try { const db = getDatabase(env); const schema = await getSchemaStatus(db); return json({ ok: true, hasDb: true, tables: schema.tables }); } catch (error) { return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500); } }
+async function handleSetupSchema(request, env) { try { const expectedSecret = env.ADMIN_SETUP_SECRET; if (!expectedSecret) return json({ ok: false, error: 'Schema setup is not configured' }, 500); const body = await readJsonBody(request); if (!body?.secret || body.secret !== expectedSecret) return json({ ok: false, error: 'Forbidden' }, 403); const db = getDatabase(env); await createSchemaTables(db); return json({ ok: true, message: 'Schema created' }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function readJsonBody(request) { const text = await request.text(); if (!text) return {}; try { return JSON.parse(text); } catch { throw new Error('Invalid JSON body'); } }
+const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+function makeSessionToken() { const bytes = crypto.getRandomValues(new Uint8Array(32)); const token = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(''); const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString(); return { token, expiresAt }; }
+function withSessionCookie(response, token, expiresAt) { response.headers.append('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Secure; Expires=${new Date(expiresAt).toUTCString()}`); return response; }
+const clearSessionCookie = () => `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0`;
+function getSessionToken(request) { const header = request.headers.get('Cookie') || ''; for (const part of header.split(';').map((p) => p.trim())) if (part.startsWith(`${SESSION_COOKIE}=`)) return part.slice(SESSION_COOKIE.length + 1); return null; }
+
+async function hashPassword(password) { const salt = crypto.getRandomValues(new Uint8Array(16)); const enc = new TextEncoder(); const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']); const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, 256); return `pbkdf2$${PBKDF2_ITERATIONS}$${toBase64(salt)}$${toBase64(new Uint8Array(bits))}`; }
+async function verifyPassword(password, stored) { const [algo, roundsStr, saltB64, hashB64] = (stored || '').split('$'); if (algo !== 'pbkdf2') return false; const rounds = Number(roundsStr); if (!Number.isFinite(rounds) || rounds < 1 || rounds > PBKDF2_ITERATIONS) return false; const salt = fromBase64(saltB64); const expected = fromBase64(hashB64); const enc = new TextEncoder(); const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']); const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: rounds, hash: 'SHA-256' }, keyMaterial, expected.length * 8); return timingSafeEqual(expected, new Uint8Array(bits)); }
+const toBase64 = (bytes) => btoa(String.fromCharCode(...bytes));
+const fromBase64 = (b64) => Uint8Array.from(atob(b64 || ''), (c) => c.charCodeAt(0));
+const timingSafeEqual = (a, b) => a.length === b.length && a.reduce((d, v, i) => d | (v ^ b[i]), 0) === 0;
+
+async function getOrCreateWallet(db, userId) { await db.prepare('INSERT OR IGNORE INTO wallets (user_id, coins) VALUES (?, ?)').bind(userId, STARTING_COINS).run(); const existingTx = await db.prepare("SELECT id FROM wallet_transactions WHERE user_id = ? AND type = 'initial_grant' LIMIT 1").bind(userId).first(); if (!existingTx) { await db.prepare(`INSERT INTO wallet_transactions (user_id, amount, balance_after, type, reason) VALUES (?, ?, ?, 'initial_grant', 'Starting Grev Coins')`).bind(userId, STARTING_COINS, STARTING_COINS).run(); } const wallet = await db.prepare('SELECT coins FROM wallets WHERE user_id = ?').bind(userId).first(); return { coins: Number(wallet?.coins ?? STARTING_COINS) }; }
+async function ensureSchema(db) { await createSchemaTables(db); const schema = await getSchemaStatus(db); if (!schema.allPresent) throw new Error('Database schema could not be created.'); return schema; }
+async function getSchemaStatus(db) { const required = ['users', 'sessions', 'wallets', 'wallet_transactions']; const rows = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('users', 'sessions', 'wallets', 'wallet_transactions')").all(); const found = new Set((rows?.results || []).map((row) => row.name)); const tables = Object.fromEntries(required.map((name) => [name, found.has(name)])); return { tables, allPresent: required.every((name) => tables[name]) }; }
+async function createSchemaTables(db) { await db.prepare(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')) )`).run(); await db.prepare(`CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL )`).run(); await db.prepare(`CREATE TABLE IF NOT EXISTS wallets (user_id INTEGER PRIMARY KEY, coins INTEGER NOT NULL DEFAULT 1000, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE )`).run(); await db.prepare(`CREATE TABLE IF NOT EXISTS wallet_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, actor_user_id INTEGER, amount INTEGER NOT NULL, balance_after INTEGER NOT NULL, type TEXT NOT NULL, reason TEXT NOT NULL, metadata_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL )`).run(); const columns = await db.prepare('PRAGMA table_info(users)').all(); const names = new Set((columns?.results || []).map((c) => c.name)); if (!names.has('role')) await db.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'").run(); if (!names.has('is_admin')) await db.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 1').run(); await db.prepare("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = '' OR role = 'user'").run(); await db.prepare('UPDATE users SET is_admin = 1 WHERE is_admin IS NULL').run(); await db.prepare(`INSERT OR IGNORE INTO wallets (user_id, coins) SELECT id, ? FROM users`).bind(STARTING_COINS).run(); }
+const friendlyError = (error) => (error instanceof Error ? error.message : 'Unexpected error');

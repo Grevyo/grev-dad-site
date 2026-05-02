@@ -1,66 +1,9 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Grev - Profile</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <main>
-      <div id="authStatus">Checking login...</div>
-      <h1>Profile</h1>
-      <p><a href="/">Back/Home</a></p>
-      <p id="profile-status" role="status" aria-live="polite">Loading profile...</p>
-      <p>Username: <span id="profile-username">-</span></p>
-      <p>Role: <span id="profile-role">-</span></p>
-      <p>User ID: <span id="profile-id">-</span></p>
-      <p>Balance: <span id="profile-balance">-</span></p>
-    </main>
-
-    <script>
-      async function loadProfile() {
-        const statusEl = document.getElementById('profile-status');
-        const usernameEl = document.getElementById('profile-username');
-        const roleEl = document.getElementById('profile-role');
-        const idEl = document.getElementById('profile-id');
-        const balanceEl = document.getElementById('profile-balance');
-
-        try {
-          const meRes = await fetch('/api/auth/me', { method: 'GET' });
-          const meData = await meRes.json();
-
-          if (!meRes.ok || !meData?.user) {
-            statusEl.textContent = meData?.error || 'Unable to load profile.';
-            return;
-          }
-
-          const user = meData.user;
-          usernameEl.textContent = user.username || '-';
-          roleEl.textContent = user.roleLabel || user.role || 'Admin';
-          idEl.textContent = user.id != null ? String(user.id) : '-';
-
-          try {
-            const balRes = await fetch('/api/balance', { method: 'GET' });
-            if (balRes.ok) {
-              const balData = await balRes.json();
-              const raw = balData?.balance_cents;
-              balanceEl.textContent = raw != null ? String(raw) : '-';
-            } else {
-              balanceEl.textContent = '-';
-            }
-          } catch {
-            balanceEl.textContent = '-';
-          }
-
-          statusEl.textContent = 'Profile loaded.';
-        } catch {
-          statusEl.textContent = 'Unable to load profile.';
-        }
-      }
-
-      loadProfile();
-    </script>
-    <script src="/scripts/auth-status.js"></script>
-  </body>
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Profile</title><link rel="stylesheet" href="/styles.css" /></head>
+  <body><main><div id="authStatus">Checking login...</div><h1>Profile</h1><p><a href="/">Back/Home</a></p><p id="profile-status" role="status" aria-live="polite">Loading profile...</p><p>Username: <span id="profile-username">-</span></p><p>Role: <span id="profile-role">-</span></p><p>User ID: <span id="profile-id">-</span></p><p>Grev Coins: <span id="profile-coins">-</span></p></main>
+<script>
+async function loadProfile(){const s=document.getElementById('profile-status');const u=document.getElementById('profile-username');const r=document.getElementById('profile-role');const i=document.getElementById('profile-id');const c=document.getElementById('profile-coins');try{const meRes=await fetch('/api/auth/me');const me=await meRes.json();if(!meRes.ok||!me?.user){s.textContent=me?.error||'Unable to load profile.';return;}u.textContent=me.user.username||'-';r.textContent=me.user.roleLabel||me.user.role||'Admin';i.textContent=me.user.id!=null?String(me.user.id):'-';const wRes=await fetch('/api/wallet/me');const w=await wRes.json();c.textContent=wRes.ok&&Number.isInteger(w?.coins)?String(w.coins):'-';s.textContent='Profile loaded.';}catch{s.textContent='Unable to load profile.';}}
+loadProfile();
+</script><script src="/scripts/auth-status.js"></script></body>
 </html>
