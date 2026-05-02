@@ -1,16 +1,16 @@
 <!doctype html>
-<html><head><meta charset='utf-8'><title>Register</title></head>
-<body>
-  <h1>Register</h1>
-  <p>Email addresses are not required. Register with only a username and password.</p>
-  <form id='f'>
-    <input name='username' placeholder='username' required>
-    <input name='password' type='password' placeholder='password (min 8)' required>
-    <button>Register</button>
-  </form>
-  <pre id='out'></pre>
-<script>
-async function parseJsonSafe(response){const text=await response.text();if(!text){return{ok:response.ok,error:response.ok?null:'Empty response body'}};try{return JSON.parse(text);}catch{return{ok:false,error:'Invalid JSON response',status:response.status,raw:text}}}
-document.getElementById('f').onsubmit=async(e)=>{e.preventDefault();const f=new FormData(e.target);const response=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:f.get('username'),password:f.get('password')})});const data=await parseJsonSafe(response);document.getElementById('out').textContent=data.ok?'Success: '+(data.message||'Registered'):'Error: '+(data.error||'Registration failed');};
-</script>
-</body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grev - Register</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Register</h1>
+      <p>Registration system coming next.</p>
+      <a href="/">Back to home</a>
+    </main>
+  </body>
+</html>
