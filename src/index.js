@@ -1,11 +1,10 @@
 // src/index.js
 
-import { STARTING_BALANCE_PENCE } from "./features/cs2/constants.js";
+import { STARTING_BALANCE_PENCE } from "./lib/gambling.js";
 import { getStartingBalancePence } from "./lib/gambling.js";
 import { getCasesDb } from "./lib/cases-binding.js";
 import { handleCasinoRequest } from "./features/casino/handlers.js";
 import { recordCasinoGameEarning } from "./features/casino/leaderboards.js";
-import { handleGrevPetsRequest } from "./features/grev-pets/handlers.js";
 import { dispatchCoreRoute, isLegacyCasesPath } from "./routes/core.js";
 import { isRetiredGamblingPath, retiredGamblingPayload } from "./routes/playground.js";
 
@@ -103,8 +102,6 @@ async function handleRequest(request, env, ctx) {
   const casinoRouteResponse = await handleCasinoRequest(request, env, { json, requireGamblingAdmin, safeJson, isoNow, ensureCasinoProfile, formatCasinoProfile, getCasinoDailySpinState, toCoinAmount, getSessionUser });
   if (casinoRouteResponse) return casinoRouteResponse;
 
-  const grevPetsRouteResponse = await handleGrevPetsRequest(request, env, { json, safeJson, getApprovedUser });
-  if (grevPetsRouteResponse) return grevPetsRouteResponse;
 
   if (isRetiredGamblingPath(pathname)) {
     return json(retiredGamblingPayload(), 410, request);
