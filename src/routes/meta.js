@@ -11,7 +11,6 @@ export function getMetaRoutes(handlers) {
     { path: "/api/casino/crash-sprint/join", method: "POST", handler: handlers.handleCasinoCrashSprintJoin },
     { path: "/api/casino/crash-sprint/cashout", method: "POST", handler: handlers.handleCasinoCrashSprintCashout },
     { path: "/api/health", method: "GET", handler: handlers.handleHealth },
-    { path: "/api/hltv/overview", method: "GET", handler: handlers.handleHltvOverview },
     { path: "/api/setup", method: "POST", handler: handlers.handleSetup }
   ];
 }
