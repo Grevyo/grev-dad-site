@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS2 Playground | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="stylesheet" href="/playground/cs2/style.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script src="/playground/cs2/script.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main cs2-playground-shell">
+      <section class="panel cs2-hero">
+        <p class="eyebrow">🎮 Counter-Strike Playground</p>
+        <h1>Latest Counter-Strike activity in one clean dashboard</h1>
+        <p class="hero-copy">Track HLTV, EGamersWorld, and UKIC updates plus major events, match logos, and world ranking snapshots in one fast layout.</p>
+        <div class="hero-meta-row">
+          <div class="meta-card">
+            <p class="meta-label">Data source</p>
+            <p class="meta-value">HLTV + EGW + UKIC</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-grid">
+        <aside class="panel rankings-panel">
+          <header class="feed-header">
+            <h2>🏅 Grev.dad Community Rankings</h2>
+          </header>
+          <p class="muted-copy">Long-form list of members with linked Steam, Leetify, and Refrag accounts.</p>
+          <ul id="community-rankings-list" class="feed-list slim-list"></ul>
+        </aside>
+
+        <section class="cards-grid">
+          <article class="panel ukic-panel feed-card">
+            <header class="feed-header">
+              <h2>🇬🇧 UKIC Spotlight</h2>
+              <a class="feed-link" href="https://ukicircuit.com/leagues/" target="_blank" rel="noopener noreferrer">Open UKIC Leagues</a>
+            </header>
+            <p class="muted-copy">Expanded UKIC details from league pages (dates, stages, and standings snippets).</p>
+            <ul id="uk-cs-list" class="feed-list"></ul>
+          </article>
+
+          <article class="panel feed-card">
+            <header class="feed-header">
+              <h2>📅 HLTV Upcoming Matches</h2>
+              <a class="feed-link" href="https://www.hltv.org/matches" target="_blank" rel="noopener noreferrer">Open HLTV</a>
+            </header>
+            <ul id="matches-list" class="feed-list"></ul>
+          </article>
+
+          <article class="panel feed-card">
+            <header class="feed-header">
+              <h2>🌟 HLTV Upcoming Events</h2>
+              <a class="feed-link" href="https://www.hltv.org/events" target="_blank" rel="noopener noreferrer">Open HLTV Events</a>
+            </header>
+            <ul id="big-events-list" class="feed-list"></ul>
+          </article>
+
+          <article class="panel feed-card">
+            <header class="feed-header">
+              <h2>📰 HLTV News</h2>
+              <a class="feed-link" href="https://www.hltv.org/news" target="_blank" rel="noopener noreferrer">Open HLTV</a>
+            </header>
+            <ul id="news-list" class="feed-list"></ul>
+          </article>
+
+          <article class="panel feed-card">
+            <header class="feed-header">
+              <h2>🏆 Latest Results</h2>
+              <a class="feed-link" href="https://www.hltv.org/results" target="_blank" rel="noopener noreferrer">Open HLTV</a>
+            </header>
+            <ul id="results-list" class="feed-list"></ul>
+          </article>
+
+          <article class="panel feed-card">
+            <header class="feed-header">
+              <h2>🌍 CS2 World Rankings</h2>
+            </header>
+            <div class="rankings-split">
+              <div>
+                <h3 class="rankings-subtitle">HLTV VRS Ranking</h3>
+                <ul id="hltv-vrs-list" class="feed-list"></ul>
+              </div>
+              <div>
+                <h3 class="rankings-subtitle">EGamersWorld Ranking</h3>
+                <ul id="egw-rankings-list" class="feed-list"></ul>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section class="cards-grid">
+        <article class="panel feed-card">
+          <header class="feed-header">
+            <h2>🧪 Tier 2 Watch</h2>
+            <a class="feed-link" href="https://www.hltv.org/matches" target="_blank" rel="noopener noreferrer">Open HLTV Matches</a>
+          </header>
+          <ul id="tier2-list" class="feed-list"></ul>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer"><div class="footer-inner"></div></footer>
+  </div>
+</body>
+</html>

@@ -22,7 +22,6 @@
         <div class="admin-tabs">
           <button class="admin-tab" type="button" data-tab="member-admin">Member Admin</button>
           <button class="admin-tab" type="button" data-tab="casino-admin">Casino Admin</button>
-          <button class="admin-tab" type="button" data-tab="deploy-admin">Deployment</button>
         </div>
       </section>
 
@@ -109,18 +108,6 @@
           </aside>
         </div>
       </section>
-      <section id="deploy-admin-panel" class="admin-panel panel hidden">
-        <h2 class="panel-title">Deployment Controls</h2>
-        <p class="muted-copy">Use this after pushing a GitHub commit if the live site still appears stale.</p>
-        <p class="muted-copy">Warning: purging cache may temporarily make the next page loads slower.</p>
-        <div id="deploy-status" class="mt-16 muted-copy">Loading deployment status…</div>
-        <div class="tab-actions mt-16">
-          <button id="deploy-redeploy-btn" class="btn" type="button">Trigger Redeploy</button>
-          <button id="deploy-purge-btn" class="btn" type="button">Purge Cloudflare Cache</button>
-          <button id="deploy-refresh-btn" class="btn btn-primary" type="button">Trigger Redeploy + Purge Cache</button>
-        </div>
-      </section>
-
     </main>
   </div>
 
@@ -129,7 +116,6 @@
     const tabs = Array.from(document.querySelectorAll('[data-tab]'));
     const memberAdminPanel = document.getElementById('member-admin-panel');
     const casinoAdminPanel = document.getElementById('casino-admin-panel');
-    const deployAdminPanel = document.getElementById('deploy-admin-panel');
 
     const userSearch = document.getElementById('user-search');
     const userSelect = document.getElementById('user-select');
@@ -176,10 +162,6 @@
     let casinoBalances = [];
     let selectedUserId = null;
     let selectedCasinoUserId = null;
-    const deployStatus = document.getElementById('deploy-status');
-    const deployRedeployBtn = document.getElementById('deploy-redeploy-btn');
-    const deployPurgeBtn = document.getElementById('deploy-purge-btn');
-    const deployRefreshBtn = document.getElementById('deploy-refresh-btn');
 
     function showMessage(type, text) { pageMessage.className = `alert alert-${type}`; pageMessage.textContent = text; }
     function clearMessage() { pageMessage.className = 'hidden'; pageMessage.textContent = ''; }
@@ -193,7 +175,6 @@
       tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
       memberAdminPanel.classList.toggle('hidden', tabName !== 'member-admin');
       casinoAdminPanel.classList.toggle('hidden', tabName !== 'casino-admin');
-      deployAdminPanel.classList.toggle('hidden', tabName !== 'deploy-admin');
     }
 
     async function checkAccess() {
@@ -203,33 +184,12 @@
       currentUser = data.user;
       const canMemberAdmin = Boolean(currentUser?.is_admin);
       const canCasinoAdmin = Boolean(currentUser?.gambling_admin || currentUser?.is_admin);
-      const canDeployAdmin = Boolean(currentUser?.is_admin);
       if (!canMemberAdmin && !canCasinoAdmin) { showMessage('error', 'You do not have access to this admin portal.'); return false; }
       tabs.find((tab) => tab.dataset.tab === 'member-admin').classList.toggle('hidden', !canMemberAdmin);
       tabs.find((tab) => tab.dataset.tab === 'casino-admin').classList.toggle('hidden', !canCasinoAdmin);
-      tabs.find((tab) => tab.dataset.tab === 'deploy-admin').classList.toggle('hidden', !canDeployAdmin);
       setActiveTab(canMemberAdmin ? 'member-admin' : 'casino-admin');
       if (!canMemberAdmin) memberAdminPanel.innerHTML = '<div class="muted-copy">Site-wide member management requires full admin access.</div>';
-      if (!canDeployAdmin) deployAdminPanel.innerHTML = '<div class="muted-copy">Deployment controls require full admin access.</div>';
       return true;
-    }
-
-
-    async function loadDeployStatus() {
-      const response = await fetch('/api/admin/deploy/status', { credentials:'same-origin' });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to load deployment status');
-      deployStatus.innerHTML = `Commit SHA: ${escapeHtml(data.deploy?.commit_sha || 'n/a')}<br>Branch: ${escapeHtml(data.deploy?.branch || 'n/a')}<br>Last refresh attempt time: ${escapeHtml(data.last_refresh_attempt_at || 'n/a')}`;
-    }
-    async function runDeployAction(endpoint, button) {
-      button.disabled = true;
-      try {
-        const response = await fetch(endpoint, { method:'POST', credentials:'same-origin' });
-        const data = await response.json().catch(() => null);
-        if (!response.ok || !data) throw new Error(data?.error || 'Action failed');
-        showMessage(data.success ? 'success' : 'error', JSON.stringify(data));
-        await loadDeployStatus();
-      } finally { button.disabled = false; }
     }
 
     function renderGroupOptions() { editGroup.innerHTML = allowedGroups.map((group) => `<option value="${group}">${toTitleCase(group)}</option>`).join(''); }
@@ -391,10 +351,6 @@
     refreshBalancesBtn.addEventListener('click', async () => { try { clearMessage(); await loadCasinoBalances(); } catch (error) { showMessage('error', error.message); } });
     casinoBalanceForm.addEventListener('submit', async (event) => { try { clearMessage(); casinoBalanceSaveBtn.disabled = true; await submitCasinoBalance(event); } catch (error) { showMessage('error', error.message); } finally { casinoBalanceSaveBtn.disabled = false; } });
     document.querySelectorAll('[data-quick-delta]').forEach((button) => button.addEventListener('click', () => { casinoBalanceDelta.value = button.dataset.quickDelta; }));
-
-    deployRedeployBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/redeploy', deployRedeployBtn));
-    deployPurgeBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/purge-cache', deployPurgeBtn));
-    deployRefreshBtn?.addEventListener('click', () => runDeployAction('/api/admin/deploy/refresh-live-site', deployRefreshBtn));
 
     document.addEventListener('DOMContentLoaded', async () => {
       try {

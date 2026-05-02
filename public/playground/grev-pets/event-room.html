@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grev Pets Event Room</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <link rel="stylesheet" href="/playground/grev-pets/style.css" />
+  <script src="/scripts/header.js" defer></script>
+  <script type="module" src="/playground/grev-pets/js/event-room.js" defer></script>
+</head>
+<body class="gp-page">
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main">
+      <div class="gp-shell">
+        <section class="gp-banner">
+          <h1>🏁 Event Room</h1>
+          <p>Run battle scrims and chaotic race events for levels and bragging rights.</p>
+          <div class="gp-actions" style="margin-top:14px;">
+            <a class="btn" href="/playground/grev-pets/stable.html">Choose From Stable</a>
+            <a class="btn" href="/playground/grev-pets/overworld.html">Return to Overworld</a>
+          </div>
+        </section>
+
+        <section class="gp-control-grid">
+          <article class="gp-card">
+            <h2>Select Pet</h2>
+            <select id="pet-select" class="form-input"></select>
+            <div class="gp-actions">
+              <button id="battle-btn" class="btn btn-primary">Battle NPC</button>
+              <button id="race-btn" class="btn">Run Race</button>
+            </div>
+            <div id="result-headline" class="gp-small">No event yet.</div>
+          </article>
+
+          <article class="gp-card">
+            <h2>Event Log</h2>
+            <div id="event-log" class="gp-log"></div>
+          </article>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
