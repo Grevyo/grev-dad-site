@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forum | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+
+    <main class="page-main page-main-tight">
+      <section class="panel">
+        <div class="forum-head">
+          <div>
+            <p class="eyebrow">Community Threads</p>
+            <h1 class="auth-title">Forum</h1>
+            <p class="auth-subtitle">Search posts, open threads, react, and join the discussion.</p>
+          </div>
+          <a class="btn btn-primary" href="/new-post.html">New post</a>
+        </div>
+
+        <div class="forum-controls mt-20">
+          <input id="forum-search" class="form-input" type="text" placeholder="Search posts by title, body, or author..." />
+          <button id="forum-refresh" class="btn" type="button">Refresh</button>
+        </div>
+
+        <div id="forum-message" class="hidden mt-16"></div>
+        <div id="forum-list" class="forum-list mt-20"></div>
+      </section>
+    </main>
+
+    <footer class="footer"><div class="footer-inner">Grev.dad — forum</div></footer>
+  </div>
+
+<script>
+    const forumSearch = document.getElementById("forum-search");
+    const forumRefresh = document.getElementById("forum-refresh");
+    const forumMessage = document.getElementById("forum-message");
+    const forumList = document.getElementById("forum-list");
+
+    function showMessage(type, text) {
+      forumMessage.className = `alert alert-${type} mt-16`;
+      forumMessage.textContent = text;
+    }
+
+    function clearMessage() {
+      forumMessage.className = "hidden mt-16";
+      forumMessage.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "—";
+      return date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function renderPosts(posts) {
+      if (!Array.isArray(posts) || posts.length === 0) {
+        forumList.innerHTML = `<div class="forum-empty">No forum posts found.</div>`;
+        return;
+      }
+
+      forumList.innerHTML = posts.map((post) => `
+        <a class="forum-post-card" href="/post.html?id=${post.id}">
+          ${post.image_url ? `<img class="forum-post-image" src="${escapeHtml(post.image_url)}" alt="Thread image" loading="lazy" />` : ""}
+          <h2 class="forum-post-title">${escapeHtml(post.title || "Untitled post")}</h2>
+          <div class="forum-post-meta">
+            <span>By ${escapeHtml(post.author_username || "Unknown")}</span>
+            <span>${escapeHtml(post.author_group || "Member")}</span>
+            <span>${escapeHtml(formatDate(post.created_at))}</span>
+          </div>
+          <div class="forum-post-stats">
+            <span class="forum-pill">👍 ${Number(post.like_count || 0)}</span>
+            <span class="forum-pill">👎 ${Number(post.dislike_count || 0)}</span>
+            <span class="forum-pill">💬 ${Number(post.comment_count || 0)}</span>
+          </div>
+        </a>
+      `).join("");
+    }
+
+    async function loadPosts() {
+      clearMessage();
+
+      const search = forumSearch.value.trim();
+
+      try {
+        const response = await fetch(`/api/forum/posts?search=${encodeURIComponent(search)}`, {
+          method: "GET",
+          credentials: "same-origin"
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.success) {
+          showMessage("error", data?.error || "Failed to load forum posts.");
+          renderPosts([]);
+          return;
+        }
+
+        renderPosts(data.posts || []);
+      } catch (error) {
+        console.error(error);
+        showMessage("error", "Could not load forum posts.");
+        renderPosts([]);
+      }
+    }
+
+    forumRefresh.addEventListener("click", loadPosts);
+    forumSearch.addEventListener("input", loadPosts);
+    document.addEventListener("DOMContentLoaded", loadPosts);
+  </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit Profile | Grev.dad</title>
+  <link rel="stylesheet" href="/styles/site.css" />
+  <script src="/scripts/header.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <div id="header-mount"></div>
+    <main class="page-main page-main-tight">
+      <p class="gambling-breadcrumb"><a href="/profile.html">← Back to profile</a></p>
+      <section class="panel">
+        <p class="eyebrow">Profile studio</p>
+        <h1 class="auth-title">Edit your profile</h1>
+        <p class="auth-subtitle">Update identity details, media, avatar setup, profile colors, and linked CS2 services.</p>
+        <div id="profile-message" class="hidden mt-16"></div>
+        <form id="profile-form" class="form-grid mt-24">
+          <div class="detail-grid">
+            <div class="form-group"><label class="form-label" for="real-name">Real name</label><input id="real-name" class="form-input" type="text" maxlength="80" /></div>
+            <div class="form-group"><label class="form-label" for="motto">Motto</label><input id="motto" class="form-input" type="text" maxlength="140" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-url">Profile picture link (optional)</label><input id="avatar-url" class="form-input" type="url" maxlength="1200" placeholder="https://example.com/avatar.png" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-initials">Avatar initials (fallback)</label><input id="avatar-initials" class="form-input" type="text" maxlength="3" placeholder="JD" /></div>
+            <div class="form-group"><label class="form-label" for="avatar-style">Avatar style</label><select id="avatar-style" class="form-select"><option value="rounded">Rounded</option><option value="circle">Circle</option><option value="diamond">Diamond</option></select></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color">Gradient color 1</label><input id="profile-accent-color" class="form-input" type="color" value="#1f2937" /></div>
+            <div class="form-group"><label class="form-label" for="profile-accent-color-secondary">Gradient color 2</label><input id="profile-accent-color-secondary" class="form-input" type="color" value="#0f172a" /></div>
+            <div class="form-group"><label class="form-label" for="pronouns">Pronouns</label><input id="pronouns" class="form-input" type="text" maxlength="50" placeholder="he/him" /></div>
+            <div class="form-group"><label class="form-label" for="location">Location</label><input id="location" class="form-input" type="text" maxlength="120" placeholder="City, Country" /></div>
+            <div class="form-group"><label class="form-label" for="favorite-game">Favourite game</label><input id="favorite-game" class="form-input" type="text" maxlength="120" placeholder="Counter-Strike 2" /></div>
+          </div>
+
+          <div class="form-group"><label class="form-label" for="bio">Bio</label><textarea id="bio" class="form-input form-textarea" maxlength="3000" style="min-height:160px;"></textarea></div>
+          <div class="detail-grid">
+            <div class="form-group"><label class="form-label" for="media-1-url">Media 1 URL</label><input id="media-1-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="media-2-url">Media 2 URL</label><input id="media-2-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="media-3-url">Media 3 URL</label><input id="media-3-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="music-url">Music link</label><input id="music-url" class="form-input" type="url" maxlength="1200" /></div>
+            <div class="form-group"><label class="form-label" for="steam-url">Steam profile</label><input id="steam-url" class="form-input" type="url" maxlength="1200" placeholder="https://steamcommunity.com/..." /></div>
+            <div class="form-group"><label class="form-label" for="leetify-url">Leetify profile</label><input id="leetify-url" class="form-input" type="url" maxlength="1200" placeholder="https://leetify.com/..." /></div>
+            <div class="form-group"><label class="form-label" for="refrag-url">Refrag profile</label><input id="refrag-url" class="form-input" type="url" maxlength="1200" placeholder="https://refrag.gg/..." /></div>
+          </div>
+          <div class="button-row"><button id="save-profile-btn" class="btn btn-primary" type="submit">Save profile</button><a class="btn" href="/profile.html">Cancel</a></div>
+        </form>
+      </section>
+    </main>
+    <footer class="footer"><div class="footer-inner"></div></footer>
+  </div>
+<script>
+    const messageEl = document.getElementById('profile-message');
+    const form = document.getElementById('profile-form');
+    const saveBtn = document.getElementById('save-profile-btn');
+    const fields = {
+      real_name: document.getElementById('real-name'),
+      motto: document.getElementById('motto'),
+      avatar_url: document.getElementById('avatar-url'),
+      avatar_initials: document.getElementById('avatar-initials'),
+      avatar_style: document.getElementById('avatar-style'),
+      profile_accent_color: document.getElementById('profile-accent-color'),
+      profile_accent_color_secondary: document.getElementById('profile-accent-color-secondary'),
+      pronouns: document.getElementById('pronouns'),
+      location: document.getElementById('location'),
+      favorite_game: document.getElementById('favorite-game'),
+      bio: document.getElementById('bio'),
+      media_1_url: document.getElementById('media-1-url'),
+      media_2_url: document.getElementById('media-2-url'),
+      media_3_url: document.getElementById('media-3-url'),
+      music_url: document.getElementById('music-url'),
+      steam_url: document.getElementById('steam-url'),
+      leetify_url: document.getElementById('leetify-url'),
+      refrag_url: document.getElementById('refrag-url')
+    };
+    function showMessage(type, text) { messageEl.className = `alert alert-${type}`; messageEl.textContent = text; }
+    async function loadProfile() {
+      const response = await fetch('/api/profile/me', { credentials:'same-origin' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) { if (response.status === 401) window.location.href = '/login.html'; throw new Error(data?.error || 'Failed to load profile'); }
+      Object.entries(fields).forEach(([key, input]) => {
+        const fallback = key === 'profile_accent_color'
+          ? '#1f2937'
+          : key === 'profile_accent_color_secondary'
+            ? '#0f172a'
+            : key === 'avatar_style'
+              ? 'rounded'
+              : '';
+        input.value = data.profile?.[key] || fallback;
+      });
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        saveBtn.disabled = true;
+        const payload = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
+        const response = await fetch('/api/profile/update', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(payload) });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to save profile');
+        showMessage('success', 'Profile updated. Redirecting…');
+        setTimeout(() => { window.location.href = '/profile.html'; }, 500);
+      } catch (error) { showMessage('error', error.message || 'Could not save profile.'); } finally { saveBtn.disabled = false; }
+    });
+    document.addEventListener('DOMContentLoaded', async () => { try { await loadProfile(); } catch (error) { showMessage('error', error.message || 'Could not load edit form.'); } });
+  </script>
+</body>
+</html>
