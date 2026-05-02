@@ -12,21 +12,14 @@
     button.type = 'button';
     button.id = 'theme-toggle';
     button.className = 'nav-button icon-button theme-toggle';
-    button.textContent = '💡';
+    button.textContent = document.documentElement.dataset.theme === 'light' ? '🌙' : '💡';
 
     const current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
     const action = current === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
     button.setAttribute('aria-label', action);
     button.title = action;
 
-    button.addEventListener('click', function () {
-      if (window.GREVTheme?.toggleTheme) {
-        window.GREVTheme.toggleTheme();
-      }
-      const next = document.documentElement.dataset.theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
-      button.setAttribute('aria-label', next);
-      button.title = next;
-    });
+    button.addEventListener('click', function () { if (window.GREVTheme?.toggleTheme) { window.GREVTheme.toggleTheme(); } });
 
     return button;
   }
