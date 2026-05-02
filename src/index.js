@@ -1,5 +1,6 @@
 const SESSION_COOKIE = 'session_token';
 const SESSION_DAYS = 7;
+const PBKDF2_ITERATIONS = 100000;
 
 export default {
   async fetch(request, env) {
@@ -431,19 +432,19 @@ async function hashPassword(password) {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
     256
   );
   const hash = new Uint8Array(bits);
-  return `pbkdf2$120000$${toBase64(salt)}$${toBase64(hash)}`;
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${toBase64(salt)}$${toBase64(hash)}`;
 }
 
 async function verifyPassword(password, stored) {
   const [algo, roundsStr, saltB64, hashB64] = (stored || '').split('$');
   if (algo !== 'pbkdf2') return false;
   const rounds = Number(roundsStr);
-  if (!Number.isFinite(rounds) || rounds < 1) return false;
+  if (!Number.isFinite(rounds) || rounds < 1 || rounds > PBKDF2_ITERATIONS) return false;
 
   const salt = fromBase64(saltB64);
   const expected = fromBase64(hashB64);

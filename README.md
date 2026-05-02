@@ -97,3 +97,6 @@ What each action does:
 Notes:
 - The deploy button cannot deploy changes that have not already been pushed to GitHub.
 - If any required secrets are missing, `/admin.html` shows a clear error/configuration message.
+
+
+Cloudflare Workers currently support PBKDF2 up to 100000 iterations, so this project uses 100000.
