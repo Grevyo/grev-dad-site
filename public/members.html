@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grev - Members</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <div id="authStatus">Checking login...</div>
+      <h1>Members</h1>
+      <p><a href="/">Back/Home</a></p>
+      <p id="members-status" role="status" aria-live="polite">Loading members...</p>
+      <table>
+        <thead><tr><th>Username</th><th>Role</th><th>Created</th></tr></thead>
+        <tbody id="members-body"></tbody>
+      </table>
+    </main>
+
+    <script>
+      function renderMembers(members) {
+        const membersBody = document.getElementById('members-body');
+        membersBody.textContent = '';
+        members.forEach((member) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${member.username || ''}</td><td>${member.roleLabel || ''}</td><td>${member.created_at || ''}</td>`;
+          membersBody.append(row);
+        });
+      }
+
+      async function loadMembers() {
+        const statusEl = document.getElementById('members-status');
+        try {
+          const response = await fetch('/api/members', { method: 'GET' });
+          const data = await response.json();
+          if (!response.ok) {
+            statusEl.textContent = data?.error || 'Unable to load members.';
+            return;
+          }
+          const members = Array.isArray(data?.members) ? data.members : [];
+          renderMembers(members);
+          statusEl.textContent = `Loaded ${members.length} members.`;
+        } catch {
+          statusEl.textContent = 'Unable to load members.';
+        }
+      }
+
+      loadMembers();
+    </script>
+    <script src="/scripts/auth-status.js"></script>
+  </body>
+</html>
