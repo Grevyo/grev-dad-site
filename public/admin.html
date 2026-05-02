@@ -1,4 +1,108 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Admin</title><link rel='stylesheet' href='/styles/site.css'></head><body><main><h1>Admin</h1><pre id='me'></pre><h2>Promote user</h2><form id='promote'><input name='identity' placeholder='username or email'><button>Make admin</button></form><h2>Users</h2><pre id='users'></pre></main><script>
-async function load(){const r=await fetch('/api/admin/users');const d=await r.json();document.getElementById('users').textContent=JSON.stringify(d,null,2);document.getElementById('me').textContent=d.currentUser?`Logged in as ${d.currentUser.username}`:'Not authorized';}
-document.getElementById('promote').onsubmit=async(e)=>{e.preventDefault();const identity=new FormData(e.target).get('identity');await fetch('/api/admin/make-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:identity})});load();};load();
-</script></body></html>
+<!doctype html>
+<html>
+<head>
+  <meta charset='utf-8'>
+  <title>Admin</title>
+  <link rel='stylesheet' href='/styles/site.css'>
+</head>
+<body>
+<main>
+  <h1>Admin</h1>
+  <pre id='me'></pre>
+
+  <h2>Promote user</h2>
+  <form id='promote'>
+    <input name='identity' placeholder='username or email' required>
+    <button type='submit'>Make admin</button>
+  </form>
+
+  <h2>Users</h2>
+  <pre id='users'></pre>
+
+  <h2>Deployment Refresh</h2>
+  <p id='deployStatusText'>Loading deployment status...</p>
+  <div>
+    <button id='btnRedeploy'>Trigger Redeploy</button>
+    <button id='btnPurge'>Purge Cloudflare Cache</button>
+    <button id='btnRefresh'>Redeploy + Purge</button>
+  </div>
+  <pre id='deployStatusJson'></pre>
+  <pre id='deployActionJson'></pre>
+</main>
+<script>
+const meEl = document.getElementById('me');
+const usersEl = document.getElementById('users');
+const deployStatusTextEl = document.getElementById('deployStatusText');
+const deployStatusJsonEl = document.getElementById('deployStatusJson');
+const deployActionJsonEl = document.getElementById('deployActionJson');
+const buttons = [document.getElementById('btnRedeploy'), document.getElementById('btnPurge'), document.getElementById('btnRefresh')];
+
+function setLoading(flag, message) {
+  buttons.forEach((btn) => { btn.disabled = flag; });
+  if (message) deployStatusTextEl.textContent = message;
+}
+
+async function parseResponse(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : { success: false, error: 'Empty response body' };
+  } catch {
+    return { success: false, error: 'Invalid JSON response', raw: text };
+  }
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(path, options);
+  const data = await parseResponse(res);
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function loadAdminUsers() {
+  const result = await api('/api/admin/users');
+  usersEl.textContent = JSON.stringify(result.data, null, 2);
+  meEl.textContent = result.data.currentUser ? `Logged in as ${result.data.currentUser.username}` : 'Not authorized';
+}
+
+async function loadDeployStatus() {
+  const result = await api('/api/admin/deploy/status');
+  deployStatusJsonEl.textContent = JSON.stringify(result.data, null, 2);
+  deployStatusTextEl.textContent = result.ok
+    ? 'Deployment status loaded.'
+    : `Failed to load deployment status (${result.status}).`;
+}
+
+async function runDeployAction(path, loadingMessage) {
+  setLoading(true, loadingMessage);
+  deployActionJsonEl.textContent = '';
+  const result = await api(path, { method: 'POST' });
+  deployActionJsonEl.textContent = JSON.stringify(result.data, null, 2);
+  deployStatusTextEl.textContent = result.ok ? 'Action completed.' : `Action failed (${result.status}).`;
+  await loadDeployStatus();
+  setLoading(false);
+}
+
+document.getElementById('promote').onsubmit = async (e) => {
+  e.preventDefault();
+  const identity = new FormData(e.target).get('identity');
+  setLoading(true, 'Promoting user...');
+  const result = await api('/api/admin/make-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: identity })
+  });
+  deployActionJsonEl.textContent = JSON.stringify(result.data, null, 2);
+  await loadAdminUsers();
+  setLoading(false, result.ok ? 'Promotion completed.' : `Promotion failed (${result.status}).`);
+};
+
+document.getElementById('btnRedeploy').onclick = () => runDeployAction('/api/admin/deploy/redeploy', 'Triggering redeploy...');
+document.getElementById('btnPurge').onclick = () => runDeployAction('/api/admin/deploy/purge-cache', 'Purging Cloudflare cache...');
+document.getElementById('btnRefresh').onclick = () => runDeployAction('/api/admin/deploy/refresh-live-site', 'Redeploying and purging cache...');
+
+(async function init() {
+  await loadAdminUsers();
+  await loadDeployStatus();
+})();
+</script>
+</body>
+</html>

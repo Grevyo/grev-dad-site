@@ -27,6 +27,10 @@ async function routeRequest(request, env) {
   if (pathname === "/api/admin/users" && request.method === "GET") return handleAdminUsers(request, env);
   if (pathname === "/api/admin/make-admin" && request.method === "POST") return handleMakeAdmin(request, env);
   if (pathname === "/api/admin/setup-promote" && request.method === "POST") return handleAdminSetupPromote(request, env);
+  if (pathname === "/api/admin/deploy/status" && request.method === "GET") return handleDeployStatus(request, env);
+  if (pathname === "/api/admin/deploy/redeploy" && request.method === "POST") return handleRedeploy(request, env);
+  if (pathname === "/api/admin/deploy/purge-cache" && request.method === "POST") return handlePurgeCache(request, env);
+  if (pathname === "/api/admin/deploy/refresh-live-site" && request.method === "POST") return handleRefreshLiveSite(request, env);
 
   if (pathname === "/api/balance" && request.method === "GET") return handleBalance(request, env);
 
@@ -150,6 +154,110 @@ async function handleAdminSetupPromote(request, env) {
   return json({ success: true, promoted: result.meta?.changes || 0, target: identity }, 200);
 }
 
+async function handleDeployStatus(request, env) {
+  const actor = await requireAdmin(request, env);
+  if (!actor) return json({ success: false, error: "Admin access required" }, 403);
+
+  return json({
+    success: true,
+    commit: env.DEPLOY_COMMIT_SHA || env.CF_PAGES_COMMIT_SHA || null,
+    branch: env.DEPLOY_BRANCH || env.CF_PAGES_BRANCH || null,
+    hasDeployHook: Boolean(env.CLOUDFLARE_DEPLOY_HOOK_URL),
+    hasApiToken: Boolean(env.CLOUDFLARE_API_TOKEN),
+    hasZoneId: Boolean(env.CLOUDFLARE_ZONE_ID)
+  }, 200);
+}
+
+async function handleRedeploy(request, env) {
+  const actor = await requireAdmin(request, env);
+  if (!actor) return json({ success: false, error: "Admin access required" }, 403);
+
+  if (!env.CLOUDFLARE_DEPLOY_HOOK_URL) {
+    return json({ success: false, error: "Missing CLOUDFLARE_DEPLOY_HOOK_URL" }, 400);
+  }
+
+  try {
+    const res = await fetch(env.CLOUDFLARE_DEPLOY_HOOK_URL, { method: "POST" });
+    const text = (await res.text()).slice(0, 1000);
+    return json({
+      success: res.ok,
+      status: res.status,
+      message: res.ok ? "Redeploy triggered" : "Redeploy trigger failed",
+      responseText: text
+    }, res.ok ? 200 : 502);
+  } catch (error) {
+    return json({ success: false, error: `Redeploy request failed: ${String(error.message || error)}` }, 502);
+  }
+}
+
+async function handlePurgeCache(request, env) {
+  const actor = await requireAdmin(request, env);
+  if (!actor) return json({ success: false, error: "Admin access required" }, 403);
+
+  if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
+    return json({ success: false, error: "Missing CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ZONE_ID" }, 400);
+  }
+
+  const endpoint = `https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`;
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ purge_everything: true })
+    });
+    const cfJson = await safeParseResponseJson(res);
+    return json({ success: res.ok, cloudflare: cfJson }, res.ok ? 200 : 502);
+  } catch (error) {
+    return json({ success: false, error: `Purge request failed: ${String(error.message || error)}` }, 502);
+  }
+}
+
+async function handleRefreshLiveSite(request, env) {
+  const actor = await requireAdmin(request, env);
+  if (!actor) return json({ success: false, error: "Admin access required" }, 403);
+
+  const redeploy = await performRedeploy(env);
+  const purge = await performPurge(env);
+  return json({ success: redeploy.success && purge.success, redeploy, purge }, 200);
+}
+
+async function performRedeploy(env) {
+  if (!env.CLOUDFLARE_DEPLOY_HOOK_URL) {
+    return { success: false, error: "Missing CLOUDFLARE_DEPLOY_HOOK_URL" };
+  }
+  try {
+    const res = await fetch(env.CLOUDFLARE_DEPLOY_HOOK_URL, { method: "POST" });
+    const text = (await res.text()).slice(0, 1000);
+    return { success: res.ok, status: res.status, message: res.ok ? "Redeploy triggered" : "Redeploy trigger failed", responseText: text };
+  } catch (error) {
+    return { success: false, error: `Redeploy request failed: ${String(error.message || error)}` };
+  }
+}
+
+async function performPurge(env) {
+  if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ZONE_ID) {
+    return { success: false, error: "Missing CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ZONE_ID" };
+  }
+  const endpoint = `https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`;
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ purge_everything: true })
+    });
+    const cfJson = await safeParseResponseJson(res);
+    return { success: res.ok, status: res.status, cloudflare: cfJson };
+  } catch (error) {
+    return { success: false, error: `Purge request failed: ${String(error.message || error)}` };
+  }
+}
+
 async function currentUser(request, env) {
   const token = getSessionToken(request);
   if (!token) return null;
@@ -241,6 +349,16 @@ async function safeJson(request) {
     return await request.json();
   } catch {
     return {};
+  }
+}
+
+async function safeParseResponseJson(response) {
+  const text = await response.text();
+  if (!text) return { raw: "" };
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
   }
 }
 
