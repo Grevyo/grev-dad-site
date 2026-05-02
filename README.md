@@ -1,9 +1,17 @@
-# grev-dad-site
+# grev-dad-site (Fresh Foundation)
 
-## CPL Playground
+Minimal Cloudflare Worker + Pages + D1 foundation focused on:
+- Auth (`/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/me`)
+- Admin basics (`/admin.html`, `/api/admin/users`, `/api/admin/make-admin`)
+- Safe bootstrap promote route (`/api/admin/setup-promote` with `ADMIN_SETUP_SECRET`)
+- Money foundation (`users.balance_cents`, `/api/balance`)
 
-`/CPL_Playground/` now acts as a lightweight shell that loads the external Streamlit app directly:
+## Routes
+- `/`
+- `/login.html`
+- `/register.html`
+- `/admin.html`
 
-- https://grev-profiles-and-tactics.streamlit.app/#hltv-cpl-profile-viewer
-
-The previous in-repo CPL Streamlit source/data files were removed from `public/CPL_Playground/`.
+## Notes
+- All API responses return JSON.
+- Session cookie is httpOnly.
