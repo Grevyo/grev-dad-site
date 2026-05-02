@@ -1,9 +1,6 @@
 const RETIRED_PREFIXES = [
   "/api/gambling/admin/",
   "/api/admin/cases",
-  "/api/cs2",
-  "/api/ygo",
-  "/api/blackjack",
   "/api/casino"
 ];
 

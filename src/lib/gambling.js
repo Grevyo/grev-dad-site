@@ -1,4 +1,4 @@
-import { STARTING_BALANCE_PENCE } from "../features/cs2/constants.js";
+export const STARTING_BALANCE_PENCE = 50000;
 
 export async function getStartingBalancePence(env) {
   if (!env?.DB) return STARTING_BALANCE_PENCE;
