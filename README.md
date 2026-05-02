@@ -12,9 +12,18 @@ This repository has been reset to a fresh homepage-only foundation.
 - Auth, admin, and database systems will be added later.
 - No D1 database is required for this homepage-only version.
 
-## Planned D1 setup (for future login/profile work)
-- Database name: `profile-db`
-- Worker binding: `PROFILE_DB`
+## D1 binding setup
+- Binding name must be `DB` (the Worker code expects `env.DB`).
+- Database name must be `profile-db`.
+- `database_id` must be the real Cloudflare D1 database UUID (not a placeholder).
+
+Where to find the D1 database UUID in Cloudflare:
+1. Open Cloudflare Dashboard.
+2. Go to **Workers & Pages** → **D1**.
+3. Open the `profile-db` database.
+4. Copy the **Database ID** value (UUID).
+5. Paste it into `wrangler.jsonc` under:
+   - `d1_databases[0].database_id`
 
 Future major systems should use separate D1 databases/bindings instead of being combined into `profile-db`.
 Examples:

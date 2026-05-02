@@ -10,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "profile-db",
-      "database_id": "REPLACE_WITH_REAL_DATABASE_ID",
+      "database_id": "PASTE_REAL_DATABASE_ID_HERE",
       "migrations_dir": "migrations"
     }
   ]
