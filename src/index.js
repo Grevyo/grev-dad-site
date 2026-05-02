@@ -223,6 +223,13 @@ function getDisplayedRank(accountLevel, selectedRankId, ranks) {
 }
 
 async function loadAccountRanks(request, env) {
+  if (!env?.ASSETS || typeof env.ASSETS.fetch !== 'function') {
+    return {
+      ok: false,
+      error: "Static assets binding ASSETS is not configured. Add assets.binding = 'ASSETS' in wrangler.jsonc."
+    };
+  }
+
   try {
     const assetUrl = new URL('/data/grev_dad_account_ranks.csv', request.url);
     const response = await env.ASSETS.fetch(new Request(assetUrl.toString(), { method: 'GET' }));
