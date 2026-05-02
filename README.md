@@ -1,77 +1,54 @@
 # Grev
 
-This repository includes a Cloudflare Worker with auth APIs backed by D1.
+This repository contains a Cloudflare Worker + static pages app with username/password authentication backed by a D1 database.
 
-## Current routes
+## App features
+- Username/password register + login + logout.
+- Role system (`admin`, `operator`, `og`, `member`) with centralized role metadata in the Worker.
+- Members and profile pages that show role information.
+- Basic money foundation:
+  - `balances` table (per-user balance in cents).
+  - `ledger` table (append-only balance adjustments with reason).
+  - `/api/balance` for the current user.
+  - `/api/ledger/me` for the current user.
+  - Admin balance adjustment endpoint.
+
+## Main routes
 - `/`
-- `/login.html`
+- `/unregistered.html`
 - `/register.html`
+- `/login.html`
+- `/members.html`
+- `/profile.html`
 - `/admin.html`
 
 ## D1 binding setup
-- Binding name must be `DB` (the Worker code expects `env.DB`).
+- Binding name must be `DB` (the Worker expects `env.DB`).
 - Database name must be `profile-db`.
-- `database_id` must be the real Cloudflare D1 database UUID (not a placeholder).
-
-Where to find the D1 database UUID in Cloudflare:
-1. Open Cloudflare Dashboard.
-2. Go to **Workers & Pages** → **D1**.
-3. Open the `profile-db` database.
-4. Copy the **Database ID** value (UUID).
-5. Paste it into `wrangler.jsonc` under:
-   - `d1_databases[0].database_id`
-
-Future major systems should use separate D1 databases/bindings instead of being combined into `profile-db`.
-Examples:
-- `game-db`
-- `casino-db`
-- `stats-db`
-
-Example `wrangler.jsonc` section:
-
-```jsonc
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "profile-db",
-    "database_id": "25b0b37a-b855-46c3-a787-ffef7f04fb64"
-  }
-]
-```
+- `database_id` in `wrangler.jsonc` must be your real D1 UUID.
 
 ## Apply D1 migrations
-
-Run from this repo root:
+Run from repo root:
 
 ```bash
 npx wrangler d1 migrations apply profile-db --remote
 ```
 
-For local dev database:
+For local D1:
 
 ```bash
 npx wrangler d1 migrations apply profile-db --local
 ```
 
-The auth foundation tables are created by migrations in `migrations/` (`users`, `sessions`, `balances`, `ledger`).
+The auth/money foundation tables are maintained in `migrations/` and are also protected by Worker-side `CREATE TABLE IF NOT EXISTS` setup.
 
-The Worker now also auto-creates these required auth tables on first register/login using `CREATE TABLE IF NOT EXISTS`, so a fresh D1 database can work without running setup first.
-You can still apply migrations manually with Wrangler if you prefer that workflow.
-
-## Manual schema setup via API
-
-If you need to initialize schema from the Worker API, set secret `ADMIN_SETUP_SECRET` and call:
+## Optional manual schema setup API
+If you want to initialize schema through the Worker API, set `ADMIN_SETUP_SECRET` and call:
 
 ```bash
 curl -X POST https://<your-domain>/api/setup/schema \
   -H "Content-Type: application/json" \
   -d '{"secret":"<ADMIN_SETUP_SECRET>"}'
-```
-
-Success response:
-
-```json
-{"ok":true,"message":"Schema created"}
 ```
 
 Check status:
@@ -80,23 +57,5 @@ Check status:
 curl https://<your-domain>/api/setup/status
 ```
 
-## Admin Force Refresh Site
-
-Admins can use **Force Refresh Site** on `/admin.html` to run Cloudflare refresh actions from the Worker API.
-
-Required secrets:
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ZONE_ID`
-- `CLOUDFLARE_DEPLOY_HOOK_URL` (optional)
-
-What each action does:
-- **Purge Cache** clears Cloudflare CDN cache for the configured zone.
-- **Trigger Redeploy** calls the configured deploy hook URL.
-- **Purge Cache + Trigger Redeploy** runs purge first, then redeploy if the hook is configured.
-
-Notes:
-- The deploy button cannot deploy changes that have not already been pushed to GitHub.
-- If any required secrets are missing, `/admin.html` shows a clear error/configuration message.
-
-
-Cloudflare Workers currently support PBKDF2 up to 100000 iterations, so this project uses 100000.
+## Password hashing
+Cloudflare Workers currently support PBKDF2 up to 100000 iterations, and this project uses 100000.
