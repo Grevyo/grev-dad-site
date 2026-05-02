@@ -1,6 +1,7 @@
 const SESSION_COOKIE = 'session_token';
 const SESSION_DAYS = 7;
 const PBKDF2_ITERATIONS = 100000;
+const STARTING_BALANCE_CENTS = 10000;
 const DEFAULT_NEW_USER_ROLE = 'admin';
 const ROLES = {
   admin: { label: 'Admin', level: 100 },
@@ -31,6 +32,12 @@ export default {
     if (url.pathname === '/api/members' && request.method === 'GET') {
       return handleMembers(request, env);
     }
+    if (url.pathname === '/api/balance' && request.method === 'GET') {
+      return handleBalance(request, env);
+    }
+    if (url.pathname === '/api/ledger/me' && request.method === 'GET') {
+      return handleLedgerMe(request, env);
+    }
     if (url.pathname === '/api/debug/db' && request.method === 'GET') {
       return handleDebugDb(env);
     }
@@ -46,6 +53,9 @@ export default {
     }
     if (url.pathname.match(/^\/api\/admin\/users\/\d+\/role$/) && request.method === 'POST') {
       return handleAdminUpdateRole(request, env, url.pathname);
+    }
+    if (url.pathname.match(/^\/api\/admin\/users\/\d+\/balance$/) && request.method === 'POST') {
+      return handleAdminAdjustBalance(request, env, url.pathname);
     }
 
     const authGateResponse = await enforceAuthGate(request, env, url.pathname);
@@ -188,7 +198,7 @@ async function handleMe(request, env) {
     }
 
     const user = normalizeUserRole(record);
-    return json({ ok: true, user: { ...user, roleLabel: getRoleLabel(user.role) } });
+    return json({ ok: true, user: { ...user, roleLabel: getRoleLabel(user.role), roleLevel: getRoleLevel(user.role) } });
   } catch (error) {
     return json({ ok: false, error: friendlyError(error) }, 500);
   }
@@ -230,12 +240,42 @@ async function handleMembers(request, env) {
       username: user.username,
       role: user.role,
       roleLabel: getRoleLabel(user.role),
+      roleLevel: getRoleLevel(user.role),
       is_admin: user.is_admin,
       created_at: row.created_at || null,
     };
   });
 
   return json({ ok: true, members });
+}
+
+
+async function handleBalance(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+
+  const db = getDatabase(env);
+  await ensureSchema(db);
+  const balance = await getOrCreateBalance(db, user.id);
+  return json({ ok: true, balance_cents: balance.balance_cents });
+}
+
+async function handleLedgerMe(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+
+  const db = getDatabase(env);
+  await ensureSchema(db);
+  const rows = await db
+    .prepare(`SELECT id, amount_cents, reason, created_at
+      FROM ledger
+      WHERE user_id = ?
+      ORDER BY id DESC
+      LIMIT 50`)
+    .bind(user.id)
+    .all();
+
+  return json({ ok: true, entries: rows?.results || [] });
 }
 
 async function enforceAuthGate(request, env, pathname) {
@@ -328,13 +368,14 @@ async function handleAdminUsers(request, env) {
   const auth = await requireAdmin(request, env);
   if (auth) return auth;
   const db = getDatabase(env);
+  await ensureSchema(db);
   const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, b.balance_cents
     FROM users u
     LEFT JOIN balances b ON b.user_id = u.id
     ORDER BY u.created_at DESC`).all();
   const users = (rows?.results || []).map((row) => {
     const user = normalizeUserRole(row);
-    return { ...user, roleLabel: getRoleLabel(user.role), balance_cents: row.balance_cents, created_at: row.created_at };
+    return { ...user, roleLabel: getRoleLabel(user.role), roleLevel: getRoleLevel(user.role), balance_cents: row.balance_cents ?? STARTING_BALANCE_CENTS, created_at: row.created_at };
   });
   return json({ ok: true, users, roles: ROLES });
 }
@@ -347,17 +388,49 @@ async function handleAdminUpdateRole(request, env, pathname) {
   const body = await readJsonBody(request);
   const role = String(body?.role || '').trim().toLowerCase();
   if (!ROLES[role]) return json({ ok: false, error: 'Invalid role' }, 400);
-  await db.prepare('UPDATE users SET role = ?, is_admin = ? WHERE id = ?').bind(role, role === 'admin' ? 1 : 0, userId).run();
-  return json({ ok: true, role, roleLabel: getRoleLabel(role), is_admin: role === 'admin' ? 1 : 0 });
+  const result = await db.prepare('UPDATE users SET role = ?, is_admin = ? WHERE id = ?').bind(role, role === 'admin' ? 1 : 0, userId).run();
+  if (!result.meta.changes) return json({ ok: false, error: 'User not found' }, 404);
+  return json({ ok: true, role, roleLabel: getRoleLabel(role), roleLevel: getRoleLevel(role), is_admin: role === 'admin' ? 1 : 0 });
+}
+
+
+async function handleAdminAdjustBalance(request, env, pathname) {
+  const auth = await requireAdmin(request, env);
+  if (auth) return auth;
+
+  const db = getDatabase(env);
+  await ensureSchema(db);
+  const userId = Number(pathname.split('/')[4]);
+
+  const user = await db.prepare('SELECT id FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return json({ ok: false, error: 'User not found' }, 404);
+
+  const body = await readJsonBody(request);
+  const amountCents = body?.amount_cents;
+  const reason = String(body?.reason || '').trim();
+  if (!Number.isInteger(amountCents)) return json({ ok: false, error: 'amount_cents must be an integer' }, 400);
+  if (!reason) return json({ ok: false, error: 'reason is required' }, 400);
+
+  const current = await getOrCreateBalance(db, userId);
+  const updated = Number(current.balance_cents) + amountCents;
+
+  await db.prepare(`UPDATE balances SET balance_cents = ?, updated_at = datetime('now') WHERE user_id = ?`).bind(updated, userId).run();
+  await db.prepare('INSERT INTO ledger (user_id, amount_cents, reason) VALUES (?, ?, ?)').bind(userId, amountCents, reason).run();
+
+  return json({ ok: true, user_id: userId, balance_cents: updated });
 }
 
 function normalizeUserRole(user) {
-  const role = typeof user?.role === 'string' && ROLES[user.role] ? user.role : 'admin';
+  const role = typeof user?.role === 'string' && ROLES[user.role] ? user.role : 'member';
   return { ...user, role };
 }
 
 function getRoleLabel(role) {
-  return ROLES[role]?.label || ROLES.admin.label;
+  return ROLES[role]?.label || ROLES.member.label;
+}
+
+function getRoleLevel(role) {
+  return ROLES[role]?.level || ROLES.member.level;
 }
 
 function isUserAdmin(user) {
@@ -523,9 +596,15 @@ async function initializeBalanceIfExists(db, userId) {
   if (table) {
     await db
       .prepare('INSERT OR IGNORE INTO balances (user_id, balance_cents) VALUES (?, ?)')
-      .bind(userId, 10000)
+.bind(userId, STARTING_BALANCE_CENTS)
       .run();
   }
+}
+
+async function getOrCreateBalance(db, userId) {
+  await db.prepare('INSERT OR IGNORE INTO balances (user_id, balance_cents) VALUES (?, ?)').bind(userId, STARTING_BALANCE_CENTS).run();
+  const balance = await db.prepare('SELECT balance_cents FROM balances WHERE user_id = ?').bind(userId).first();
+  return { balance_cents: Number(balance?.balance_cents ?? STARTING_BALANCE_CENTS) };
 }
 
 async function ensureSchema(db) {
@@ -575,7 +654,7 @@ async function createSchemaTables(db) {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     amount_cents INTEGER NOT NULL,
-    reason TEXT NOT NULL DEFAULT 'init',
+    reason TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`).run();
 

@@ -15,7 +15,7 @@
         <h2 id="users-heading">Users</h2>
         <p id="users-status" role="status" aria-live="polite">Loading users...</p>
         <table>
-          <thead><tr><th>Username</th><th>Role</th><th>Balance</th><th>Created</th><th>Set Role</th></tr></thead>
+          <thead><tr><th>Username</th><th>Role</th><th>Balance</th><th>Created</th><th>Set Role</th><th>Adjust Balance</th></tr></thead>
           <tbody id="users-body"></tbody>
         </table>
       </section>
@@ -24,7 +24,7 @@
     <script>
       const usersStatusEl = document.getElementById('users-status');
       const usersBodyEl = document.getElementById('users-body');
-      const roleOptions = ['admin', 'operator', 'og', 'member'];
+      let rolesMap = {};
 
       async function safeJsonRequest(path, options) {
         const response = await fetch(path, options);
@@ -55,15 +55,24 @@
         });
       }
 
+      async function adjustBalance(userId, amount_cents, reason) {
+        await safeJsonRequest(`/api/admin/users/${userId}/balance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount_cents, reason }),
+        });
+      }
+
       function renderUsers(users) {
         usersBodyEl.textContent = '';
         users.forEach((user) => {
           const tr = document.createElement('tr');
+
           const roleSelect = document.createElement('select');
-          roleOptions.forEach((role) => {
+          Object.keys(rolesMap).forEach((role) => {
             const option = document.createElement('option');
             option.value = role;
-            option.textContent = role === 'og' ? 'OG' : role[0].toUpperCase() + role.slice(1);
+            option.textContent = rolesMap[role]?.label || role;
             if (user.role === role) option.selected = true;
             roleSelect.append(option);
           });
@@ -79,10 +88,49 @@
               roleSelect.disabled = false;
             }
           });
+
+          const amountInput = document.createElement('input');
+          amountInput.type = 'number';
+          amountInput.step = '1';
+          amountInput.placeholder = 'amount_cents';
+
+          const reasonInput = document.createElement('input');
+          reasonInput.type = 'text';
+          reasonInput.placeholder = 'reason';
+
+          const applyBtn = document.createElement('button');
+          applyBtn.type = 'button';
+          applyBtn.textContent = 'Apply';
+          applyBtn.addEventListener('click', async () => {
+            const amount = Number(amountInput.value);
+            const reason = reasonInput.value.trim();
+            if (!Number.isInteger(amount)) {
+              usersStatusEl.textContent = 'Amount must be an integer.';
+              return;
+            }
+            if (!reason) {
+              usersStatusEl.textContent = 'Reason is required.';
+              return;
+            }
+            applyBtn.disabled = true;
+            usersStatusEl.textContent = `Adjusting balance for ${user.username}...`;
+            try {
+              await adjustBalance(user.id, amount, reason);
+              usersStatusEl.textContent = `Updated balance for ${user.username}.`;
+              await loadUsers();
+            } catch (error) {
+              usersStatusEl.textContent = `Failed balance update: ${error.message}`;
+            } finally {
+              applyBtn.disabled = false;
+            }
+          });
+
           tr.innerHTML = `<td>${user.username}</td><td>${user.roleLabel}</td><td>${user.balance_cents ?? ''}</td><td>${user.created_at ?? ''}</td>`;
           const roleCell = document.createElement('td');
           roleCell.append(roleSelect);
-          tr.append(roleCell);
+          const adjustCell = document.createElement('td');
+          adjustCell.append(amountInput, reasonInput, applyBtn);
+          tr.append(roleCell, adjustCell);
           usersBodyEl.append(tr);
         });
       }
@@ -90,6 +138,7 @@
       async function loadUsers() {
         try {
           const data = await safeJsonRequest('/api/admin/users', { method: 'GET' });
+          rolesMap = data.roles || {};
           renderUsers(data.users || []);
           usersStatusEl.textContent = `Loaded ${data.users?.length || 0} users.`;
         } catch (error) {
