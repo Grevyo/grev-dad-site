@@ -1,0 +1,314 @@
+const SESSION_COOKIE = 'session_token';
+const SESSION_DAYS = 7;
+const PBKDF2_ITERATIONS = 100000;
+const SITE_CURRENCY_NAME = 'Grev Coins';
+const FALLBACK_STARTING_COINS = 1000;
+const FALLBACK_DEFAULT_NEW_USER_ROLE = 'admin';
+const ALLOWED_STATUSES = new Set(['active', 'disabled']);
+const UNLOCK_TYPES = new Set(['achievement', 'badge', 'trophy', 'minigame', 'cosmetic', 'other']);
+const UNLOCK_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic', 'legendary']);
+const SHOWCASE_SLOT_MIN = 1;
+const SHOWCASE_SLOT_MAX = 4;
+const SITE_NAME = 'grev.dad';
+const SETTING_KEYS = new Set(['registration_enabled', 'default_new_user_role', 'starting_coins', 'maintenance_mode']);
+const ROLES = { admin: { label: 'Admin', level: 100 }, operator: { label: 'Operator', level: 80 }, og: { label: 'OG', level: 50 }, member: { label: 'Member', level: 10 } };
+const PUBLIC_HTML_PATHS = new Set(['/unregistered.html', '/login.html', '/register.html']);
+const PUBLIC_API_PATHS = new Set(['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/auth/me']);
+
+export default { async fetch(request, env) { const url = new URL(request.url);
+  if (url.pathname === '/api/auth/register' && request.method === 'POST') return handleRegister(request, env);
+  if (url.pathname === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
+  if (url.pathname === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
+  if (url.pathname === '/api/auth/me' && request.method === 'GET') return handleMe(request, env);
+  if (url.pathname === '/api/members' && request.method === 'GET') return handleMembers(request, env);
+  if (url.pathname === '/api/profile/me' && request.method === 'GET') return handleProfileMe(request, env);
+  if (url.pathname === '/api/profile/me' && request.method === 'POST') return handleProfileMeUpdate(request, env);
+  if (url.pathname === '/api/profile/me/rank' && request.method === 'POST') return handleProfileRankUpdate(request, env);
+  if (url.pathname === '/api/profile/me/unlocks' && request.method === 'GET') return handleProfileMyUnlocks(request, env);
+  if (url.pathname === '/api/profile/me/showcase' && request.method === 'GET') return handleProfileMyShowcase(request, env);
+  if (url.pathname === '/api/profile/me/showcase' && request.method === 'POST') return handleProfileMyShowcaseUpdate(request, env);
+  if (url.pathname === '/api/profile' && request.method === 'GET') return handleProfileLookup(request, env);
+  if (url.pathname === '/api/account' && request.method === 'GET') return handleAccount(request, env);
+  if (url.pathname === '/api/account/password' && request.method === 'POST') return handleAccountPassword(request, env);
+  if (url.pathname === '/api/wallet/me' && request.method === 'GET') return handleWalletMe(request, env);
+  if (url.pathname === '/api/wallet/me/transactions' && request.method === 'GET') return handleWalletTransactionsMe(request, env);
+  if (url.pathname === '/api/admin/users' && request.method === 'GET') return handleAdminUsers(request, env);
+  if (url.pathname.match(/^\/api\/admin\/users\/\d+\/role$/) && request.method === 'POST') return handleAdminUpdateRole(request, env, url.pathname);
+  if (url.pathname.match(/^\/api\/admin\/users\/\d+\/status$/) && request.method === 'POST') return handleAdminUpdateStatus(request, env, url.pathname);
+  if (url.pathname.match(/^\/api\/admin\/users\/\d+\/wallet-adjust$/) && request.method === 'POST') return handleAdminWalletAdjust(request, env, url.pathname);
+  if (url.pathname.match(/^\/api\/admin\/users\/\d+\/game-progress$/) && request.method === 'POST') return handleAdminGameProgress(request, env, url.pathname);
+  if (url.pathname.match(/^\/api\/admin\/users\/\d+\/unlocks$/) && request.method === 'POST') return handleAdminUserUnlockUpsert(request, env, url.pathname);
+  if (url.pathname === '/api/admin/settings' && request.method === 'GET') return handleAdminGetSettings(request, env);
+  if (url.pathname === '/api/admin/settings' && request.method === 'POST') return handleAdminSetSettings(request, env);
+  if (url.pathname === '/api/admin/audit' && request.method === 'GET') return handleAdminAudit(request, env);
+  if (url.pathname === '/api/debug/db' && request.method === 'GET') return handleDebugDb(env);
+  if (url.pathname === '/api/ranks' && request.method === 'GET') return handleRanks(request, env);
+  const authGateResponse = await enforceAuthGate(request, env, url.pathname); if (authGateResponse) return authGateResponse; return env.ASSETS.fetch(request);
+}};
+
+async function handleRegister(request, env) { try { const body = await readJsonBody(request); const username = (body?.username ?? '').trim(); const password = body?.password ?? ''; if (!username || !password) return json({ ok: false, error: 'Username and password are required' }, 400); const db = getDatabase(env); await ensureSchema(db); if (!isTruthy(await getSetting(db, 'registration_enabled', 'true'))) return json({ ok: false, error: 'Registration is disabled' }, 403); const existing = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first(); if (existing) return json({ ok: false, error: 'Username is already taken' }, 409); const defaultRole = normalizeRole(await getSetting(db, 'default_new_user_role', FALLBACK_DEFAULT_NEW_USER_ROLE)); const passwordHash = await hashPassword(password); const result = await db.prepare('INSERT INTO users (username, password_hash, role, is_admin, status) VALUES (?, ?, ?, ?, ?)').bind(username, passwordHash, defaultRole, defaultRole === 'admin' ? 1 : 0, 'active').run(); const userId = result.meta.last_row_id; await getOrCreateWallet(db, userId); await ensureStarterUnlocks(db, userId); await logAudit(db, userId, userId, 'user_registered', { username, role: defaultRole }); const user = await db.prepare('SELECT id, username, role, is_admin, status FROM users WHERE id = ?').bind(userId).first(); return json({ ok: true, user: serializeUser(user) }, 201); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleLogin(request, env) { try { const body = await readJsonBody(request); const username = (body?.username ?? '').trim(); const password = body?.password ?? ''; if (!username || !password) return json({ ok: false, error: 'Username and password are required' }, 400); const db = getDatabase(env); await ensureSchema(db); const user = await db.prepare('SELECT id, username, role, is_admin, password_hash, status FROM users WHERE username = ?').bind(username).first(); if (!user) return json({ ok: false, error: 'Invalid username or password' }, 401); if (normalizeStatus(user.status) === 'disabled') return json({ ok: false, error: 'Account disabled' }, 403); const valid = await verifyPassword(password, user.password_hash); if (!valid) return json({ ok: false, error: 'Invalid username or password' }, 401); const { token, expiresAt } = makeSessionToken(); await db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').bind(token, user.id, expiresAt).run(); await logAudit(db, user.id, user.id, 'user_login', { username: user.username }); return withSessionCookie(json({ ok: true, user: serializeUser(user) }), token, expiresAt); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleLogout(request, env) { try { const token = getSessionToken(request); if (token) { const db = getDatabase(env); await ensureSchema(db); await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run(); } const response = json({ ok: true }); response.headers.append('Set-Cookie', clearSessionCookie()); return response; } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleMe(request, env) { const u = await getCurrentUser(request, env); if (!u) return json({ ok: false, user: null, error: 'Not logged in' }, 401); return json({ ok: true, user: { ...serializeUser(u), roleLevel: getRoleLevel(u.role) } }); }
+async function handleMembers(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, u.status, p.display_name, p.profile_title, p.avatar_url, p.show_level, p.show_rank FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id ORDER BY u.created_at DESC, u.id DESC`).all(); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); const members=[]; for (const r of (rows.results||[])) { const progress=await getUserAccountProgress(db, r.id); const profile=await db.prepare('SELECT selected_rank_id FROM user_profiles WHERE user_id = ?').bind(r.id).first(); const displayedRank=getDisplayedRank(progress.accountLevel, profile?.selected_rank_id, ranks.ranks); members.push({ ...serializeUser(r), created_at:r.created_at||null, display_name:r.display_name||null, profile_title:r.profile_title||null, avatar_url:r.avatar_url||null, show_level:r.show_level == null ? 1 : Number(r.show_level), show_rank:r.show_rank == null ? 1 : Number(r.show_rank), accountLevel:progress.accountLevel, rank: displayedRank }); } return json({ ok: true, siteName: SITE_NAME, members }); }
+async function handleProfileMe(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); const profileRow = await db.prepare('SELECT display_name, profile_title, bio, location, website_url, avatar_url, banner_url, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active, selected_rank_id, updated_at FROM user_profiles WHERE user_id = ?').bind(row.id).first(); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); const progress = await getUserAccountProgress(db, row.id); const unlockedRanks = getUnlockedRanks(progress.accountLevel, ranks.ranks); const defaultRank = getDefaultRankForLevel(progress.accountLevel, ranks.ranks); const rank = getDisplayedRank(progress.accountLevel, profileRow?.selected_rank_id, ranks.ranks); const showcase = await getPublicShowcaseSlots(db, row.id); return json({ ok: true, profile: { ...serializeUser(row), created_at: row.created_at || null, ...(profileRow||{}), ...progress, selected_rank_id: profileRow?.selected_rank_id || null, rank, defaultRank, unlockedRanks, showcase } }); }
+async function handleProfileLookup(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); const url = new URL(request.url); const idParam = url.searchParams.get('id'); const usernameParam = (url.searchParams.get('user') || '').trim(); let row = null; if (idParam) { const id = Number(idParam); if (!Number.isInteger(id) || id < 1) return json({ ok: false, error: 'Invalid user id' }, 400); row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE id = ?').bind(id).first(); } else if (usernameParam) { row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE username = ?').bind(usernameParam).first(); } else { return handleProfileMe(request, env); } if (!row) return json({ ok: false, error: 'User not found' }, 404); const profileRow = await db.prepare('SELECT display_name, profile_title, bio, location, website_url, avatar_url, banner_url, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active, selected_rank_id, updated_at FROM user_profiles WHERE user_id = ?').bind(row.id).first(); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); const progress = await getUserAccountProgress(db, row.id); const defaultRank = getDefaultRankForLevel(progress.accountLevel, ranks.ranks); const rank = getDisplayedRank(progress.accountLevel, profileRow?.selected_rank_id, ranks.ranks); const unlockedRanks = user.id === row.id ? getUnlockedRanks(progress.accountLevel, ranks.ranks) : undefined; const showcase = await getPublicShowcaseSlots(db, row.id); return json({ ok: true, profile: { ...serializeUser(row), created_at: row.created_at || null, ...(profileRow||{}), ...progress, selected_rank_id: profileRow?.selected_rank_id || null, rank, defaultRank, showcase, ...(unlockedRanks ? { unlockedRanks } : {}) } }); }
+async function handleProfileMeUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const profile = normalizeProfileInput(body); if (profile.error) return json({ ok: false, error: profile.error }, 400); const db = getDatabase(env); await ensureSchema(db); await db.prepare("INSERT INTO user_profiles (user_id, display_name, profile_title, bio, location, website_url, avatar_url, banner_url, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name, profile_title=excluded.profile_title, bio=excluded.bio, location=excluded.location, website_url=excluded.website_url, avatar_url=excluded.avatar_url, banner_url=excluded.banner_url, favourite_colour=excluded.favourite_colour, profile_accent_colour=excluded.profile_accent_colour, profile_background_colour=excluded.profile_background_colour, profile_layout=excluded.profile_layout, show_level=excluded.show_level, show_rank=excluded.show_rank, show_badges=excluded.show_badges, show_last_active=excluded.show_last_active, updated_at=datetime('now')").bind(user.id, profile.display_name, profile.profile_title, profile.bio, profile.location, profile.website_url, profile.avatar_url, profile.banner_url, profile.favourite_colour, profile.profile_accent_colour, profile.profile_background_colour, profile.profile_layout, profile.show_level, profile.show_rank, profile.show_badges, profile.show_last_active).run(); return handleProfileMe(request, env); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+
+
+async function handleProfileRankUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const incoming = body?.selected_rank_id; const selected = incoming == null ? null : String(incoming).trim(); const db = getDatabase(env); await ensureSchema(db); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); const progress = await getUserAccountProgress(db, user.id); let selectedRankId = null; if (selected && selected.toLowerCase() !== 'default') { const rank = getRankById(selected, ranks.ranks); if (!rank) return json({ ok: false, error: 'Unknown rank' }, 400); if (rank.level > progress.accountLevel) return json({ ok: false, error: 'You have not unlocked that rank yet' }, 400); selectedRankId = rank.id; }
+await db.prepare("INSERT INTO user_profiles (user_id, selected_rank_id, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(user_id) DO UPDATE SET selected_rank_id=excluded.selected_rank_id, updated_at=datetime('now')").bind(user.id, selectedRankId).run(); return handleProfileMe(request, env); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+
+async function handleAccount(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); return json({ ok: true, user: { ...serializeUser(row), created_at: row.created_at || null } }); }
+async function handleAccountPassword(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const currentPassword = body?.currentPassword ?? ''; const newPassword = body?.newPassword ?? ''; const confirmPassword = body?.confirmPassword ?? ''; if (!currentPassword) return json({ ok: false, error: 'Current password is required' }, 400); if (!newPassword) return json({ ok: false, error: 'New password is required' }, 400); if (!confirmPassword) return json({ ok: false, error: 'Confirm password is required' }, 400); if (newPassword !== confirmPassword) return json({ ok: false, error: 'New passwords do not match' }, 400); const db = getDatabase(env); await ensureSchema(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, password_hash FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); const valid = await verifyPassword(currentPassword, row.password_hash); if (!valid) return json({ ok: false, error: 'Current password is incorrect' }, 400); const passwordHash = await hashPassword(newPassword); await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, user.id).run(); await logAudit(db, user.id, user.id, 'password_changed', {}); return json({ ok: true }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleWalletMe(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); const wallet = await getOrCreateWallet(db, user.id); return json({ ok: true, currency: SITE_CURRENCY_NAME, coins: wallet.coins }); }
+async function handleWalletTransactionsMe(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); await getOrCreateWallet(db, user.id); const rows = await db.prepare('SELECT id, amount, balance_after, type, reason, created_at FROM wallet_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50').bind(user.id).all(); return json({ ok: true, currency: SITE_CURRENCY_NAME, transactions: rows?.results || [] }); }
+async function handleAdminUsers(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); await ensureSchema(db); const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, u.status, w.coins FROM users u LEFT JOIN wallets w ON w.user_id = u.id ORDER BY u.created_at DESC`).all(); return json({ ok: true, users: (rows.results || []).map((r) => ({ ...serializeUser(r), created_at: r.created_at || null, coins: r.coins == null ? null : Number(r.coins) })), roles: ROLES }); }
+async function handleAdminUpdateRole(request, env, path) { const auth = await requireAdmin(request, env); if (auth) return auth; const actor = await getCurrentUser(request, env); const userId = Number(path.split('/')[4]); const role = normalizeRole(String((await readJsonBody(request))?.role || '').trim().toLowerCase()); if (!ROLES[role]) return json({ ok: false, error: 'Invalid role' }, 400); const db = getDatabase(env); const result = await db.prepare('UPDATE users SET role = ?, is_admin = ? WHERE id = ?').bind(role, role === 'admin' ? 1 : 0, userId).run(); if (!result.meta.changes) return json({ ok: false, error: 'User not found' }, 404); await logAudit(db, actor?.id || null, userId, 'role_changed', { role }); const updated = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(userId).first(); return json({ ok: true, user: { ...serializeUser(updated), created_at: updated.created_at || null } }); }
+async function handleAdminUpdateStatus(request, env, path) { const auth = await requireAdmin(request, env); if (auth) return auth; const actor = await getCurrentUser(request, env); const userId = Number(path.split('/')[4]); const status = normalizeStatus((await readJsonBody(request))?.status); if (!ALLOWED_STATUSES.has(status)) return json({ ok: false, error: 'Invalid status' }, 400); const db = getDatabase(env); const result = await db.prepare('UPDATE users SET status = ? WHERE id = ?').bind(status, userId).run(); if (!result.meta.changes) return json({ ok: false, error: 'User not found' }, 404); await logAudit(db, actor?.id || null, userId, 'status_changed', { status }); const updated = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(userId).first(); return json({ ok: true, user: { ...serializeUser(updated), created_at: updated.created_at || null } }); }
+async function handleAdminWalletAdjust(request, env, path) { const auth = await requireAdmin(request, env); if (auth) return auth; const actor = await getCurrentUser(request, env); const db = getDatabase(env); const userId = Number(path.split('/')[4]); const body = await readJsonBody(request); const amount = body?.amount; const reason = String(body?.reason || '').trim(); if (!Number.isInteger(amount)) return json({ ok: false, error: 'amount must be an integer' }, 400); if (!reason) return json({ ok: false, error: 'reason is required' }, 400); const target = await db.prepare('SELECT id FROM users WHERE id = ?').bind(userId).first(); if (!target) return json({ ok: false, error: 'User not found' }, 404); const wallet = await getOrCreateWallet(db, userId); const coins = wallet.coins + amount; await db.prepare("UPDATE wallets SET coins = ?, updated_at = datetime('now') WHERE user_id = ?").bind(coins, userId).run(); await db.prepare("INSERT INTO wallet_transactions (user_id, actor_user_id, amount, balance_after, type, reason) VALUES (?, ?, ?, ?, 'admin_adjustment', ?)").bind(userId, actor?.id || null, amount, coins, reason).run(); await logAudit(db, actor?.id || null, userId, 'wallet_adjusted', { amount, reason, balance_after: coins }); return json({ ok: true, currency: SITE_CURRENCY_NAME, user_id: userId, coins }); }
+async function handleAdminGameProgress(request, env, path) { const auth = await requireAdmin(request, env); if (auth) return auth; const userId = Number(path.split('/')[4]); const body = await readJsonBody(request); const game_key = String(body?.game_key || '').trim(); const game_name = String(body?.game_name || '').trim(); const level = Number(body?.level); const xp = Number(body?.xp); if (!game_key || !game_name) return json({ ok: false, error: 'game_key and game_name are required' }, 400); if (!Number.isInteger(level) || level < 1) return json({ ok: false, error: 'level must be integer >= 1' }, 400); if (!Number.isInteger(xp) || xp < 0) return json({ ok: false, error: 'xp must be integer >= 0' }, 400); const db = getDatabase(env); await db.prepare("INSERT INTO game_progress (user_id, game_key, game_name, level, xp, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(user_id, game_key) DO UPDATE SET game_name=excluded.game_name, level=excluded.level, xp=excluded.xp, updated_at=datetime('now')").bind(userId, game_key, game_name, level, xp).run(); const progress = await getUserAccountProgress(db, userId); return json({ ok: true, user_id: userId, progress }); }
+
+async function handleAdminGetSettings(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); await ensureSchema(db); return json({ ok: true, settings: await getAllSettings(db) }); }
+async function handleAdminSetSettings(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const actor = await getCurrentUser(request, env); const db = getDatabase(env); const updates = (await readJsonBody(request)) || {}; for (const [k, v] of Object.entries(updates)) { if (!SETTING_KEYS.has(k)) return json({ ok: false, error: `Unknown setting: ${k}` }, 400); if (k === 'default_new_user_role' && !ROLES[normalizeRole(v)]) return json({ ok: false, error: 'Invalid default_new_user_role' }, 400); if (k === 'starting_coins' && !Number.isInteger(Number(v))) return json({ ok: false, error: 'Invalid starting_coins' }, 400); await setSetting(db, k, String(v)); await logAudit(db, actor?.id || null, null, 'setting_changed', { key: k, value: String(v) }); }
+  return json({ ok: true, settings: await getAllSettings(db) }); }
+async function handleAdminAudit(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); const rows = await db.prepare('SELECT id, actor_user_id, target_user_id, action, details_json, created_at FROM audit_logs ORDER BY id DESC LIMIT 100').all(); return json({ ok: true, logs: rows?.results || [] }); }
+
+async function enforceAuthGate(request, env, pathname) { if (isPublicPath(pathname)) { if (pathname === '/unregistered.html') { const user = await getCurrentUser(request, env); if (user) return Response.redirect(new URL('/', request.url), 302); } return null; } const user = await getCurrentUser(request, env); if (user) return null; if (pathname.startsWith('/api/')) return json({ ok: false, error: 'Not logged in' }, 401); return Response.redirect(new URL('/unregistered.html', request.url), 302); }
+function isPublicPath(pathname) { return PUBLIC_HTML_PATHS.has(pathname) || PUBLIC_API_PATHS.has(pathname) || pathname === '/favicon.ico' || pathname.startsWith('/styles') || pathname.startsWith('/scripts/') || pathname.startsWith('/data/'); }
+async function getCurrentUser(request, env) { const token = getSessionToken(request); if (!token) return null; const db = getDatabase(env); await ensureSchema(db); const record = await db.prepare("SELECT u.id, u.username, u.role, u.is_admin, u.status FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > datetime('now')").bind(token).first(); return record ? normalizeUser(record) : null; }
+async function requireAdmin(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); if (!isUserAdmin(user)) return json({ ok: false, error: 'Admin access required' }, 403); return null; }
+
+const normalizeRole = (role) => (typeof role === 'string' && ROLES[role] ? role : 'member');
+const normalizeStatus = (status) => (status === 'disabled' ? 'disabled' : 'active');
+const normalizeUser = (user) => ({ ...user, role: normalizeRole(user?.role), status: normalizeStatus(user?.status) });
+const serializeUser = (user) => ({ id: user.id, username: user.username, role: normalizeRole(user.role), roleLabel: getRoleLabel(user.role), is_admin: Number(user.is_admin) === 1 ? 1 : 0, status: normalizeStatus(user.status) });
+const getRoleLabel = (role) => ROLES[normalizeRole(role)]?.label || ROLES.member.label;
+const getRoleLevel = (role) => ROLES[normalizeRole(role)]?.level || ROLES.member.level;
+const isUserAdmin = (u) => normalizeRole(u?.role) === 'admin' || Number(u?.is_admin) === 1 || u?.is_admin === true;
+const getDatabase = (env) => { if (!env?.DB) throw new Error('Database binding DB is not configured'); return env.DB; };
+function handleDebugDb(env) { try { getDatabase(env); return json({ ok: true, hasDb: true }); } catch (error) { return json({ ok: false, hasDb: false, error: friendlyError(error) }, 500); } }
+
+async function handleRanks(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); return json({ ok: true, ranks: ranks.ranks }); }
+async function readJsonBody(request) { const text = await request.text(); if (!text) return {}; try { return JSON.parse(text); } catch { throw new Error('Invalid JSON body'); } }
+const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+function makeSessionToken() { const bytes = crypto.getRandomValues(new Uint8Array(32)); const token = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(''); const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString(); return { token, expiresAt }; }
+function withSessionCookie(response, token, expiresAt) { response.headers.append('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Secure; Expires=${new Date(expiresAt).toUTCString()}`); return response; }
+const clearSessionCookie = () => `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0`;
+function getSessionToken(request) { const header = request.headers.get('Cookie') || ''; for (const part of header.split(';').map((p) => p.trim())) if (part.startsWith(`${SESSION_COOKIE}=`)) return part.slice(SESSION_COOKIE.length + 1); return null; }
+async function hashPassword(password) { const salt = crypto.getRandomValues(new Uint8Array(16)); const enc = new TextEncoder(); const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']); const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, keyMaterial, 256); return `pbkdf2$${PBKDF2_ITERATIONS}$${toBase64(salt)}$${toBase64(new Uint8Array(bits))}`; }
+async function verifyPassword(password, stored) { const [algo, roundsStr, saltB64, hashB64] = (stored || '').split('$'); if (algo !== 'pbkdf2') return false; const rounds = Number(roundsStr); if (!Number.isFinite(rounds) || rounds < 1 || rounds > PBKDF2_ITERATIONS) return false; const salt = fromBase64(saltB64); const expected = fromBase64(hashB64); const enc = new TextEncoder(); const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']); const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: rounds, hash: 'SHA-256' }, keyMaterial, expected.length * 8); return timingSafeEqual(expected, new Uint8Array(bits)); }
+const toBase64 = (bytes) => btoa(String.fromCharCode(...bytes)); const fromBase64 = (b64) => Uint8Array.from(atob(b64 || ''), (c) => c.charCodeAt(0)); const timingSafeEqual = (a, b) => a.length === b.length && a.reduce((d, v, i) => d | (v ^ b[i]), 0) === 0;
+function getXpForNextLevel(accountLevel) { return Math.max(100, Number(accountLevel) * 100); }
+function getAccountLevelFromGameProgress(rows) { const sum = (rows || []).reduce((acc, r) => acc + (Number(r.level) || 0), 0); return Math.max(1, sum); }
+async function getUserAccountProgress(db, userId) { const rows = await db.prepare('SELECT level, xp FROM game_progress WHERE user_id = ?').bind(userId).all(); const list = rows.results || []; const accountLevel = getAccountLevelFromGameProgress(list); const accountXp = list.reduce((acc, r) => acc + (Number(r.xp) || 0), 0); const accountXpRequired = getXpForNextLevel(accountLevel); const accountXpCurrent = accountXpRequired > 0 ? accountXp % accountXpRequired : 0; const accountXpPercent = accountXpRequired > 0 ? Math.floor((accountXpCurrent / accountXpRequired) * 100) : 0; return { accountLevel, accountXp, accountXpCurrent, accountXpRequired, accountXpPercent }; }
+function normalizeProfileInput(body) {
+  const clean = (v) => String(v ?? '').trim();
+  const nullable = (v) => { const x = clean(v); return x || null; };
+  const asBoolInt = (v, fallback = 1) => (v === undefined || v === null || v === '' ? fallback : (Number(v) ? 1 : 0));
+  const hexRe = /^#[0-9a-fA-F]{6}$/;
+  const allowedLayouts = new Set(['compact', 'standard', 'showcase']);
+
+  const display_name = nullable(body?.display_name);
+  const profile_title = nullable(body?.profile_title);
+  const bio = nullable(body?.bio);
+  const location = nullable(body?.location);
+  const website_url = nullable(body?.website_url);
+  const avatar_url = nullable(body?.avatar_url);
+  const banner_url = nullable(body?.banner_url);
+  const favourite_colour = nullable(body?.favourite_colour);
+  const profile_accent_colour = nullable(body?.profile_accent_colour);
+  const profile_background_colour = nullable(body?.profile_background_colour);
+  const profile_layout = nullable(body?.profile_layout) || 'standard';
+  const show_level = asBoolInt(body?.show_level, 1);
+  const show_rank = asBoolInt(body?.show_rank, 1);
+  const show_badges = asBoolInt(body?.show_badges, 1);
+  const show_last_active = asBoolInt(body?.show_last_active, 0);
+
+  if (display_name && display_name.length > 40) return { error: 'display_name max length is 40' };
+  if (profile_title && profile_title.length > 80) return { error: 'profile_title max length is 80' };
+  if (bio && bio.length > 500) return { error: 'bio max length is 500' };
+  if (location && location.length > 80) return { error: 'location max length is 80' };
+  if (website_url && website_url.length > 200) return { error: 'website_url max length is 200' };
+  if (avatar_url && avatar_url.length > 500) return { error: 'avatar_url max length is 500' };
+  if (banner_url && banner_url.length > 500) return { error: 'banner_url max length is 500' };
+  for (const [name, value] of [['favourite_colour', favourite_colour], ['profile_accent_colour', profile_accent_colour], ['profile_background_colour', profile_background_colour]]) {
+    if (value && !hexRe.test(value)) return { error: `${name} must be blank or a hex colour like #00ff66` };
+  }
+  if (!allowedLayouts.has(profile_layout)) return { error: 'profile_layout must be compact, standard, or showcase' };
+
+  return { display_name, profile_title, bio, location, website_url, avatar_url, banner_url, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active };
+}
+
+
+async function getOrCreateWallet(db, userId) { const startCoins = Number(await getSetting(db, 'starting_coins', String(FALLBACK_STARTING_COINS))); const initialCoins = Number.isInteger(startCoins) ? startCoins : FALLBACK_STARTING_COINS; await db.prepare('INSERT OR IGNORE INTO wallets (user_id, coins) VALUES (?, ?)').bind(userId, initialCoins).run(); const existingTx = await db.prepare("SELECT id FROM wallet_transactions WHERE user_id = ? AND type = 'initial_grant' LIMIT 1").bind(userId).first(); if (!existingTx) await db.prepare("INSERT INTO wallet_transactions (user_id, amount, balance_after, type, reason) VALUES (?, ?, ?, 'initial_grant', 'Starting Grev Coins')").bind(userId, initialCoins, initialCoins).run(); const wallet = await db.prepare('SELECT coins FROM wallets WHERE user_id = ?').bind(userId).first(); return { coins: Number(wallet?.coins ?? initialCoins) }; }
+async function ensureSchema(db) { await createSchemaTables(db); return true; }
+async function createSchemaTables(db) { await db.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')))" ).run(); try { await db.prepare("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN selected_rank_id TEXT").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN website_url TEXT").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_accent_colour TEXT").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_background_colour TEXT").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_layout TEXT NOT NULL DEFAULT 'standard'").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_level INTEGER NOT NULL DEFAULT 1").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_rank INTEGER NOT NULL DEFAULT 1").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_badges INTEGER NOT NULL DEFAULT 1").run(); } catch {}
+  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_last_active INTEGER NOT NULL DEFAULT 0").run(); } catch {}
+  await db.prepare("CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS wallets (user_id INTEGER PRIMARY KEY, coins INTEGER NOT NULL DEFAULT 1000, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS wallet_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, actor_user_id INTEGER, amount INTEGER NOT NULL, balance_after INTEGER NOT NULL, type TEXT NOT NULL, reason TEXT NOT NULL, metadata_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS game_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, game_key TEXT NOT NULL, game_name TEXT NOT NULL, level INTEGER NOT NULL DEFAULT 1, xp INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(user_id, game_key), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_unlocks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, unlock_key TEXT NOT NULL, unlock_type TEXT NOT NULL, name TEXT NOT NULL, description TEXT, icon_url TEXT, source TEXT, rarity TEXT NOT NULL DEFAULT 'common', metadata_json TEXT, unlocked_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(user_id, unlock_key), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS profile_showcase_slots (user_id INTEGER NOT NULL, slot INTEGER NOT NULL, unlock_id INTEGER, custom_label TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (user_id, slot), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (unlock_id) REFERENCES user_unlocks(id) ON DELETE SET NULL)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, details_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  await db.prepare("INSERT OR IGNORE INTO site_settings (key, value) VALUES ('site_name',?),('registration_enabled','true'),('default_new_user_role','admin'),('starting_coins','1000'),('maintenance_mode','false')").bind(SITE_NAME).run();
+  await db.prepare("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = '' OR role = 'user'").run(); await db.prepare('UPDATE users SET is_admin = 1 WHERE is_admin IS NULL').run(); await db.prepare("UPDATE users SET status = 'active' WHERE status IS NULL OR status = ''").run();
+}
+async function getSetting(db, key, fallback) { const row = await db.prepare('SELECT value FROM site_settings WHERE key = ?').bind(key).first(); return row?.value ?? fallback; }
+async function setSetting(db, key, value) { await db.prepare("INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')").bind(key, value).run(); }
+async function getAllSettings(db) { const rows = await db.prepare('SELECT key, value, updated_at FROM site_settings ORDER BY key').all(); const settings = {}; (rows.results || []).forEach((r) => { settings[r.key] = r.value; }); return settings; }
+async function logAudit(db, actorUserId, targetUserId, action, details) { await db.prepare('INSERT INTO audit_logs (actor_user_id, target_user_id, action, details_json) VALUES (?, ?, ?, ?)').bind(actorUserId, targetUserId, action, JSON.stringify(details || {})).run(); }
+const isTruthy = (value) => ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
+const friendlyError = (error) => (error instanceof Error ? error.message : 'Unexpected error');
+
+
+
+
+async function handleProfileMyUnlocks(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); await ensureStarterUnlocks(db, user.id); const rows = await db.prepare("SELECT id, unlock_key, unlock_type, name, description, icon_url, source, rarity, unlocked_at FROM user_unlocks WHERE user_id = ? ORDER BY unlocked_at DESC, id DESC").bind(user.id).all(); return json({ ok: true, unlocks: rows.results || [] }); }
+async function handleProfileMyShowcase(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchema(db); return json({ ok: true, slots: await getPublicShowcaseSlots(db, user.id) }); }
+async function handleProfileMyShowcaseUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const slots = Array.isArray(body?.slots) ? body.slots : null; if (!slots) return json({ ok: false, error: 'slots array is required' }, 400); const db = getDatabase(env); await ensureSchema(db); for (const entry of slots) { const slot = Number(entry?.slot); if (!Number.isInteger(slot) || slot < SHOWCASE_SLOT_MIN || slot > SHOWCASE_SLOT_MAX) return json({ ok: false, error: 'slot must be 1 to 4' }, 400); const unlockId = entry?.unlock_id; if (unlockId !== null && unlockId !== undefined) { const unlock = await db.prepare('SELECT id FROM user_unlocks WHERE id = ? AND user_id = ?').bind(Number(unlockId), user.id).first(); if (!unlock) return json({ ok: false, error: `unlock_id ${unlockId} does not belong to your account` }, 400); } await db.prepare("INSERT INTO profile_showcase_slots (user_id, slot, unlock_id, updated_at) VALUES (?, ?, ?, datetime('now')) ON CONFLICT(user_id, slot) DO UPDATE SET unlock_id=excluded.unlock_id, updated_at=datetime('now')").bind(user.id, slot, unlockId == null ? null : Number(unlockId)).run(); } return json({ ok: true, slots: await getPublicShowcaseSlots(db, user.id) }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function getPublicShowcaseSlots(db, userId) { const rows = await db.prepare(`SELECT s.slot, u.id as unlock_id, u.unlock_key, u.unlock_type, u.name, u.description, u.icon_url, u.source, u.rarity, u.unlocked_at FROM profile_showcase_slots s LEFT JOIN user_unlocks u ON u.id = s.unlock_id AND u.user_id = s.user_id WHERE s.user_id = ? AND s.slot BETWEEN ? AND ? ORDER BY s.slot ASC`).bind(userId, SHOWCASE_SLOT_MIN, SHOWCASE_SLOT_MAX).all(); const bySlot = new Map((rows.results || []).map((r) => [Number(r.slot), r])); const slots = []; for (let i = SHOWCASE_SLOT_MIN; i <= SHOWCASE_SLOT_MAX; i += 1) { const row = bySlot.get(i); slots.push({ slot: i, unlock: row && row.unlock_id ? { id: row.unlock_id, unlock_key: row.unlock_key, unlock_type: row.unlock_type, name: row.name, description: row.description || '', icon_url: row.icon_url || '', source: row.source || '', rarity: row.rarity, unlocked_at: row.unlocked_at } : null }); } return slots; }
+async function ensureStarterUnlocks(db, userId) { await db.prepare("INSERT OR IGNORE INTO user_unlocks (user_id, unlock_key, unlock_type, name, description, source, rarity) VALUES (?, 'founding_account', 'achievement', 'Founding Account', 'Created an account during the foundation build.', 'site', 'common')").bind(userId).run(); }
+async function handleAdminUserUnlockUpsert(request, env, path) { try { const auth = await requireAdmin(request, env); if (auth) return auth; const userId = Number(path.split('/')[4]); const body = await readJsonBody(request); const unlock_key = String(body?.unlock_key || '').trim(); const unlock_type = String(body?.unlock_type || '').trim(); const name = String(body?.name || '').trim(); const description = String(body?.description || '').trim() || null; const rarity = String(body?.rarity || 'common').trim(); const source = String(body?.source || 'admin').trim() || 'admin'; const icon_url = String(body?.icon_url || '').trim() || null; if (!unlock_key || !name) return json({ ok: false, error: 'unlock_key and name are required' }, 400); if (!UNLOCK_TYPES.has(unlock_type)) return json({ ok: false, error: 'Invalid unlock_type' }, 400); if (!UNLOCK_RARITIES.has(rarity)) return json({ ok: false, error: 'Invalid rarity' }, 400); const db = getDatabase(env); await ensureSchema(db); await db.prepare("INSERT INTO user_unlocks (user_id, unlock_key, unlock_type, name, description, icon_url, source, rarity, unlocked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(user_id, unlock_key) DO UPDATE SET unlock_type=excluded.unlock_type, name=excluded.name, description=excluded.description, icon_url=excluded.icon_url, source=excluded.source, rarity=excluded.rarity").bind(userId, unlock_key, unlock_type, name, description, icon_url, source, rarity).run(); return json({ ok: true }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+
+function parseRankCsv(csvText) {
+  const lines = String(csvText || "").replace(new RegExp("\r", "g"), "").split("\n");
+  if (!lines.length) return [];
+
+  const header = parseCsvLine(lines.shift() || "").map((value) => value.trim().toLowerCase());
+  const levelIndex = header.indexOf("level");
+  const rankNameIndex = header.indexOf("rank_name");
+  const rankIdIndex = header.indexOf("rank_id");
+
+  if (levelIndex === -1 || rankNameIndex === -1) return [];
+
+  const ranks = [];
+
+  for (const line of lines) {
+    if (!line || !line.trim()) continue;
+
+    const cells = parseCsvLine(line);
+    const level = Number.parseInt(String(cells[levelIndex] || "").trim(), 10);
+    const name = String(cells[rankNameIndex] || "").trim();
+    const explicitId = rankIdIndex >= 0 ? String(cells[rankIdIndex] || "").trim() : "";
+
+    if (!Number.isFinite(level) || level < 0 || !name) continue;
+
+    const id = explicitId ? getRankIdFromName(explicitId) : getRankIdFromName(name);
+
+    ranks.push({
+      id,
+      name,
+      level
+    });
+  }
+
+  return ranks.sort((a, b) => a.level - b.level);
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values;
+}
+
+function getRankIdFromName(rankName) {
+  return String(rankName || "")
+    .trim()
+    .toLowerCase()
+    .replace(new RegExp("[^a-z0-9]+", "g"), "_")
+    .replace(new RegExp("_+", "g"), "_")
+    .replace(new RegExp("^_+|_+$", "g"), "");
+}
+
+function getUnlockedRanks(accountLevel, ranks) {
+  const level = Number(accountLevel) || 1;
+  return ranks.filter((rank) => rank.level <= level);
+}
+
+function getDefaultRankForLevel(accountLevel, ranks) {
+  const unlocked = getUnlockedRanks(accountLevel, ranks);
+  return unlocked.length ? unlocked[unlocked.length - 1] : null;
+}
+
+function getRankById(rankId, ranks) {
+  const id = String(rankId || "").trim();
+  if (!id) return null;
+  return ranks.find((rank) => rank.id === id) || null;
+}
+
+function getDisplayedRank(accountLevel, selectedRankId, ranks) {
+  const unlocked = getUnlockedRanks(accountLevel, ranks);
+  const selected = getRankById(selectedRankId, ranks);
+
+  if (selected && unlocked.some((rank) => rank.id === selected.id)) {
+    return selected;
+  }
+
+  return getDefaultRankForLevel(accountLevel, ranks);
+}
+
+async function loadAccountRanks(request, env) {
+  if (!env?.ASSETS || typeof env.ASSETS.fetch !== 'function') {
+    return {
+      ok: false,
+      error: "Static assets binding ASSETS is not configured. Add assets.binding = 'ASSETS' in wrangler.jsonc."
+    };
+  }
+
+  try {
+    const assetUrl = new URL('/data/grev_dad_account_ranks.csv', request.url);
+    const response = await env.ASSETS.fetch(new Request(assetUrl.toString(), { method: 'GET' }));
+
+    if (!response.ok) {
+      return { ok: false, error: `Could not load account rank CSV from /data/grev_dad_account_ranks.csv (HTTP ${response.status})` };
+    }
+
+    const ranks = parseRankCsv(await response.text());
+    if (!ranks.length) {
+      return { ok: false, error: 'Account rank CSV loaded but no valid ranks were found' };
+    }
+
+    return { ok: true, ranks };
+  } catch (error) {
+    return { ok: false, error: `Could not load account rank CSV from /data/grev_dad_account_ranks.csv (${friendlyError(error)})` };
+  }
+}
