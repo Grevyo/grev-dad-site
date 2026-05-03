@@ -15,15 +15,19 @@
     <main class="page-shell dashboard-page">
       <div class="dashboard-header-row">
         <h1>Home</h1>
-        <button id="reset-dashboard-layout" type="button" class="nav-button">Reset layout</button>
+        <div class="dashboard-edit-controls">
+          <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit homepage</button>
+          <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
+        </div>
       </div>
+      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Drag tiles to reorder your homepage.</p>
 
       <section class="dashboard-grid" id="dashboard-grid">
-        <article class="dashboard-tile account-snapshot" data-tile-id="account-summary"><h2>Account Snapshot</h2><p id="summary-name">Loading…</p></article>
-        <article class="dashboard-tile" data-tile-id="quick-actions"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"></div></article>
-        <article class="dashboard-tile" data-tile-id="profile-completion"><h2>Profile Completion</h2><p id="completion-percent">Loading…</p></article>
-        <article class="dashboard-tile" data-tile-id="members-preview"><h2>Members Preview</h2><p id="members-preview-status">Loading members…</p></article>
-        <article class="dashboard-tile" data-tile-id="chat"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
+        <article class="dashboard-tile account-snapshot" data-tile-id="account-summary"><h2>Account Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile" data-tile-id="quick-actions"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
+        <article class="dashboard-tile" data-tile-id="profile-completion"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
+        <article class="dashboard-tile" data-tile-id="members-preview"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
+        <article class="dashboard-tile chat-dashboard-tile" data-tile-id="chat"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
         <article class="dashboard-tile" data-tile-id="coming-later"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
     </main>
@@ -33,17 +37,39 @@
     <script>
       (function () {
         const ORDER_KEY = 'grev_dashboard_tile_order';
+        const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
         const grid = document.getElementById('dashboard-grid');
-        const reset = document.getElementById('reset-dashboard-layout');
+        const resetButton = document.getElementById('reset-dashboard-layout');
+        const editButton = document.getElementById('toggle-dashboard-edit');
+        const editHelp = document.getElementById('dashboard-edit-help');
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
+        let isEditing = false;
+        let dragBound = false;
+        let homeChatTimer = null;
+        let homeChatRoomId = null;
+
+        async function fetchJsonSafe(url, options = {}) {
+          const response = await fetch(url, options);
+          const text = await response.text();
+          let data = null;
+
+          try { data = text ? JSON.parse(text) : null; }
+          catch { throw new Error(`Invalid JSON from ${url}`); }
+
+          if (!response.ok || !data || data.ok === false) {
+            throw new Error(data?.error || `Request failed: ${response.status}`);
+          }
+
+          return data;
+        }
 
         function applySavedOrder() {
           let saved = null;
           try { saved = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); } catch {}
           if (!Array.isArray(saved)) return;
-          const map = new Map(Array.from(grid.children).map((n) => [n.dataset.tileId, n]));
+          const map = new Map(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => [n.dataset.tileId, n]));
           const ordered = [];
-          saved.forEach((id) => { if (map.has(id)) ordered.push(map.get(id)); map.delete(id); });
+          saved.forEach((id) => { if (map.has(id)) { ordered.push(map.get(id)); map.delete(id); } });
           map.forEach((node) => ordered.push(node));
           ordered.forEach((node) => grid.append(node));
         }
@@ -53,21 +79,28 @@
           localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
         }
 
-        function enableDrag() {
-          Array.from(grid.querySelectorAll('.dashboard-tile')).forEach((tile) => {
-            const handle = document.createElement('button');
-            handle.type = 'button';
-            handle.textContent = 'Drag';
-            handle.className = 'tile-drag-handle';
-            handle.draggable = true;
-            tile.prepend(handle);
-            tile.dataset.dragReady = '1';
-
-            handle.addEventListener('dragstart', () => tile.classList.add('is-dragging'));
-            handle.addEventListener('dragend', () => { tile.classList.remove('is-dragging'); saveOrder(); });
+        function createDragHandles() {
+          grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
+            let handle = tile.querySelector('.tile-drag-handle');
+            if (!handle) {
+              handle = document.createElement('button');
+              handle.type = 'button';
+              handle.textContent = 'Drag';
+              handle.className = 'tile-drag-handle';
+              tile.prepend(handle);
+              handle.addEventListener('dragstart', () => { if (isEditing) tile.classList.add('is-dragging'); });
+              handle.addEventListener('dragend', () => { tile.classList.remove('is-dragging'); if (isEditing) saveOrder(); });
+            }
+            handle.draggable = isEditing;
+            tile.draggable = isEditing;
           });
+        }
 
+        function bindDragSurface() {
+          if (dragBound) return;
+          dragBound = true;
           grid.addEventListener('dragover', (e) => {
+            if (!isEditing) return;
             e.preventDefault();
             const dragging = grid.querySelector('.is-dragging');
             if (!dragging) return;
@@ -79,7 +112,184 @@
           });
         }
 
-        reset.addEventListener('click', function () {
+        function setEditMode(enabled) {
+          isEditing = !!enabled;
+          if (isEditing) document.body.classList.add('dashboard-editing');
+          else document.body.classList.remove('dashboard-editing');
+          editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage';
+          resetButton.hidden = !isEditing;
+          editHelp.hidden = !isEditing;
+          createDragHandles();
+          localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
+        }
+
+        function initials(name, username) {
+          const src = (name || username || '').trim();
+          if (!src) return '?';
+          const parts = src.split(/\s+/).filter(Boolean);
+          if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+          return src.slice(0, 2).toUpperCase();
+        }
+
+        function renderAccount(profile, authUser) {
+          const wrap = document.getElementById('account-summary-content');
+          const username = profile?.username || authUser?.username || 'unknown';
+          const displayName = profile?.display_name || username;
+          const role = profile?.roleLabel || authUser?.role || (authUser?.is_admin ? 'Admin' : 'Member');
+          const level = Number(profile?.accountLevel || profile?.account_level || 1) || 1;
+          const rank = profile?.rank?.name || 'Unranked';
+          const xpCurrent = Number(profile?.accountXpCurrent || 0) || 0;
+          const xpRequired = Number(profile?.accountXpRequired || 100) || 100;
+          const xpPercent = Math.max(0, Math.min(100, Number(profile?.accountXpPercent || ((xpCurrent / Math.max(1, xpRequired)) * 100) || 0)));
+          wrap.textContent = '';
+          const avatar = document.createElement('div'); avatar.className = 'profile-avatar profile-avatar-fallback';
+          if (profile?.avatar_url) { const img = document.createElement('img'); img.src = profile.avatar_url; img.alt = displayName + ' avatar'; avatar.className = 'profile-avatar'; avatar.append(img); }
+          else avatar.textContent = initials(displayName, username);
+          const name = document.createElement('p'); name.textContent = displayName;
+          const user = document.createElement('p'); user.textContent = '@' + username;
+          const meta = document.createElement('p'); meta.textContent = `${role} · ID ${profile?.id || authUser?.id || 'n/a'}`;
+          const levelRank = document.createElement('p'); levelRank.textContent = `Level ${level} · ${rank}`;
+          const xp = document.createElement('p'); xp.textContent = `XP ${xpCurrent} / ${xpRequired}`;
+          const xpBar = document.createElement('div'); xpBar.className = 'xp-bar';
+          const xpFill = document.createElement('div'); xpFill.className = 'xp-bar-fill'; xpFill.style.width = xpPercent + '%';
+          xpBar.append(xpFill);
+          wrap.append(avatar, name, user, meta, levelRank, xp, xpBar);
+        }
+
+        function renderQuickActions(isAdmin) {
+          const container = document.getElementById('quick-actions');
+          container.textContent = '';
+          const actions = [
+            ['/profile.html', 'My Profile'], ['/profile-edit.html', 'Edit Profile'], ['/members.html', 'Members'], ['/leaderboard.html', 'Leaderboard'], ['/account.html', 'Account Settings']
+          ];
+          if (isAdmin) actions.push(['/admin.html', 'Admin']);
+          actions.forEach(([href, label]) => {
+            const a = document.createElement('a'); a.href = href; a.className = 'nav-button'; a.textContent = label; container.append(a);
+          });
+        }
+
+        function renderCompletion(profile) {
+          const wrap = document.getElementById('profile-completion-content');
+          const checks = [
+            { label: 'Avatar set', done: !!profile?.avatar_url },
+            { label: 'Display name set', done: !!profile?.display_name },
+            { label: 'Bio set', done: !!profile?.bio },
+            { label: 'Profile title set', done: !!profile?.profile_title },
+            { label: 'Banner set', done: !!profile?.banner_url },
+            { label: 'Selected rank set', done: !!profile?.rank?.name },
+            { label: 'Showcase selected', done: !!profile?.showcase }
+          ];
+          const possible = checks.filter((item) => item.done || Object.hasOwn(profile || {}, item.label.toLowerCase().replace(/ /g, '_')) || item.label.includes('rank') || item.label.includes('Avatar') || item.label.includes('Display'));
+          const list = possible.length ? possible : checks.slice(0, 5);
+          const completed = list.filter((x) => x.done).length;
+          const percent = Math.round((completed / Math.max(1, list.length)) * 100);
+          const missing = list.filter((x) => !x.done).map((x) => x.label);
+          wrap.textContent = '';
+          const p1 = document.createElement('p'); p1.textContent = `${percent}% complete (${completed}/${list.length})`;
+          const p2 = document.createElement('p'); p2.textContent = missing.length ? `Missing: ${missing.join(', ')}` : 'All key profile fields are complete.';
+          const link = document.createElement('a'); link.href = '/profile-edit.html'; link.textContent = 'Edit profile';
+          wrap.append(p1, p2, link);
+        }
+
+        function renderMembers(members) {
+          const wrap = document.getElementById('members-preview-content');
+          wrap.textContent = '';
+          const list = document.createElement('ul'); list.className = 'member-preview-list';
+          (members || []).slice(0, 6).forEach((member) => {
+            const li = document.createElement('li');
+            const display = member.display_name || member.username || 'Unknown';
+            const username = member.username ? '@' + member.username : '@unknown';
+            const role = member.roleLabel || member.role || 'Member';
+            const level = Number(member.accountLevel || member.account_level || 1) || 1;
+            const rank = member.rank?.name || 'Unranked';
+            const link = document.createElement('a'); link.href = `/profile.html?u=${encodeURIComponent(member.username || '')}`; link.textContent = `${display} (${username})`;
+            const meta = document.createElement('span'); meta.textContent = ` · ${role} · Lv. ${level} · ${rank}`;
+            li.append(link, meta); list.append(li);
+          });
+          if (!list.children.length) wrap.textContent = 'Members preview unavailable.';
+          else wrap.append(list);
+        }
+
+        function msgNode(m) {
+          const row = document.createElement('div'); row.className = 'chat-message';
+          const avatar = document.createElement('div'); avatar.className = 'chat-message-avatar';
+          if (m.sender_avatar_url) { const i = document.createElement('img'); i.src = m.sender_avatar_url; i.alt = 'avatar'; avatar.append(i); }
+          else avatar.textContent = initials(m.sender_display_name, m.sender_username);
+          const content = document.createElement('div');
+          const meta = document.createElement('div'); meta.className = 'chat-message-meta'; meta.textContent = `${m.sender_display_name || m.sender_username} · Lv. ${Number(m.sender_accountLevel) || 1} · ${m.sender_rank?.name || 'Unranked'}`;
+          const body = document.createElement('div'); body.className = 'chat-message-body'; body.textContent = m.body || '';
+          content.append(meta, body); row.append(avatar, content); return row;
+        }
+
+        async function initHomeChat() {
+          const list = document.getElementById('home-chat-list');
+          const input = document.getElementById('home-chat-input');
+          const send = document.getElementById('home-chat-send');
+          const err = document.getElementById('home-chat-error');
+
+          async function refresh() {
+            try {
+              const rooms = await fetchJsonSafe('/api/chat/rooms');
+              const globalRoom = (rooms.rooms || []).find((r) => r.room_key === 'global');
+              if (!globalRoom) throw new Error('Global chat unavailable');
+              homeChatRoomId = globalRoom.id;
+              const msgs = await fetchJsonSafe(`/api/chat/messages?room_id=${homeChatRoomId}`);
+              list.textContent = '';
+              (msgs.messages || []).slice(-20).forEach((m) => list.append(msgNode(m)));
+              if (!list.children.length) list.textContent = 'No messages yet.';
+              err.hidden = true;
+            } catch {
+              list.textContent = 'Chat unavailable.';
+              err.hidden = false;
+            }
+          }
+
+          send.addEventListener('click', async function () {
+            const body = (input.value || '').trim();
+            if (!body || !homeChatRoomId) return;
+            try {
+              await fetchJsonSafe('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ room_id: homeChatRoomId, body }) });
+              input.value = '';
+              await refresh();
+            } catch { err.hidden = false; }
+          });
+
+          await refresh();
+          if (homeChatTimer) clearInterval(homeChatTimer);
+          homeChatTimer = setInterval(refresh, 5000);
+        }
+
+        async function loadDashboard() {
+          try {
+            let profileData = null;
+            let authUser = null;
+            try {
+              const profileRes = await fetchJsonSafe('/api/profile/me');
+              profileData = profileRes.profile || profileRes.user || null;
+            } catch {}
+            const authRes = await fetchJsonSafe('/api/auth/me');
+            authUser = authRes.user || null;
+            if (!profileData) profileData = authUser;
+            renderAccount(profileData || {}, authUser || {});
+            renderQuickActions(authUser?.is_admin === true || Number(authUser?.is_admin) === 1 || authUser?.role === 'admin');
+            renderCompletion(profileData || {});
+            try {
+              const membersRes = await fetchJsonSafe('/api/members');
+              renderMembers(membersRes.members || membersRes.users || []);
+            } catch {
+              document.getElementById('members-preview-content').textContent = 'Members preview unavailable.';
+            }
+          } catch (error) {
+            console.error('[home] Failed to load dashboard', error);
+            document.getElementById('account-summary-content').textContent = 'Unable to load account snapshot.';
+            document.getElementById('quick-actions').textContent = 'Unable to load quick actions.';
+            document.getElementById('profile-completion-content').textContent = 'Unable to load profile completion.';
+            document.getElementById('members-preview-content').textContent = 'Members preview unavailable.';
+          }
+        }
+
+        editButton.addEventListener('click', () => setEditMode(!isEditing));
+        resetButton.addEventListener('click', function () {
           localStorage.removeItem(ORDER_KEY);
           defaultIds.forEach((id) => {
             const node = grid.querySelector(`[data-tile-id="${id}"]`);
@@ -87,43 +297,12 @@
           });
         });
 
-        function initials(name, username) { const src = (name || username || '').trim(); return src ? src.slice(0, 2).toUpperCase() : '?'; }
-        function msgNode(m) {
-          const row = document.createElement('div'); row.className = 'chat-message';
-          const avatar = document.createElement('div'); avatar.className = 'chat-message-avatar';
-          if (m.sender_avatar_url) { const i = document.createElement('img'); i.src = m.sender_avatar_url; i.alt = 'avatar'; avatar.append(i); } else avatar.textContent = initials(m.sender_display_name, m.sender_username);
-          const content = document.createElement('div');
-          const meta = document.createElement('div'); meta.className = 'chat-message-meta'; meta.textContent = `${m.sender_display_name || m.sender_username} · Lv. ${Number(m.sender_accountLevel) || 1} · ${m.sender_rank?.name || 'Unranked'} · ${new Date(m.created_at).toLocaleTimeString()}`;
-          const body = document.createElement('div'); body.className = 'chat-message-body'; body.textContent = m.body || '';
-          content.append(meta, body); row.append(avatar, content); return row;
-        }
-
-        async function initChat() {
-          const list = document.getElementById('home-chat-list'); const input = document.getElementById('home-chat-input'); const send = document.getElementById('home-chat-send'); const err = document.getElementById('home-chat-error');
-          let roomId = null; let timer = null;
-          async function j(url, opts) { const r = await fetch(url, opts); const d = await r.json(); if (!r.ok || !d.ok) throw new Error(d.error || 'failed'); return d; }
-          async function refresh() {
-            try {
-              const rooms = await j('/api/chat/rooms');
-              const g = (rooms.rooms || []).find((r) => r.room_key === 'global');
-              if (!g) throw new Error('missing global'); roomId = g.id;
-              const msgs = await j(`/api/chat/messages?room_id=${roomId}`);
-              list.textContent = '';
-              (msgs.messages || []).slice(-20).forEach((m) => list.append(msgNode(m)));
-              err.hidden = true;
-            } catch {
-              list.textContent = 'Chat unavailable.';
-              err.hidden = false;
-            }
-          }
-          send.addEventListener('click', async function () { const body = (input.value || '').trim(); if (!body || !roomId) return; try { await j('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ room_id: roomId, body }) }); input.value = ''; await refresh(); } catch { err.hidden = false; } });
-          await refresh();
-          if (timer) clearInterval(timer); timer = setInterval(refresh, 5000);
-        }
-
         applySavedOrder();
-        enableDrag();
-        initChat();
+        bindDragSurface();
+        createDragHandles();
+        setEditMode(false);
+        loadDashboard();
+        initHomeChat();
       })();
     </script>
   </body>
