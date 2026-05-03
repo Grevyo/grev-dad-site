@@ -16,7 +16,7 @@
 <section><h2>Recent Audit Logs</h2><p id="audit-status">Loading audit logs...</p><table><thead><tr><th>ID</th><th>Actor</th><th>Target</th><th>Action</th><th>Details</th><th>Created</th></tr></thead><tbody id="audit-body"></tbody></table></section>
 </main>
 <script>
-const TILE_SIZES=['1x1','2x1','1x2','2x2','2x3','3x2','3x3','3x4','4x3','4x4','4x5','5x4','5x5','5x6','6x5','6x6'];
+const TILE_SIZES=['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
 const usersStatusEl=document.getElementById('users-status');const usersBodyEl=document.getElementById('users-body');const settingsStatusEl=document.getElementById('settings-status');const settingsForm=document.getElementById('settings-form');const auditStatusEl=document.getElementById('audit-status');const auditBodyEl=document.getElementById('audit-body');const homepageTilesStatusEl=document.getElementById('homepage-tiles-status');const homepageTilesListEl=document.getElementById('homepage-tiles-list');let rolesMap={};
 async function safeJsonRequest(path,options){const res=await fetch(path,options);const text=await res.text();let data={};if(text){try{data=JSON.parse(text);}catch{throw new Error('Server returned invalid JSON');}}if(!res.ok)throw new Error(data?.error||`Request failed (${res.status})`);return data;}
 const postJson=(path,body)=>safeJsonRequest(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

@@ -14,7 +14,7 @@ const SETTING_KEYS = new Set(['registration_enabled', 'default_new_user_role', '
 const ROLES = { admin: { label: 'Admin', level: 100 }, operator: { label: 'Operator', level: 80 }, og: { label: 'OG', level: 50 }, member: { label: 'Member', level: 10 } };
 const PUBLIC_HTML_PATHS = new Set(['/unregistered.html', '/login.html', '/register.html']);
 const PUBLIC_API_PATHS = new Set(['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/auth/me']);
-const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
+const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
 let accountRankCache = null;
 
 export default { async fetch(request, env) { const url = new URL(request.url);
@@ -234,13 +234,13 @@ async function handleAdminUserUnlockUpsert(request, env, path) { try { const aut
 
 async function handleLeaderboardLevels(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' },401); const db=getDatabase(env); await ensureSchema(db); const rows=await db.prepare("SELECT id, username, role FROM users ORDER BY username ASC").all(); const ranks=await loadAccountRanks(request, env); const list=[]; for (const r of (rows.results||[])) { const pr=await getUserAccountProgress(db,r.id); list.push({id:r.id,username:r.username,role:r.role,roleLabel:getRoleLabel(r.role),...pr,displayedRank:getDisplayedRank(pr.accountLevel,null,ranks.ranks||[])});} list.sort((a,b)=>b.accountLevel-a.accountLevel||b.accountXp-a.accountXp||a.username.localeCompare(b.username)); return json({ok:true,leaderboard:list.slice(0,100).map((x,i)=>({rankPosition:i+1,...x}))}); }
 function getHomepageTileSeedConfigs() { return [
-  { tile_id: 'profile-snapshot', label: 'Profile Snapshot', default_size: '2x1', allowed_sizes: ['1x1', '2x1', '2x2', '3x2', '4x2'], is_enabled: 1, sort_order: 10 },
-  { tile_id: 'quick-actions', label: 'Quick Actions', default_size: '1x1', allowed_sizes: ['1x1', '2x1', '2x2'], is_enabled: 1, sort_order: 20 },
-  { tile_id: 'profile-completion', label: 'Profile Completion', default_size: '1x1', allowed_sizes: ['1x1', '2x1', '2x2'], is_enabled: 1, sort_order: 30 },
-  { tile_id: 'members-preview', label: 'Members Preview', default_size: '2x1', allowed_sizes: ['1x1', '2x1', '2x2', '3x2', '4x2'], is_enabled: 1, sort_order: 40 },
-  { tile_id: 'chat', label: 'Global Chat', default_size: '2x2', allowed_sizes: HOMEPAGE_TILE_SIZE_OPTIONS, is_enabled: 1, sort_order: 50 },
-  { tile_id: 'coming-later', label: 'Status', default_size: '1x1', allowed_sizes: ['1x1', '2x1', '2x2'], is_enabled: 1, sort_order: 60 },
-  { tile_id: 'status', label: 'Status', default_size: '1x1', allowed_sizes: ['1x1', '2x1', '2x2'], is_enabled: 1, sort_order: 61 },
+  { tile_id: 'profile-snapshot', label: 'Profile Snapshot', default_size: '4x2', allowed_sizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 10 },
+  { tile_id: 'quick-actions', label: 'Quick Actions', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 20 },
+  { tile_id: 'profile-completion', label: 'Profile Completion', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 30 },
+  { tile_id: 'members-preview', label: 'Members Preview', default_size: '4x2', allowed_sizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 40 },
+  { tile_id: 'chat', label: 'Global Chat', default_size: '4x4', allowed_sizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], is_enabled: 1, sort_order: 50 },
+  { tile_id: 'coming-later', label: 'Status', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 60 },
+  { tile_id: 'status', label: 'Status', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 61 },
   { tile_id: 'showcase-preview', label: 'Showcase Preview', default_size: '2x1', allowed_sizes: ['1x1', '2x1', '2x2', '3x2', '4x2'], is_enabled: 1, sort_order: 70 }
 ]; }
 function parseAllowedSizes(value) { try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }

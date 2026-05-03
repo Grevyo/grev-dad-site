@@ -59,26 +59,25 @@
 
           return data;
         }
-        const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v3_desktop';
-        const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v3_mobile';
+        const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v4_desktop';
+        const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v4_mobile';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const DASHBOARD_GRID = { columns: 6 };
-        const BASE_TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
-        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['1x1','2x1','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '1x1', allowedSizes: ['1x1','2x1','2x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '1x1', allowedSizes: ['1x1','2x1','2x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '2x1', allowedSizes: ['1x1','2x1','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '2x2', allowedSizes: BASE_TILE_SIZES, isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '1x1', allowedSizes: ['1x1','2x1','2x2'], isEnabled: 1, sortOrder: 60 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','2x3','3x2','3x3'], isEnabled: 1, sortOrder: 999 }};
+                const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
+        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 60 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
         let TILE_SIZE_RULES = JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));
         const DEFAULT_TILE_LAYOUT = {
-          'profile-snapshot': { col: 1, row: 1, size: '2x1' },
-          'quick-actions': { col: 3, row: 1, size: '1x1' },
-          'profile-completion': { col: 5, row: 1, size: '1x1' },
-          'members-preview': { col: 1, row: 2, size: '2x1' },
-          chat: { col: 3, row: 3, size: '2x2' },
-          'coming-later': { col: 5, row: 2, size: '1x1' }
+          'profile-snapshot': { col: 1, row: 1, size: '4x2' },
+          'quick-actions': { col: 5, row: 1, size: '2x2' },
+          'profile-completion': { col: 7, row: 1, size: '2x2' },
+          'members-preview': { col: 1, row: 3, size: '4x2' },
+          chat: { col: 5, row: 3, size: '4x4' },
+          'coming-later': { col: 9, row: 1, size: '2x2' }
         };
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const editHelp = document.getElementById('dashboard-edit-help');
-        editHelp.textContent = 'Use arrows to move tiles around the homepage layout.';
+        editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.';
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
@@ -93,9 +92,9 @@
         function isMobileDashboard() { return window.matchMedia('(max-width: 640px)').matches; }
         function getDashboardColumnCount() {
           if (window.matchMedia('(max-width: 640px)').matches) return 1;
-          if (window.matchMedia('(max-width: 900px)').matches) return 2;
-          if (window.matchMedia('(max-width: 1300px)').matches) return 4;
-          return DASHBOARD_GRID.columns;
+          if (window.matchMedia('(max-width: 900px)').matches) return 4;
+          if (window.matchMedia('(max-width: 1300px)').matches) return 8;
+          return 12;
         }
 
         function parseTileSize(size) {
@@ -224,11 +223,32 @@
           otherEntry.col = srcRect.col; otherEntry.row = srcRect.row;
           saveDesktopLayout(); renderTilePositions(); createEditControls(); return true;
         }
+        function moveTileTo(tileId, col, row) {
+          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          if (!entry) return false;
+          const { w } = parseTileSize(entry.size);
+          const maxCol = Math.max(1, getDashboardColumnCount() - w + 1);
+          const nextCol = Math.max(1, Math.min(maxCol, Math.floor(col || 1)));
+          const nextRow = Math.max(1, Math.floor(row || 1));
+          const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
+          entry.col = nextCol; entry.row = nextRow;
+          const pushed = pushBlockingTiles(tileId, entry.size, dashboardLayout);
+          if (!pushed) { dashboardLayout = snapshot; return false; }
+          saveDesktopLayout(); renderTilePositions(); createEditControls(); return true;
+        }
+        function getGridCellFromPointer(event) {
+          const rect = grid.getBoundingClientRect();
+          const cols = getDashboardColumnCount();
+          const cell = rect.width / cols;
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          return { col: Math.floor(x / cell) + 1, row: Math.floor(y / cell) + 1 };
+        }
         function showTileMessage(message) {
           editHelp.textContent = message;
           editHelp.hidden = false;
           clearTimeout(showTileMessage._t);
-          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage layout.'; }, 1800);
+          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.'; }, 1800);
         }
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
@@ -261,6 +281,28 @@
                 moveControls.append(button);
               });
               controls.append(moveControls); tile.prepend(controls);
+              let dragHandle = tile.querySelector('.tile-drag-handle');
+              if (!dragHandle) {
+                dragHandle = document.createElement('button');
+                dragHandle.type = 'button';
+                dragHandle.className = 'tile-drag-handle';
+                dragHandle.textContent = '↕';
+                dragHandle.setAttribute('aria-label', 'Move tile');
+                dragHandle.title = 'Move tile';
+                dragHandle.addEventListener('pointerdown', (ev) => {
+                  if (!isEditing || isMobileDashboard()) return;
+                  ev.preventDefault();
+                  tile.classList.add('tile-dragging');
+                  const up = (e) => {
+                    tile.classList.remove('tile-dragging');
+                    window.removeEventListener('pointerup', up);
+                    const target = getGridCellFromPointer(e);
+                    if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.');
+                  };
+                  window.addEventListener('pointerup', up, { once: false });
+                });
+                controls.append(dragHandle);
+              }
             }
             controls.hidden = !isEditing;
             let sizeControl = tile.querySelector('.tile-size-control');
@@ -272,7 +314,7 @@
                 const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
                 const next = normalizeTileSize(tileId, select.value);
                 if (parseTileSize(next).w > getDashboardColumnCount()) { select.value = entry.size; showTileMessage('Size change blocked: selected width is larger than the board.'); return; }
-                const pushed = pushBlockingTiles(tileId, next, dashboardLayout); if (!pushed) { select.value = entry.size; showTileMessage('Size change blocked: layout is invalid.'); return; }
+                const pushed = pushBlockingTiles(tileId, next, dashboardLayout); if (!pushed) { select.value = entry.size; showTileMessage('Could not place tile there.'); return; }
                 entry.size = next;
                 mobileLayout.sizes[tileId] = next;
                 saveDesktopLayout();
@@ -299,7 +341,7 @@
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
           editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
-          if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage layout.';
+          if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.';
           createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
         function initials(name, username) {
@@ -322,7 +364,8 @@
           const xpPercent = Math.max(0, Math.min(100, Number(profile?.accountXpPercent || ((xpCurrent / Math.max(1, xpRequired)) * 100) || 0)));
           wrap.textContent = '';
           const tileEl = document.querySelector('[data-tile-id="profile-snapshot"]');
-          const compact = tileEl?.dataset.tileSize === '2x1';
+          const snapSize = parseTileSize(tileEl?.dataset.tileSize || '1x1');
+          const compact = snapSize.w <= 2 && snapSize.h <= 2;
           const root = document.createElement('div'); root.className = `account-snapshot ${compact ? 'account-snapshot-compact' : 'account-snapshot-full'}`;
           const avatar = document.createElement('div'); avatar.className = 'account-snapshot-avatar';
           const img = document.createElement('img');
