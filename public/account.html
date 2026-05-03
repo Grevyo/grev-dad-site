@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Account Settings</title><link rel="stylesheet" href="/styles.css" /></head>
+  <body>
+    <header class="site-header">
+      <a class="site-brand" href="/" aria-label="Grev home">
+        <img class="site-logo" src="/grev.dad.logo.png" alt="Grev" />
+      </a>
+      <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
+    </header>
+    <main>
+      <h1>Account Settings</h1>
+      <p><a href="/">Home</a> | <a href="/profile.html">Profile</a></p>
+      <p id="account-status">Loading account...</p>
+      <p>Username: <span id="account-username">-</span></p>
+      <p>Role: <span id="account-role">-</span></p>
+      <p>Joined: <span id="account-created">-</span></p>
+
+      <h2>Change Password</h2>
+      <form id="password-form">
+        <p><label for="current-password">Current password</label><br /><input id="current-password" name="currentPassword" type="password" required /></p>
+        <p><label for="new-password">New password</label><br /><input id="new-password" name="newPassword" type="password" required /></p>
+        <p><label for="confirm-password">Confirm new password</label><br /><input id="confirm-password" name="confirmPassword" type="password" required /></p>
+        <p><button id="password-submit" type="submit">Update Password</button></p>
+      </form>
+      <p id="password-status"></p>
+    </main>
+<script>
+async function loadAccount(){const s=document.getElementById('account-status');try{const res=await fetch('/api/account');const data=await res.json();if(!res.ok||!data?.user){s.textContent=data?.error||'Unable to load account.';return;}const u=data.user;document.getElementById('account-username').textContent=u.username||'-';document.getElementById('account-role').textContent=u.roleLabel||u.role||'-';document.getElementById('account-created').textContent=u.created_at||'-';s.textContent='Account loaded.';}catch{s.textContent='Unable to load account.';}}
+
+async function handlePasswordChange(e){e.preventDefault();const status=document.getElementById('password-status');status.textContent='';const currentPassword=document.getElementById('current-password').value;const newPassword=document.getElementById('new-password').value;const confirmPassword=document.getElementById('confirm-password').value;if(newPassword!==confirmPassword){status.textContent='New passwords do not match.';return;}const submit=document.getElementById('password-submit');submit.disabled=true;try{const res=await fetch('/api/account/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword,newPassword,confirmPassword})});const data=await res.json();if(!res.ok||!data?.ok){status.textContent=data?.error||'Unable to change password.';return;}document.getElementById('password-form').reset();status.textContent='Password updated successfully.';}catch{status.textContent='Unable to change password.';}finally{submit.disabled=false;}}
+
+document.getElementById('password-form').addEventListener('submit',handlePasswordChange);
+loadAccount();
+</script><script src="/scripts/theme.js"></script><script src="/scripts/auth-status.js"></script></body>
+</html>
