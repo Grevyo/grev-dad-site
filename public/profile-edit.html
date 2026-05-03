@@ -25,6 +25,7 @@
         <label>Profile title<input name="profile_title" maxlength="120"></label>
         <label>Status message<input name="status_message" maxlength="140"></label>
         <label>Bio<textarea name="bio" maxlength="2000"></textarea></label>
+        <label>Location<input name="location" maxlength="120"></label>
       </section>
       <section class="edit-card profile-editor-section">
         <h2>Images &amp; Backgrounds</h2><p>Image and GIF links are supported.</p>
@@ -42,25 +43,43 @@
         <label>Profile accent colour<input type="color" name="profile_accent_colour"></label>
         <label>Profile background colour<input type="color" name="profile_background_colour"></label>
       </section>
+      <section class="edit-card"><h2>Layout & Visibility</h2>
+        <label>Profile layout<select name="profile_layout"><option value="standard">standard</option><option value="showcase">showcase</option><option value="minimal">minimal</option></select></label>
+        <label><input type="checkbox" name="show_level"> Show level</label>
+        <label><input type="checkbox" name="show_rank"> Show rank</label>
+        <label><input type="checkbox" name="show_badges"> Show badges</label>
+        <label><input type="checkbox" name="show_last_active"> Show last active</label>
+      </section>
       <button type="submit" class="nav-button">Save Profile</button>
     </form>
   </main>
   <script>
     const colourDefaults={favourite_colour:'#88aaff',profile_accent_colour:'#88aaff',profile_background_colour:'#0b1020'};
+    const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message'];
+    const toggleFields=['show_level','show_rank','show_badges','show_last_active'];
     async function load(){
       const s=document.getElementById('edit-status');
       const r=await fetch('/api/profile/me');
       if(r.status===401){location.href='/unregistered.html';return;}
-      const d=await r.json();
+      const text=await r.text();
+      let d={};
+      try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}
       if(!r.ok){s.textContent=d.error||'Load failed';return;}
       const p=d.profile||{};
       const f=document.getElementById('profile-edit-form');
-      for(const k of ['display_name','profile_title','bio','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message']) if(f.elements[k]) f.elements[k].value=p[k]||'';
+      for(const k of textFields) if(f.elements[k]) f.elements[k].value=p[k]||'';
+      if(f.elements.profile_layout) f.elements.profile_layout.value=p.profile_layout||'standard';
+      for(const k of toggleFields) if(f.elements[k]) f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;
       for(const k of Object.keys(colourDefaults)) if(f.elements[k]) f.elements[k].value=p[k]||colourDefaults[k];
       s.textContent='Loaded.';
     }
 
-    document.getElementById('profile-edit-form').addEventListener('submit',async(e)=>{
+    const form=document.getElementById('profile-edit-form');
+    const saveButton=form?.querySelector('button[type="submit"]');
+    if(!form) console.error('[profile-edit] Missing profile form');
+    if(!saveButton) console.error('[profile-edit] Missing save button');
+
+    form?.addEventListener('submit',async(e)=>{
       e.preventDefault();
       const status=document.getElementById('edit-status');
       const submit=e.target.querySelector('button[type="submit"]');
@@ -68,10 +87,14 @@
       status.textContent='Saving...';
       try {
         const f=e.target; const body={};
-        for(const k of ['display_name','profile_title','bio','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message']) body[k]=f.elements[k]?.value||'';
+        for(const k of textFields) body[k]=f.elements[k]?.value||'';
         for(const k of Object.keys(colourDefaults)) body[k]=f.elements[k]?.value||'';
+        body.profile_layout=f.elements.profile_layout?.value||'standard';
+        for(const k of toggleFields) body[k]=f.elements[k]?.checked?1:0;
         const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const d=await r.json();
+        const text=await r.text();
+        let d={};
+        try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}
         status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;
       } catch (error) {
         status.textContent=`Save failed: ${error?.message||'Request error'}`;
