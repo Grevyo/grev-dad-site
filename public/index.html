@@ -279,7 +279,8 @@
           clearTimeout(showTileMessage._t);
           showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.'; }, 1800);
         }
-        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;tile.innerHTML=`<h2>${id}</h2><div class='homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}' id='${id}-content'>Loading…</div>`;return tile;}
+        function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
+        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
           tile.className = 'dashboard-tile blank-dashboard-tile';
@@ -380,6 +381,18 @@
           if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.';
           createEditControls(); document.getElementById('show-hidden-boxes').hidden=!isEditing; document.getElementById('hidden-boxes-panel').hidden=!isEditing; renderHiddenPanel(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
+
+        function byId(id) { return document.getElementById(id); }
+        function setTileText(id, text) { const el = byId(id); if (el) el.textContent = text; }
+        function clearTile(id) { const el = byId(id); if (el) el.textContent = ''; return el; }
+        function showTileError(tileId, message) { const tile = document.querySelector(`[data-tile-id="${tileId}"]`); if (!tile) return; const body = tile.querySelector('[data-tile-body], .dashboard-tile-body, div[id$="-content"], .quick-actions, .chat-message-list'); if (body) body.textContent = message; }
+        let profilePromise = null;
+        let authPromise = null;
+        let membersPromise = null;
+        async function getAuthForHome() { if (!authPromise) authPromise = fetchJsonSafe('/api/auth/me').catch((error) => { console.error('[home] auth load failed', error); return null; }); return authPromise; }
+        async function getProfileForHome() { if (!profilePromise) profilePromise = fetchJsonSafe('/api/profile/me').catch((error) => { console.error('[home] profile load failed', error); return null; }); return profilePromise; }
+        async function getMembersForHome() { if (!membersPromise) membersPromise = fetchJsonSafe('/api/members').catch((error) => { console.error('[home] members load failed', error); return null; }); return membersPromise; }
+
         function initials(name, username) {
           const src = (name || username || '').trim();
           if (!src) return '?';
@@ -535,7 +548,8 @@
               (msgs.messages || []).slice(-20).forEach((m) => list.append(msgNode(m)));
               if (!list.children.length) list.textContent = 'No messages yet.';
               err.hidden = true;
-            } catch {
+            } catch (error) {
+              console.error('[home] chat failed', error);
               list.textContent = 'Chat unavailable.';
               err.hidden = false;
             }
@@ -556,56 +570,64 @@
           homeChatTimer = setInterval(refresh, 5000);
         }
 
-        async function loadDashboard() {
+        async function loadAccountSnapshotTile() {
           try {
-            let profileData = null;
-            let authUser = null;
-            try {
-              const profileRes = await fetchJsonSafe('/api/profile/me');
-              profileData = profileRes.profile || profileRes.user || null;
-            } catch {}
-            const authRes = await fetchJsonSafe('/api/auth/me');
-            authUser = authRes.user || null;
-            if (!profileData) profileData = authUser;
-            renderAccount(profileData || {}, authUser || {});
-            renderQuickActions(authUser?.is_admin === true || Number(authUser?.is_admin) === 1 || authUser?.role === 'admin');
-            renderCompletion(profileData || {});
-            try {
-              const membersRes = await fetchJsonSafe('/api/members');
-              renderMembers(membersRes.members || membersRes.users || []);
-            } catch (error) {
-              console.error('[home] members preview failed', error);
-              document.getElementById('members-preview-content').textContent = 'Members preview unavailable.';
-            }
-            try{const p=profileData||{};const statusEl=document.getElementById('profile-status-content');if(statusEl){statusEl.innerHTML=`<div class='homepage-tile-status'><p>${p.status_message||'No status message set.'}</p><p>${p.profile_quote||''}</p>${p.steam_url?`<a href='${p.steam_url}' target='_blank' rel='noopener'>Steam</a>`:''}<p>Visibility: ${p.profile_visibility||'public'}</p><a href='/profile-edit.html'>Edit Profile</a></div>`;}}catch{}
-            try{const scEl=document.getElementById('showcase-preview-content');if(scEl){const slots=(profileData?.showcase||[]).filter((s)=>s.unlock);scEl.innerHTML=slots.length?`<div class='homepage-tile-showcase'>${slots.slice(0,4).map((s)=>`<div>${s.unlock.name}</div>`).join('')}</div>`:'No showcase items selected yet.';}}catch{}
-            try{const lbEl=document.getElementById('leaderboard-preview-content');if(lbEl){try{const lb=await fetchJsonSafe('/api/leaderboard/levels');lbEl.innerHTML=`<div class='homepage-tile-leaderboard'>${(lb.leaderboard||[]).slice(0,5).map((u,i)=>`<div>${i+1}. ${u.username} (Lv ${u.accountLevel||1})</div>`).join('')}<a href='/leaderboard.html'>Open leaderboard</a></div>`;}catch{lbEl.textContent='Leaderboard unavailable.';}}}catch{}
-            try{const msEl=document.getElementById('member-spotlight-content');if(msEl){try{const mr=await fetchJsonSafe('/api/members');const m=(mr.members||[])[0];msEl.innerHTML=m?`<div class='homepage-tile-spotlight'><strong>${m.display_name||m.username}</strong><div>@${m.username}</div></div>`:'No members available.';}catch{msEl.textContent='Member spotlight unavailable.';}}}catch{}
-            const nt=document.getElementById('site-notices-content');if(nt)nt.innerHTML="<div class='homepage-tile-notices'>No site notices.</div>";
-            const at=document.getElementById('admin-quick-tools-content');if(at){if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Home</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Homepage Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";}else{const tile=document.querySelector('[data-tile-id="admin-quick-tools"]');if(tile)tile.remove();delete dashboardLayout.tiles['admin-quick-tools'];}}
-
-          } catch (error) {
-            console.error('[home] Failed to load dashboard', error);
-            document.getElementById('account-summary-content').textContent = 'Unable to load account snapshot.';
-            document.getElementById('quick-actions').textContent = 'Unable to load quick actions.';
-            document.getElementById('profile-completion-content').textContent = 'Unable to load profile completion.';
-            document.getElementById('members-preview-content').textContent = 'Members preview unavailable.';
-          }
+            const profileRes = await getProfileForHome();
+            const authRes = await getAuthForHome();
+            const profileData = profileRes?.profile || profileRes?.user || null;
+            const authUser = authRes?.user || null;
+            if (profileData) return renderAccount(profileData, authUser || {});
+            if (authUser) return renderAccount({ username: authUser.username, roleLabel: authUser.role || (authUser.is_admin ? 'Admin' : 'Member'), accountLevel: 1, rank: { name: 'Unranked' }, accountXpCurrent: 0, accountXpRequired: 100 }, authUser);
+            showTileError('profile-snapshot', 'Unable to load account snapshot.');
+          } catch (error) { console.error('[home] account snapshot failed', error); showTileError('profile-snapshot', 'Unable to load account snapshot.'); }
+        }
+        async function loadQuickActionsTile() {
+          try { const authRes = await getAuthForHome(); const authUser = authRes?.user; if (!authUser) return showTileError('quick-actions', 'Quick actions unavailable.'); renderQuickActions(authUser?.is_admin === true || Number(authUser?.is_admin) === 1 || authUser?.role === 'admin'); }
+          catch (error) { console.error('[home] quick actions failed', error); showTileError('quick-actions', 'Quick actions unavailable.'); }
+        }
+        async function loadProfileCompletionTile() {
+          try { const profileRes = await getProfileForHome(); renderCompletion((profileRes?.profile || profileRes?.user || {})); }
+          catch (error) { console.error('[home] profile completion failed', error); showTileError('profile-completion', 'Profile completion unavailable.'); }
+        }
+        async function loadMembersPreviewTile() {
+          try { const membersRes = await getMembersForHome(); renderMembers(membersRes?.members || membersRes?.users || []); }
+          catch (error) { console.error('[home] members preview failed', error); showTileError('members-preview', 'Members preview unavailable.'); }
+        }
+        async function loadProfileStatusTile() { try { const p=((await getProfileForHome())?.profile)||{}; const statusEl=clearTile('profile-status-content'); if(!statusEl) return; const root=document.createElement('div'); root.className='homepage-tile-status'; const p1=document.createElement('p'); p1.textContent=p.status_message||'No status message set.'; const p2=document.createElement('p'); p2.textContent=p.profile_quote||''; root.append(p1,p2); if(p.steam_url){const a=document.createElement('a'); a.href=p.steam_url; a.target='_blank'; a.rel='noopener'; a.textContent='Steam'; root.append(a);} const p3=document.createElement('p'); p3.textContent=`Visibility: ${p.profile_visibility||'public'}`; const edit=document.createElement('a'); edit.href='/profile-edit.html'; edit.textContent='Edit Profile'; root.append(p3,edit); statusEl.append(root); } catch (error) { console.error('[home] profile status failed', error); showTileError('profile-status', 'Profile status unavailable.'); } }
+        async function loadShowcasePreviewTile() { try { const scEl=clearTile('showcase-preview-content'); if(!scEl) return; const slots=((((await getProfileForHome())?.profile)||{}).showcase||[]).filter((s)=>s.unlock); if(!slots.length) return setTileText('showcase-preview-content', 'No showcase items selected yet.'); const wrap=document.createElement('div'); wrap.className='homepage-tile-showcase'; slots.slice(0,4).forEach((s)=>{const div=document.createElement('div'); div.textContent=s.unlock.name||'Unnamed'; wrap.append(div);}); scEl.append(wrap);} catch (error) { console.error('[home] showcase preview failed', error); showTileError('showcase-preview', 'Showcase unavailable.'); } }
+        async function loadLeaderboardPreviewTile() { try { const lbEl=clearTile('leaderboard-preview-content'); if(!lbEl) return; const lb=await fetchJsonSafe('/api/leaderboard/levels'); const wrap=document.createElement('div'); wrap.className='homepage-tile-leaderboard'; (lb.leaderboard||[]).slice(0,5).forEach((u,i)=>{const div=document.createElement('div'); div.textContent=`${i+1}. ${u.username} (Lv ${u.accountLevel||1})`; wrap.append(div);}); const a=document.createElement('a'); a.href='/leaderboard.html'; a.textContent='Open leaderboard'; wrap.append(a); lbEl.append(wrap);} catch (error) { console.error('[home] leaderboard preview failed', error); showTileError('leaderboard-preview', 'Leaderboard unavailable.'); } }
+        async function loadMemberSpotlightTile() { try { const msEl=clearTile('member-spotlight-content'); if(!msEl) return; const mr=await getMembersForHome(); const m=(mr?.members||[])[0]; if(!m) return setTileText('member-spotlight-content','No members available.'); const wrap=document.createElement('div'); wrap.className='homepage-tile-spotlight'; const strong=document.createElement('strong'); strong.textContent=m.display_name||m.username||'Unknown'; const user=document.createElement('div'); user.textContent='@'+(m.username||'unknown'); wrap.append(strong,user); msEl.append(wrap);} catch (error) { console.error('[home] member spotlight failed', error); showTileError('member-spotlight', 'Member spotlight unavailable.'); } }
+        async function loadSiteNoticesTile() { const nt = clearTile('site-notices-content') || clearTile('coming-later-content'); if (!nt) return; const wrap = document.createElement('div'); wrap.className='homepage-tile-notices'; wrap.textContent='No site notices.'; nt.append(wrap); }
+        async function loadAdminQuickToolsTile() { try { const at=clearTile('admin-quick-tools-content'); if(!at) return; const authUser=(await getAuthForHome())?.user; if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Home</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Homepage Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";} else { at.textContent='Admin tools unavailable.'; } } catch (error) { console.error('[home] admin quick tools failed', error); showTileError('admin-quick-tools', 'Admin tools unavailable.'); } }
+        async function loadDashboard() {
+          await Promise.allSettled([
+            loadAccountSnapshotTile(),
+            loadQuickActionsTile(),
+            loadProfileCompletionTile(),
+            loadMembersPreviewTile(),
+            loadProfileStatusTile(),
+            loadShowcasePreviewTile(),
+            loadLeaderboardPreviewTile(),
+            loadMemberSpotlightTile(),
+            loadSiteNoticesTile(),
+            loadAdminQuickToolsTile()
+          ]);
         }
 
-        async function loadTileConfig(){try{const d=await fetchJsonSafe('/api/homepage/tile-config');const by={blank:TILE_SIZE_RULES_FALLBACK.blank};(d.tiles||[]).forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}catch{TILE_SIZE_RULES=JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));}}
+        async function loadTileConfig(){try{const d=await fetchJsonSafe('/api/homepage/tile-config');const by={blank:TILE_SIZE_RULES_FALLBACK.blank};(d.tiles||[]).forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}catch(error){console.error('[home] tile config failed', error);TILE_SIZE_RULES=JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));}}
         editButton.addEventListener('click', () => setEditMode(!isEditing));
         resetButton.addEventListener('click', async function () {
           if (isMobileDashboard()) localStorage.removeItem(LAYOUT_KEY_MOBILE); else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
           await loadTileConfig();
-          hydrateLayout();
+          safeHydrateLayout();
           createEditControls();
         });
         addBlankButton.addEventListener('click', function () {
           const ids = new Set(Object.keys(dashboardLayout.blankTiles)); let i = 1; while (ids.has(`blank-${i}`)) i += 1;
           const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout();
         });
-        (async function initDashboard(){await loadTileConfig();hydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();initHomeChat();})();
+        function safeHydrateLayout() { try { hydrateLayout(); } catch (error) { console.error('[home] layout failed', error); console.error('[home] layout hydrate failed; resetting layout', error); localStorage.removeItem('grev_dashboard_layout_v4'); hydrateLayout(); } }
+        (async function initDashboard(){await loadTileConfig();safeHydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();initHomeChat();})();
       })();
     </script>
   </body>
