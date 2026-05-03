@@ -50,6 +50,7 @@
     if (!isLoginPage) container.append(createLink('/login.html', 'Login'));
     if (!isRegisterPage) container.append(createLink('/register.html', 'Register'));
     container.append(createThemeToggle());
+    ensureChatWidget(user);
   }
 
   function removeProfileSummary(container) {
@@ -138,6 +139,20 @@
     logoutButton.title = 'Log out';
     container.append(logoutButton);
     container.append(createThemeToggle());
+    ensureChatWidget(user);
+  }
+
+
+  function ensureChatWidget(user) {
+    if (window.location.pathname.endsWith('/login.html') || window.location.pathname.endsWith('/register.html') || window.location.pathname.endsWith('/unregistered.html')) return;
+    const mount = function(){ if (window.GREVChat?.mount) { window.GREVChat.currentUserId = Number(user?.id) || null; window.GREVChat.mount(); } };
+    if (window.GREVChat?.mount) return mount();
+    if (document.querySelector('script[data-chat-widget="1"]')) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/chat-widget.js';
+    script.dataset.chatWidget = '1';
+    script.onload = mount;
+    document.body.append(script);
   }
 
   function parseProfileData(authUser, profileUser) {

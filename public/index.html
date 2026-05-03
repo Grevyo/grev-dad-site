@@ -47,11 +47,14 @@
           <p><a id="showcase-preview-link" href="/profile.html">Open profile</a></p>
         </section>
 
+        <section class="dashboard-panel chat-home-panel"><h2>Global Chat</h2><div id='home-chat-list' class='chat-message-list'>Loading…</div><div class='chat-input-row'><input id='home-chat-input' maxlength='1000' placeholder='Message global chat'/><button id='home-chat-send' type='button'>Send</button></div><p id='home-chat-error' hidden>Chat unavailable.</p></section>
+
         <section class="dashboard-panel"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li><li>Minigames later</li></ul></section>
       </div>
     </main>
     <script src="/scripts/auth-status.js"></script>
     <script src="/scripts/theme.js"></script>
+    <script src="/scripts/chat-widget.js"></script>
     <script>
       (function(){
         const els = {
@@ -157,6 +160,17 @@
           const li=document.createElement('li'); li.textContent='Could not assess profile completion yet.'; els.completionList.append(li);
         }
 
+
+        async function initHomeChat(){
+          const list=document.getElementById('home-chat-list'); const input=document.getElementById('home-chat-input'); const send=document.getElementById('home-chat-send'); const err=document.getElementById('home-chat-error');
+          let globalRoomId=null;
+          async function api(u,o){const r=await fetch(u,o);const d=await r.json();if(!r.ok||!d.ok) throw new Error(d.error||'failed');return d;}
+          function draw(msgs){list.textContent='';(msgs||[]).slice(-20).forEach(m=>{const row=document.createElement('div');row.className='chat-message';const meta=document.createElement('div');meta.className='chat-message-meta';meta.textContent=`${m.sender_display_name||m.sender_username} · ${new Date(m.created_at).toLocaleTimeString()}`;const body=document.createElement('div');body.className='chat-message-body';body.textContent=m.body;row.append(meta,body);list.append(row);});}
+          async function refresh(){try{const rooms=await api('/api/chat/rooms');const g=(rooms.rooms||[]).find(r=>r.room_key==='global'); if(!g) throw new Error('Global room missing'); globalRoomId=g.id; const msgs=await api(`/api/chat/messages?room_id=${globalRoomId}`); draw(msgs.messages||[]); err.hidden=true;}catch{err.hidden=false;list.textContent='Chat unavailable.';}}
+          send.addEventListener('click', async()=>{const body=(input.value||'').trim();if(!body||!globalRoomId)return;try{await api('/api/chat/messages',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({room_id:globalRoomId,body})});input.value='';await refresh();}catch{err.hidden=false;}});
+          await refresh(); setInterval(refresh,5000);
+        }
+
         async function init(){
           const p=await getJson('/api/profile/me');
           if(p.ok){render(account(p.data,null));}
@@ -176,6 +190,7 @@
             }
           }
 
+          await initHomeChat();
           const m=await getJson('/api/members');
           if(m.ok)renderMembers(m.data); else els.membersPreviewStatus.textContent='Members preview unavailable.';
         }
