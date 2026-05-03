@@ -14,8 +14,187 @@
       <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
     </header>
     <main>
-      <h1>Grev</h1>
+      <h1>Home</h1>
+      <div class="dashboard-grid">
+        <section class="dashboard-section" aria-labelledby="welcome-heading">
+          <h2 id="welcome-heading">Welcome / Account Summary</h2>
+          <div class="stat-row"><strong>Name:</strong> <span id="summary-name">Loading…</span></div>
+          <div class="stat-row"><strong>Username:</strong> <span id="summary-username">Loading…</span></div>
+          <div class="stat-row"><strong>Role:</strong> <span id="summary-role">Loading…</span></div>
+          <div class="stat-row"><strong>Level:</strong> <span id="summary-level">Loading…</span></div>
+          <div class="stat-row"><strong>Rank:</strong> <span id="summary-rank">Loading…</span></div>
+          <p id="summary-xp-label">Loading XP…</p>
+          <div class="xp-bar" role="progressbar" aria-label="Account XP" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="summary-xp-fill" class="xp-bar-fill" style="width: 0%"></div>
+          </div>
+        </section>
+
+        <section class="dashboard-section" aria-labelledby="actions-heading">
+          <h2 id="actions-heading">Quick Actions</h2>
+          <div class="quick-actions" id="quick-actions"></div>
+        </section>
+
+        <section class="dashboard-section" aria-labelledby="progress-heading">
+          <h2 id="progress-heading">Site Progress / Account Progress</h2>
+          <div class="stat-row"><strong>Level:</strong> <span id="progress-level">-</span></div>
+          <div class="stat-row"><strong>Rank:</strong> <span id="progress-rank">-</span></div>
+          <div class="stat-row"><strong>XP:</strong> <span id="progress-xp">-</span></div>
+          <div class="xp-bar" role="progressbar" aria-label="Progress XP" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="progress-xp-fill" class="xp-bar-fill" style="width: 0%"></div>
+          </div>
+        </section>
+
+        <section class="dashboard-section" aria-labelledby="members-heading">
+          <h2 id="members-heading">Members Preview</h2>
+          <p id="members-preview-status">Loading members…</p>
+          <ul id="member-preview-list" class="member-preview-list"></ul>
+        </section>
+
+        <section class="dashboard-section" aria-labelledby="coming-heading">
+          <h2 id="coming-heading">Coming Next</h2>
+          <ul>
+            <li>Minigames</li>
+            <li>Profile badges</li>
+            <li>Site activity</li>
+            <li>More account customisation</li>
+          </ul>
+        </section>
+      </div>
     </main>
-      <script src="/scripts/auth-status.js"></script>
-  <script src="/scripts/theme.js"></script></body>
+    <script src="/scripts/auth-status.js"></script>
+    <script src="/scripts/theme.js"></script>
+    <script>
+      (function () {
+        function safeText(value, fallback) {
+          const text = typeof value === 'string' ? value.trim() : '';
+          return text || fallback;
+        }
+
+        async function fetchJsonSafely(url) {
+          try {
+            const response = await fetch(url, { method: 'GET' });
+            const raw = await response.text();
+            const data = raw ? JSON.parse(raw) : null;
+            return { ok: response.ok, status: response.status, data };
+          } catch (error) {
+            return { ok: false, status: 0, data: null, error };
+          }
+        }
+
+        function accountFromPayloads(profilePayload, authPayload) {
+          const authUser = authPayload?.user || authPayload || null;
+          const profile = profilePayload?.profile || profilePayload?.user || profilePayload || null;
+          const username = safeText(profile?.username || authUser?.username, 'Unknown');
+          const displayName = safeText(profile?.display_name || authUser?.display_name, username);
+          const role = safeText(profile?.role || authUser?.role, authUser?.is_admin ? 'admin' : 'member');
+          const levelRaw = profile?.account_level ?? authUser?.account_level ?? profile?.level ?? authUser?.level;
+          const level = Number.isFinite(Number(levelRaw)) && Number(levelRaw) > 0 ? Number(levelRaw) : 1;
+          const rankName = safeText(profile?.displayed_rank?.name || profile?.rank?.name || authUser?.displayed_rank?.name || authUser?.rank?.name, 'Unranked');
+          const xpCurrentRaw = profile?.xp_current ?? profile?.xp ?? authUser?.xp_current ?? authUser?.xp;
+          const xpRequiredRaw = profile?.xp_required ?? authUser?.xp_required;
+          const xpCurrent = Number.isFinite(Number(xpCurrentRaw)) && Number(xpCurrentRaw) >= 0 ? Number(xpCurrentRaw) : 0;
+          const xpRequired = Number.isFinite(Number(xpRequiredRaw)) && Number(xpRequiredRaw) > 0 ? Number(xpRequiredRaw) : 100;
+          const xpPercent = Math.max(0, Math.min(100, Math.round((xpCurrent / xpRequired) * 100)));
+          const isAdmin = role.toLowerCase() === 'admin' || authUser?.is_admin === true || Number(authUser?.is_admin) === 1;
+
+          return { username, displayName, role, level, rankName, xpCurrent, xpRequired, xpPercent, isAdmin };
+        }
+
+        function renderSummary(account) {
+          document.getElementById('summary-name').textContent = account.displayName;
+          document.getElementById('summary-username').textContent = '@' + account.username;
+          document.getElementById('summary-role').textContent = account.role;
+          document.getElementById('summary-level').textContent = String(account.level);
+          document.getElementById('summary-rank').textContent = account.rankName;
+          document.getElementById('summary-xp-label').textContent = account.xpCurrent + ' / ' + account.xpRequired + ' XP';
+
+          const summaryFill = document.getElementById('summary-xp-fill');
+          summaryFill.style.width = account.xpPercent + '%';
+          summaryFill.parentElement.setAttribute('aria-valuenow', String(account.xpPercent));
+
+          document.getElementById('progress-level').textContent = String(account.level);
+          document.getElementById('progress-rank').textContent = account.rankName;
+          document.getElementById('progress-xp').textContent = account.xpCurrent + ' / ' + account.xpRequired;
+
+          const progressFill = document.getElementById('progress-xp-fill');
+          progressFill.style.width = account.xpPercent + '%';
+          progressFill.parentElement.setAttribute('aria-valuenow', String(account.xpPercent));
+        }
+
+        function renderQuickActions(isAdmin) {
+          const actions = document.getElementById('quick-actions');
+          actions.textContent = '';
+          const links = [
+            { href: '/profile.html', label: 'My Profile' },
+            { href: '/members.html', label: 'Members' },
+            { href: '/account.html', label: 'Account Settings' }
+          ];
+          if (isAdmin) links.push({ href: '/admin.html', label: 'Admin' });
+          links.forEach(function (item) {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'nav-button';
+            link.textContent = item.label;
+            actions.append(link);
+          });
+        }
+
+        function renderMembers(listPayload) {
+          const list = document.getElementById('member-preview-list');
+          const status = document.getElementById('members-preview-status');
+          list.textContent = '';
+          const rows = listPayload?.members || listPayload?.users || [];
+          if (!Array.isArray(rows) || rows.length === 0) {
+            status.textContent = 'No members to preview yet.';
+            return;
+          }
+          status.textContent = 'Showing ' + Math.min(rows.length, 8) + ' member(s).';
+
+          rows.slice(0, 8).forEach(function (member) {
+            const username = safeText(member?.username, 'unknown');
+            const display = safeText(member?.display_name, username);
+            const role = safeText(member?.role, 'member');
+            const level = Number.isFinite(Number(member?.account_level ?? member?.level)) ? Number(member?.account_level ?? member?.level) : 1;
+            const rank = safeText(member?.displayed_rank?.name || member?.rank?.name, 'Unranked');
+
+            const item = document.createElement('li');
+            item.className = 'stat-row';
+            const link = document.createElement('a');
+            link.href = '/profile.html?username=' + encodeURIComponent(username);
+            link.textContent = display;
+            item.append(link);
+            item.append(' · @' + username + ' · ' + role + ' · L' + level + ' · ' + rank);
+            list.append(item);
+          });
+        }
+
+        async function initHome() {
+          const profileResp = await fetchJsonSafely('/api/profile/me');
+          const authResp = await fetchJsonSafely('/api/auth/me');
+          if (!profileResp.ok && !authResp.ok) {
+            document.getElementById('summary-name').textContent = 'Unable to load account summary.';
+            document.getElementById('members-preview-status').textContent = 'Members preview is unavailable right now.';
+            return;
+          }
+
+          const account = accountFromPayloads(profileResp.data, authResp.data);
+          renderSummary(account);
+          renderQuickActions(account.isAdmin);
+
+          const membersResp = await fetchJsonSafely('/api/members');
+          if (membersResp.ok) {
+            renderMembers(membersResp.data);
+          } else {
+            document.getElementById('members-preview-status').textContent = 'Members preview is unavailable right now.';
+          }
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initHome);
+        } else {
+          initHome();
+        }
+      })();
+    </script>
+  </body>
 </html>

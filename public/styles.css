@@ -47,9 +47,10 @@ body {
 }
 
 main {
-  width: min(1120px, 95vw);
-  margin: 0 auto;
-  padding: var(--space-5) var(--space-3);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px;
 }
 
 h1, h2 { margin: 0 0 var(--space-3); line-height: 1.2; }
@@ -124,9 +125,10 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 
 
 .site-header {
-  width: min(1120px, 95vw);
-  margin: 0 auto;
-  padding: var(--space-3) var(--space-3) 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-3) 24px 0;
   display: grid;
   grid-template-columns: auto minmax(220px, 1fr) auto;
   align-items: center;
@@ -291,3 +293,21 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .rank-selector{display:flex;gap:.6rem;align-items:end;margin:0 0 1rem}
 .profile-actions{margin:.5rem 0}
 .account-settings-link{text-decoration:none}
+
+
+.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-3)}
+.dashboard-section{margin:0;padding:var(--space-3);border:1px solid var(--border);background:var(--surface);border-radius:0}
+.stat-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:baseline;margin:0 0 .45rem}
+.quick-actions{display:flex;flex-wrap:wrap;gap:.6rem}
+.member-preview-list{list-style:none;padding:0;margin:0;display:grid;gap:.35rem}
+
+@media (max-width: 700px) {
+  main {
+    padding: 14px;
+  }
+
+  .site-header {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
