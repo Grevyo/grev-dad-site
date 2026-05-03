@@ -52,9 +52,20 @@ Saved fields:
 - No advanced evolution systems yet.
 
 ## Web Export Deployment
-1. Open the GitHub Actions tab and run **Export Grevlings Web** manually.
+1. Open the GitHub Actions tab and run **Export Grevlings Web** manually (or let it run on pushes that touch `games_src/grevlings/**`).
 2. The workflow performs a headless Godot export from `games_src/grevlings` using the `Web` preset.
-3. It writes the build directly into `public/games/grevlings/` (including `index.html`) and commits those generated files back to the current branch with the message **Build Grevlings web export**.
-4. The workflow also uploads the same files as the **grevlings-web-build** artifact for debugging.
-5. Once that commit lands, Cloudflare deploys `/games/grevlings/` from the committed export files.
-6. If `/games/grevlings/` still says "Grevlings web build coming soon.", the export workflow has not committed successfully yet.
+3. Exported files are written to a temporary build directory and uploaded as the **grevlings-web-build** artifact only.
+4. The workflow does **not** commit generated `.wasm`, `.pck`, or `.js` files into `public/games/grevlings/`.
+5. This is required because the current Godot web export produces a `.wasm` larger than Cloudflare's **25 MiB per-file static asset limit**.
+6. `/games/grevlings/` stays as a placeholder page while browser hosting is being finalized.
+
+## Current hosting constraint
+- Cloudflare Workers/Pages static assets reject single files larger than **25 MiB**.
+- Current Godot Web export output includes a `.wasm` that exceeds that limit.
+- For now, web exports are preserved as CI artifacts rather than committed site assets.
+
+## Next hosting options
+1. Reduce the Godot `.wasm` below 25 MiB.
+2. Host large Godot files in Cloudflare R2 (or another public bucket/CDN).
+3. Use another static host for the game build files.
+4. Revisit custom Godot export templates later for better size control.

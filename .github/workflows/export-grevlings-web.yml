@@ -8,7 +8,7 @@ on:
       - .github/workflows/export-grevlings-web.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   export-web:
@@ -25,37 +25,37 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Clean previous Grevlings web export
+      - name: Prepare artifact output directory
         run: |
-          mkdir -p public/games/grevlings
-          find public/games/grevlings -mindepth 1 -delete
+          rm -rf out/grevlings-web-build
+          mkdir -p out/grevlings-web-build
 
       - name: Export Web preset
         working-directory: games_src/grevlings
-        run: godot --headless --verbose --path . --export-release "Web" ../../public/games/grevlings/index.html
+        run: godot --headless --verbose --path . --export-release "Web" ../../out/grevlings-web-build/index.html
 
       - name: Verify export output exists
         run: |
-          test -f public/games/grevlings/index.html
-          find public/games/grevlings -maxdepth 1 -name '*.wasm' -print -quit | grep -q .
-          find public/games/grevlings -maxdepth 1 -name '*.pck' -print -quit | grep -q .
-          find public/games/grevlings -maxdepth 1 -name '*.js' -print -quit | grep -q .
+          test -f out/grevlings-web-build/index.html
+          find out/grevlings-web-build -maxdepth 1 -name '*.wasm' -print -quit | grep -q .
+          find out/grevlings-web-build -maxdepth 1 -name '*.pck' -print -quit | grep -q .
+          find out/grevlings-web-build -maxdepth 1 -name '*.js' -print -quit | grep -q .
 
-      - name: Commit exported web build
+      - name: Warn on Cloudflare static asset size limit
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/games/grevlings
-          if git diff --cached --quiet; then
-            echo 'No changes to commit.'
-          else
-            git commit -m 'Build Grevlings web export'
-            git push
-          fi
+          limit_bytes=$((25 * 1024 * 1024))
+          find out/grevlings-web-build -type f -print0 | while IFS= read -r -d '' file; do
+            size=$(wc -c < "$file")
+            if [ "$size" -gt "$limit_bytes" ]; then
+              size_mib=$(awk -v bytes="$size" 'BEGIN { printf "%.1f", bytes / 1024 / 1024 }')
+              echo "WARNING: $file (${size_mib} MiB)"
+              echo "This file is too large for Cloudflare Workers/Pages static assets."
+            fi
+          done
 
       - name: Upload Grevlings web build artifact
         uses: actions/upload-artifact@v4
         with:
           name: grevlings-web-build
-          path: public/games/grevlings/
+          path: out/grevlings-web-build/
           if-no-files-found: error
