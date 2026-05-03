@@ -1,22 +1,40 @@
-# grev.dad website
+# Grev
 
-This repository contains the **grev.dad** website and account platform.
+Cloudflare Worker + static pages with username/password auth on D1.
 
-## Core features
+## App features
+- Username/password register + login + logout.
+- Roles: `admin`, `operator`, `og`, `member`.
+- Members/profile/admin pages.
+- Internal site currency: **Grev Coins**.
+  - `wallets` table (per-user coin balance, integer only).
+  - `wallet_transactions` table (wallet history).
+  - `/api/wallet/me`
+  - `/api/wallet/me/transactions`
+  - `/api/admin/wallets`
+  - `/api/admin/users/:id/wallet-adjust`
+- Old `balances` and `ledger` money system was removed.
 
-- Username/password authentication (register, login, logout)
-- Member profiles and account settings
-- Members directory
-- Admin management area
+## Routes
+- `/`, `/unregistered.html`, `/register.html`, `/login.html`, `/members.html`, `/profile.html`, `/admin.html`
 
-## Grevlings module
+## D1 migrations
+```bash
+npx wrangler d1 migrations apply profile-db --remote
+npx wrangler d1 migrations apply profile-db --local
+```
 
-The Godot source for Grevlings lives at:
+## Setup API
+```bash
+curl -X POST https://<your-domain>/api/setup/schema -H "Content-Type: application/json" -d '{"secret":"<ADMIN_SETUP_SECRET>"}'
+curl https://<your-domain>/api/setup/status
+```
 
-- `games_src/grevlings/`
+## Profile showcase admin test API
 
-The web route for Grevlings is:
+- `POST /api/admin/users/:id/unlocks` (admin only)
+- Body: `{ "unlock_key", "unlock_type", "name", "description", "rarity", "source", "icon_url" }`
+- `unlock_type` must be one of: achievement, badge, trophy, minigame, cosmetic, other.
+- `rarity` must be one of: common, uncommon, rare, epic, legendary.
+- Upserts by `(user_id, unlock_key)`.
 
-- `/games/grevlings/`
-
-The current page is a placeholder until Godot web export is wired in.
