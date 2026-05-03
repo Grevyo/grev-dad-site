@@ -18,9 +18,15 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Ensure export directory exists
+        run: mkdir -p public/games/grevlings
+
       - name: Export Web preset
         working-directory: games_src/grevlings
-        run: godot --headless --verbose --export-release "Web" ../../public/games/grevlings/index.html
+        run: godot --headless --verbose --path . --export-release "Web" ../../public/games/grevlings/index.html
+
+      - name: Verify export output exists
+        run: test -f public/games/grevlings/index.html
 
       - name: Upload Grevlings web build artifact
         uses: actions/upload-artifact@v4

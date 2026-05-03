@@ -33,6 +33,32 @@ Grevlings is an original cozy creature-care prototype centered on Orbitlings.
   - Hunger
   - Current state
 
+## Exporting a web build with GitHub Actions
+
+The repository includes a manual workflow:
+
+- Workflow file: `.github/workflows/export-grevlings-web.yml`
+- Trigger: **workflow_dispatch** (run manually from the GitHub Actions UI)
+- Godot project working directory: `games_src/grevlings`
+- Export preset used: `Web`
+- Export output path: `../../public/games/grevlings/index.html`
+
+### How to run it manually
+
+1. Open the repository on GitHub.
+2. Go to **Actions**.
+3. Select **Export Grevlings Web**.
+4. Click **Run workflow** and confirm.
+
+### Where the build appears
+
+- The workflow uploads an artifact named: `grevlings-web-build`.
+- The artifact contents are from: `public/games/grevlings/`.
+
+## Placeholder behavior
+
+`public/games/grevlings/index.html` remains a placeholder in source control until exported web artifacts are intentionally deployed.
+
 ## Next planned step
 
-- Add a simple **food interaction loop** (spawn + seek/eat response), while keeping scope prototype-sized.
+After export stability is confirmed, the next gameplay step is wiring food interaction, save/load, and MoonSprint into one playable prototype flow.
