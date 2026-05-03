@@ -29,11 +29,27 @@ function integrationLink(url,label){return `<a class='integration-link' href='${
 async function loadSteamBox(profile){
   const box=document.getElementById('steam-profile-box-content');
   if(!box) return;
-  box.textContent='Loading Steam profile...';
-  try{ const resp=await fetch(`/api/integrations/steam/profile?user_id=${encodeURIComponent(profile.id)}`); const text=await resp.text(); let data=null; try{data=text?JSON.parse(text):null;}catch{data=null;} const steam=data?.steam; if(!steam){ box.textContent='Steam data unavailable.'; return; }
+  try{ const resp=await fetch(`/api/integrations/steam/profile?user_id=${encodeURIComponent(profile.id)}`); const text=await resp.text(); const data=text?JSON.parse(text):null; const steam=data?.steam; if(!steam){ box.innerHTML+=`<div>Steam data unavailable.</div>`; return; }
     const avatar=steam.avatarfull||steam.avatarmedium||steam.avatar;
-    box.innerHTML=`${avatar?`<img class='steam-profile-avatar' src='${esc(avatar)}' alt='Steam avatar'/>`:''}<div class='steam-profile-meta'><div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div><div>${esc(steam.personaname||'')}</div><div>${steam.available?`Status: ${esc(String(steam.personastate ?? 'Unknown'))}`:'Steam data unavailable.'}</div><div>${steam.available?`Visibility: ${esc(String(steam.communityvisibilitystate ?? 'Unknown'))}`:''}</div></div>`;
-  }catch{ box.textContent='Steam data unavailable.'; }
+    const statusMap={0:'Offline',1:'Online',2:'Busy',3:'Away',4:'Snooze',5:'Looking to trade',6:'Looking to play'};
+    const lastOnline=steam.lastlogoff?new Date(Number(steam.lastlogoff)*1000).toLocaleString():'';
+    box.innerHTML=`<div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div>${avatar?`<img class='steam-profile-avatar' src='${esc(avatar)}' alt='Steam avatar'/>`:''}<div class='steam-profile-meta'><div>${esc(steam.personaname||'')}</div><div>${steam.available?`Status: ${esc(statusMap[Number(steam.personastate)]||'Unknown')}`:'Steam data unavailable.'}</div>${steam.available?`<div>Visibility: ${esc(String(steam.communityvisibilitystate ?? 'Unknown'))}</div>`:''}${lastOnline?`<div>Last online: ${esc(lastOnline)}</div>`:''}</div>`;
+  }catch{ box.innerHTML+=`<div>Steam data unavailable.</div>`; }
+}
+
+async function loadLeetifyBox(profile){
+  const box=document.getElementById('leetify-profile-box-content');
+  if(!box) return;
+  try{ const resp=await fetch(`/api/integrations/leetify/profile?user_id=${encodeURIComponent(profile.id)}`); const text=await resp.text(); const data=text?JSON.parse(text):null; const leetify=data?.leetify; if(!leetify){ box.innerHTML+=`<div>Leetify data unavailable.</div>`; return; }
+    const bits=[];
+    if(leetify.name||leetify.nickname) bits.push(`<div>${esc(leetify.name||leetify.nickname)}</div>`);
+    if(leetify.leetifyRating!=null) bits.push(`<div>Leetify rating: ${esc(String(leetify.leetifyRating))}</div>`);
+    if(leetify.aimRating!=null) bits.push(`<div>Aim rating: ${esc(String(leetify.aimRating))}</div>`);
+    if(leetify.utilityRating!=null) bits.push(`<div>Utility rating: ${esc(String(leetify.utilityRating))}</div>`);
+    if(leetify.clutchRating!=null) bits.push(`<div>Clutch rating: ${esc(String(leetify.clutchRating))}</div>`);
+    if(leetify.recentMatchesCount!=null) bits.push(`<div>Recent matches: ${esc(String(leetify.recentMatchesCount))}</div>`);
+    box.innerHTML=`<div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div>${leetify.available&&bits.length?bits.join(''):'<div>Leetify data unavailable.</div>'}`;
+  }catch{ box.innerHTML+=`<div>Leetify data unavailable.</div>`; }
 }
 
 function withProfileFallbackFromAuth(authData){
@@ -95,10 +111,11 @@ async function load(){
     const integrations=document.getElementById('profile-integrations');
     if(integrations){
       const parts=[];
-      if(profile.steam_url){ parts.push(`<article class='steam-profile-box'><h2>Steam Profile</h2><div id='steam-profile-box-content'>Loading Steam profile...</div></article>`);}
-      if(profile.leetify_url){ parts.push(`<article class='leetify-profile-box'><h2>Leetify</h2><div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div></article>`);}
+      if(profile.steam_url){ parts.push(`<article class='steam-profile-box'><h2>Steam Profile</h2><div id='steam-profile-box-content'><div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div></div></article>`);}
+      if(profile.leetify_url){ parts.push(`<article class='leetify-profile-box'><h2>Leetify</h2><div id='leetify-profile-box-content'><div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div></div></article>`);}
       integrations.innerHTML=parts.join('');
       if(profile.steam_url){ loadSteamBox(profile); }
+      if(profile.leetify_url){ loadLeetifyBox(profile); }
     }
     return;
   }catch(error){
