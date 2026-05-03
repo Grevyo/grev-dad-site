@@ -134,6 +134,7 @@
     }
 
     container.textContent = '';
+    container.append(createLink('/games/grevlings/', 'Grevlings'));
     container.append(createLink('/members.html', 'Members'));
 
     if (isAdmin) {
