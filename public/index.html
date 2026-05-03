@@ -23,14 +23,13 @@
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
 
       <div class="dashboard-board">
-      <div class="dashboard-grid-bg" id="dashboard-grid-bg" aria-hidden="true"></div>
       <section class="dashboard-grid" id="dashboard-grid">
-        <article class="dashboard-tile profile-snapshot-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
+        <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile tile-2x2" data-tile-id="quick-actions" data-tile-size="2x2"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
         <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
+        <article class="dashboard-tile tile-2x2" data-tile-id="coming-later" data-tile-size="2x2"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
       </div>
     </main>
@@ -63,8 +62,8 @@
         const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v3_desktop';
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v3_mobile';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const DASHBOARD_GRID = { columns: 6, gap: 16 };
-        const BASE_TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
+        const DASHBOARD_GRID = { columns: 6 };
+        const BASE_TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3'];
         const CHAT_SIZES = ['2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
         const TILE_SIZE_RULES = {
           'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['2x1', '4x2'] },
@@ -171,19 +170,6 @@
           });
           return max;
         }
-        function renderDashboardBackgroundGrid() {
-          const bg = document.getElementById('dashboard-grid-bg');
-          if (!bg) return;
-          const cols = getDashboardColumnCount();
-          const rows = Math.max(getLayoutMaxRows(), 4);
-          bg.innerHTML = '';
-          if (isMobileDashboard()) return;
-          for (let i = 0; i < cols * rows; i += 1) {
-            const cell = document.createElement('div');
-            cell.className = 'dashboard-grid-bg-cell';
-            bg.append(cell);
-          }
-        }
         function renderTilePositions() {
           const isMobile = isMobileDashboard();
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
@@ -192,6 +178,8 @@
             if (!entry) return;
             const { w, h } = parseTileSize(entry.size);
             tile.dataset.tileSize = entry.size;
+            tile.className = tile.className.replace(/tile-\d+x\d+/g, '').replace(/\s+/g, ' ').trim();
+            tile.classList.add(`tile-${entry.size}`);
             if (isMobile) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
             tile.style.gridColumn = `${entry.col} / span ${w}`;
             tile.style.gridRow = `${entry.row} / span ${h}`;
@@ -200,7 +188,6 @@
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
             grid.append(...order.map((id) => grid.querySelector(`[data-tile-id="${id}"]`)));
           }
-          renderDashboardBackgroundGrid();
         }
         function ensureTilesExist() {
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
@@ -288,9 +275,13 @@
                 const next = normalizeTileSize(tileId, select.value);
                 if (!canPlaceTile(tileId, entry.col, entry.row, next)) { select.value = entry.size; showTileMessage('Size change blocked: tile does not fit at current position.'); return; }
                 entry.size = next;
-                if (isMobileDashboard()) { mobileLayout.sizes[tileId] = next; saveMobileLayout(); }
-                else saveDesktopLayout();
+                mobileLayout.sizes[tileId] = next;
+                saveDesktopLayout();
+                saveMobileLayout();
                 renderTilePositions();
+                if (tileId === 'profile-snapshot') {
+                  loadDashboard();
+                }
               });
               sizeControl.append(select); tile.prepend(sizeControl);
             }
@@ -331,7 +322,9 @@
           const xpRequired = Number(profile?.accountXpRequired || 100) || 100;
           const xpPercent = Math.max(0, Math.min(100, Number(profile?.accountXpPercent || ((xpCurrent / Math.max(1, xpRequired)) * 100) || 0)));
           wrap.textContent = '';
-          const root = document.createElement('div'); root.className = 'account-snapshot';
+          const tileEl = document.querySelector('[data-tile-id="profile-snapshot"]');
+          const compact = tileEl?.dataset.tileSize === '2x1';
+          const root = document.createElement('div'); root.className = `account-snapshot ${compact ? 'account-snapshot-compact' : 'account-snapshot-full'}`;
           const avatar = document.createElement('div'); avatar.className = 'account-snapshot-avatar';
           const img = document.createElement('img');
           img.id = 'account-snapshot-avatar-img';
@@ -359,16 +352,17 @@
           const metaWrap = document.createElement('div'); metaWrap.className = 'account-snapshot-meta';
           const name = document.createElement('p'); name.className = 'account-snapshot-name'; name.textContent = displayName;
           const user = document.createElement('p'); user.className = 'account-snapshot-username'; user.textContent = '@' + username;
-          const meta = document.createElement('p'); meta.textContent = `${role} · ID ${profile?.id || authUser?.id || 'n/a'}`;
+          const meta = document.createElement('p'); meta.textContent = compact ? role : `${role} · ID ${profile?.id || authUser?.id || 'n/a'}`;
           const levelRank = document.createElement('p'); levelRank.className = 'account-snapshot-rank';
           if (window.renderLevelBadge) { levelRank.append(window.renderLevelBadge(level), document.createTextNode(' · ' + rank)); }
           else levelRank.textContent = `Level ${level} · ${rank}`;
-          const xp = document.createElement('p'); xp.textContent = `XP ${xpCurrent} / ${xpRequired}`;
+          const xp = document.createElement('p'); xp.textContent = compact ? `XP ${xpCurrent}` : `XP ${xpCurrent} / ${xpRequired}`;
           const xpBar = document.createElement('div'); xpBar.className = 'xp-bar';
           const xpFill = document.createElement('div'); xpFill.className = 'xp-bar-fill'; xpFill.style.width = xpPercent + '%';
           xpBar.append(xpFill);
           const link = document.createElement('a'); link.href = '/profile-edit.html'; link.textContent = 'Open profile';
-          metaWrap.append(name, user, meta, levelRank, xp, xpBar, link);
+          if (compact) metaWrap.append(name, user, levelRank, xp, xpBar);
+          else metaWrap.append(name, user, meta, levelRank, xp, xpBar, link);
           root.append(avatar, metaWrap);
           wrap.append(root);
         }
@@ -520,7 +514,6 @@
           else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
           hydrateLayout();
           createEditControls();
-          renderDashboardBackgroundGrid();
         });
 
         addBlankButton.addEventListener('click', function () {
@@ -535,12 +528,10 @@
           createEditControls();
           saveDesktopLayout();
           saveMobileLayout();
-          renderDashboardBackgroundGrid();
         });
 
         hydrateLayout();
         createEditControls();
-        renderDashboardBackgroundGrid();
         setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');
         window.addEventListener('resize', () => {
           const mobile = isMobileDashboard();
@@ -552,7 +543,6 @@
           renderTilePositions();
           saveDesktopLayout();
           saveMobileLayout();
-          renderDashboardBackgroundGrid();
         });
         loadDashboard();
         initHomeChat();
