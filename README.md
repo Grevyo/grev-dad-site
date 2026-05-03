@@ -1,40 +1,32 @@
-# Grev
+# Grevlings
 
-Cloudflare Worker + static pages with username/password auth on D1.
+Grevlings is an original cosy space creature-raising game concept built around caring for and bonding with small alien companions called **Orbitlings**.
 
-## App features
-- Username/password register + login + logout.
-- Roles: `admin`, `operator`, `og`, `member`.
-- Members/profile/admin pages.
-- Internal site currency: **Grev Coins**.
-  - `wallets` table (per-user coin balance, integer only).
-  - `wallet_transactions` table (wallet history).
-  - `/api/wallet/me`
-  - `/api/wallet/me/transactions`
-  - `/api/admin/wallets`
-  - `/api/admin/users/:id/wallet-adjust`
-- Old `balances` and `ledger` money system was removed.
+The game is inspired by the *feeling* of creature gardens and companion progression, while staying fully original in worldbuilding, terminology, systems, and presentation.
 
-## Routes
-- `/`, `/unregistered.html`, `/register.html`, `/login.html`, `/members.html`, `/profile.html`, `/admin.html`
+## Current Prototype Goal
 
-## D1 migrations
-```bash
-npx wrangler d1 migrations apply profile-db --remote
-npx wrangler d1 migrations apply profile-db --local
-```
+The current phase is to establish a clear, implementation-ready design foundation for a **solo-first local prototype**:
 
-## Setup API
-```bash
-curl -X POST https://<your-domain>/api/setup/schema -H "Content-Type: application/json" -d '{"secret":"<ADMIN_SETUP_SECRET>"}'
-curl https://<your-domain>/api/setup/status
-```
+- Hatch and raise Orbitlings on a home planet.
+- Support feeding, bonding, and early training interactions.
+- Define reusable systems for events (races, battles, contests) using participant slots.
+- Keep architecture flexible so co-op/multiplayer can be added later without rewriting core systems.
 
-## Profile showcase admin test API
+## Tech Stack
 
-- `POST /api/admin/users/:id/unlocks` (admin only)
-- Body: `{ "unlock_key", "unlock_type", "name", "description", "rarity", "source", "icon_url" }`
-- `unlock_type` must be one of: achievement, badge, trophy, minigame, cosmetic, other.
-- `rarity` must be one of: common, uncommon, rare, epic, legendary.
-- Upserts by `(user_id, unlock_key)`.
+- **Engine:** Godot 4
+- **Language target:** GDScript (readable, modular style)
 
+## Build Target Roadmap
+
+1. **First build target:** local desktop prototype (single-machine development and playtesting).
+2. **Later target:** web export, once core gameplay loops are stable.
+
+## Future Site Integration
+
+Long-term, Grevlings is intended to integrate into the grev.dad site under:
+
+- `/games/grevlings/`
+
+That integration is a later milestone and not part of the initial gameplay prototype phase.
