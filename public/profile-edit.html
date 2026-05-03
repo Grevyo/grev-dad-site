@@ -34,7 +34,8 @@
       </section>
       <section class="edit-card"><h2>Links</h2>
         <label>Website URL<input name="website_url" maxlength="200"></label>
-        <label>Steam URL<input name="steam_url" maxlength="300" placeholder="https://steamcommunity.com/id/..."/></label>
+        <label>Steam URL<input name="steam_url" maxlength="300" placeholder="https://steamcommunity.com/id/yourname"/></label><small>Steam URL example: https://steamcommunity.com/id/yourname</small>
+        <label>Leetify URL<input name="leetify_url" maxlength="300" placeholder="https://leetify.com/app/profile/..."/></label><small>Leetify URL example: https://leetify.com/app/profile/...</small>
       </section>
       <section class="edit-card"><h2>Colours / Theme</h2>
         <label>Favourite colour<input type="color" name="favourite_colour"></label>
@@ -54,7 +55,7 @@
       if(!r.ok){s.textContent=d.error||'Load failed';return;}
       const p=d.profile||{};
       const f=document.getElementById('profile-edit-form');
-      for(const k of ['display_name','profile_title','bio','website_url','steam_url','avatar_url','banner_url','profile_background_url','status_message']) if(f.elements[k]) f.elements[k].value=p[k]||'';
+      for(const k of ['display_name','profile_title','bio','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message']) if(f.elements[k]) f.elements[k].value=p[k]||'';
       for(const k of Object.keys(colourDefaults)) if(f.elements[k]) f.elements[k].value=p[k]||colourDefaults[k];
       s.textContent='Loaded.';
     }
@@ -67,7 +68,7 @@
       status.textContent='Saving...';
       try {
         const f=e.target; const body={};
-        for(const k of ['display_name','profile_title','bio','website_url','steam_url','avatar_url','banner_url','profile_background_url','status_message']) body[k]=f.elements[k]?.value||'';
+        for(const k of ['display_name','profile_title','bio','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message']) body[k]=f.elements[k]?.value||'';
         for(const k of Object.keys(colourDefaults)) body[k]=f.elements[k]?.value||'';
         const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const d=await r.json();

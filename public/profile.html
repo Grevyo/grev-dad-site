@@ -5,7 +5,7 @@
 let meId=null;const esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));const initials=n=>{const p=String(n||'?').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[1]?.[0]||'')).toUpperCase();};
 function showcaseMarkup(showcase){const slots=Array.isArray(showcase)?showcase:[];const rarityColor={common:'#9ca8b7',uncommon:'#2f8f4e',rare:'#2e7dff',epic:'#8a4fff',legendary:'#d49100'};return `<section><h2>Showcase</h2><div class='showcase-grid'>${[1,2,3,4].map(i=>{const slot=slots.find(s=>Number(s.slot)===i);const u=slot?.unlock;if(!u)return `<article class='showcase-slot showcase-slot-empty'><div class='showcase-title'>Slot ${i}</div><div>Empty showcase slot</div></article>`;return `<article class='showcase-slot'><div class='showcase-icon'>${u.icon_url?`<img src='${esc(u.icon_url)}' alt='icon'/>`:'▣'}</div><div class='showcase-title'>${esc(u.name)}</div><div class='showcase-meta'>${esc(u.unlock_type)} · <span class='showcase-rarity' style='color:${rarityColor[u.rarity]||'#9ca8b7'}'>${esc(u.rarity)}</span></div>${u.description?`<div>${esc(u.description)}</div>`:''}</article>`;}).join('')}</div></section>`;}
 function levelBadgeHtml(level){ if(window.renderLevelBadge){ const w=document.createElement('div'); w.append(window.renderLevelBadge(level)); return w.innerHTML; } return `Lv. ${Number(level)||1}`;}
-function render(p){const own=meId===p.id;const showLevel=Number(p.show_level)!==0;const showRank=Number(p.show_rank)!==0;const banner=p.banner_url?`<img class='profile-banner' src='${esc(p.banner_url)}' alt='banner'/>`:'';const bgStyle=p.profile_background_url?`background-image:url("${esc(p.profile_background_url)}");background-size:cover;background-position:center;`:'';const avatar=p.avatar_url?`<img class='profile-avatar' src='${esc(p.avatar_url)}' alt='avatar'/>`:`<div class='profile-avatar profile-avatar-fallback'>${initials(p.display_name||p.username)}</div>`;const accent=p.profile_accent_colour?`style='border-color:${esc(p.profile_accent_colour)}'`:'';document.getElementById('profile-view').innerHTML=`${banner}<section class='profile-top-box profile-background' style='${bgStyle}' ${accent}><div>${avatar}</div><div class='profile-identity'><div class='profile-display-name'>${esc(p.display_name||p.username)}</div><div class='profile-username'>@${esc(p.username)}</div>${p.profile_title?`<div>${esc(p.profile_title)}</div>`:''}<div>${esc(p.roleLabel||p.role)}</div>${showLevel?`<div>${levelBadgeHtml(p.accountLevel)}</div><div class='xp-bar'><div class='xp-bar-fill' style='width:${p.accountXpPercent}%;'></div></div><div>XP: ${p.accountXpCurrent}/${p.accountXpRequired}</div>`:''}${showRank?`<div>Rank: ${esc(p.rank?.name||'Unranked')}</div>`:''}${p.location?`<div>${esc(p.location)}</div>`:''}${p.website_url?`<div><a href='${esc(p.website_url)}' target='_blank' rel='noopener noreferrer'>${esc(p.website_url)}</a></div>`:''}${p.steam_url?`<div><a href='${esc(p.steam_url)}' target='_blank' rel='noopener noreferrer'>Steam Profile</a></div>`:''}${p.bio?`<p>${esc(p.bio)}</p>`:''}<div class='profile-actions'>${own?"<a class='nav-button' href='/profile-edit.html'>Edit Profile</a> <a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a> <a class='nav-button' href='/account.html'>Account Settings</a>":''}</div></div></section>${showcaseMarkup(p.showcase)}`;}
+function render(p){const own=meId===p.id;const showLevel=Number(p.show_level)!==0;const showRank=Number(p.show_rank)!==0;const banner=p.banner_url?`<img class='profile-banner' src='${esc(p.banner_url)}' alt='banner'/>`:'';const bgStyle=p.profile_background_url?`background-image:url("${esc(p.profile_background_url)}");background-size:cover;background-position:center;`:'';const avatar=p.avatar_url?`<img class='profile-avatar' src='${esc(p.avatar_url)}' alt='avatar'/>`:`<div class='profile-avatar profile-avatar-fallback'>${initials(p.display_name||p.username)}</div>`;const accent=p.profile_accent_colour?`style='border-color:${esc(p.profile_accent_colour)}'`:'';document.getElementById('profile-view').innerHTML=`${banner}<section class='profile-top-box profile-background' style='${bgStyle}' ${accent}><div>${avatar}</div><div class='profile-identity'><div class='profile-display-name'>${esc(p.display_name||p.username)}</div><div class='profile-username'>@${esc(p.username)}</div>${p.profile_title?`<div>${esc(p.profile_title)}</div>`:''}<div>${esc(p.roleLabel||p.role)}</div>${showLevel?`<div>${levelBadgeHtml(p.accountLevel)}</div><div class='xp-bar'><div class='xp-bar-fill' style='width:${p.accountXpPercent}%;'></div></div><div>XP: ${p.accountXpCurrent}/${p.accountXpRequired}</div>`:''}${showRank?`<div>Rank: ${esc(p.rank?.name||'Unranked')}</div>`:''}${p.location?`<div>${esc(p.location)}</div>`:''}${p.website_url?`<div><a href='${esc(p.website_url)}' target='_blank' rel='noopener noreferrer'>${esc(p.website_url)}</a></div>`:''}${p.bio?`<p>${esc(p.bio)}</p>`:''}<div class='profile-actions'>${own?"<a class='nav-button' href='/profile-edit.html'>Edit Profile</a> <a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a> <a class='nav-button' href='/account.html'>Account Settings</a>":''}</div></div></section><section class='profile-integration-grid' id='profile-integrations'></section>${showcaseMarkup(p.showcase)}`;}
 async function fetchJsonSafe(url, options = {}) {
   const response = await fetch(url, options);
   const text = await response.text();
@@ -22,6 +22,18 @@ async function fetchJsonSafe(url, options = {}) {
   }
 
   return data;
+}
+
+
+function integrationLink(url,label){return `<a class='integration-link' href='${esc(url)}' target='_blank' rel='noopener noreferrer'>${esc(label)}</a>`;}
+async function loadSteamBox(profile){
+  const box=document.getElementById('steam-profile-box-content');
+  if(!box) return;
+  box.textContent='Loading Steam data...';
+  try{ const resp=await fetch(`/api/profile/steam?id=${encodeURIComponent(profile.id)}`); const text=await resp.text(); let data=null; try{data=text?JSON.parse(text):null;}catch{data=null;} const steam=data?.steam; if(!steam){ box.textContent='Steam data unavailable.'; return; }
+    const avatar=steam.avatarfull||steam.avatarmedium||steam.avatar;
+    box.innerHTML=`${avatar?`<img class='steam-profile-avatar' src='${esc(avatar)}' alt='Steam avatar'/>`:''}<div class='steam-profile-meta'><div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div><div>${esc(steam.personaname||'')}</div><div>${steam.available?`Status: ${esc(String(steam.personastate ?? 'Unknown'))}`:'Steam data unavailable.'}</div></div>`;
+  }catch{ box.textContent='Steam data unavailable.'; }
 }
 
 function withProfileFallbackFromAuth(authData){
@@ -78,7 +90,16 @@ async function load(){
   try{
     const profileData=await fetchJsonSafe(id?`/api/profile?id=${encodeURIComponent(id)}`:'/api/profile/me');
     statusEl.textContent='Loaded.';
-    render(profileData.profile||unavailableFallbackProfile());
+    const profile=profileData.profile||unavailableFallbackProfile();
+    render(profile);
+    const integrations=document.getElementById('profile-integrations');
+    if(integrations){
+      const parts=[];
+      if(profile.steam_url){ parts.push(`<article class='steam-profile-box'><h2>Steam Profile</h2><div id='steam-profile-box-content'>Loading Steam data...</div></article>`);}
+      if(profile.leetify_url){ parts.push(`<article class='leetify-profile-box'><h2>Leetify</h2><div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div></article>`);}
+      integrations.innerHTML=parts.join('');
+      if(profile.steam_url){ loadSteamBox(profile); }
+    }
     return;
   }catch(error){
     console.error('[profile] Failed to load profile', error);

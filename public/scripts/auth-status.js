@@ -60,42 +60,17 @@
   }
 
   function createProfileSummary(profile) {
-    const summaryLink = document.createElement('a');
-    summaryLink.href = '/profile.html';
-    summaryLink.title = 'Open profile';
-    summaryLink.className = 'compact-header-account';
-
-    const avatarWrap = document.createElement('span');
-    avatarWrap.className = 'compact-header-avatar';
-    if (profile.avatarUrl) {
-      const avatarImg = document.createElement('img');
-      avatarImg.src = profile.avatarUrl;
-      avatarImg.alt = profile.displayName + ' avatar';
-      avatarImg.loading = 'lazy';
-      avatarWrap.append(avatarImg);
-    } else {
-      const fallback = document.createElement('span');
-      fallback.className = 'compact-header-avatar-fallback';
-      fallback.textContent = getInitials(profile.displayName, profile.username);
-      avatarWrap.append(fallback);
+    const wrap = document.createElement('div');
+    wrap.className = 'compact-header-account';
+    if (window.renderPlayerCard) {
+      wrap.innerHTML = window.renderPlayerCard(profile, { variant: 'header', showXp: true, useCardSettings: true });
+      return wrap.firstElementChild || wrap;
     }
-
-    const textWrap = document.createElement('span');
-    textWrap.className = 'compact-header-text';
-    const displayName = document.createElement('span');
-    displayName.className = 'compact-header-name';
-    displayName.textContent = profile.displayName || profile.username;
-    const username = document.createElement('span');
-    username.className = 'compact-header-username';
-    username.textContent = '@' + profile.username;
-    const meta = document.createElement('span');
-    meta.className = 'compact-header-meta';
-    const lvl = window.renderLevelBadge ? window.renderLevelBadge(profile.level) : null;
-    if (lvl) meta.append(lvl, document.createTextNode(' · ' + (profile.rankName || 'Unranked')));
-    else meta.textContent = profile.rankName ? ('Level ' + profile.level + ' · ' + profile.rankName) : ('Level ' + profile.level + ' · Unranked');
-    textWrap.append(displayName, username, meta);
-    summaryLink.append(avatarWrap, textWrap);
-    return summaryLink;
+    const fallback = document.createElement('a');
+    fallback.href = '/profile.html';
+    fallback.className = 'header-player-card';
+    fallback.textContent = profile.username || 'Profile';
+    return fallback;
   }
 
   async function handleLogout() {
@@ -117,12 +92,11 @@
     if (!username) return renderLoggedOut(container);
 
     const isAdmin = user?.is_admin === true || Number(user?.is_admin) === 1 || user?.role === 'admin';
-    const accountProfile = {
+    const accountProfile = { ...profile,
       username,
-      displayName: profile.displayName || username,
-      avatarUrl: profile.avatarUrl || '',
-      level: Number.isFinite(profile.level) && profile.level > 0 ? profile.level : 1,
-      rankName: profile.rankName || ''
+      display_name: profile.display_name || username,
+      avatar_url: profile.avatar_url || '',
+      accountLevel: Number.isFinite(profile.accountLevel) && profile.accountLevel > 0 ? profile.accountLevel : 1
     };
 
     const header = container.closest('.site-header');
@@ -167,12 +141,12 @@
 
   function parseProfileData(authUser, profileUser) {
     const baseName = typeof authUser?.username === 'string' ? authUser.username.trim() : '';
-    const displayName = typeof profileUser?.display_name === 'string' && profileUser.display_name.trim() ? profileUser.display_name.trim() : (typeof authUser?.display_name === 'string' && authUser.display_name.trim() ? authUser.display_name.trim() : baseName);
-    const avatarUrl = typeof profileUser?.avatar_url === 'string' && profileUser.avatar_url.trim() ? profileUser.avatar_url.trim() : (typeof authUser?.avatar_url === 'string' ? authUser.avatar_url.trim() : '');
-    const levelRaw = profileUser?.account_level ?? authUser?.account_level ?? profileUser?.level ?? authUser?.level;
+    const displayName = typeof profileUser?.display_name === 'string' && profileUser.display_name.trim() ? profileUser.display_name.trim() : baseName;
+    const avatarUrl = typeof profileUser?.avatar_url === 'string' && profileUser.avatar_url.trim() ? profileUser.avatar_url.trim() : '';
+    const levelRaw = profileUser?.accountLevel ?? profileUser?.account_level ?? authUser?.account_level ?? profileUser?.level ?? authUser?.level;
     const parsedLevel = Number(levelRaw);
-    const rankName = profileUser?.rank?.name || profileUser?.displayed_rank?.name || authUser?.rank?.name || authUser?.displayed_rank?.name || '';
-    return { displayName, avatarUrl, level: Number.isFinite(parsedLevel) && parsedLevel > 0 ? parsedLevel : 1, rankName: typeof rankName === 'string' ? rankName.trim() : '' };
+    const rankName = profileUser?.rank?.name || authUser?.rank?.name || '';
+    return { ...profileUser, username: baseName, display_name: displayName, avatar_url: avatarUrl, accountLevel: Number.isFinite(parsedLevel) && parsedLevel > 0 ? parsedLevel : 1, rank: { name: typeof rankName === 'string' ? rankName.trim() : '' } };
   }
 
   async function safeFetchJson(url) {
@@ -235,11 +209,12 @@
 
       const cached = readProfileCache(user.username);
       const cachedProfile = cached ? {
-        displayName: cached.display_name || user.username,
-        avatarUrl: cached.avatar_url || '',
-        level: Number(cached.accountLevel) || 1,
-        rankName: cached.rank || ''
-      } : { displayName: user.username, avatarUrl: '', level: 1, rankName: '' };
+        username: user.username,
+        display_name: cached.display_name || user.username,
+        avatar_url: cached.avatar_url || '',
+        accountLevel: Number(cached.accountLevel) || 1,
+        rank: { name: cached.rank || 'Unranked' }
+      } : { username: user.username, display_name: user.username, avatar_url: '', accountLevel: 1, rank: { name: 'Unranked' } };
       renderLoggedIn(container, user, cachedProfile);
       ensureChatWidget(user);
 
@@ -254,10 +229,10 @@
           renderLoggedIn(container, user, parsed);
           writeProfileCache({
             username: user.username,
-            display_name: parsed.displayName,
-            avatar_url: parsed.avatarUrl,
-            accountLevel: parsed.level,
-            rank: parsed.rankName
+            display_name: parsed.display_name,
+            avatar_url: parsed.avatar_url,
+            accountLevel: parsed.accountLevel,
+            rank: parsed.rank?.name || ''
           });
         } catch {}
       })();

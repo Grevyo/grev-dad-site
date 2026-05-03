@@ -38,3 +38,8 @@ curl https://<your-domain>/api/setup/status
 - `rarity` must be one of: common, uncommon, rare, epic, legendary.
 - Upserts by `(user_id, unlock_key)`.
 
+
+## Steam integration
+
+Set `STEAM_API_KEY` in your worker environment to enable Steam profile data lookups.
+If it is not set, profile pages still show a Steam link with a "Steam data unavailable." message.
