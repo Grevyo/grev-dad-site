@@ -58,21 +58,28 @@
     const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message'];
     const selectFields=['profile_layout','banner_display_size','profile_background_size'];
     const toggleFields=['show_level','show_rank','show_badges','show_last_active'];
+    const safeSelectDefaults={profile_layout:'standard',banner_display_size:'wide',profile_background_size:'cover'};
+    const safeSelectAllowed={profile_layout:new Set(['standard','showcase','minimal']),banner_display_size:new Set(['compact','wide','tall','full']),profile_background_size:new Set(['cover','contain','repeat','stretch','center'])};
+    function safeSelectValue(key,value){const normalized=String(value||safeSelectDefaults[key]||'').trim().toLowerCase();return safeSelectAllowed[key]?.has(normalized)?normalized:safeSelectDefaults[key];}
     async function load(){
       const s=document.getElementById('edit-status');
-      const r=await fetch('/api/profile/me');
-      if(r.status===401){location.href='/unregistered.html';return;}
-      const text=await r.text();
-      let d={};
-      try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}
-      if(!r.ok){s.textContent=d.error||'Load failed';return;}
-      const p=d.profile||{};
-      const f=document.getElementById('profile-edit-form');
-      for(const k of textFields) if(f.elements[k]) f.elements[k].value=p[k]||'';
-      for (const k of selectFields) if(f.elements[k]) f.elements[k].value=p[k]|| (k==='profile_layout'?'standard':(k==='banner_display_size'?'wide':'cover'));
-      for(const k of toggleFields) if(f.elements[k]) f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;
-      for(const k of Object.keys(colourDefaults)) if(f.elements[k]) f.elements[k].value=p[k]||colourDefaults[k];
-      s.textContent='Loaded.';
+      try{
+        const r=await fetch('/api/profile/me');
+        if(r.status===401){location.href='/unregistered.html';return;}
+        const text=await r.text();
+        let d={};
+        try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}
+        if(!r.ok){s.textContent=d.error||'Load failed';return;}
+        const p=d.profile||{};
+        const f=document.getElementById('profile-edit-form');
+        for(const k of textFields) if(f.elements[k]) f.elements[k].value=p[k]||'';
+        for (const k of selectFields) if(f.elements[k]) f.elements[k].value=safeSelectValue(k,p[k]);
+        for(const k of toggleFields) if(f.elements[k]) f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;
+        for(const k of Object.keys(colourDefaults)) if(f.elements[k]) f.elements[k].value=p[k]||colourDefaults[k];
+        s.textContent='Loaded.';
+      }catch(error){
+        s.textContent=`Load failed: ${error?.message||'Unknown error'}`;
+      }
     }
 
     const form=document.getElementById('profile-edit-form');
@@ -90,7 +97,7 @@
         const f=e.target; const body={};
         for(const k of textFields) body[k]=f.elements[k]?.value||'';
         for(const k of Object.keys(colourDefaults)) body[k]=f.elements[k]?.value||'';
-        for (const k of selectFields) body[k]=f.elements[k]?.value|| (k==='profile_layout'?'standard':(k==='banner_display_size'?'wide':'cover'));
+        for (const k of selectFields) body[k]=safeSelectValue(k,f.elements[k]?.value);
         for(const k of toggleFields) body[k]=f.elements[k]?.checked?1:0;
         const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const text=await r.text();

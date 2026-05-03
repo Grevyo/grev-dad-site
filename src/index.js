@@ -489,7 +489,7 @@ async function handleLeetifyProfile(request, env) {
   const userId = requestedId ? Number(requestedId) : Number(user.id);
   if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
   const row=await db.prepare('SELECT leetify_url FROM user_profiles WHERE user_id = ?').bind(userId).first();
-  if(!row?.leetify_url) return json({ ok:false, error:'No Leetify URL set' });
+  if(!row?.leetify_url) return json({ ok:true, leetify:{ available:false, profileUrl:null, message:'No Leetify URL set' } });
   const profileUrl=String(row.leetify_url).trim();
   const parsed=parseLeetifyFromUrl(profileUrl);
   const cacheKey=`${profileUrl}|${parsed.steamid64||''}`;
@@ -546,7 +546,7 @@ async function handleSteamProfile(request, env) {
   const userId = requestedId ? Number(requestedId) : Number(user.id);
   if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
   const row=await db.prepare('SELECT steam_url FROM user_profiles WHERE user_id = ?').bind(userId).first();
-  if(!row?.steam_url) return json({ ok:false, error:'No Steam URL set' });
+  if(!row?.steam_url) return json({ ok:true, steam:{ available:false, profileUrl:null, message:'No Steam URL set' } });
   const profileUrl=String(row.steam_url).trim();
   const parsed=parseSteamIdFromUrl(profileUrl);
   const cacheKey = parsed.steamid || profileUrl;
