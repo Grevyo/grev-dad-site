@@ -8,193 +8,122 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="site-brand" href="/" aria-label="Grev home">
-        <img class="site-logo" src="/grev.dad.logo.png" alt="Grev" />
-      </a>
+      <a class="site-brand" href="/" aria-label="Grev home"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev" /></a>
       <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
     </header>
-    <main>
-      <h1>Home</h1>
-      <div class="dashboard-grid">
-        <section class="dashboard-panel account-snapshot">
-          <h2>Account Snapshot</h2>
-          <div class="account-snapshot-main">
-            <div id="snapshot-avatar" class="account-snapshot-avatar" aria-hidden="true">?</div>
-            <div class="account-snapshot-meta">
-              <div><strong>Name:</strong> <span id="summary-name">Loading…</span></div>
-              <div><strong>Username:</strong> <span id="summary-username">Loading…</span></div>
-              <div><strong>Role:</strong> <span id="summary-role">Loading…</span></div>
-              <div><strong>Joined:</strong> <span id="summary-joined">Unknown</span></div>
-              <div><strong>Level:</strong> <span id="summary-level">Loading…</span></div>
-              <div><strong>Rank:</strong> <span id="summary-rank">Loading…</span></div>
-            </div>
-          </div>
-          <p id="summary-xp-label">Loading XP…</p>
-          <div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="summary-xp-fill" class="xp-bar-fill" style="width:0%"></div></div>
-          <p id="homepage-error" class="homepage-error" hidden></p>
-        </section>
 
-        <section class="dashboard-panel"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"></div></section>
-
-        <section class="dashboard-panel profile-completion"><h2>Profile Completion</h2><p id="completion-percent">Loading…</p><ul id="completion-list" class="completion-list"></ul></section>
-
-        <section class="dashboard-panel member-preview"><h2>Members Preview</h2><p id="members-preview-status">Loading members…</p><ul id="member-preview-list" class="member-preview-list"></ul></section>
-
-        <section class="dashboard-panel showcase-preview" id="showcase-preview-panel" hidden>
-          <h2>Your Showcase Preview</h2>
-          <p id="showcase-preview-status">Loading showcase…</p>
-          <ul id="showcase-preview-list" class="completion-list"></ul>
-          <p><a id="showcase-preview-link" href="/profile.html">Open profile</a></p>
-        </section>
-
-        <section class="dashboard-panel chat-home-panel"><h2>Global Chat</h2><div id='home-chat-list' class='chat-message-list'>Loading…</div><div class='chat-input-row'><input id='home-chat-input' maxlength='1000' placeholder='Message global chat'/><button id='home-chat-send' type='button'>Send</button></div><p id='home-chat-error' hidden>Chat unavailable.</p></section>
-
-        <section class="dashboard-panel"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li><li>Minigames later</li></ul></section>
+    <main class="page-shell dashboard-page">
+      <div class="dashboard-header-row">
+        <h1>Home</h1>
+        <button id="reset-dashboard-layout" type="button" class="nav-button">Reset layout</button>
       </div>
+
+      <section class="dashboard-grid" id="dashboard-grid">
+        <article class="dashboard-tile account-snapshot" data-tile-id="account-summary"><h2>Account Snapshot</h2><p id="summary-name">Loading…</p></article>
+        <article class="dashboard-tile" data-tile-id="quick-actions"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"></div></article>
+        <article class="dashboard-tile" data-tile-id="profile-completion"><h2>Profile Completion</h2><p id="completion-percent">Loading…</p></article>
+        <article class="dashboard-tile" data-tile-id="members-preview"><h2>Members Preview</h2><p id="members-preview-status">Loading members…</p></article>
+        <article class="dashboard-tile" data-tile-id="chat"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
+        <article class="dashboard-tile" data-tile-id="coming-later"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
+      </section>
     </main>
-    <script src="/scripts/auth-status.js"></script>
+
     <script src="/scripts/theme.js"></script>
-    <script src="/scripts/chat-widget.js"></script>
+    <script src="/scripts/auth-status.js"></script>
     <script>
-      (function(){
-        const els = {
-          summaryName: document.getElementById("summary-name"),
-          summaryUsername: document.getElementById("summary-username"),
-          summaryRole: document.getElementById("summary-role"),
-          summaryLevel: document.getElementById("summary-level"),
-          summaryRank: document.getElementById("summary-rank"),
-          summaryXpLabel: document.getElementById("summary-xp-label"),
-          summaryXpFill: document.getElementById("summary-xp-fill"),
-          quickActions: document.getElementById("quick-actions"),
-          completionPercent: document.getElementById("completion-percent"),
-          completionList: document.getElementById("completion-list"),
-          membersPreviewStatus: document.getElementById("members-preview-status"),
-          memberPreviewList: document.getElementById("member-preview-list"),
-          summaryJoined: document.getElementById("summary-joined"),
-          snapshotAvatar: document.getElementById("snapshot-avatar"),
-          homepageError: document.getElementById("homepage-error"),
-          showcasePreviewPanel: document.getElementById("showcase-preview-panel"),
-          showcasePreviewStatus: document.getElementById("showcase-preview-status"),
-          showcasePreviewList: document.getElementById("showcase-preview-list"),
-          showcasePreviewLink: document.getElementById("showcase-preview-link")
-        };
+      (function () {
+        const ORDER_KEY = 'grev_dashboard_tile_order';
+        const grid = document.getElementById('dashboard-grid');
+        const reset = document.getElementById('reset-dashboard-layout');
+        const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
 
-        const txt=(v,f='-')=>typeof v==='string'&&v.trim()?v.trim():f;
-        async function getJson(url){try{const r=await fetch(url);const t=await r.text();let d=null;try{d=t?JSON.parse(t):null;}catch{}return {ok:r.ok,status:r.status,data:d};}catch{return {ok:false,status:0,data:null};}}
-        function initials(name, username){const src=txt(name,'').trim()||txt(username,'').trim();if(!src)return '?';const bits=src.split(/\s+/).filter(Boolean);return (bits[0]?.[0]||'?').toUpperCase()+((bits[1]?.[0]||'').toUpperCase());}
-        function fmtDate(input){if(!input) return 'Unknown';const d=new Date(input);return Number.isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString();}
-
-        function account(p,a){
-          const au=a?.user||a||{};
-          const pr=p?.profile||p?.user||p||{};
-          const username=txt(pr.username||au.username,'Unavailable');
-          const displayName=txt(pr.display_name||pr.displayName||au.display_name||au.displayName,username);
-          const role=txt(pr.roleLabel||pr.role_label||pr.role||au.roleLabel||au.role,'Unavailable');
-          const level=Number(pr.accountLevel??pr.account_level??au.accountLevel??au.account_level??1)||1;
-          const rank=txt(pr.rank?.name||pr.displayed_rank?.name||pr.rank_name||au.rank?.name||'Unranked','Unranked');
-          const cur=Number(pr.accountXpCurrent??pr.account_xp_current??pr.xp_current??pr.accountXp??au.accountXpCurrent??au.xp_current??0)||0;
-          const req=Number(pr.accountXpRequired??pr.account_xp_required??pr.xp_required??au.accountXpRequired??au.xp_required??100)||100;
-          const percentRaw=Number(pr.accountXpPercent??pr.account_xp_percent??((cur/Math.max(req,1))*100));
-          const percent=Math.max(0,Math.min(100,Math.round(Number.isFinite(percentRaw)?percentRaw:0)));
-          const joined=pr.joined_at||pr.created_at||au.created_at||au.joined_at||null;
-          return { username, displayName, role, level, rank, cur, req, percent, joined, isAdmin: String(role).toLowerCase()==='admin'||au.is_admin===true||Number(au.is_admin)===1, profile: pr };
+        function applySavedOrder() {
+          let saved = null;
+          try { saved = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); } catch {}
+          if (!Array.isArray(saved)) return;
+          const map = new Map(Array.from(grid.children).map((n) => [n.dataset.tileId, n]));
+          const ordered = [];
+          saved.forEach((id) => { if (map.has(id)) ordered.push(map.get(id)); map.delete(id); });
+          map.forEach((node) => ordered.push(node));
+          ordered.forEach((node) => grid.append(node));
         }
 
-        function render(a){
-          els.summaryName.textContent=a.displayName;
-          els.summaryUsername.textContent='@'+a.username;
-          els.summaryRole.textContent=a.role;
-          els.summaryLevel.textContent=String(a.level);
-          els.summaryRank.textContent=a.rank;
-          els.summaryJoined.textContent=fmtDate(a.joined);
-          els.summaryXpLabel.textContent=`${a.cur} / ${a.req} XP`;
-          els.summaryXpFill.style.width=a.percent+'%';
-          els.summaryXpFill.parentElement.setAttribute('aria-valuenow',String(a.percent));
-          els.snapshotAvatar.textContent=initials(a.displayName,a.username);
-
-          els.quickActions.textContent='';
-          const actions=[['/profile.html','My Profile'],['/profile-edit.html','Edit Profile'],['/members.html','Members'],['/account.html','Account Settings']];
-          if(a.isAdmin)actions.push(['/admin.html','Admin']);
-          actions.forEach(([h,l])=>{const x=document.createElement('a');x.href=h;x.className='nav-button';x.textContent=l;els.quickActions.append(x);});
-
-          const showcaseArray=Array.isArray(a.profile.showcase) ? a.profile.showcase : [];
-          const checks=[
-            ['avatar set',!!txt(a.profile.avatar_url||'', '')],
-            ['display name set',!!txt(a.profile.display_name||'', '')],
-            ['bio set',!!txt(a.profile.bio||'', '')],
-            ['profile title set',!!txt(a.profile.profile_title||'', '')],
-            ['banner set',!!txt(a.profile.banner_url||a.profile.profile_banner||'', '')],
-            ['selected rank set',!!(a.profile.selected_rank_id||a.profile.rank?.id)],
-            ['showcase slot used',showcaseArray.length?showcaseArray.some(s=>s&&(s.unlock||s.title||s.id)):false]
-          ];
-          els.completionList.textContent='';
-          let done=0;const missing=[];
-          checks.forEach(([label,val])=>{if(val)done++;else missing.push(label);});
-          const total=checks.length;
-          els.completionPercent.textContent=`${done}/${total} complete (${Math.round((done/total)*100)}%)`;
-          if(missing.length){missing.forEach(item=>{const li=document.createElement('li');li.textContent='○ '+item;els.completionList.append(li);});}
-          else {const li=document.createElement('li');li.textContent='✓ Profile baseline complete.';els.completionList.append(li);}
-          const editLi=document.createElement('li');editLi.innerHTML='↗ <a href="/profile-edit.html">Edit your profile</a>';els.completionList.append(editLi);
-
-          if(Array.isArray(a.profile.showcase)){
-            els.showcasePreviewPanel.hidden=false;
-            els.showcasePreviewList.textContent='';
-            if(a.profile.showcase.length===0){els.showcasePreviewStatus.textContent='No showcase items selected yet.';}
-            else {els.showcasePreviewStatus.textContent='Selected showcase items:';a.profile.showcase.slice(0,6).forEach((slot,idx)=>{const li=document.createElement('li');li.textContent=`Slot ${idx+1}: ${txt(slot?.title||slot?.unlock||slot?.id,'Empty')}`;els.showcasePreviewList.append(li);});}
-          }
+        function saveOrder() {
+          const ids = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
+          localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
         }
 
-        function renderMembers(payload){
-          const rows=payload?.members||payload?.users||[];
-          els.memberPreviewList.textContent='';
-          if(!Array.isArray(rows)||!rows.length){els.membersPreviewStatus.textContent='Members preview unavailable.';return;}
-          els.membersPreviewStatus.textContent='Showing up to 6 members.';
-          rows.slice(0,6).forEach(m=>{const un=txt(m.username,'unknown');const dn=txt(m.display_name||m.displayName,un);const role=txt(m.roleLabel||m.role,'member');const level=Number(m.accountLevel??m.account_level??m.level??1)||1;const rank=txt(m.rank?.name||m.displayed_rank?.name||m.rank_name,'Unranked');const li=document.createElement('li');const a=document.createElement('a');a.href='/profile.html?username='+encodeURIComponent(un);a.textContent=dn;li.append(a,document.createTextNode(` · @${un} · ${role} · L${level} · ${rank}`));els.memberPreviewList.append(li);});
+        function enableDrag() {
+          Array.from(grid.querySelectorAll('.dashboard-tile')).forEach((tile) => {
+            const handle = document.createElement('button');
+            handle.type = 'button';
+            handle.textContent = 'Drag';
+            handle.className = 'tile-drag-handle';
+            handle.draggable = true;
+            tile.prepend(handle);
+            tile.dataset.dragReady = '1';
+
+            handle.addEventListener('dragstart', () => tile.classList.add('is-dragging'));
+            handle.addEventListener('dragend', () => { tile.classList.remove('is-dragging'); saveOrder(); });
+          });
+
+          grid.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const dragging = grid.querySelector('.is-dragging');
+            if (!dragging) return;
+            const after = Array.from(grid.querySelectorAll('.dashboard-tile:not(.is-dragging)')).find((card) => {
+              const r = card.getBoundingClientRect();
+              return e.clientY < r.top + r.height / 2;
+            });
+            if (!after) grid.append(dragging); else grid.insertBefore(dragging, after);
+          });
         }
 
-        function renderFullFallback(){
-          els.summaryName.textContent='Unavailable'; els.summaryUsername.textContent='Unavailable'; els.summaryRole.textContent='Unavailable';
-          els.summaryLevel.textContent='1'; els.summaryRank.textContent='Unranked'; els.summaryXpLabel.textContent='0 / 100 XP';
-          els.summaryXpFill.style.width='0%'; els.membersPreviewStatus.textContent='Members preview unavailable.';
-          els.completionPercent.textContent='Profile completion unavailable.'; els.completionList.textContent='';
-          const li=document.createElement('li'); li.textContent='Could not assess profile completion yet.'; els.completionList.append(li);
+        reset.addEventListener('click', function () {
+          localStorage.removeItem(ORDER_KEY);
+          defaultIds.forEach((id) => {
+            const node = grid.querySelector(`[data-tile-id="${id}"]`);
+            if (node) grid.append(node);
+          });
+        });
+
+        function initials(name, username) { const src = (name || username || '').trim(); return src ? src.slice(0, 2).toUpperCase() : '?'; }
+        function msgNode(m) {
+          const row = document.createElement('div'); row.className = 'chat-message';
+          const avatar = document.createElement('div'); avatar.className = 'chat-message-avatar';
+          if (m.sender_avatar_url) { const i = document.createElement('img'); i.src = m.sender_avatar_url; i.alt = 'avatar'; avatar.append(i); } else avatar.textContent = initials(m.sender_display_name, m.sender_username);
+          const content = document.createElement('div');
+          const meta = document.createElement('div'); meta.className = 'chat-message-meta'; meta.textContent = `${m.sender_display_name || m.sender_username} · Lv. ${Number(m.sender_accountLevel) || 1} · ${m.sender_rank?.name || 'Unranked'} · ${new Date(m.created_at).toLocaleTimeString()}`;
+          const body = document.createElement('div'); body.className = 'chat-message-body'; body.textContent = m.body || '';
+          content.append(meta, body); row.append(avatar, content); return row;
         }
 
-
-        async function initHomeChat(){
-          const list=document.getElementById('home-chat-list'); const input=document.getElementById('home-chat-input'); const send=document.getElementById('home-chat-send'); const err=document.getElementById('home-chat-error');
-          let globalRoomId=null;
-          async function api(u,o){const r=await fetch(u,o);const d=await r.json();if(!r.ok||!d.ok) throw new Error(d.error||'failed');return d;}
-          function draw(msgs){list.textContent='';(msgs||[]).slice(-20).forEach(m=>{const row=document.createElement('div');row.className='chat-message';const meta=document.createElement('div');meta.className='chat-message-meta';meta.textContent=`${m.sender_display_name||m.sender_username} · ${new Date(m.created_at).toLocaleTimeString()}`;const body=document.createElement('div');body.className='chat-message-body';body.textContent=m.body;row.append(meta,body);list.append(row);});}
-          async function refresh(){try{const rooms=await api('/api/chat/rooms');const g=(rooms.rooms||[]).find(r=>r.room_key==='global'); if(!g) throw new Error('Global room missing'); globalRoomId=g.id; const msgs=await api(`/api/chat/messages?room_id=${globalRoomId}`); draw(msgs.messages||[]); err.hidden=true;}catch{err.hidden=false;list.textContent='Chat unavailable.';}}
-          send.addEventListener('click', async()=>{const body=(input.value||'').trim();if(!body||!globalRoomId)return;try{await api('/api/chat/messages',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({room_id:globalRoomId,body})});input.value='';await refresh();}catch{err.hidden=false;}});
-          await refresh(); setInterval(refresh,5000);
-        }
-
-        async function init(){
-          const p=await getJson('/api/profile/me');
-          if(p.ok){render(account(p.data,null));}
-          else {
-            const a=await getJson('/api/auth/me');
-            if(a.ok){render(account(null,a.data));}
-            else {renderFullFallback();}
-          }
-
-          if(!p.ok){
-            const a=await getJson('/api/auth/me');
-            if(!a.ok){
-              const error=new Error('profile and auth endpoints failed');
-              console.error('[home] Failed to load dashboard', error);
-              els.homepageError.hidden=false;
-              els.homepageError.textContent='Could not load homepage account data.';
+        async function initChat() {
+          const list = document.getElementById('home-chat-list'); const input = document.getElementById('home-chat-input'); const send = document.getElementById('home-chat-send'); const err = document.getElementById('home-chat-error');
+          let roomId = null; let timer = null;
+          async function j(url, opts) { const r = await fetch(url, opts); const d = await r.json(); if (!r.ok || !d.ok) throw new Error(d.error || 'failed'); return d; }
+          async function refresh() {
+            try {
+              const rooms = await j('/api/chat/rooms');
+              const g = (rooms.rooms || []).find((r) => r.room_key === 'global');
+              if (!g) throw new Error('missing global'); roomId = g.id;
+              const msgs = await j(`/api/chat/messages?room_id=${roomId}`);
+              list.textContent = '';
+              (msgs.messages || []).slice(-20).forEach((m) => list.append(msgNode(m)));
+              err.hidden = true;
+            } catch {
+              list.textContent = 'Chat unavailable.';
+              err.hidden = false;
             }
           }
-
-          await initHomeChat();
-          const m=await getJson('/api/members');
-          if(m.ok)renderMembers(m.data); else els.membersPreviewStatus.textContent='Members preview unavailable.';
+          send.addEventListener('click', async function () { const body = (input.value || '').trim(); if (!body || !roomId) return; try { await j('/api/chat/messages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ room_id: roomId, body }) }); input.value = ''; await refresh(); } catch { err.hidden = false; } });
+          await refresh();
+          if (timer) clearInterval(timer); timer = setInterval(refresh, 5000);
         }
-        if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+
+        applySavedOrder();
+        enableDrag();
+        initChat();
       })();
     </script>
   </body>
