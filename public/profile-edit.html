@@ -9,7 +9,7 @@
 <body>
 <header class="site-header"><a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev"/></a><nav id="authStatus" class="site-nav">Checking login...</nav></header>
 <main class="page-shell editor-page">
-  <div class="editor-header"><div class="editor-header-main"><h1>Edit Profile</h1><p class="editor-help-text">Update your identity, links, backgrounds, and visibility settings.</p></div><div class="editor-header-actions"><a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a><a class="button-secondary" href="/profile.html">Back to Profile</a></div></div>
+  <div class="editor-header"><div class="editor-header-main"><h1>Edit Profile</h1><p class="editor-help-text">Update your identity, links, backgrounds, and visibility settings.</p></div><div class="editor-header-actions"><button type="submit" form="profile-edit-form" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></div>
   <p id="edit-status" class="editor-message" aria-live="polite">Loading...</p>
   <form id="profile-edit-form">
     <div class="editor-tile-grid">
@@ -42,7 +42,7 @@
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_badges"> <span>Show badges</span></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_last_active"> <span>Show last active</span></label>
       </div></section>
-      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Showcase or Extra</h2></div><p class="editor-help-text">Use Edit Profile Card to configure card-specific display and tile behavior.</p></section>
+      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Save / Notes</h2></div><p class="editor-help-text">Use Edit Profile Card to configure card-specific display and tile behavior.</p></section>
       <section class="editor-tile editor-tile-12"><div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
     </div>
   </form>
