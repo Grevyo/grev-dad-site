@@ -1,0 +1,14 @@
+name: Export Grevlings Web (Placeholder)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: |
+          echo "Grevlings web export workflow placeholder."
+          echo "Godot export wiring will be added in a future task."
+          echo "No build artifacts are generated or committed by this workflow."
