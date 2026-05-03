@@ -12,6 +12,34 @@
   <h1>Profile Card Editor</h1>
   <p id='card-status'>Loading...</p>
   <div class='profile-card-editor-grid'>
+    <section class='card-appearance-options'>
+      <h2>Card Appearance</h2>
+      <label>Card background image/GIF URL
+        <input id='card_background_url' type='url' placeholder='https://example.com/background.gif' maxlength='500'>
+        <span class='form-help'>Card background supports image and GIF links.</span>
+        <button type='button' class='button-secondary clear-field-button' data-clear='card_background_url'>Clear</button>
+      </label>
+      <label>Card background colour
+        <input id='card_background_colour' type='color' value='#000000'>
+        <button type='button' class='button-secondary clear-field-button' data-clear='card_background_colour'>Clear</button>
+      </label>
+      <label>Accent colour
+        <input id='card_accent_colour' type='color' value='#000000'>
+        <button type='button' class='button-secondary clear-field-button' data-clear='card_accent_colour'>Clear</button>
+      </label>
+      <label>Name colour
+        <input id='card_text_colour' type='color' value='#000000'>
+        <button type='button' class='button-secondary clear-field-button' data-clear='card_text_colour'>Clear</button>
+      </label>
+      <label>Body text colour
+        <input id='card_body_text_colour' type='color' value='#000000'>
+        <button type='button' class='button-secondary clear-field-button' data-clear='card_body_text_colour'>Clear</button>
+      </label>
+      <label>Border colour
+        <input id='card_border_colour' type='color' value='#000000'>
+        <button type='button' class='button-secondary clear-field-button' data-clear='card_border_colour'>Clear</button>
+      </label>
+    </section>
     <section class='profile-card-preview'>
       <h2>Card Preview</h2>
       <div id='card-preview' class='profile-card-preview-frame'></div>
@@ -33,12 +61,26 @@ const toggles=['card_show_display_name','card_show_username','card_show_role','c
 const meta=[['name','Display Name','card_show_display_name'],['username','Username','card_show_username'],['role','Role','card_show_role'],['level','Level','card_show_level'],['rank','Rank','card_show_rank'],['xp','XP','card_show_xp'],['status','Status Message','card_show_status'],['steam','Steam Link','card_show_steam'],['leetify','Leetify Link','card_show_leetify']];
 const tileDefaultOrder={name:10,username:20,role:30,level:40,rank:50,xp:60,status:70,steam:80,leetify:90};
 const defaults={name:{span:'2x1',fontStyle:'bold',fontFamily:'default',size:'lg',align:'left',colour:'',order:10},username:{span:'1x1',fontStyle:'normal',fontFamily:'default',size:'sm',align:'left',colour:'',order:20},role:{span:'1x1',fontStyle:'normal',fontFamily:'default',size:'sm',align:'left',colour:'',order:30},level:{span:'1x1',fontStyle:'normal',fontFamily:'default',size:'md',align:'center',colour:'',order:40},rank:{span:'1x1',fontStyle:'bold',fontFamily:'default',size:'sm',align:'left',colour:'',order:50},xp:{span:'2x1',fontStyle:'normal',fontFamily:'default',size:'sm',align:'left',colour:'',order:60},status:{span:'2x1',fontStyle:'italic',fontFamily:'default',size:'sm',align:'left',colour:'',order:70},steam:{span:'1x1',fontStyle:'bold',fontFamily:'default',size:'sm',align:'center',colour:'',order:80},leetify:{span:'1x1',fontStyle:'bold',fontFamily:'default',size:'sm',align:'center',colour:'',order:90}};
+const appearanceFields=['card_background_url','card_background_colour','card_accent_colour','card_text_colour','card_body_text_colour','card_border_colour'];
 let profile={cardTileSettings:{...defaults},card_grid_columns:4};
 const safeCols=(v)=>[2,3,4].includes(Number(v))?Number(v):4;
 let expandedSettings=new Set();
 function normalizeTileOrder(settings){getOrderedTileKeys(settings).forEach((key,index)=>{settings[key]=settings[key]||{};settings[key].order=(index+1)*10;});}
 function getOrderedTileKeys(settings){return meta.map(([key])=>key).sort((a,b)=>{const ao=Number(settings?.[a]?.order);const bo=Number(settings?.[b]?.order);const ar=Number.isInteger(ao)&&ao>0?ao:tileDefaultOrder[a];const br=Number.isInteger(bo)&&bo>0?bo:tileDefaultOrder[b];return ar-br||tileDefaultOrder[a]-tileDefaultOrder[b];});}
 function draw(){try{document.getElementById('card-preview').innerHTML=window.renderPlayerCard(profile,{useCardSettings:true,variant:'full'});}catch(error){console.error('[profile-card-edit] preview render failed',error);document.getElementById('card-preview').textContent='Preview unavailable.';}}
+function syncAppearanceInputs(){
+  appearanceFields.forEach((field)=>{
+    const el=document.getElementById(field);
+    if(!el) return;
+    const value=String(profile?.[field]??'');
+    if(el.type==='color'){
+      el.value=/^#[0-9a-fA-F]{6}$/.test(value)?value:'#000000';
+      el.dataset.empty=value?'0':'1';
+    }else{
+      el.value=value;
+    }
+  });
+}
 function renderPanels(){
   const host=document.getElementById('tile-settings');
   const ordered=getOrderedTileKeys(profile.cardTileSettings);
@@ -49,11 +91,13 @@ function renderPanels(){
   document.getElementById('toggle-all-settings').textContent=allExpanded?'Collapse all':'Expand all';
 }
 async function fetchJsonSafe(url, options = {}) { const response = await fetch(url, { credentials: 'same-origin', ...options }); const data = await response.json(); if (!response.ok || !data || data.ok === false) throw new Error(data?.error || `Request failed: ${response.status}`); return data; }
-(async()=>{try{const d=await fetchJsonSafe('/api/profile/me'); profile={...(d.profile||{})}; profile.card_grid_columns=safeCols(d.profile?.card_grid_columns); const colEl=document.getElementById('card_grid_columns'); if(colEl) colEl.value=String(profile.card_grid_columns); else console.error('[profile-card-edit] Missing #card_grid_columns'); profile.cardTileSettings={...defaults,...(d.profile?.cardTileSettings||{})}; normalizeTileOrder(profile.cardTileSettings); renderPanels(); draw(); document.getElementById('card-status').textContent='Loaded.';}catch(error){console.error('[profile-card-edit] load failed',error);document.getElementById('card-status').textContent='Load failed.';}})();
+(async()=>{try{const d=await fetchJsonSafe('/api/profile/me'); profile={...(d.profile||{})}; profile.card_grid_columns=safeCols(d.profile?.card_grid_columns); const colEl=document.getElementById('card_grid_columns'); if(colEl) colEl.value=String(profile.card_grid_columns); else console.error('[profile-card-edit] Missing #card_grid_columns'); profile.cardTileSettings={...defaults,...(d.profile?.cardTileSettings||{})}; normalizeTileOrder(profile.cardTileSettings); syncAppearanceInputs(); renderPanels(); draw(); document.getElementById('card-status').textContent='Loaded.';}catch(error){console.error('[profile-card-edit] load failed',error);document.getElementById('card-status').textContent='Load failed.';}})();
 document.body.addEventListener('input',(e)=>{const n=e.target.name;if(n&&toggles.includes(n)){profile[n]=e.target.checked?1:0;renderPanels();} if(e.target.id==='card_grid_columns'){profile.card_grid_columns=safeCols(e.target.value);} if(e.target.dataset.k){profile.cardTileSettings[e.target.dataset.k][e.target.dataset.p]=e.target.value;} draw();});
-document.body.addEventListener('click',(e)=>{const settingsKey=e.target.dataset.settings;if(settingsKey){if(expandedSettings.has(settingsKey))expandedSettings.delete(settingsKey);else expandedSettings.add(settingsKey);renderPanels();return;}const dir=e.target.dataset.move;const moveKey=e.target.dataset.key;if(dir&&moveKey){const keys=getOrderedTileKeys(profile.cardTileSettings);const idx=keys.indexOf(moveKey);const target=dir==='up'?idx-1:idx+1;if(target>=0&&target<keys.length){[keys[idx],keys[target]]=[keys[target],keys[idx]];keys.forEach((key,i)=>{profile.cardTileSettings[key]=profile.cardTileSettings[key]||{};profile.cardTileSettings[key].order=(i+1)*10;});renderPanels();draw();}return;}});
+document.body.addEventListener('input',(e)=>{if(appearanceFields.includes(e.target.id)){if(e.target.type==='color'){const isEmpty=e.target.dataset.empty==='1';profile[e.target.id]=isEmpty?'':e.target.value;}else{profile[e.target.id]=e.target.value.trim();} draw();}});
+document.body.addEventListener('change',(e)=>{if(appearanceFields.includes(e.target.id)&&e.target.type==='color'){e.target.dataset.empty='0';profile[e.target.id]=e.target.value;draw();}});
+document.body.addEventListener('click',(e)=>{const clearField=e.target.dataset.clear;if(clearField&&appearanceFields.includes(clearField)){profile[clearField]='';const el=document.getElementById(clearField);if(el){if(el.type==='color'){el.value='#000000';el.dataset.empty='1';}else el.value='';}draw();return;}const settingsKey=e.target.dataset.settings;if(settingsKey){if(expandedSettings.has(settingsKey))expandedSettings.delete(settingsKey);else expandedSettings.add(settingsKey);renderPanels();return;}const dir=e.target.dataset.move;const moveKey=e.target.dataset.key;if(dir&&moveKey){const keys=getOrderedTileKeys(profile.cardTileSettings);const idx=keys.indexOf(moveKey);const target=dir==='up'?idx-1:idx+1;if(target>=0&&target<keys.length){[keys[idx],keys[target]]=[keys[target],keys[idx]];keys.forEach((key,i)=>{profile.cardTileSettings[key]=profile.cardTileSettings[key]||{};profile.cardTileSettings[key].order=(i+1)*10;});renderPanels();draw();}return;}});
 document.getElementById('toggle-all-settings').addEventListener('click',()=>{const allExpanded=meta.every(([k])=>expandedSettings.has(k));expandedSettings=allExpanded?new Set():new Set(meta.map(([k])=>k));renderPanels();});
-document.getElementById('save-card').onclick=async()=>{const saveBtn=document.getElementById('save-card');const status=document.getElementById('card-status');if(!saveBtn){console.error('[profile-card-edit] Missing save button');return;}saveBtn.disabled=true; status.textContent='Saving...'; try{const body={card_layout:profile.card_layout||'standard',card_grid_columns:safeCols(profile.card_grid_columns)}; toggles.forEach(k=>body[k]=Number(profile[k]??1)); normalizeTileOrder(profile.cardTileSettings); body.cardTileSettings=profile.cardTileSettings; const d=await fetchJsonSafe('/api/profile/me/card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); profile=d.profile||profile; profile.card_grid_columns=safeCols(profile.card_grid_columns); const colEl=document.getElementById('card_grid_columns'); if(colEl) colEl.value=String(profile.card_grid_columns); profile.cardTileSettings={...defaults,...(profile.cardTileSettings||{})}; normalizeTileOrder(profile.cardTileSettings); renderPanels(); draw(); status.textContent='Profile card saved.';}catch(error){console.error('[profile-card-edit] save failed',error);status.textContent=`Save failed: ${error?.message||'Unknown error'}`;}finally{saveBtn.disabled=false;}};
+document.getElementById('save-card').onclick=async()=>{const saveBtn=document.getElementById('save-card');const status=document.getElementById('card-status');if(!saveBtn){console.error('[profile-card-edit] Missing save button');return;}saveBtn.disabled=true; status.textContent='Saving...'; try{const body={card_layout:profile.card_layout||'standard',card_grid_columns:safeCols(profile.card_grid_columns),card_background_url:String(profile.card_background_url||'').trim(),card_background_colour:String(profile.card_background_colour||''),card_accent_colour:String(profile.card_accent_colour||''),card_text_colour:String(profile.card_text_colour||''),card_body_text_colour:String(profile.card_body_text_colour||''),card_border_colour:String(profile.card_border_colour||'')}; toggles.forEach(k=>body[k]=Number(profile[k]??1)); normalizeTileOrder(profile.cardTileSettings); body.cardTileSettings=profile.cardTileSettings; const d=await fetchJsonSafe('/api/profile/me/card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); profile=d.profile||profile; profile.card_grid_columns=safeCols(profile.card_grid_columns); const colEl=document.getElementById('card_grid_columns'); if(colEl) colEl.value=String(profile.card_grid_columns); profile.cardTileSettings={...defaults,...(profile.cardTileSettings||{})}; normalizeTileOrder(profile.cardTileSettings); syncAppearanceInputs(); renderPanels(); draw(); status.textContent='Profile card saved.';}catch(error){console.error('[profile-card-edit] save failed',error);status.textContent=`Save failed: ${error?.message||'Unknown error'}`;}finally{saveBtn.disabled=false;}};
 </script><script src='/scripts/theme.js'></script><script src='/scripts/auth-status.js'></script>
 </body>
 </html>
