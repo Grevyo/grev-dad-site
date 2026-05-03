@@ -11,17 +11,16 @@
 <main class="page-shell editor-page">
   <div class="editor-header"><div class="editor-header-main"><h1>Edit Profile</h1><p class="editor-help-text">Update your identity, links, backgrounds, and visibility settings.</p></div><div class="editor-header-actions"><a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a><a class="button-secondary" href="/profile.html">Back to Profile</a></div></div>
   <p id="edit-status" class="editor-message" aria-live="polite">Loading...</p>
-  <form id="profile-edit-form" class="editor-layout">
-    <aside class="editor-sidebar"><div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></aside>
-    <div class="editor-main">
-      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Identity</h2></div><div class="editor-grid">
+  <form id="profile-edit-form">
+    <div class="editor-tile-grid">
+      <section class="editor-tile editor-tile-6"><div class="editor-section-header"><h2 class="editor-section-title">Identity</h2></div><div class="editor-grid">
         <label class="editor-field" for="display_name">Display name<input id="display_name" name="display_name" maxlength="64"></label>
         <label class="editor-field" for="profile_title">Profile title<input id="profile_title" name="profile_title" maxlength="120"></label>
         <label class="editor-field editor-field-wide" for="status_message">Status message<input id="status_message" name="status_message" maxlength="140"></label>
         <label class="editor-field editor-field-wide" for="bio">Bio<textarea id="bio" name="bio" maxlength="2000"></textarea></label>
         <label class="editor-field" for="location">Location<input id="location" name="location" maxlength="120"></label>
       </div></section>
-      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Images & Backgrounds</h2><p class="editor-section-description">Image and GIF links are supported.</p></div><div class="editor-grid">
+      <section class="editor-tile editor-tile-6"><div class="editor-section-header"><h2 class="editor-section-title">Images & Backgrounds</h2><p class="editor-section-description">Image and GIF links are supported.</p></div><div class="editor-grid">
         <label class="editor-field" for="avatar_url">Avatar URL<input id="avatar_url" name="avatar_url" type="url" maxlength="500"></label>
         <label class="editor-field" for="banner_url">Banner URL<input id="banner_url" name="banner_url" type="url" maxlength="500"></label>
         <label class="editor-field" for="banner_display_size">Banner display size<select id="banner_display_size" name="banner_display_size"><option value="compact">compact</option><option value="wide">wide</option><option value="tall">tall</option><option value="full">full</option></select></label>
@@ -31,19 +30,20 @@
         <label class="editor-field" for="profile_accent_colour">Profile accent colour<input id="profile_accent_colour" type="color" name="profile_accent_colour"></label>
         <label class="editor-field" for="favourite_colour">Favourite colour<input id="favourite_colour" type="color" name="favourite_colour"></label>
       </div></section>
-      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Links</h2></div><div class="editor-grid">
+      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Links</h2></div><div class="editor-grid">
         <label class="editor-field" for="website_url">Website URL<input id="website_url" name="website_url" type="url" maxlength="200"></label>
         <label class="editor-field" for="steam_url">Steam URL<input id="steam_url" name="steam_url" type="url" maxlength="300"></label>
         <label class="editor-field" for="leetify_url">Leetify URL<input id="leetify_url" name="leetify_url" type="url" maxlength="300"></label>
       </div><p class="editor-help-text">Steam and Leetify links can be shown on your player card from Edit Profile Card.</p><div class="editor-actions"><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
-      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Visibility / Display</h2></div><div class="editor-grid">
+      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Visibility / Display</h2></div><div class="editor-grid">
         <label class="editor-field" for="profile_layout">Profile layout<select id="profile_layout" name="profile_layout"><option value="standard">standard</option><option value="showcase">showcase</option><option value="minimal">minimal</option></select></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_level"> <span>Show level</span></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_rank"> <span>Show rank</span></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_badges"> <span>Show badges</span></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_last_active"> <span>Show last active</span></label>
       </div></section>
-      <div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div>
+      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Showcase or Extra</h2></div><p class="editor-help-text">Use Edit Profile Card to configure card-specific display and tile behavior.</p></section>
+      <section class="editor-tile editor-tile-12"><div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
     </div>
   </form>
 </main>

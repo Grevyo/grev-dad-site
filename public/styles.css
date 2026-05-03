@@ -573,16 +573,87 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .card-font-family-wide{font-family:system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
 .card-font-family-display{font-family:Impact,Haettenschweiler,"Arial Black",system-ui,sans-serif;letter-spacing:.03em}
 
-.page-shell.editor-page{max-width:none;width:100%;margin:0;padding:24px;}
-.editor-header,.editor-save-bar,.editor-actions,.editor-tabs,.editor-layout{display:flex;gap:12px;}
-.editor-header{justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px}
-.editor-header-main{display:grid;gap:6px}.editor-header-actions{display:flex;gap:10px;flex-wrap:wrap}
-.editor-layout{align-items:flex-start}.editor-sidebar{width:220px;position:sticky;top:16px}.editor-main{flex:1;display:grid;gap:14px}
-.editor-section{background:var(--panel,#151a28);border:1px solid var(--line,#2a3145);padding:14px;border-radius:0}
-.editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}.editor-field{display:grid;gap:6px}.editor-field-wide{grid-column:1/-1}
-.editor-field input,.editor-field select,.editor-field textarea{width:100%}.editor-checkbox-row{display:flex;align-items:center;gap:8px}
+
+.page-shell.editor-page,.editor-page {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.editor-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.editor-header-main { display: grid; gap: 6px; }
+
+.editor-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.editor-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.editor-tile, .editor-section {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px;
+  border-radius: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.editor-tile-3 { grid-column: span 3; }
+.editor-tile-4 { grid-column: span 4; }
+.editor-tile-6 { grid-column: span 6; }
+.editor-tile-8 { grid-column: span 8; }
+.editor-tile-12 { grid-column: 1 / -1; }
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.editor-field { display: grid; gap: 6px; min-width: 0; }
+.editor-field-wide { grid-column: 1 / -1; }
+.editor-field input,.editor-field select,.editor-field textarea { width: 100%; box-sizing: border-box; }
+
+.editor-checkbox-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+.editor-checkbox-row input[type="checkbox"] { margin: 0; }
+.editor-save-bar,.editor-actions,.editor-tabs{display:flex;gap:12px;flex-wrap:wrap}
 .editor-message{padding:10px;border:1px solid var(--line,#2a3145);margin:0 0 12px;background:#111728}
-.editor-help-text{opacity:.9}.editor-tab-button{width:100%;text-align:left}.editor-tab-button.active{background:#2b3555}
-.editor-preview-panel{position:sticky;top:16px}.editor-danger-zone{border-color:#8b2a2a}
-@media (max-width:980px){.editor-layout{display:block}.editor-sidebar{width:auto;position:static;margin-bottom:12px}.editor-grid{grid-template-columns:1fr}.editor-preview-panel{position:static}}
-@media (max-width:640px){.page-shell.editor-page{padding:12px}}
+.editor-help-text{opacity:.9}.editor-tab-button{text-align:left}.editor-tab-button.active{background:#2b3555}
+.editor-preview-panel{position:static}.editor-danger-zone{border-color:#8b2a2a}
+
+@media (max-width: 1100px) {
+  .editor-tile-3,.editor-tile-4,.editor-tile-6,.editor-tile-8 { grid-column: span 6; }
+}
+
+@media (max-width: 700px) {
+  .editor-page,.page-shell.editor-page { padding: 10px; }
+  .editor-header { grid-template-columns: 1fr; }
+  .editor-header-actions { justify-content: flex-start; }
+  .editor-tile-grid { grid-template-columns: 1fr; }
+  .editor-tile,.editor-tile-3,.editor-tile-4,.editor-tile-6,.editor-tile-8,.editor-tile-12 { grid-column: 1 / -1; }
+  .editor-grid { grid-template-columns: 1fr; }
+  .editor-field-wide { grid-column: 1 / -1; }
+}
+

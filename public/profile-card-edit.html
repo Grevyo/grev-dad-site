@@ -11,8 +11,8 @@
 <main class="page-shell editor-page">
   <div class='editor-header'><div class='editor-header-main'><h1>Edit Profile Card</h1></div><div class='editor-header-actions'><button id='save-card-top' class='nav-button' type='button'>Save Profile Card</button><a class='button-secondary' href='/profile.html'>Back to Profile</a><a class='button-secondary' href='/profile-edit.html'>Edit Full Profile</a></div></div>
   <p id='card-status' class='editor-message' aria-live='polite'>Loading...</p>
-  <div class='editor-layout profile-card-builder-layout'><section class='editor-main'>
-    <section class='editor-section card-appearance-options'>
+  <div class='editor-tile-grid'>
+    <section class='editor-tile editor-tile-4 card-appearance-options'>
       <h2>Card Appearance</h2>
       <label>Card background image/GIF URL
         <input id='card_background_url' type='url' placeholder='https://example.com/background.gif' maxlength='500'>
@@ -40,11 +40,11 @@
         <button type='button' class='button-secondary clear-field-button' data-clear='card_border_colour'>Clear</button>
       </label>
     </section>
-    <section class='editor-section profile-card-preview editor-preview-panel'>
+    <section class='editor-tile editor-tile-4 profile-card-preview editor-preview-panel'>
       <h2>Card Preview</h2>
       <div id='card-preview' class='profile-card-preview-frame'></div>
     </section>
-    <section class='editor-section card-display-options'>
+    <section class='editor-tile editor-tile-8 card-display-options'>
       <h2>Display Tiles</h2>
       <div class='tile-settings-toolbar'>
         <button type='button' id='toggle-all-settings' class='button-secondary'>Expand all</button>
@@ -52,7 +52,7 @@
       <label>Player card columns<select id='card_grid_columns'><option value='2'>2 columns</option><option value='3'>3 columns</option><option value='4'>4 columns</option></select><span class='form-help'>Choose how many columns the card uses for its information tiles. Mobile may still stack.</span></label><div id='tile-settings' class='tile-settings-list'></div>
       <p class='form-help'>Steam and Leetify links: Link comes from Edit Full Profile.</p>
     </section>
-  <section class='editor-section'><h2 class='editor-section-title'>Help</h2><p class='editor-help-text'>Edit Full Profile controls the data: avatar, Steam, Leetify, status. Edit Profile Card controls what appears and how it looks.</p><div class='editor-actions'><button id='save-card' class='nav-button' type='button'>Save Profile Card</button></div></section></section></div></main>
+  <section class='editor-tile editor-tile-4'><h2 class='editor-section-title'>Card Layout & Help</h2><p class='editor-help-text'>Edit Full Profile controls the data: avatar, Steam, Leetify, status. Edit Profile Card controls what appears and how it looks.</p></section><section class='editor-tile editor-tile-12'><div class='editor-save-bar'><button id='save-card' class='nav-button' type='button'>Save Profile Card</button><a class='button-secondary' href='/profile.html'>Back to Profile</a><a class='button-secondary' href='/profile-edit.html'>Edit Full Profile</a></div></section></div></main>
 <script src='/scripts/player-card.js'></script>
 <script>
 const toggles=['card_show_display_name','card_show_username','card_show_role','card_show_level','card_show_rank','card_show_xp','card_show_status','card_show_steam','card_show_leetify'];
@@ -97,7 +97,6 @@ document.body.addEventListener('click',(e)=>{const clearField=e.target.dataset.c
 document.getElementById('toggle-all-settings').addEventListener('click',()=>{const allExpanded=meta.every(([k])=>expandedSettings.has(k));expandedSettings=allExpanded?new Set():new Set(meta.map(([k])=>k));renderPanels();});
 document.getElementById('save-card').onclick=async()=>{const saveBtn=document.getElementById('save-card');const status=document.getElementById('card-status');if(!saveBtn){console.error('[profile-card-edit] Missing save button');return;}saveBtn.disabled=true; status.textContent='Saving...'; try{const body={card_layout:profile.card_layout||'standard',card_grid_columns:safeCols(profile.card_grid_columns),card_background_url:String(profile.card_background_url||'').trim(),card_background_colour:String(profile.card_background_colour||''),card_accent_colour:String(profile.card_accent_colour||''),card_text_colour:String(profile.card_text_colour||''),card_body_text_colour:String(profile.card_body_text_colour||''),card_border_colour:String(profile.card_border_colour||'')}; toggles.forEach(k=>body[k]=Number(profile[k]??1)); normalizeTileOrder(profile.cardTileSettings); body.cardTileSettings=profile.cardTileSettings; const d=await fetchJsonSafe('/api/profile/me/card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); profile=d.profile||profile; profile.card_grid_columns=safeCols(profile.card_grid_columns); const colEl=document.getElementById('card_grid_columns'); if(colEl) colEl.value=String(profile.card_grid_columns); profile.cardTileSettings={...defaults,...(profile.cardTileSettings||{})}; normalizeTileOrder(profile.cardTileSettings); syncAppearanceInputs(); renderPanels(); draw(); status.textContent='Profile card saved.';}catch(error){console.error('[profile-card-edit] save failed',error);status.textContent=`Save failed: ${error?.message||'Unknown error'}`;}finally{saveBtn.disabled=false;}};
 </script><script src='/scripts/theme.js'></script><script src='/scripts/auth-status.js'></script>
+<script>document.getElementById('save-card-top')?.addEventListener('click',()=>document.getElementById('save-card')?.click());</script>
 </body>
 </html>
-
-<script>document.getElementById('save-card-top')?.addEventListener('click',()=>document.getElementById('save-card')?.click());</script>
