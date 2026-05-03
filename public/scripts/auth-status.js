@@ -131,6 +131,7 @@
 
     container.textContent = '';
     container.append(createLink('/members.html', 'Members'));
+    container.append(createLink('/leaderboard.html', 'Leaderboard'));
     if (isAdmin) container.append(createLink('/admin.html', 'Admin', 'nav-button admin-link'));
     const logoutButton = createButton('🚪', 'nav-button logout-button', handleLogout);
     logoutButton.setAttribute('aria-label', 'Log out');

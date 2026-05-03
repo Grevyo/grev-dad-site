@@ -354,3 +354,10 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .member-preview-list{list-style:none;padding:0;margin:0;display:grid;gap:.35rem}
 
 @media (max-width:700px){.account-snapshot-main{grid-template-columns:1fr}}
+.player-card{display:grid;grid-template-columns:48px 1fr;gap:10px;border:1px solid var(--border);padding:8px;background:var(--surface)}
+.player-card-avatar{width:48px;height:48px}.player-card-body{display:grid;gap:4px}.player-card-name{font-weight:700}.player-card-username,.player-card-meta{color:var(--text-muted);font-size:.9rem}
+.level-badge{display:inline-flex;border:1px solid #000;color:#fff;min-width:34px;justify-content:center;align-items:center;height:24px}.level-badge-inner{font-size:.75rem;font-weight:700}
+.level-shape-circle{border-radius:50%}.level-shape-square{border-radius:0}.level-shape-diamond{transform:rotate(45deg)}.level-shape-diamond .level-badge-inner{transform:rotate(-45deg)}
+.level-shape-hexagon{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}.level-shape-shield{clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%)}.level-shape-star{clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.level-shape-octagon{clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}.level-shape-ticket{clip-path:polygon(0 0,100% 0,100% 30%,90% 50%,100% 70%,100% 100%,0 100%,0 70%,10% 50%,0 30%)}.level-shape-notch{clip-path:polygon(0 0,100% 0,100% 80%,80% 100%,0 100%)}.level-shape-elite-frame{outline:2px solid #fff;outline-offset:1px}
+.leaderboard-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}.leaderboard-row{display:grid;grid-template-columns:60px 1fr;gap:8px;align-items:center}
