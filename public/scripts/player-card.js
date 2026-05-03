@@ -1,10 +1,14 @@
 (function(){
   const esc=(s)=>String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const init=(n)=>{const p=String(n||'?').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[1]?.[0]||'')).toUpperCase();};
-  window.renderPlayerCard=function renderPlayerCard(profile,options={}){
-    const p=profile||{};const o={showXp:true,showUserId:false,...options};
-    const level=Number(p.accountLevel||1);const badge=window.getLevelBadgeMeta?window.getLevelBadgeMeta(level):{shape:'circle',colour:'#2e7dff',level};
-    const av=p.avatar_url?`<img src='${esc(p.avatar_url)}' alt='avatar' />`:`<span class='compact-header-avatar-fallback'>${init(p.display_name||p.username)}</span>`;
-    return `<article class='player-card'><a href='/profile.html?id=${p.id}' class='player-card-avatar compact-header-avatar'>${av}</a><div class='player-card-body'><div class='player-card-name'>${esc(p.display_name||p.username||'User')}</div><div class='player-card-username'>@${esc(p.username||'')}</div>${o.showUserId?`<div class='player-card-meta'>ID: ${Number(p.id)||0}</div>`:''}<div class='player-card-meta'>${esc(p.roleLabel||p.role||'Member')} · ${p.profile_title?esc(p.profile_title):''}</div><div class='player-card-meta'><span class='level-badge level-shape-${badge.shape}' style='background:${badge.colour}'><span class='level-badge-inner'>L${level}</span></span> ${esc(p.rank?.name||'Unranked')}</div>${o.showXp?`<div class='xp-bar'><div class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></div></div>`:''}</div></article>`;
+  window.renderPlayerCard=function(profile,options={}){
+    const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,...options};
+    const show=(k,d=1)=>o.useCardSettings?(Number(p[k]??d)===1):d===1;
+    const avatarUrl=(p.card_avatar_url||p.avatar_url||'');
+    const level=Number(p.accountLevel||1); const rank=esc(p.rank?.name||'Unranked');
+    const avatar=avatarUrl&&show('card_show_avatar',1)?`<img src='${esc(avatarUrl)}' alt='avatar'/>`:`<span class='compact-header-avatar-fallback'>${init(p.display_name||p.username)}</span>`;
+    const bg=p.card_background_url?`background-image:url("${esc(p.card_background_url)}");background-size:cover;background-position:center;`:(p.card_background_colour?`background:${esc(p.card_background_colour)};`:'' );
+    const st=`${bg}${p.card_text_colour?`color:${esc(p.card_text_colour)};`:''}${p.card_border_colour?`border-color:${esc(p.card_border_colour)};`:''}`;
+    return `<article class='player-card player-card-custom' style='${st}'><div class='player-card-background'></div><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'>${show('card_show_display_name',1)?`<div class='player-card-name'>${esc(p.display_name||p.username||'User')}</div>`:''}${show('card_show_username',1)?`<div class='player-card-username'>@${esc(p.username||'')}</div>`:''}${(o.showUserId&&show('card_show_user_id',0))?`<div class='player-card-meta'>ID: ${Number(p.id)||0}</div>`:''}${show('card_show_role',1)?`<div class='player-card-meta'>${esc(p.roleLabel||p.role||'Member')}</div>`:''}${show('card_show_level',1)?`<div class='player-card-meta'>Level ${level}</div>`:''}${show('card_show_rank',1)?`<div class='player-card-meta'>${rank}</div>`:''}${(o.showXp&&show('card_show_xp',1))?`<div class='xp-bar'><div class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></div></div>`:''}</div></article>`;
   }
 })();
