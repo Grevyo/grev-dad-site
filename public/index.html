@@ -20,15 +20,15 @@
           <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
       </div>
-      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Drag tiles to reorder your homepage.</p>
+      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Drag tiles to reorder your homepage and resize cards.</p>
 
       <section class="dashboard-grid" id="dashboard-grid">
-        <article class="dashboard-tile account-snapshot" data-tile-id="account-summary"><h2>Account Snapshot</h2><div id="account-summary-content">Loading…</div></article>
-        <article class="dashboard-tile" data-tile-id="quick-actions"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
-        <article class="dashboard-tile" data-tile-id="profile-completion"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
-        <article class="dashboard-tile" data-tile-id="members-preview"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
-        <article class="dashboard-tile chat-dashboard-tile" data-tile-id="chat"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
-        <article class="dashboard-tile" data-tile-id="coming-later"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
+        <article class="dashboard-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
+        <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
+        <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
     </main>
 
@@ -36,13 +36,18 @@
     <script src="/scripts/auth-status.js"></script>
     <script>
       (function () {
-        const ORDER_KEY = 'grev_dashboard_tile_order';
+        const LAYOUT_KEY = 'grev_dashboard_layout_v2';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
+        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
+        const DEFAULT_SIZES = { 'profile-snapshot': '2x2', 'quick-actions': '1x1', 'profile-completion': '1x1', 'members-preview': '2x1', chat: '2x2', 'coming-later': '1x1' };
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const editHelp = document.getElementById('dashboard-edit-help');
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
+        const addBlankButton = document.createElement('button');
+        addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
+        document.querySelector('.dashboard-edit-controls').append(addBlankButton);
         let isEditing = false;
         let dragBound = false;
         let homeChatTimer = null;
@@ -63,24 +68,66 @@
           return data;
         }
 
-        function applySavedOrder() {
-          let saved = null;
-          try { saved = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); } catch {}
-          if (!Array.isArray(saved)) return;
-          const map = new Map(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => [n.dataset.tileId, n]));
-          const ordered = [];
-          saved.forEach((id) => { if (map.has(id)) { ordered.push(map.get(id)); map.delete(id); } });
-          map.forEach((node) => ordered.push(node));
-          ordered.forEach((node) => grid.append(node));
+        function getLayout() {
+          try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch { return null; }
         }
 
-        function saveOrder() {
-          const ids = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
-          localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
+        function getTileSize(tileId) {
+          const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+          return (tile?.dataset.tileSize && TILE_SIZES.includes(tile.dataset.tileSize)) ? tile.dataset.tileSize : (DEFAULT_SIZES[tileId] || '1x1');
+        }
+
+        function applyTileSize(tile, size) {
+          const valid = TILE_SIZES.includes(size) ? size : '1x1';
+          TILE_SIZES.forEach((s) => tile.classList.remove(`tile-${s}`));
+          tile.classList.add(`tile-${valid}`);
+          tile.dataset.tileSize = valid;
+          if (tile.dataset.tileId === 'profile-snapshot') tile.classList.toggle('tile-compact', valid === '1x1');
+        }
+
+        function saveLayout() {
+          const ids = [];
+          const sizes = {};
+          const blankTiles = [];
+          grid.querySelectorAll('[data-tile-id]').forEach((tile) => {
+            const id = tile.dataset.tileId;
+            if (!id || ids.includes(id)) return;
+            ids.push(id);
+            sizes[id] = getTileSize(id);
+            if (id.startsWith('blank-')) blankTiles.push(id);
+          });
+          localStorage.setItem(LAYOUT_KEY, JSON.stringify({ order: ids, sizes, blankTiles }));
+        }
+
+        function makeBlankTile(id, size = '1x1') {
+          const tile = document.createElement('article');
+          tile.className = 'dashboard-tile blank-dashboard-tile';
+          tile.dataset.tileId = id;
+          tile.dataset.tileSize = size;
+          tile.innerHTML = '<div class="blank-tile-label">Blank space</div>';
+          applyTileSize(tile, size);
+          return tile;
+        }
+
+        function applySavedLayout() {
+          const layout = getLayout();
+          const base = new Map(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => [n.dataset.tileId, n]));
+          if (layout?.blankTiles && Array.isArray(layout.blankTiles)) {
+            layout.blankTiles.forEach((id) => { if (id && !base.has(id)) base.set(id, makeBlankTile(id, layout.sizes?.[id] || '1x1')); });
+          }
+          const ordered = [];
+          const used = new Set();
+          (Array.isArray(layout?.order) ? layout.order : defaultIds).forEach((id) => {
+            if (base.has(id) && !used.has(id)) { ordered.push(base.get(id)); used.add(id); }
+          });
+          base.forEach((node, id) => { if (!used.has(id)) ordered.push(node); });
+          ordered.forEach((node) => grid.append(node));
+          ordered.forEach((tile) => applyTileSize(tile, layout?.sizes?.[tile.dataset.tileId] || DEFAULT_SIZES[tile.dataset.tileId] || tile.dataset.tileSize || '1x1'));
         }
 
         function createDragHandles() {
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
+            const tileId = tile.dataset.tileId;
             let handle = tile.querySelector('.tile-drag-handle');
             if (!handle) {
               handle = document.createElement('button');
@@ -89,10 +136,39 @@
               handle.className = 'tile-drag-handle';
               tile.prepend(handle);
               handle.addEventListener('dragstart', () => { if (isEditing) tile.classList.add('is-dragging'); });
-              handle.addEventListener('dragend', () => { tile.classList.remove('is-dragging'); if (isEditing) saveOrder(); });
+              handle.addEventListener('dragend', () => { tile.classList.remove('is-dragging'); if (isEditing) saveLayout(); });
             }
             handle.draggable = isEditing;
             tile.draggable = isEditing;
+
+            let sizeControl = tile.querySelector('.tile-size-control');
+            if (!sizeControl) {
+              sizeControl = document.createElement('label');
+              sizeControl.className = 'tile-size-control';
+              sizeControl.textContent = 'Size ';
+              const select = document.createElement('select');
+              TILE_SIZES.forEach((size) => { const opt = document.createElement('option'); opt.value = size; opt.textContent = size; select.append(opt); });
+              select.value = tile.dataset.tileSize || DEFAULT_SIZES[tileId] || '1x1';
+              select.addEventListener('change', function () { applyTileSize(tile, select.value); saveLayout(); });
+              sizeControl.append(select);
+              tile.prepend(sizeControl);
+            }
+            sizeControl.hidden = !isEditing;
+            const select = sizeControl.querySelector('select');
+            if (select) select.value = tile.dataset.tileSize || '1x1';
+
+            if (tileId && tileId.startsWith('blank-')) {
+              let removeBtn = tile.querySelector('.blank-remove-button');
+              if (!removeBtn) {
+                removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'blank-remove-button';
+                removeBtn.textContent = 'Remove blank tile';
+                removeBtn.addEventListener('click', function () { tile.remove(); saveLayout(); });
+                tile.prepend(removeBtn);
+              }
+              removeBtn.hidden = !isEditing;
+            }
           });
         }
 
@@ -118,6 +194,7 @@
           else document.body.classList.remove('dashboard-editing');
           editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage';
           resetButton.hidden = !isEditing;
+          addBlankButton.hidden = !isEditing;
           editHelp.hidden = !isEditing;
           createDragHandles();
           localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
@@ -133,8 +210,8 @@
 
         function renderAccount(profile, authUser) {
           const wrap = document.getElementById('account-summary-content');
-          const username = profile?.username || authUser?.username || 'unknown';
-          const displayName = profile?.display_name || username;
+          const username = profile?.username || authUser?.username || 'unavailable';
+          const displayName = profile?.display_name || username || 'Unavailable';
           const role = profile?.roleLabel || authUser?.role || (authUser?.is_admin ? 'Admin' : 'Member');
           const level = Number(profile?.accountLevel || profile?.account_level || 1) || 1;
           const rank = profile?.rank?.name || 'Unranked';
@@ -155,17 +232,18 @@
             avatar.append(img, fallback);
           } else avatar.append(fallback);
           const metaWrap = document.createElement('div'); metaWrap.className = 'account-snapshot-meta';
-          const name = document.createElement('p'); name.textContent = displayName;
-          const user = document.createElement('p'); user.textContent = '@' + username;
+          const name = document.createElement('p'); name.className = 'account-snapshot-name'; name.textContent = displayName;
+          const user = document.createElement('p'); user.className = 'account-snapshot-username'; user.textContent = '@' + username;
           const meta = document.createElement('p'); meta.textContent = `${role} · ID ${profile?.id || authUser?.id || 'n/a'}`;
-          const levelRank = document.createElement('p');
+          const levelRank = document.createElement('p'); levelRank.className = 'account-snapshot-rank';
           if (window.renderLevelBadge) { levelRank.append(window.renderLevelBadge(level), document.createTextNode(' · ' + rank)); }
           else levelRank.textContent = `Level ${level} · ${rank}`;
           const xp = document.createElement('p'); xp.textContent = `XP ${xpCurrent} / ${xpRequired}`;
           const xpBar = document.createElement('div'); xpBar.className = 'xp-bar';
           const xpFill = document.createElement('div'); xpFill.className = 'xp-bar-fill'; xpFill.style.width = xpPercent + '%';
           xpBar.append(xpFill);
-          metaWrap.append(name, user, meta, levelRank, xp, xpBar);
+          const link = document.createElement('a'); link.href = '/profile-edit.html'; link.textContent = 'Open profile';
+          metaWrap.append(name, user, meta, levelRank, xp, xpBar, link);
           root.append(avatar, metaWrap);
           wrap.append(root);
         }
@@ -298,7 +376,8 @@
             try {
               const membersRes = await fetchJsonSafe('/api/members');
               renderMembers(membersRes.members || membersRes.users || []);
-            } catch {
+            } catch (error) {
+              console.error('[home] members preview failed', error);
               document.getElementById('members-preview-content').textContent = 'Members preview unavailable.';
             }
           } catch (error) {
@@ -312,14 +391,26 @@
 
         editButton.addEventListener('click', () => setEditMode(!isEditing));
         resetButton.addEventListener('click', function () {
-          localStorage.removeItem(ORDER_KEY);
+          localStorage.removeItem(LAYOUT_KEY);
           defaultIds.forEach((id) => {
             const node = grid.querySelector(`[data-tile-id="${id}"]`);
             if (node) grid.append(node);
           });
+          Array.from(grid.querySelectorAll('[data-tile-id^="blank-"]')).forEach((n) => n.remove());
+          grid.querySelectorAll('[data-tile-id]').forEach((tile) => applyTileSize(tile, DEFAULT_SIZES[tile.dataset.tileId] || '1x1'));
+          saveLayout();
         });
 
-        applySavedOrder();
+        addBlankButton.addEventListener('click', function () {
+          const ids = new Set(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId));
+          let i = 1; while (ids.has(`blank-${i}`)) i += 1;
+          const blank = makeBlankTile(`blank-${i}`);
+          grid.append(blank);
+          createDragHandles();
+          saveLayout();
+        });
+
+        applySavedLayout();
         bindDragSurface();
         createDragHandles();
         setEditMode(false);
