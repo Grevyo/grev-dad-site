@@ -6,12 +6,21 @@
   const TILE_KEYS=['name','username','role','level','rank','xp','status','steam','leetify'];
   const TILE_DEFAULT_ORDER={name:10,username:20,role:30,level:40,rank:50,xp:60,status:70,steam:80,leetify:90};
   const DEFAULTS={name:{span:'2x1',fontStyle:'bold',fontFamily:'default',size:'lg',align:'left',colour:'',order:10},username:{span:'1x1',fontStyle:'normal',fontFamily:'default',size:'sm',align:'left',colour:'',order:20},role:{span:'1x1',fontStyle:'normal',fontFamily:'default',size:'sm',align:'left',colour:'',order:30},level:{span:'1x1',fontStyle:'normal',fontFamily:'default',size:'md',align:'center',colour:'',order:40},rank:{span:'1x1',fontStyle:'bold',fontFamily:'default',size:'sm',align:'left',colour:'',order:50},xp:{span:'2x1',fontStyle:'normal',fontFamily:'default',size:'sm',align:'left',colour:'',order:60},status:{span:'2x1',fontStyle:'italic',fontFamily:'default',size:'sm',align:'left',colour:'',order:70},steam:{span:'1x1',fontStyle:'bold',fontFamily:'default',size:'sm',align:'center',colour:'',order:80},leetify:{span:'1x1',fontStyle:'bold',fontFamily:'default',size:'sm',align:'center',colour:'',order:90}};
-  const ALLOWED={span:new Set(['1x1','2x1','1x2','2x2']),fontStyle:new Set(['normal','bold','italic','bold_italic','mono']),fontFamily:new Set(['default','system','serif','mono','condensed','wide','display']),size:new Set(['xs','sm','md','lg','xl']),align:new Set(['left','center','right'])};
-  const mergeSettings=(profile)=>{let raw=profile?.cardTileSettings; if(!raw&&profile?.card_tile_settings_json){try{raw=JSON.parse(profile.card_tile_settings_json);}catch{raw={};}} raw=raw&&typeof raw==='object'?raw:{}; const out={}; TILE_KEYS.forEach((k)=>{const r=raw[k]&&typeof raw[k]==='object'?raw[k]:{}; const d=DEFAULTS[k]; out[k]={span:ALLOWED.span.has(r.span)?r.span:d.span,fontStyle:ALLOWED.fontStyle.has(r.fontStyle)?r.fontStyle:d.fontStyle,fontFamily:ALLOWED.fontFamily.has(r.fontFamily)?r.fontFamily:d.fontFamily,size:ALLOWED.size.has(r.size)?r.size:d.size,align:ALLOWED.align.has(r.align)?r.align:d.align,colour:/^#[0-9a-fA-F]{6}$/.test(String(r.colour||''))?String(r.colour):'',order:Number.isInteger(Number(r.order))&&Number(r.order)>=1&&Number(r.order)<=999?Number(r.order):d.order};}); return out;};
-  const tileClass=(s,variant)=>{const span=(variant==='header'?(s.span==='2x2'?'2x1':'1x1'):s.span);const size=(variant==='header'&&s.size==='xl')?'md':s.size;return `card-span-${span} card-font-${s.fontStyle.replace('_','-')} card-font-family-${s.fontFamily} card-text-${size} card-align-${s.align}`;};
-  const buildTile=(klass,key,label,value,settings,variant)=>({key,html:`<div class='player-card-tile ${klass} ${tileClass(settings[key],variant)}' ${settings[key].colour?`style='--tile-colour:${esc(settings[key].colour)}'`:''}>${label?`<div class='player-card-tile-label'>${label}</div>`:''}${value}</div>`});
-  window.renderPlayerCard=function(profile,options={}){
-    const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,variant:'full',...options}; const settings=mergeSettings(p);
+  const safeOrder=(value,fallback)=>{const n=Number(value);return Number.isInteger(n)&&n>=1&&n<=999?n:fallback;};
+  const safeTileSpan=(value,maxCols=4,fallback='1x1')=>{const valid=['1x1','2x1','1x2','2x2'];const span=valid.includes(value)?value:fallback;const w=span.startsWith('2x')?2:1;return w>maxCols?(span.endsWith('x2')?'1x2':'1x1'):span;};
+  const safeFontStyle=(v,f='normal')=>['normal','bold','italic','bold_italic','mono'].includes(v)?v:f;
+  const safeFontFamily=(v,f='default')=>['default','system','serif','mono','condensed','wide','display'].includes(v)?v:f;
+  const safeTextSize=(v,f='sm')=>['xs','sm','md','lg','xl'].includes(v)?v:f;
+  const safeAlign=(v,f='left')=>['left','center','right'].includes(v)?v:f;
+  const safeCols=(v,f=4)=>[2,3,4].includes(Number(v))?Number(v):f;
+  const safeCardTileSettings=(profile,maxCols=4)=>{let raw=profile?.cardTileSettings; if(!raw&&profile?.card_tile_settings_json){try{raw=JSON.parse(profile.card_tile_settings_json);}catch(error){console.error('[player-card] invalid card_tile_settings_json',error);raw={};}} if(!raw||typeof raw!=='object') raw={}; const out={}; TILE_KEYS.forEach((k)=>{try{const d=DEFAULTS[k];const r=(raw[k]&&typeof raw[k]==='object')?raw[k]:{}; out[k]={span:safeTileSpan(r.span,maxCols,d.span),fontStyle:safeFontStyle(r.fontStyle,d.fontStyle),fontFamily:safeFontFamily(r.fontFamily,d.fontFamily),size:safeTextSize(r.size,d.size),align:safeAlign(r.align,d.align),colour:/^#[0-9a-fA-F]{6}$/.test(String(r.colour||''))?String(r.colour):'',order:safeOrder(r.order,d.order)};}catch(error){console.error('[player-card] bad tile settings',k,error);out[k]={...DEFAULTS[k],span:safeTileSpan(DEFAULTS[k].span,maxCols,'1x1')};}}); return out;};
+  const getTileSetting=(settings,key)=>settings?.[key]||DEFAULTS[key]||DEFAULTS.username;
+  const tileClass=(s,variant)=>{const span=(variant==='header'?(s.span==='2x2'?'2x1':'1x1'):s.span);const size=(variant==='header'&&s.size==='xl')?'md':s.size;return `card-span-${span} card-font-${safeFontStyle(s.fontStyle).replace('_','-')} card-font-family-${safeFontFamily(s.fontFamily)} card-text-${safeTextSize(s.size)} card-align-${safeAlign(s.align)}`;};
+  const buildTile=(klass,key,label,value,settings,variant)=>({key,html:`<div class='player-card-tile ${klass} ${tileClass(getTileSetting(settings,key),variant)}' ${getTileSetting(settings,key).colour?`style='--tile-colour:${esc(getTileSetting(settings,key).colour)}'`:''}>${label?`<div class='player-card-tile-label'>${label}</div>`:''}${value}</div>`});
+  window.renderPlayerCard=function(profile,options={}){try{
+    const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,variant:'full',...options};
+    const cardCols=o.variant==='header'?1:safeCols(p.card_grid_columns,4);
+    const settings=safeCardTileSettings(p,cardCols);
     const show=(k,d=1)=>o.useCardSettings?(Number(p[k]??d)===1):d===1;
     const steamUrl=safeHttpUrl(p.steam_url); const leetifyUrl=safeHttpUrl(p.leetify_url);
     const avatarUrl=(p.avatar_url||''); const level=Number(p.accountLevel||1); const rank=esc(p.rank?.name||'Unranked');
@@ -31,15 +40,7 @@
     if (!isSnapshot && show('card_show_status',0)&&p.status_message) tiles.push(buildTile('player-card-tile-status','status','Status',`<div class='player-card-meta'>${esc(p.status_message)}</div>`,settings,o.variant));
     if (show('card_show_steam',0)&&steamUrl) tiles.push(buildTile('player-card-tile-steam','steam','Steam',`<a class='player-card-link' href='${esc(steamUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`,settings,o.variant));
     if (show('card_show_leetify',0)&&leetifyUrl) tiles.push(buildTile('player-card-tile-leetify','leetify','Leetify',`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`,settings,o.variant));
-    if (!isSnapshot) {
-      tiles.sort((a,b)=>{
-        const ao=settings[a.key]?.order ?? TILE_DEFAULT_ORDER[a.key] ?? 999;
-        const bo=settings[b.key]?.order ?? TILE_DEFAULT_ORDER[b.key] ?? 999;
-        return ao-bo || (TILE_DEFAULT_ORDER[a.key]??999)-(TILE_DEFAULT_ORDER[b.key]??999);
-      });
-    } else {
-      tiles.sort((a,b)=>{const ao=settings[a.key]?.order ?? TILE_DEFAULT_ORDER[a.key] ?? 999; const bo=settings[b.key]?.order ?? TILE_DEFAULT_ORDER[b.key] ?? 999; return ao-bo;});
-    }
-    return `<article class='player-card player-card-custom ${variantClass}' style='${st}'><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'><div class='player-card-info-grid'>${tiles.map((t)=>t.html).join('')}</div></div></article>`;
-  };
+    tiles.sort((a,b)=>{const ao=getTileSetting(settings,a.key).order??999;const bo=getTileSetting(settings,b.key).order??999;return ao-bo||(TILE_DEFAULT_ORDER[a.key]??999)-(TILE_DEFAULT_ORDER[b.key]??999);});
+    return `<article class='player-card player-card-custom ${variantClass} player-card-cols-${cardCols}' style='${st}'><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'><div class='player-card-info-grid'>${tiles.map((t)=>t.html).join('')}</div></div></article>`;
+  }catch(error){console.error('[player-card] render failed',error); return `<article class='player-card player-card-custom player-card-full-variant'><div class='player-card-body'><div class='player-card-name'>${esc(profile?.display_name||profile?.username||'User')}</div></div></article>`;}};
 })();

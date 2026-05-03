@@ -544,13 +544,16 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .player-card-info-grid{display:grid;grid-template-columns:repeat(var(--player-card-cols,2),minmax(0,1fr));gap:8px;align-content:start}
 .player-card-full-variant,.player-card-snapshot-variant{--player-card-cols:4}
 .player-card-header-variant{--player-card-cols:1}
+.player-card-cols-2{--player-card-cols:2}
+.player-card-cols-3{--player-card-cols:3}
+.player-card-cols-4{--player-card-cols:4}
 .player-card-tile{text-align:var(--tile-align,left);color:var(--tile-colour,var(--player-card-body-colour,var(--text-colour)))}
 .card-span-1x1{grid-column:span 1}.card-span-2x1{grid-column:span 2}.card-span-1x2{grid-column:span 1;grid-row:span 2}.card-span-2x2{grid-column:span 2;grid-row:span 2}.card-span-full{grid-column:1/-1}
 .card-font-normal{font-style:normal;font-weight:400}.card-font-bold{font-weight:700}.card-font-italic{font-style:italic}.card-font-bold-italic{font-style:italic;font-weight:700}.card-font-mono{font-family:monospace}
 .card-text-xs{font-size:.72rem}.card-text-sm{font-size:.84rem}.card-text-md{font-size:.96rem}.card-text-lg{font-size:1.06rem}.card-text-xl{font-size:1.18rem}
 .card-align-left{text-align:left}.card-align-center{text-align:center}.card-align-right{text-align:right}
-@media (max-width:800px){.player-card-full-variant,.player-card-snapshot-variant{--player-card-cols:2}}
-@media (max-width:520px){.player-card-info-grid{--player-card-cols:1}.profile-card-setting-grid{grid-template-columns:1fr}}
+@media (max-width:700px){.player-card-info-grid{grid-template-columns:1fr}}
+@media (max-width:520px){.profile-card-setting-grid{grid-template-columns:1fr}}
 
 .tile-settings-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px}
 .tile-settings-list{display:grid;gap:8px}
