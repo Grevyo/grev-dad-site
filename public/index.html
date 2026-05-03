@@ -361,7 +361,7 @@
 
             if (!tileId.startsWith('blank-')) {
               let hideBtn = tile.querySelector('.tile-hide-button');
-              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent='Hide'; hideBtn.addEventListener('click',()=>{ dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); tile.remove(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions(); createEditControls(); renderHiddenPanel(); }); tile.prepend(hideBtn); }
+              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent='Hide'; hideBtn.addEventListener('click',()=>{ dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); tile.remove(); ensureTilesExist(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions(); createEditControls(); renderHiddenPanel(); }); tile.prepend(hideBtn); }
               hideBtn.hidden = !isEditing;
             }
             
