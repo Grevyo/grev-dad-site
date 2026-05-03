@@ -23,7 +23,7 @@
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Drag tiles to reorder your homepage and resize cards.</p>
 
       <section class="dashboard-grid" id="dashboard-grid">
-        <article class="dashboard-tile profile-snapshot-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
@@ -38,8 +38,18 @@
       (function () {
         const LAYOUT_KEY = 'grev_dashboard_layout_v2';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
-        const DEFAULT_SIZES = { 'profile-snapshot': '2x2', 'quick-actions': '1x1', 'profile-completion': '1x1', 'members-preview': '2x1', chat: '2x2', 'coming-later': '1x1' };
+        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1', '4x2'];
+        const TILE_SIZE_RULES = {
+          'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['2x1', '4x2'] },
+          'quick-actions': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
+          'profile-completion': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
+          'members-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
+          chat: { defaultSize: '2x2', allowedSizes: ['2x2', '4x2'] },
+          'coming-later': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
+          'showcase-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
+          blank: { defaultSize: '1x1', allowedSizes: ['1x1', '2x1', '1x2', '2x2'] }
+        };
+        const DEFAULT_SIZES = Object.fromEntries(Object.entries(TILE_SIZE_RULES).map(([tileId, rule]) => [tileId, rule.defaultSize]));
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
@@ -72,17 +82,28 @@
           try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch { return null; }
         }
 
+        function tileRuleFor(tileId) {
+          if (tileId && tileId.startsWith('blank-')) return TILE_SIZE_RULES.blank;
+          return TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: TILE_SIZES };
+        }
+
+        function normalizeTileSize(tileId, size) {
+          const rule = tileRuleFor(tileId);
+          if (rule.allowedSizes.includes(size)) return size;
+          return rule.defaultSize;
+        }
+
         function getTileSize(tileId) {
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-          return (tile?.dataset.tileSize && TILE_SIZES.includes(tile.dataset.tileSize)) ? tile.dataset.tileSize : (DEFAULT_SIZES[tileId] || '1x1');
+          return normalizeTileSize(tileId, tile?.dataset.tileSize || DEFAULT_SIZES[tileId] || '1x1');
         }
 
         function applyTileSize(tile, size) {
-          const valid = TILE_SIZES.includes(size) ? size : '1x1';
+          const tileId = tile.dataset.tileId;
+          const valid = normalizeTileSize(tileId, size);
           TILE_SIZES.forEach((s) => tile.classList.remove(`tile-${s}`));
           tile.classList.add(`tile-${valid}`);
           tile.dataset.tileSize = valid;
-          if (tile.dataset.tileId === 'profile-snapshot') tile.classList.toggle('tile-compact', valid === '1x1');
         }
 
         function saveLayout() {
@@ -113,7 +134,7 @@
           const layout = getLayout();
           const base = new Map(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => [n.dataset.tileId, n]));
           if (layout?.blankTiles && Array.isArray(layout.blankTiles)) {
-            layout.blankTiles.forEach((id) => { if (id && !base.has(id)) base.set(id, makeBlankTile(id, layout.sizes?.[id] || '1x1')); });
+            layout.blankTiles.forEach((id) => { if (id && !base.has(id)) base.set(id, makeBlankTile(id, normalizeTileSize(id, layout.sizes?.[id] || '1x1'))); });
           }
           const ordered = [];
           const used = new Set();
@@ -122,7 +143,7 @@
           });
           base.forEach((node, id) => { if (!used.has(id)) ordered.push(node); });
           ordered.forEach((node) => grid.append(node));
-          ordered.forEach((tile) => applyTileSize(tile, layout?.sizes?.[tile.dataset.tileId] || DEFAULT_SIZES[tile.dataset.tileId] || tile.dataset.tileSize || '1x1'));
+          ordered.forEach((tile) => applyTileSize(tile, normalizeTileSize(tile.dataset.tileId, layout?.sizes?.[tile.dataset.tileId] || DEFAULT_SIZES[tile.dataset.tileId] || tile.dataset.tileSize || '1x1')));
         }
 
         function createDragHandles() {
@@ -147,8 +168,9 @@
               sizeControl.className = 'tile-size-control';
               sizeControl.textContent = 'Size ';
               const select = document.createElement('select');
-              TILE_SIZES.forEach((size) => { const opt = document.createElement('option'); opt.value = size; opt.textContent = size; select.append(opt); });
-              select.value = tile.dataset.tileSize || DEFAULT_SIZES[tileId] || '1x1';
+              const options = tileRuleFor(tileId).allowedSizes;
+              options.forEach((size) => { const opt = document.createElement('option'); opt.value = size; opt.textContent = size; select.append(opt); });
+              select.value = normalizeTileSize(tileId, tile.dataset.tileSize || DEFAULT_SIZES[tileId] || '1x1');
               select.addEventListener('change', function () { applyTileSize(tile, select.value); saveLayout(); });
               sizeControl.append(select);
               tile.prepend(sizeControl);
