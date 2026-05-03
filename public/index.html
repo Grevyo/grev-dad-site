@@ -188,11 +188,32 @@
           }
         }
         function ensureTilesExist() {
-          Object.keys(dashboardLayout.tiles).forEach((id)=>{ if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeDynamicTile(id)); });
+          const hiddenSet = new Set(dashboardLayout.hiddenTiles || []);
+          const isEnabledTile = (id) => tileRuleFor(id).isEnabled !== 0;
+
+          grid.querySelectorAll('.dashboard-tile[data-tile-id]').forEach((tile) => {
+            const id = tile.dataset.tileId;
+            if (!id) return;
+
+            if (id.startsWith('blank-')) {
+              if (!dashboardLayout.blankTiles[id]) tile.remove();
+              return;
+            }
+
+            const isHidden = hiddenSet.has(id);
+            const isMissing = !dashboardLayout.tiles[id];
+            const isDisabled = !isEnabledTile(id);
+            if (isHidden || isMissing || isDisabled) tile.remove();
+          });
+
+          Object.keys(dashboardLayout.tiles).forEach((id)=>{
+            if (hiddenSet.has(id) || !isEnabledTile(id)) return;
+            if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeDynamicTile(id));
+          });
+
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
             if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeBlankTile(id, dashboardLayout.blankTiles[id].size));
           });
-          Array.from(grid.querySelectorAll('[data-tile-id^="blank-"]')).forEach((n) => { if (!dashboardLayout.blankTiles[n.dataset.tileId]) n.remove(); });
         }
         function hydrateLayout() {
           const saved = getDesktopLayout();
@@ -340,7 +361,7 @@
 
             if (!tileId.startsWith('blank-')) {
               let hideBtn = tile.querySelector('.tile-hide-button');
-              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent='Hide'; hideBtn.addEventListener('click',()=>{ dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); saveDesktopLayout(); saveMobileLayout(); hydrateLayout(); createEditControls(); renderHiddenPanel(); }); tile.prepend(hideBtn); }
+              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent='Hide'; hideBtn.addEventListener('click',()=>{ dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); tile.remove(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions(); createEditControls(); renderHiddenPanel(); }); tile.prepend(hideBtn); }
               hideBtn.hidden = !isEditing;
             }
             
@@ -351,7 +372,7 @@
             }
           });
         }
-        function renderHiddenPanel(){const panel=document.getElementById('hidden-boxes-panel'); const btn=document.getElementById('show-hidden-boxes'); const hidden=(dashboardLayout.hiddenTiles||[]); btn.disabled=hidden.length===0; btn.textContent=hidden.length?`Show hidden boxes (${hidden.length})`:'No hidden boxes'; panel.textContent=''; hidden.forEach((tileId)=>{const row=document.createElement('div'); row.className='hidden-box-row'; const label=document.createElement('span'); label.textContent=tileId; const r=document.createElement('button'); r.type='button'; r.className='tile-restore-button'; r.textContent='Restore'; r.addEventListener('click',()=>{dashboardLayout.hiddenTiles=hidden.filter((id)=>id!==tileId); const size=tileRuleFor(tileId).defaultSize; const pos=findNearestFreePosition(tileId,size,dashboardLayout,{col:1,row:1})||{col:1,row:getLayoutMaxRows()+1}; dashboardLayout.tiles[tileId]={col:pos.col,row:pos.row,size:normalizeTileSize(tileId,size)}; mobileLayout.order.push(tileId); saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderHiddenPanel();}); row.append(label,r); panel.append(row);});}
+        function renderHiddenPanel(){const panel=document.getElementById('hidden-boxes-panel'); const btn=document.getElementById('show-hidden-boxes'); const hidden=(dashboardLayout.hiddenTiles||[]); btn.disabled=hidden.length===0; btn.textContent=hidden.length?`Show hidden boxes (${hidden.length})`:'No hidden boxes'; panel.textContent=''; hidden.forEach((tileId)=>{const row=document.createElement('div'); row.className='hidden-box-row'; const label=document.createElement('span'); label.textContent=tileId; const r=document.createElement('button'); r.type='button'; r.className='tile-restore-button'; r.textContent='Restore'; r.addEventListener('click',()=>{dashboardLayout.hiddenTiles=(dashboardLayout.hiddenTiles||[]).filter((id)=>id!==tileId); const size=tileRuleFor(tileId).defaultSize; const normalizedSize=normalizeTileSize(tileId,size); const pos=findNearestFreePosition(tileId,normalizedSize,dashboardLayout,{col:1,row:1})||{col:1,row:getLayoutMaxRows()+1}; dashboardLayout.tiles[tileId]={col:pos.col,row:pos.row,size:normalizedSize}; if(!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); ensureTilesExist(); renderTilePositions(); createEditControls(); renderHiddenPanel(); saveDesktopLayout(); saveMobileLayout();}); row.append(label,r); panel.append(row);});}
         document.addEventListener('click',(e)=>{ if(e.target&&e.target.id==='show-hidden-boxes'){const p=document.getElementById('hidden-boxes-panel'); p.hidden=!p.hidden;}});
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);

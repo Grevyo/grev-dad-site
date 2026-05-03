@@ -459,7 +459,11 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .admin-tile-config-card{border:1px solid var(--border);padding:10px;background:var(--surface);display:grid;gap:8px}
 .size-group{border:1px solid var(--border);padding:8px}
 .size-group-title{font-weight:700;margin-bottom:4px}
-.size-checkbox-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.size-checkbox-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.size-checkbox-option{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:center;column-gap:6px;min-height:28px;line-height:1.2}
+.size-checkbox-option input[type="checkbox"]{margin:0;width:16px;height:16px;justify-self:center}
+.size-checkbox-option span{overflow-wrap:anywhere}
+.size-checkbox-option:has(input:disabled),.size-checkbox-option.is-disabled{opacity:.45}
 .size-preset-row{display:flex;flex-wrap:wrap;gap:6px}
 .tile-preview-mini{font-size:.85rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:6px}
 .homepage-tile-status,.homepage-tile-showcase,.homepage-tile-leaderboard,.homepage-tile-spotlight,.homepage-tile-notices,.homepage-tile-admin-tools{display:grid;gap:6px;color:var(--text)}
