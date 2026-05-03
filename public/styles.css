@@ -130,7 +130,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   margin: 0;
   padding: var(--space-3) 24px 0;
   display: grid;
-  grid-template-columns: auto minmax(220px, 1fr) auto;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: 16px;
 }
@@ -149,7 +149,12 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 }
 
 .compact-header-account {
-  min-width: 0;
+  flex: 0 0 auto;
+  width: clamp(220px, 24vw, 320px);
+  max-width: 320px;
+  min-width: 220px;
+  margin-left: 12px;
+  margin-right: 12px;
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 10px;
@@ -270,6 +275,10 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 
   .compact-header-account {
     width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .site-nav {
