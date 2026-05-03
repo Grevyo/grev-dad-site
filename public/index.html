@@ -23,12 +23,12 @@
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
 
       <section class="dashboard-grid" id="dashboard-grid">
-        <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
-        <article class="dashboard-tile tile-2x2" data-tile-id="quick-actions" data-tile-size="2x2"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
+        <article class="dashboard-tile profile-snapshot-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
         <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
-        <article class="dashboard-tile tile-2x2" data-tile-id="coming-later" data-tile-size="2x2"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
     </main>
 
@@ -36,26 +36,26 @@
     <script src="/scripts/auth-status.js"></script>
     <script>
       (function () {
-        const LAYOUT_KEY = 'grev_dashboard_layout_v3';
+        const LAYOUT_KEY = 'grev_dashboard_layout_v2';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const BOARD_COLUMNS = { desktop: 6, medium: 4, small: 2, mobile: 1 };
-        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x2', '2x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
+        const BOARD_COLUMNS = { desktop: 4, medium: 2, mobile: 1 };
+        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
         const TILE_SIZE_RULES = {
-          'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['2x1', '4x2'] },
-          'quick-actions': { defaultSize: '2x2', allowedSizes: ['2x2'] },
-          'profile-completion': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
-          'members-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
-          chat: { defaultSize: '2x2', allowedSizes: ['2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'] },
-          'coming-later': { defaultSize: '2x2', allowedSizes: ['2x2'] },
-          blank: { defaultSize: '1x1', allowedSizes: ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3'] }
+          'profile-snapshot': { defaultSize: '2x2', allowedSizes: TILE_SIZES },
+          'quick-actions': { defaultSize: '1x1', allowedSizes: TILE_SIZES },
+          'profile-completion': { defaultSize: '1x1', allowedSizes: TILE_SIZES },
+          'members-preview': { defaultSize: '2x1', allowedSizes: TILE_SIZES },
+          chat: { defaultSize: '2x2', allowedSizes: TILE_SIZES },
+          'coming-later': { defaultSize: '1x1', allowedSizes: TILE_SIZES },
+          blank: { defaultSize: '1x1', allowedSizes: TILE_SIZES }
         };
         const DEFAULT_TILE_LAYOUT = {
-          'profile-snapshot': { col: 1, row: 1, size: '2x1' },
-          'quick-actions': { col: 3, row: 1, size: '2x2' },
-          'profile-completion': { col: 5, row: 1, size: '1x1' },
-          'members-preview': { col: 1, row: 2, size: '2x1' },
-          chat: { col: 3, row: 3, size: '2x2' },
-          'coming-later': { col: 5, row: 2, size: '2x2' }
+          'profile-snapshot': { col: 1, row: 1, size: '2x2' },
+          'quick-actions': { col: 3, row: 1, size: '1x1' },
+          'profile-completion': { col: 4, row: 1, size: '1x1' },
+          'members-preview': { col: 1, row: 3, size: '2x1' },
+          chat: { col: 3, row: 2, size: '2x2' },
+          'coming-later': { col: 1, row: 4, size: '1x1' }
         };
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
@@ -73,8 +73,7 @@
 
         function getBoardColumnCount() {
           if (window.matchMedia('(max-width: 640px)').matches) return BOARD_COLUMNS.mobile;
-          if (window.matchMedia('(max-width: 900px)').matches) return BOARD_COLUMNS.small;
-          if (window.matchMedia('(max-width: 1300px)').matches) return BOARD_COLUMNS.medium;
+          if (window.matchMedia('(max-width: 1100px)').matches) return BOARD_COLUMNS.medium;
           return BOARD_COLUMNS.desktop;
         }
 
