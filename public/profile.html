@@ -5,7 +5,9 @@
 let meId=null;const esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));const initials=n=>{const p=String(n||'?').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[1]?.[0]||'')).toUpperCase();};
 function showcaseMarkup(showcase){const slots=Array.isArray(showcase)?showcase:[];const rarityColor={common:'#9ca8b7',uncommon:'#2f8f4e',rare:'#2e7dff',epic:'#8a4fff',legendary:'#d49100'};return `<section><h2>Showcase</h2><div class='showcase-grid'>${[1,2,3,4].map(i=>{const slot=slots.find(s=>Number(s.slot)===i);const u=slot?.unlock;if(!u)return `<article class='showcase-slot showcase-slot-empty'><div class='showcase-title'>Slot ${i}</div><div>Empty showcase slot</div></article>`;return `<article class='showcase-slot'><div class='showcase-icon'>${u.icon_url?`<img src='${esc(u.icon_url)}' alt='icon'/>`:'▣'}</div><div class='showcase-title'>${esc(u.name)}</div><div class='showcase-meta'>${esc(u.unlock_type)} · <span class='showcase-rarity' style='color:${rarityColor[u.rarity]||'#9ca8b7'}'>${esc(u.rarity)}</span></div>${u.description?`<div>${esc(u.description)}</div>`:''}</article>`;}).join('')}</div></section>`;}
 function levelBadgeHtml(level){ if(window.renderLevelBadge){ const w=document.createElement('div'); w.append(window.renderLevelBadge(level)); return w.innerHTML; } return `Lv. ${Number(level)||1}`;}
-function render(p){const own=meId===p.id;const showLevel=Number(p.show_level)!==0;const bannerClass=`profile-banner profile-banner-size-${esc(p.banner_display_size||'wide')}`;const banner=p.banner_url?`<img class='${bannerClass}' src='${esc(p.banner_url)}' alt='banner'/>`:'';const bgMode=(p.profile_background_size||'cover');const bgStyleMap={cover:'background-size:cover;background-position:center;background-repeat:no-repeat;',contain:'background-size:contain;background-position:center;background-repeat:no-repeat;',repeat:'background-size:auto;background-position:top left;background-repeat:repeat;',stretch:'background-size:100% 100%;background-position:center;background-repeat:no-repeat;',center:'background-size:auto;background-position:center;background-repeat:no-repeat;'};const bgStyle=p.profile_background_url?`background-image:url("${esc(p.profile_background_url)}");${bgStyleMap[bgMode]||bgStyleMap.cover}`:'';const accent=p.profile_accent_colour?`border-color:${esc(p.profile_accent_colour)};`:'';const card=window.renderPlayerCard?window.renderPlayerCard({...p, card_border_colour:p.card_border_colour||p.profile_accent_colour},{variant:'full',showXp:showLevel,useCardSettings:true,link:false}):`<div>${esc(p.display_name||p.username)}</div>`;document.getElementById('profile-view').innerHTML=`<section class='profile-background profile-background-size-${esc(bgMode)}' style='${bgStyle}${accent}'><div class='profile-banner-wrap'>${banner}<div class='profile-banner-actions'>${own?"<a class='nav-button' href='/profile-edit.html'>Edit Profile</a> <a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a> <a class='nav-button' href='/account.html'>Account Settings</a>":''}</div></div><section class='profile-player-card-section'><div id='profile-player-card'>${card}</div></section><section class='profile-summary'>${p.profile_title?`<div>${esc(p.profile_title)}</div>`:''}${p.location?`<div>${esc(p.location)}</div>`:''}${p.website_url?`<div><a href='${esc(p.website_url)}' target='_blank' rel='noopener noreferrer'>${esc(p.website_url)}</a></div>`:''}${p.bio?`<p>${esc(p.bio)}</p>`:''}</section></section><section class='profile-integration-grid' id='profile-integrations'></section>${showcaseMarkup(p.showcase)}`;}
+function safeBannerSize(value){const allowed=new Set(["compact","wide","tall","full"]);const text=String(value||"wide").trim().toLowerCase();return allowed.has(text)?text:"wide";}
+function safeBackgroundSize(value){const allowed=new Set(["cover","contain","repeat","stretch","center"]);const text=String(value||"cover").trim().toLowerCase();return allowed.has(text)?text:"cover";}
+function render(p){const own=meId===p.id;const showLevel=Number(p.show_level)!==0;const bannerSize=safeBannerSize(p.banner_display_size);const bannerClass=`profile-banner profile-banner-size-${bannerSize}`;const banner=p.banner_url?`<img class='${bannerClass}' src='${esc(p.banner_url)}' alt='banner'/>`:'';const bgMode=safeBackgroundSize(p.profile_background_size);const bgStyleMap={cover:'background-size:cover;background-position:center;background-repeat:no-repeat;',contain:'background-size:contain;background-position:center;background-repeat:no-repeat;',repeat:'background-size:auto;background-position:top left;background-repeat:repeat;',stretch:'background-size:100% 100%;background-position:center;background-repeat:no-repeat;',center:'background-size:auto;background-position:center;background-repeat:no-repeat;'};const bgStyle=p.profile_background_url?`background-image:url("${esc(p.profile_background_url)}");${bgStyleMap[bgMode]||bgStyleMap.cover}`:'';const accent=p.profile_accent_colour?`border-color:${esc(p.profile_accent_colour)};`:'';const card=window.renderPlayerCard?window.renderPlayerCard({...p, card_border_colour:p.card_border_colour||p.profile_accent_colour},{variant:'full',showXp:showLevel,useCardSettings:true,link:false}):`<div>${esc(p.display_name||p.username)}</div>`;document.getElementById('profile-view').innerHTML=`<section class='profile-background profile-background-size-${bgMode}' style='${bgStyle}${accent}'><div class='profile-banner-wrap'>${banner}<div class='profile-banner-actions'>${own?"<a class='nav-button' href='/profile-edit.html'>Edit Profile</a> <a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a> <a class='nav-button' href='/account.html'>Account Settings</a>":''}</div></div><section class='profile-player-card-section'><div id='profile-player-card'>${card}</div></section><section class='profile-summary'>${p.profile_title?`<div>${esc(p.profile_title)}</div>`:''}${p.location?`<div>${esc(p.location)}</div>`:''}${p.website_url?`<div><a href='${esc(p.website_url)}' target='_blank' rel='noopener noreferrer'>${esc(p.website_url)}</a></div>`:''}${p.bio?`<p>${esc(p.bio)}</p>`:''}</section></section><section class='profile-integration-grid' id='profile-integrations'></section>${showcaseMarkup(p.showcase)}`;}
 async function fetchJsonSafe(url, options = {}) {
   const response = await fetch(url, options);
   const text = await response.text();
@@ -29,7 +31,7 @@ function integrationLink(url,label){return `<a class='integration-link' href='${
 async function loadSteamBox(profile){
   const box=document.getElementById('steam-profile-box-content');
   if(!box) return;
-  try{ const resp=await fetch(`/api/integrations/steam/profile?user_id=${encodeURIComponent(profile.id)}`); const text=await resp.text(); const data=text?JSON.parse(text):null; const steam=data?.steam; if(!steam){ box.innerHTML+=`<div>Steam data unavailable.</div>`; return; }
+  try{ const data=await fetchIntegrationJson(`/api/integrations/steam/profile?user_id=${encodeURIComponent(profile.id)}`); const steam=data?.steam; if(!steam){ box.innerHTML+=`<div>Steam data unavailable.</div>`; return; }
     const avatar=steam.avatarfull||steam.avatarmedium||steam.avatar;
     const statusMap={0:'Offline',1:'Online',2:'Busy',3:'Away',4:'Snooze',5:'Looking to trade',6:'Looking to play'};
     const lastOnline=steam.lastlogoff?new Date(Number(steam.lastlogoff)*1000).toLocaleString():'';
@@ -40,7 +42,7 @@ async function loadSteamBox(profile){
 async function loadLeetifyBox(profile){
   const box=document.getElementById('leetify-profile-box-content');
   if(!box) return;
-  try{ const resp=await fetch(`/api/integrations/leetify/profile?user_id=${encodeURIComponent(profile.id)}`); const text=await resp.text(); const data=text?JSON.parse(text):null; const leetify=data?.leetify; if(!leetify){ box.innerHTML+=`<div>Leetify data unavailable.</div>`; return; }
+  try{ const data=await fetchIntegrationJson(`/api/integrations/leetify/profile?user_id=${encodeURIComponent(profile.id)}`); const leetify=data?.leetify; if(!leetify){ box.innerHTML+=`<div>Leetify data unavailable.</div>`; return; }
     const bits=[];
     if(leetify.name||leetify.nickname) bits.push(`<div>${esc(leetify.name||leetify.nickname)}</div>`);
     if(leetify.leetifyRating!=null) bits.push(`<div>Leetify rating: ${esc(String(leetify.leetifyRating))}</div>`);
@@ -50,6 +52,14 @@ async function loadLeetifyBox(profile){
     if(leetify.recentMatchesCount!=null) bits.push(`<div>Recent matches: ${esc(String(leetify.recentMatchesCount))}</div>`);
     box.innerHTML=`<div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div>${leetify.available&&bits.length?bits.join(''):'<div>Leetify data unavailable.</div>'}`;
   }catch{ box.innerHTML+=`<div>Leetify data unavailable.</div>`; }
+}
+async function fetchIntegrationJson(url){
+  const response=await fetch(url,{credentials:"same-origin"});
+  const text=await response.text();
+  let data=null;
+  try{data=text?JSON.parse(text):null;}catch{return null;}
+  if(!response.ok||!data) return null;
+  return data;
 }
 
 function withProfileFallbackFromAuth(authData){
@@ -107,7 +117,7 @@ async function load(){
     const profileData=await fetchJsonSafe(id?`/api/profile?id=${encodeURIComponent(id)}`:'/api/profile/me');
     statusEl.textContent='Loaded.';
     const profile=profileData.profile||unavailableFallbackProfile();
-    render(profile);
+    try{render(profile);}catch(error){console.error("[profile] render failed",error);statusEl.textContent="Could not render profile.";try{render(unavailableFallbackProfile());}catch{document.getElementById('profile-view').textContent='Could not load profile.';}}
     const integrations=document.getElementById('profile-integrations');
     if(integrations){
       const parts=[];
@@ -122,11 +132,11 @@ async function load(){
     console.error('[profile] Failed to load profile', error);
     if(!id&&authData){
       statusEl.textContent='Loaded with limited data.';
-      render(withProfileFallbackFromAuth(authData));
+      try{render(withProfileFallbackFromAuth(authData));}catch(error){console.error("[profile] render failed",error);document.getElementById('profile-view').textContent='Could not load profile.';}
       return;
     }
     statusEl.textContent='Could not load profile.';
-    render(unavailableFallbackProfile());
+    try{render(unavailableFallbackProfile());}catch(error){console.error("[profile] render failed",error);document.getElementById('profile-view').textContent='Could not load profile.';}
   }
 }
 
