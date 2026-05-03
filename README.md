@@ -29,3 +29,12 @@ npx wrangler d1 migrations apply profile-db --local
 curl -X POST https://<your-domain>/api/setup/schema -H "Content-Type: application/json" -d '{"secret":"<ADMIN_SETUP_SECRET>"}'
 curl https://<your-domain>/api/setup/status
 ```
+
+## Profile showcase admin test API
+
+- `POST /api/admin/users/:id/unlocks` (admin only)
+- Body: `{ "unlock_key", "unlock_type", "name", "description", "rarity", "source", "icon_url" }`
+- `unlock_type` must be one of: achievement, badge, trophy, minigame, cosmetic, other.
+- `rarity` must be one of: common, uncommon, rare, epic, legendary.
+- Upserts by `(user_id, unlock_key)`.
+
