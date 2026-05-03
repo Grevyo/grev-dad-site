@@ -4,7 +4,7 @@
   window.renderPlayerCard=function(profile,options={}){
     const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,...options};
     const show=(k,d=1)=>o.useCardSettings?(Number(p[k]??d)===1):d===1;
-    const avatarUrl=(p.card_avatar_url||p.avatar_url||'');
+    const avatarUrl=(p.avatar_url||'');
     const level=Number(p.accountLevel||1); const rank=esc(p.rank?.name||'Unranked');
     const avatar=avatarUrl&&show('card_show_avatar',1)?`<img src='${esc(avatarUrl)}' alt='avatar'/>`:`<span class='compact-header-avatar-fallback'>${init(p.display_name||p.username)}</span>`;
     const bg=p.card_background_url?`background-image:url("${esc(p.card_background_url)}");background-size:cover;background-position:center;`:(p.card_background_colour?`background:${esc(p.card_background_colour)};`:'' );
