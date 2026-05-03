@@ -36,6 +36,27 @@
     <script src="/scripts/auth-status.js"></script>
     <script>
       (function () {
+        async function fetchJsonSafe(url, options = {}) {
+          const response = await fetch(url, {
+            credentials: "same-origin",
+            ...options
+          });
+
+          const text = await response.text();
+          let data = null;
+
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (error) {
+            throw new Error(`Invalid JSON from ${url}`);
+          }
+
+          if (!response.ok || !data || data.ok === false) {
+            throw new Error(data?.error || `Request failed: ${response.status}`);
+          }
+
+          return data;
+        }
         const LAYOUT_KEY = 'grev_dashboard_layout_v2';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
         const BOARD_COLUMNS = { desktop: 4, medium: 2, mobile: 1 };
