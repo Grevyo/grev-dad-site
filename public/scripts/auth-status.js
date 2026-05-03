@@ -60,9 +60,11 @@
     });
   }
 
-  async function ensurePlayerCardDependencies() {
-    await loadScriptOnce('/scripts/level-badge.js', 'levelBadgeHtml');
-    await loadScriptOnce('/scripts/player-card.js', 'renderPlayerCard');
+  async function ensureHeaderDependencies() {
+    if (!window.renderPlayerCard) await loadScriptOnce('/scripts/player-card.js', 'renderPlayerCard');
+    if (!window.levelBadgeHtml) {
+      try { await loadScriptOnce('/scripts/level-badge.js', 'levelBadgeHtml'); } catch {}
+    }
   }
 
   function renderLoggedOut(container) {
@@ -75,11 +77,12 @@
     container.append(createThemeToggle());
   }
 
-  function removeProfileSummary(container) {
+  function cleanupHeaderProfileArtifacts(container) {
     const header = container.closest('.site-header');
     if (!header) return;
-    const existing = header.querySelector('.compact-header-account');
-    if (existing) existing.remove();
+    header.querySelectorAll('.compact-header-account, .header-player-card, .player-card-header-variant').forEach((el) => {
+      if (el.closest('.site-header')) el.remove();
+    });
   }
 
   function createProfileSummary(profile) {
@@ -123,7 +126,7 @@
 
     const header = container.closest('.site-header');
     if (header) {
-      removeProfileSummary(container);
+      cleanupHeaderProfileArtifacts(container);
       header.insertBefore(createProfileSummary(accountProfile), container);
     }
 
@@ -240,13 +243,17 @@
       console.debug('[auth-status] /api/auth/me took', Math.round(performance.now() - authStart), 'ms');
       const user = data?.user;
       if (!response.ok || !user || !user.username) {
-        removeProfileSummary(container);
+        cleanupHeaderProfileArtifacts(container);
         teardownChatWidget();
         renderLoggedOut(container);
         return;
       }
 
-      await ensurePlayerCardDependencies();
+      try {
+        await ensureHeaderDependencies();
+      } catch (error) {
+        console.warn('[auth-status] header dependency load failed', error);
+      }
       const cached = readProfileCache(user.username);
       const cachedProfile = cached ? { ...cached, username: user.username, rank: { name: cached.rank?.name || cached.rank || 'Unranked' } } : { username: user.username, display_name: user.username, avatar_url: '', accountLevel: 1, rank: { name: 'Unranked' } };
       renderLoggedIn(container, user, cachedProfile);
@@ -271,7 +278,7 @@
         } catch {}
       })();
     } catch {
-      removeProfileSummary(container);
+      cleanupHeaderProfileArtifacts(container);
       teardownChatWidget();
       renderLoggedOut(container);
     }
