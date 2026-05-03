@@ -142,18 +142,32 @@
           const xpRequired = Number(profile?.accountXpRequired || 100) || 100;
           const xpPercent = Math.max(0, Math.min(100, Number(profile?.accountXpPercent || ((xpCurrent / Math.max(1, xpRequired)) * 100) || 0)));
           wrap.textContent = '';
-          const avatar = document.createElement('div'); avatar.className = 'profile-avatar profile-avatar-fallback';
-          if (profile?.avatar_url) { const img = document.createElement('img'); img.src = profile.avatar_url; img.alt = displayName + ' avatar'; avatar.className = 'profile-avatar'; avatar.append(img); }
-          else avatar.textContent = initials(displayName, username);
+          const root = document.createElement('div'); root.className = 'account-snapshot';
+          const avatar = document.createElement('div'); avatar.className = 'account-snapshot-avatar';
+          const fallback = document.createElement('div'); fallback.className = 'account-snapshot-avatar-fallback'; fallback.textContent = initials(displayName, username);
+          if (profile?.avatar_url) {
+            const img = document.createElement('img');
+            img.src = profile.avatar_url;
+            img.alt = displayName + ' avatar';
+            img.loading = 'lazy';
+            img.onerror = function () { img.remove(); fallback.hidden = false; };
+            fallback.hidden = true;
+            avatar.append(img, fallback);
+          } else avatar.append(fallback);
+          const metaWrap = document.createElement('div'); metaWrap.className = 'account-snapshot-meta';
           const name = document.createElement('p'); name.textContent = displayName;
           const user = document.createElement('p'); user.textContent = '@' + username;
           const meta = document.createElement('p'); meta.textContent = `${role} · ID ${profile?.id || authUser?.id || 'n/a'}`;
-          const levelRank = document.createElement('p'); levelRank.textContent = `Level ${level} · ${rank}`;
+          const levelRank = document.createElement('p');
+          if (window.renderLevelBadge) { levelRank.append(window.renderLevelBadge(level), document.createTextNode(' · ' + rank)); }
+          else levelRank.textContent = `Level ${level} · ${rank}`;
           const xp = document.createElement('p'); xp.textContent = `XP ${xpCurrent} / ${xpRequired}`;
           const xpBar = document.createElement('div'); xpBar.className = 'xp-bar';
           const xpFill = document.createElement('div'); xpFill.className = 'xp-bar-fill'; xpFill.style.width = xpPercent + '%';
           xpBar.append(xpFill);
-          wrap.append(avatar, name, user, meta, levelRank, xp, xpBar);
+          metaWrap.append(name, user, meta, levelRank, xp, xpBar);
+          root.append(avatar, metaWrap);
+          wrap.append(root);
         }
 
         function renderQuickActions(isAdmin) {
@@ -203,7 +217,11 @@
             const level = Number(member.accountLevel || member.account_level || 1) || 1;
             const rank = member.rank?.name || 'Unranked';
             const link = document.createElement('a'); link.href = `/profile.html?u=${encodeURIComponent(member.username || '')}`; link.textContent = `${display} (${username})`;
-            const meta = document.createElement('span'); meta.textContent = ` · ${role} · Lv. ${level} · ${rank}`;
+            const meta = document.createElement('span');
+            meta.append(document.createTextNode(` · ${role} · `));
+            if (window.renderLevelBadge) meta.append(window.renderLevelBadge(level));
+            else meta.append(document.createTextNode(`Lv. ${level}`));
+            meta.append(document.createTextNode(` · ${rank}`));
             li.append(link, meta); list.append(li);
           });
           if (!list.children.length) wrap.textContent = 'Members preview unavailable.';
@@ -216,7 +234,11 @@
           if (m.sender_avatar_url) { const i = document.createElement('img'); i.src = m.sender_avatar_url; i.alt = 'avatar'; avatar.append(i); }
           else avatar.textContent = initials(m.sender_display_name, m.sender_username);
           const content = document.createElement('div');
-          const meta = document.createElement('div'); meta.className = 'chat-message-meta'; meta.textContent = `${m.sender_display_name || m.sender_username} · Lv. ${Number(m.sender_accountLevel) || 1} · ${m.sender_rank?.name || 'Unranked'}`;
+          const meta = document.createElement('div'); meta.className = 'chat-message-meta';
+          meta.append(document.createTextNode(`${m.sender_display_name || m.sender_username} · `));
+          const ml = Number(m.sender_accountLevel) || 1;
+          if (window.renderLevelBadge) meta.append(window.renderLevelBadge(ml)); else meta.append(document.createTextNode(`Lv. ${ml}`));
+          meta.append(document.createTextNode(` · ${m.sender_rank?.name || 'Unranked'}`));
           const body = document.createElement('div'); body.className = 'chat-message-body'; body.textContent = m.body || '';
           content.append(meta, body); row.append(avatar, content); return row;
         }

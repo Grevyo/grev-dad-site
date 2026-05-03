@@ -52,7 +52,11 @@
       const meta = el('div', 'chat-message-meta');
       const rank = m.sender_rank?.name || 'Unranked';
       const level = Number(m.sender_accountLevel) > 0 ? Number(m.sender_accountLevel) : 1;
-      meta.textContent = `${m.sender_display_name || m.sender_username} · @${m.sender_username || 'unknown'} · Lv. ${level} · ${rank} · ${new Date(m.created_at).toLocaleTimeString()}`;
+      meta.textContent = '';
+      meta.append(document.createTextNode(`${m.sender_display_name || m.sender_username} · @${m.sender_username || 'unknown'} · `));
+      if (window.renderLevelBadge) meta.append(window.renderLevelBadge(level));
+      else meta.append(document.createTextNode(`Lv. ${level}`));
+      meta.append(document.createTextNode(` · ${rank} · ${new Date(m.created_at).toLocaleTimeString()}`));
       const body = el('div', 'chat-message-body');
       body.textContent = m.body || '';
       content.append(meta, body);
@@ -161,8 +165,21 @@
 
   function mount() { ensureMounted(); }
 
+  function destroy() {
+    if (state.poller) {
+      clearInterval(state.poller);
+      state.poller = null;
+    }
+    state.open = false;
+    const launcher = document.getElementById('chat-launcher');
+    const popup = document.getElementById('chat-popup');
+    if (launcher) launcher.remove();
+    if (popup) popup.remove();
+  }
+
   window.GREVChat = {
     mount,
+    destroy,
     currentUserId: null,
     openRoom: async function (id) {
       ensureMounted();
