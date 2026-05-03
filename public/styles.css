@@ -444,3 +444,13 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .rarity-common{color:var(--text-muted)} .rarity-uncommon{color:#3ea25c} .rarity-rare{color:#3e7bff} .rarity-epic{color:#8a4fff} .rarity-legendary{color:#d49100}
 .level-badge{display:inline-flex;border:1px solid #000;min-width:56px;height:24px;align-items:center;justify-content:center;padding:0 6px}
 .level-badge-inner{font-size:.75rem;font-weight:700;line-height:1}
+
+.dashboard-drop-preview{z-index:1;pointer-events:none;border:2px dashed var(--accent);background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.dashboard-drop-preview-invalid{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 20%,transparent)}
+.tile-hide-button{display:none;margin:0 0 8px 0}
+.dashboard-editing .tile-hide-button{display:inline-block}
+.hidden-boxes-panel{display:grid;gap:8px;margin:8px 16px;padding:8px;border:1px solid var(--border);background:var(--surface)}
+.hidden-box-row{display:flex;justify-content:space-between;gap:8px}
+.profile-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.edit-card{border:1px solid var(--border);padding:12px;background:var(--surface)}
+.profile-edit-grid button[type="submit"]{grid-column:1/-1;position:sticky;bottom:8px}
