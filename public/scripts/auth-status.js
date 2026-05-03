@@ -167,7 +167,12 @@
   async function safeFetchJson(url) {
     const response = await fetch(url, { method: 'GET' });
     const raw = await response.text();
-    const data = raw ? JSON.parse(raw) : null;
+    let data = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
     return { response, data };
   }
 
