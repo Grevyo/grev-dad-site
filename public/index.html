@@ -17,13 +17,14 @@
         <h1>Home</h1>
         <div class="dashboard-edit-controls">
           <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit homepage</button>
-          <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset this layout</button>
+          <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
       </div>
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
 
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
+        <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
         <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
@@ -59,11 +60,12 @@
 
           return data;
         }
-        const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v4_desktop';
+        const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v4';
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v4_mobile';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
                 const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
-        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 60 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
+        const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 4, minH: 2 },'quick-actions': { minW: 2, minH: 2 },'profile-completion': { minW: 2, minH: 2 },'members-preview': { minW: 4, minH: 2 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 2 },status: { minW: 2, minH: 2 }};
+        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 60 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
         let TILE_SIZE_RULES = JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));
         const DEFAULT_TILE_LAYOUT = {
           'profile-snapshot': { col: 1, row: 1, size: '4x2' },
@@ -81,11 +83,14 @@
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
-        document.querySelector('.dashboard-edit-controls').append(addBlankButton);
+        const hiddenBtn=document.createElement('button'); hiddenBtn.type='button'; hiddenBtn.className='nav-button'; hiddenBtn.id='show-hidden-boxes'; hiddenBtn.textContent='Show hidden boxes'; hiddenBtn.hidden=true;
+        const hiddenPanel=document.createElement('div'); hiddenPanel.id='hidden-boxes-panel'; hiddenPanel.className='hidden-boxes-panel'; hiddenPanel.hidden=true;
+        document.querySelector('.dashboard-edit-controls').append(addBlankButton, hiddenBtn);
+        document.querySelector('.dashboard-page').append(hiddenPanel);
         let isEditing = false;
         let homeChatTimer = null;
         let homeChatRoomId = null;
-        let dashboardLayout = { tiles: {}, blankTiles: {} };
+        let dashboardLayout = { tiles: {}, hiddenTiles: [], blankTiles: {} };
         let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
         let wasMobileDashboard = isMobileDashboard();
 
@@ -103,7 +108,9 @@
           return { w: Number(m[1]), h: Number(m[2]) };
         }
         function tileRuleFor(tileId) { return tileId && tileId.startsWith('blank-') ? TILE_SIZE_RULES.blank : (TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: BASE_TILE_SIZES }); }
-        function normalizeTileSize(tileId, size) { const r = tileRuleFor(tileId); return r.allowedSizes.includes(size) ? size : r.defaultSize; }
+        function isSizeSafe(tileId,size){ if (tileId.startsWith('blank-')) return true; const min=TILE_MINIMUM_SIZES[tileId]; if(!min) return true; const {w,h}=parseTileSize(size); return w>=min.minW && h>=min.minH; }
+        function safeAllowedSizes(tileId){ return tileRuleFor(tileId).allowedSizes.filter((s)=>isSizeSafe(tileId,s)); }
+        function normalizeTileSize(tileId, size) { const r = tileRuleFor(tileId); const allowed=safeAllowedSizes(tileId); const target=allowed.length?allowed:r.allowedSizes; return target.includes(size) ? size : (target[0] || r.defaultSize); }
         function getDesktopLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY_DESKTOP) || 'null'); } catch { return null; } }
         function getMobileLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY_MOBILE) || 'null'); } catch { return null; } }
         function saveDesktopLayout() { localStorage.setItem(LAYOUT_KEY_DESKTOP, JSON.stringify(dashboardLayout)); }
@@ -189,10 +196,10 @@
         function hydrateLayout() {
           const saved = getDesktopLayout();
           const savedMobile = getMobileLayout();
-          dashboardLayout = { tiles: {}, blankTiles: {} };
+          dashboardLayout = { tiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles)?saved.hiddenTiles:[], blankTiles: {} };
           const enabledIds = defaultIds.filter((id)=>tileRuleFor(id).isEnabled!==0);
           defaultIds.forEach((id) => {
-            if (!enabledIds.includes(id)) return; const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
+            if (!enabledIds.includes(id)) return; if (dashboardLayout.hiddenTiles.includes(id)) return; const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
             dashboardLayout.tiles[id] = { col: Number(fromSaved.col) || 1, row: Number(fromSaved.row) || 1, size: normalizeTileSize(id, fromSaved.size || tileRuleFor(id).defaultSize) };
           });
           Object.entries(saved?.blankTiles || {}).forEach(([id, entry]) => {
@@ -293,12 +300,10 @@
                   if (!isEditing || isMobileDashboard()) return;
                   ev.preventDefault();
                   tile.classList.add('tile-dragging');
-                  const up = (e) => {
-                    tile.classList.remove('tile-dragging');
-                    window.removeEventListener('pointerup', up);
-                    const target = getGridCellFromPointer(e);
-                    if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.');
-                  };
+                  const preview = document.getElementById('dashboard-drop-preview');
+                  const move = (e) => { const target = getGridCellFromPointer(e); const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]; const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=snap.tiles[tileId]||snap.blankTiles[tileId]; if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, entry.size, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
+                  const up = (e) => { tile.classList.remove('tile-dragging'); preview.hidden=true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const target = getGridCellFromPointer(e); if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.'); };
+                  window.addEventListener('pointermove', move);
                   window.addEventListener('pointerup', up, { once: false });
                 });
                 controls.append(dragHandle);
@@ -309,7 +314,7 @@
             if (!sizeControl) {
               sizeControl = document.createElement('label'); sizeControl.className='tile-size-control'; sizeControl.textContent='Tile size ';
               const select = document.createElement('select');
-              tileRuleFor(tileId).allowedSizes.forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
+              safeAllowedSizes(tileId).forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
               select.addEventListener('change', () => {
                 const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
                 const next = normalizeTileSize(tileId, select.value);
@@ -329,8 +334,14 @@
             const select = sizeControl.querySelector('select');
             const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
             if (select && entry) select.value = entry.size;
-            sizeControl.hidden = !isEditing || tileRuleFor(tileId).allowedSizes.length <= 1;
+            sizeControl.hidden = !isEditing || safeAllowedSizes(tileId).length <= 1;
 
+            if (!tileId.startsWith('blank-')) {
+              let hideBtn = tile.querySelector('.tile-hide-button');
+              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent='Hide'; hideBtn.addEventListener('click',()=>{ dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); saveDesktopLayout(); saveMobileLayout(); hydrateLayout(); createEditControls(); renderHiddenPanel(); }); tile.prepend(hideBtn); }
+              hideBtn.hidden = !isEditing;
+            }
+            
             if (tileId.startsWith('blank-')) {
               let removeBtn = tile.querySelector('.blank-remove-button');
               if (!removeBtn) { removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='blank-remove-button'; removeBtn.textContent='Remove blank tile'; removeBtn.addEventListener('click', ()=>{ delete dashboardLayout.blankTiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); }); tile.prepend(removeBtn); }
@@ -338,11 +349,13 @@
             }
           });
         }
+        function renderHiddenPanel(){const panel=document.getElementById('hidden-boxes-panel'); const btn=document.getElementById('show-hidden-boxes'); const hidden=(dashboardLayout.hiddenTiles||[]); btn.disabled=hidden.length===0; btn.textContent=hidden.length?`Show hidden boxes (${hidden.length})`:'No hidden boxes'; panel.textContent=''; hidden.forEach((tileId)=>{const row=document.createElement('div'); row.className='hidden-box-row'; const label=document.createElement('span'); label.textContent=tileId; const r=document.createElement('button'); r.type='button'; r.className='tile-restore-button'; r.textContent='Restore'; r.addEventListener('click',()=>{dashboardLayout.hiddenTiles=hidden.filter((id)=>id!==tileId); const size=tileRuleFor(tileId).defaultSize; const pos=findNearestFreePosition(tileId,size,dashboardLayout,{col:1,row:1})||{col:1,row:getLayoutMaxRows()+1}; dashboardLayout.tiles[tileId]={col:pos.col,row:pos.row,size:normalizeTileSize(tileId,size)}; mobileLayout.order.push(tileId); saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderHiddenPanel();}); row.append(label,r); panel.append(row);});}
+        document.addEventListener('click',(e)=>{ if(e.target&&e.target.id==='show-hidden-boxes'){const p=document.getElementById('hidden-boxes-panel'); p.hidden=!p.hidden;}});
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
           editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
           if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.';
-          createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
+          createEditControls(); document.getElementById('show-hidden-boxes').hidden=!isEditing; document.getElementById('hidden-boxes-panel').hidden=!isEditing; renderHiddenPanel(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
         function initials(name, username) {
           const src = (name || username || '').trim();
