@@ -370,10 +370,13 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-header-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding-left:16px;padding-right:16px}
 .dashboard-edit-controls{display:flex;gap:8px;align-items:center}
 .dashboard-edit-help{margin:0 0 10px;color:var(--text-muted);padding-left:16px;padding-right:16px}
-.dashboard-board{display:flex;justify-content:stretch;width:100%}
-.dashboard-grid{--dashboard-cols:6;--dashboard-gap:16px;position:relative;display:grid;width:100%;max-width:none;margin:0;grid-template-columns:repeat(var(--dashboard-cols),minmax(0,1fr));grid-auto-rows:calc((100vw - ((var(--dashboard-cols) - 1) * var(--dashboard-gap))) / var(--dashboard-cols));gap:var(--dashboard-gap);justify-content:stretch;align-items:start;grid-auto-flow:row;background-image:linear-gradient(to right,var(--border) 1px,transparent 1px),linear-gradient(to bottom,var(--border) 1px,transparent 1px);background-size:calc((100% - ((var(--dashboard-cols) - 1) * var(--dashboard-gap))) / var(--dashboard-cols) + var(--dashboard-gap)) calc((100% - ((var(--dashboard-cols) - 1) * var(--dashboard-gap))) / var(--dashboard-cols) + var(--dashboard-gap));background-position:0 0;padding:0}
-.dashboard-tile{min-width:0;min-height:0;border:1px solid var(--border);background:var(--surface);padding:16px;border-radius:0;margin:0;overflow:auto}
-.tile-1x1{grid-column:span 1;grid-row:span 1}.tile-2x1{grid-column:span 2;grid-row:span 1}.tile-1x2{grid-column:span 1;grid-row:span 2}.tile-2x2{grid-column:span 2;grid-row:span 2}.tile-3x1{grid-column:span 3;grid-row:span 1}.tile-4x1{grid-column:span 4;grid-row:span 1}
+.dashboard-board{position:relative;width:100%;max-width:none;margin:0;padding:0;--dashboard-cols:6;--dashboard-gap:16px;--dashboard-cell:calc((100% - ((var(--dashboard-cols) - 1) * var(--dashboard-gap))) / var(--dashboard-cols))}
+.dashboard-grid,.dashboard-grid-bg{display:grid;grid-template-columns:repeat(var(--dashboard-cols),var(--dashboard-cell));grid-auto-rows:var(--dashboard-cell);gap:var(--dashboard-gap);width:100%}
+.dashboard-grid-bg{position:absolute;inset:0;pointer-events:none;z-index:0;align-content:start}
+.dashboard-grid{position:relative;z-index:1;max-width:none;margin:0;padding:0;box-sizing:border-box;align-items:start;justify-content:start;grid-auto-flow:row}
+.dashboard-grid-bg-cell{border:1px dashed color-mix(in srgb,var(--border) 45%,transparent);background:color-mix(in srgb,var(--surface) 35%,transparent)}
+.dashboard-tile{box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--border);background:var(--surface);padding:16px;border-radius:0;margin:0;overflow:auto}
+.tile-1x1{grid-column:span 1;grid-row:span 1}.tile-1x2{grid-column:span 1;grid-row:span 2}.tile-2x1{grid-column:span 2;grid-row:span 1}.tile-2x2{grid-column:span 2;grid-row:span 2}.tile-2x3{grid-column:span 2;grid-row:span 3}.tile-3x2{grid-column:span 3;grid-row:span 2}.tile-3x3{grid-column:span 3;grid-row:span 3}.tile-3x4{grid-column:span 3;grid-row:span 4}.tile-4x3{grid-column:span 4;grid-row:span 3}.tile-4x4{grid-column:span 4;grid-row:span 4}.tile-5x5{grid-column:span 5;grid-row:span 5}.tile-6x6{grid-column:span 6;grid-row:span 6}
 .tile-edit-controls{display:none;margin:0 0 8px 0}
 .dashboard-editing .tile-edit-controls{display:block}
 .tile-move-controls{display:grid;grid-template-columns:repeat(4,auto);gap:4px}
@@ -384,12 +387,12 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-snapshot-tile .account-snapshot{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:start;min-width:0}
 .profile-snapshot-tile .account-snapshot-meta{min-width:0;overflow:visible;display:grid;gap:.3rem}
 .profile-snapshot-tile .account-snapshot-meta *{max-width:100%}
-.profile-snapshot-tile{grid-column:span 2;grid-row:span 2;overflow:auto}
+.profile-snapshot-tile{overflow:auto}
 .profile-snapshot-tile .account-snapshot-name,.profile-snapshot-tile .account-snapshot-username,.profile-snapshot-tile .account-snapshot-rank{overflow-wrap:anywhere}
 .blank-dashboard-tile{background:var(--bg)}
 .blank-dashboard-tile .blank-tile-label{display:none;color:var(--text-muted)}
 .dashboard-editing .blank-dashboard-tile .blank-tile-label{display:block}
-.chat-dashboard-tile{grid-column:span 2;grid-row:span 2;overflow:hidden;display:flex;flex-direction:column}
+.chat-dashboard-tile{display:flex;flex-direction:column;overflow:hidden}
 .chat-dashboard-tile .chat-message-list{flex:1;min-height:0;overflow-y:auto}
 .chat-launcher{position:fixed;right:16px;bottom:16px;z-index:1000;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:0}
 .chat-popup{position:fixed;right:16px;bottom:64px;width:min(420px,calc(100vw - 24px));max-height:70vh;display:none;z-index:1001;background:var(--surface);border:1px solid var(--border);padding:10px}
@@ -410,23 +413,21 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   .chat-popup{right:8px;left:8px;bottom:56px;width:auto;max-height:65vh}
 }
 @media (max-width:1300px){
-  .dashboard-grid{
+  .dashboard-board{
     --dashboard-cols:4;
-    grid-template-columns:repeat(var(--dashboard-cols),minmax(0,1fr));
-    grid-auto-rows:calc((100vw - ((var(--dashboard-cols) - 1) * var(--dashboard-gap))) / var(--dashboard-cols));
   }
 }
 @media (max-width:900px){
-  .dashboard-grid{
+  .dashboard-board{
     --dashboard-cols:2;
-    grid-template-columns:repeat(var(--dashboard-cols),minmax(0,1fr));
-    grid-auto-rows:calc((100vw - var(--dashboard-gap)) / 2);
   }
 }
 @media (max-width:640px){
   .dashboard-page{padding-left:0;padding-right:0}
   .dashboard-header-row{flex-wrap:wrap}
-  .dashboard-grid{display:grid;grid-template-columns:1fr;grid-auto-rows:auto;width:100%;justify-content:stretch;background-image:none}
+  .dashboard-board{--dashboard-cols:1;width:100%}
+  .dashboard-grid-bg{display:none}
+  .dashboard-grid{grid-template-columns:1fr;grid-auto-rows:auto;width:100%}
   .dashboard-tile{grid-column:1/-1 !important;grid-row:auto !important;min-height:auto}
   .tile-move-left,.tile-move-right{display:none !important}
 }
