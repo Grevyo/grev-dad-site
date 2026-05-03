@@ -4,6 +4,7 @@ extends CanvasLayer
 
 @onready var debug_label: Label = $PanelContainer/MarginContainer/DebugLabel
 var orbitling: Node
+var status_message: String = "No save activity yet"
 
 func _ready() -> void:
 	if orbitling_path != NodePath():
@@ -23,4 +24,10 @@ func _process(_delta: float) -> void:
 		"Mood: %.1f" % stats.mood,
 		"Hunger: %.1f" % stats.hunger,
 		"State: %s" % orbitling.state_machine.current_state,
+		"Save Key: F5",
+		"Load Key: F9",
+		"Save Status: %s" % status_message,
 	])
+
+func set_status_message(message: String) -> void:
+	status_message = message
