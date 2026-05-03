@@ -36,6 +36,7 @@ export default { async fetch(request, env) { const url = new URL(request.url);
   if (url.pathname === '/api/profile' && request.method === 'GET') return handleProfileLookup(request, env);
   if (url.pathname === '/api/profile/steam' && request.method === 'GET') return handleSteamProfile(request, env);
   if (url.pathname === '/api/integrations/steam/profile' && request.method === 'GET') return handleSteamProfile(request, env);
+  if (url.pathname === '/api/integrations/leetify/profile' && request.method === 'GET') return handleLeetifyProfile(request, env);
   if (url.pathname === '/api/account' && request.method === 'GET') return handleAccount(request, env);
   if (url.pathname === '/api/account/password' && request.method === 'POST') return handleAccountPassword(request, env);
   if (url.pathname === '/api/wallet/me' && request.method === 'GET') return handleWalletMe(request, env);
@@ -461,8 +462,78 @@ async function handleChatRead(request, env){ try{const auth=await requireChatUse
 async function handleAdminChatDelete(request, env, path){ try{const auth=await requireAdmin(request, env); if(auth) return auth; const id=Number(path.split('/')[5]); if(!Number.isInteger(id)||id<1) return json({ok:false,error:'Invalid id'},400); const db=getDatabase(env); await ensureSchema(db); await db.prepare("UPDATE chat_messages SET deleted_at=datetime('now') WHERE id=?").bind(id).run(); return json({ok:true});}catch(error){return json({ok:false,error:friendlyError(error)},500);} }
 
 const steamProfileCache = new Map();
+const leetifyProfileCache = new Map();
 const STEAM_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
+const LEETIFY_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 function parseSteamIdFromUrl(url) { try { const u = new URL(url); const m1 = u.pathname.match(/\/profiles\/(\d{17})/); if (m1) return { steamid: m1[1], vanity: null }; const m2 = u.pathname.match(/\/id\/([^/]+)/); if (m2) return { steamid: null, vanity: m2[1] }; } catch {} return { steamid: null, vanity: null }; }
+
+function parseLeetifyFromUrl(url) {
+  try {
+    const u = new URL(url);
+    const steamIdMatch = u.href.match(/(7656119\d{10})/);
+    const slugMatch = u.pathname.match(/\/profile\/([^/?#]+)/);
+    return { steamid64: steamIdMatch ? steamIdMatch[1] : null, slug: slugMatch ? slugMatch[1] : null };
+  } catch {
+    return { steamid64: null, slug: null };
+  }
+}
+function readLeetifyCache(cacheKey) { const cached = leetifyProfileCache.get(cacheKey); if (!cached) return null; if (cached.expiresAt < Date.now()) { leetifyProfileCache.delete(cacheKey); return null; } return cached.data; }
+function writeLeetifyCache(cacheKey, data) { leetifyProfileCache.set(cacheKey, { expiresAt: Date.now() + LEETIFY_PROFILE_CACHE_TTL_MS, data }); return data; }
+async function handleLeetifyProfile(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({ ok:false, error:'Not logged in' },401);
+  const db=getDatabase(env);
+  await ensureSchema(db);
+  const url = new URL(request.url);
+  const requestedId = url.searchParams.get('user_id') || url.searchParams.get('id');
+  const userId = requestedId ? Number(requestedId) : Number(user.id);
+  if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
+  const row=await db.prepare('SELECT leetify_url FROM user_profiles WHERE user_id = ?').bind(userId).first();
+  if(!row?.leetify_url) return json({ ok:false, error:'No Leetify URL set' });
+  const profileUrl=String(row.leetify_url).trim();
+  const parsed=parseLeetifyFromUrl(profileUrl);
+  const cacheKey=`${profileUrl}|${parsed.steamid64||''}`;
+  const cached=readLeetifyCache(cacheKey);
+  if(cached) return json(cached);
+
+  // TODO: Confirm stable/public Leetify endpoint contract in upstream docs before expanding fields.
+  const unavailable = { ok:true, leetify:{ available:false, profileUrl, message:'Leetify data unavailable.' } };
+  const apiKey = env.LEETIFY_API_KEY;
+  const headers = { 'Accept': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const candidates = [];
+  if (parsed.steamid64) candidates.push(`https://api-public.cs-prod.leetify.com/v1/profile/${parsed.steamid64}`);
+  if (parsed.slug) candidates.push(`https://api-public.cs-prod.leetify.com/v1/profile/${encodeURIComponent(parsed.slug)}`);
+  if (!candidates.length) return json(writeLeetifyCache(cacheKey, unavailable));
+
+  for (const endpoint of candidates) {
+    try {
+      const resp = await fetch(endpoint, { headers });
+      if (!resp.ok) continue;
+      const payload = await resp.json();
+      const profile = payload?.profile || payload?.data || payload;
+      if (!profile || typeof profile !== 'object') continue;
+      const safe = {
+        available: true,
+        profileUrl,
+        ...(profile.name ? { name: profile.name } : {}),
+        ...(profile.nickname ? { nickname: profile.nickname } : {}),
+        ...(profile.steam64Id ? { steam64Id: profile.steam64Id } : {}),
+        ...(profile.premierRank ? { premierRank: profile.premierRank } : {}),
+        ...(profile.leetifyRating != null ? { leetifyRating: profile.leetifyRating } : {}),
+        ...(profile.aimRating != null ? { aimRating: profile.aimRating } : {}),
+        ...(profile.utilityRating != null ? { utilityRating: profile.utilityRating } : {}),
+        ...(profile.clutchRating != null ? { clutchRating: profile.clutchRating } : {}),
+        ...(profile.recentMatchesCount != null ? { recentMatchesCount: profile.recentMatchesCount } : {})
+      };
+      return json(writeLeetifyCache(cacheKey, { ok:true, leetify:safe }));
+    } catch {}
+  }
+
+  return json(writeLeetifyCache(cacheKey, unavailable));
+}
+
 function readSteamCache(cacheKey) { const cached = steamProfileCache.get(cacheKey); if (!cached) return null; if (cached.expiresAt < Date.now()) { steamProfileCache.delete(cacheKey); return null; } return cached.data; }
 function writeSteamCache(cacheKey, data) { steamProfileCache.set(cacheKey, { expiresAt: Date.now() + STEAM_PROFILE_CACHE_TTL_MS, data }); return data; }
 async function handleSteamProfile(request, env) {
