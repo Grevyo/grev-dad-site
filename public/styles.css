@@ -498,3 +498,23 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .grev-level-shape-elite-frame,.level-shape-elite-frame{border-radius:4px;box-shadow:0 0 0 2px #000,inset 0 0 0 2px rgba(255,255,255,.35)}
 .player-card-snapshot-variant{max-width:100%}
 .player-card-full-variant{max-width:900px}
+
+.profile-top-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+.profile-header-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.profile-summary{display:grid;gap:.35rem;margin-top:10px}
+.profile-banner-size-compact{height:140px;max-height:none}
+.profile-banner-size-wide{height:220px;max-height:none}
+.profile-banner-size-tall{height:320px;max-height:none}
+.profile-banner-size-full{height:420px;max-height:none}
+.page-shell.profile-editor-page{max-width:none;width:100%;margin:0;padding:0 24px}
+.profile-editor-page .profile-editor-grid{max-width:none;width:100%;margin:0}
+.profile-editor-page .profile-editor-section{border:1px solid var(--border);padding:12px}
+@media (max-width:700px){
+  .profile-top-header{grid-template-columns:1fr}
+  .profile-header-actions{justify-content:flex-start}
+  .profile-banner-size-compact{height:100px}
+  .profile-banner-size-wide{height:150px}
+  .profile-banner-size-tall{height:220px}
+  .profile-banner-size-full{height:280px}
+  .page-shell.profile-editor-page{padding:0 14px}
+}

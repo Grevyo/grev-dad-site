@@ -11,14 +11,14 @@
     <a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png"/></a>
     <nav id="authStatus" class="site-nav">Checking login...</nav>
   </header>
-  <main>
+  <main class='page-shell profile-editor-page'>
     <h1>Edit Profile</h1>
     <div class="profile-actions">
       <a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>
       <a class="nav-button" href="/profile.html">Back to Profile</a>
     </div>
     <p id="edit-status">Loading...</p>
-    <form id="profile-edit-form" class="profile-edit-form profile-edit-grid profile-custom-fields">
+    <form id="profile-edit-form" class="profile-edit-form profile-editor-grid">
       <section class="edit-card">
         <h2>Identity</h2>
         <label>Display name<input name="display_name" maxlength="64"></label>
@@ -30,8 +30,8 @@
       <section class="edit-card profile-editor-section">
         <h2>Images &amp; Backgrounds</h2><p>Image and GIF links are supported.</p>
         <label>Avatar URL<input name="avatar_url" maxlength="500"></label>
-        <label>Banner URL<input name="banner_url" maxlength="500"></label>
-        <label>Profile background image/GIF URL<input name="profile_background_url" maxlength="500"></label>
+        <label>Banner URL<input name="banner_url" maxlength="500"></label><label>Banner display size<select name='banner_display_size'><option value='compact'>compact</option><option value='wide'>wide</option><option value='tall'>tall</option><option value='full'>full</option></select></label>
+        <label>Profile background image/GIF URL<input name="profile_background_url" maxlength="500"></label><label>Profile background size/fit<select name='profile_background_size'><option value='cover'>cover</option><option value='contain'>contain</option><option value='repeat'>repeat</option><option value='stretch'>stretch</option><option value='center'>center</option></select></label>
       </section>
       <section class="edit-card"><h2>Links</h2>
         <label>Website URL<input name="website_url" maxlength="200"></label>
@@ -56,6 +56,7 @@
   <script>
     const colourDefaults={favourite_colour:'#88aaff',profile_accent_colour:'#88aaff',profile_background_colour:'#0b1020'};
     const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message'];
+    const selectFields=['profile_layout','banner_display_size','profile_background_size'];
     const toggleFields=['show_level','show_rank','show_badges','show_last_active'];
     async function load(){
       const s=document.getElementById('edit-status');
@@ -68,7 +69,7 @@
       const p=d.profile||{};
       const f=document.getElementById('profile-edit-form');
       for(const k of textFields) if(f.elements[k]) f.elements[k].value=p[k]||'';
-      if(f.elements.profile_layout) f.elements.profile_layout.value=p.profile_layout||'standard';
+      for (const k of selectFields) if(f.elements[k]) f.elements[k].value=p[k]|| (k==='profile_layout'?'standard':(k==='banner_display_size'?'wide':'cover'));
       for(const k of toggleFields) if(f.elements[k]) f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;
       for(const k of Object.keys(colourDefaults)) if(f.elements[k]) f.elements[k].value=p[k]||colourDefaults[k];
       s.textContent='Loaded.';
@@ -89,7 +90,7 @@
         const f=e.target; const body={};
         for(const k of textFields) body[k]=f.elements[k]?.value||'';
         for(const k of Object.keys(colourDefaults)) body[k]=f.elements[k]?.value||'';
-        body.profile_layout=f.elements.profile_layout?.value||'standard';
+        for (const k of selectFields) body[k]=f.elements[k]?.value|| (k==='profile_layout'?'standard':(k==='banner_display_size'?'wide':'cover'));
         for(const k of toggleFields) body[k]=f.elements[k]?.checked?1:0;
         const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const text=await r.text();

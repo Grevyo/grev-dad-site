@@ -11,7 +11,7 @@
     const avatar=avatarUrl&&show('card_show_avatar',1)?`<img src='${esc(avatarUrl)}' alt='avatar'/>`:`<span class='compact-header-avatar-fallback'>${init(p.display_name||p.username)}</span>`;
     const bg=p.card_background_url?`background-image:url("${esc(p.card_background_url)}");background-size:cover;background-position:center;`:(p.card_background_colour?`background:${esc(p.card_background_colour)};`:'' );
     const st=`${bg}${p.card_text_colour?`color:${esc(p.card_text_colour)};`:''}${p.card_border_colour?`border-color:${esc(p.card_border_colour)};`:''}`;
-    const levelLine=show('card_show_level',1)?`${levelHtml(level)} <span>Lv. ${level}</span>`:'';
+    const levelLine=show('card_show_level',1)?`${levelHtml(level)}`:'';
     const rankLine=show('card_show_rank',1)?`<span>${rank}</span>`:'';
     if (o.variant === 'header') return `<a href='/profile.html' class='header-player-card player-card player-card-custom player-card-header-variant' style='${st}' title='Open profile'><span class='player-card-avatar compact-header-avatar'>${avatar}</span><span class='player-card-body player-card-content compact-header-text'>${show('card_show_display_name',1)?`<span class='player-card-name compact-header-name'>${esc(p.display_name||p.username||'User')}</span>`:''}${show('card_show_username',1)?`<span class='player-card-username compact-header-username'>@${esc(p.username||'')}</span>`:''}<span class='compact-header-meta'>${levelLine}${rankLine?` · ${rankLine}`:''}</span>${(show('card_show_xp',1)&&o.showXp)?`<span class='xp-bar xp-bar-header'><span class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></span></span>`:''}</span></a>`;
     const variantClass=`player-card-${esc(o.variant||'full')}-variant`;
