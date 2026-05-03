@@ -90,7 +90,9 @@
     username.textContent = '@' + profile.username;
     const meta = document.createElement('span');
     meta.className = 'compact-header-meta';
-    meta.textContent = profile.rankName ? ('Level ' + profile.level + ' · ' + profile.rankName) : ('Level ' + profile.level + ' · Unranked');
+    const lvl = window.renderLevelBadge ? window.renderLevelBadge(profile.level) : null;
+    if (lvl) meta.append(lvl, document.createTextNode(' · ' + (profile.rankName || 'Unranked')));
+    else meta.textContent = profile.rankName ? ('Level ' + profile.level + ' · ' + profile.rankName) : ('Level ' + profile.level + ' · Unranked');
     textWrap.append(displayName, username, meta);
     summaryLink.append(avatarWrap, textWrap);
     return summaryLink;
@@ -152,6 +154,15 @@
     script.dataset.chatWidget = '1';
     script.onload = mount;
     document.body.append(script);
+  }
+
+
+  function teardownChatWidget() {
+    const launcher = document.getElementById('chat-launcher');
+    const popup = document.getElementById('chat-popup');
+    if (launcher) launcher.remove();
+    if (popup) popup.remove();
+    if (window.GREVChat?.destroy) window.GREVChat.destroy();
   }
 
   function parseProfileData(authUser, profileUser) {
@@ -217,6 +228,7 @@
       const user = data?.user;
       if (!response.ok || !user || !user.username) {
         removeProfileSummary(container);
+        teardownChatWidget();
         renderLoggedOut(container);
         return;
       }
@@ -229,6 +241,7 @@
         rankName: cached.rank || ''
       } : { displayName: user.username, avatarUrl: '', level: 1, rankName: '' };
       renderLoggedIn(container, user, cachedProfile);
+      ensureChatWidget(user);
 
       (async function refreshProfile() {
         try {
@@ -250,6 +263,7 @@
       })();
     } catch {
       removeProfileSummary(container);
+      teardownChatWidget();
       renderLoggedOut(container);
     }
   }
