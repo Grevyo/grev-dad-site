@@ -551,3 +551,21 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .card-align-left{text-align:left}.card-align-center{text-align:center}.card-align-right{text-align:right}
 @media (max-width:800px){.player-card-full-variant,.player-card-snapshot-variant{--player-card-cols:2}}
 @media (max-width:520px){.player-card-info-grid{--player-card-cols:1}.profile-card-setting-grid{grid-template-columns:1fr}}
+
+.tile-settings-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px}
+.tile-settings-list{display:grid;gap:8px}
+.display-tile-row{border:1px solid var(--tile-border);padding:8px;background:rgba(255,255,255,.02)}
+.display-tile-row.is-disabled{opacity:.6}
+.display-tile-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.display-tile-toggle{display:flex;align-items:center;gap:6px;font-weight:600}
+.display-tile-actions{display:flex;gap:6px}
+.button-move{min-width:36px}
+.display-tile-help{font-size:.78rem;color:var(--text-muted);margin-top:4px}
+
+.card-font-family-default{font-family:inherit}
+.card-font-family-system{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.card-font-family-serif{font-family:Georgia,"Times New Roman",serif}
+.card-font-family-mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+.card-font-family-condensed{font-family:"Arial Narrow","Roboto Condensed",system-ui,sans-serif;letter-spacing:-.02em}
+.card-font-family-wide{font-family:system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.card-font-family-display{font-family:Impact,Haettenschweiler,"Arial Black",system-ui,sans-serif;letter-spacing:.03em}

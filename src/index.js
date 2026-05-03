@@ -145,8 +145,11 @@ function normalizeCardTileSettings(input) {
     const item = {};
     if (['1x1', '2x1', '1x2', '2x2'].includes(value.span)) item.span = value.span;
     if (['normal', 'bold', 'italic', 'bold_italic', 'mono'].includes(value.fontStyle)) item.fontStyle = value.fontStyle;
+    if (['default', 'system', 'serif', 'mono', 'condensed', 'wide', 'display'].includes(value.fontFamily)) item.fontFamily = value.fontFamily;
     if (['xs', 'sm', 'md', 'lg', 'xl'].includes(value.size)) item.size = value.size;
     if (['left', 'center', 'right'].includes(value.align)) item.align = value.align;
+    const order = Number(value.order);
+    if (Number.isInteger(order) && order >= 1 && order <= 999) item.order = order;
     const colour = String(value.colour ?? '').trim();
     if (!colour || /^#[0-9a-fA-F]{6}$/.test(colour)) item.colour = colour;
     out[key] = item;
