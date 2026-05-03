@@ -522,8 +522,19 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 
 .profile-snapshot-tile #account-summary-content{height:100%;min-height:0;display:grid}.profile-snapshot-tile #account-summary-content>.player-card,.profile-snapshot-tile .player-card-snapshot-variant{width:100%;height:100%;min-width:0;min-height:0}.profile-snapshot-tile .player-card-snapshot-variant{max-width:none}
 .player-card-name{color:var(--player-card-name-colour,var(--text))}.player-card-username,.player-card-meta,.player-card-links,.player-card-link{color:var(--player-card-body-colour,var(--text-muted))}
+.player-card-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-content:start}
+.player-card-tile{border:1px solid rgba(255,255,255,.08);padding:8px 10px;background:rgba(0,0,0,.15);min-width:0;overflow:hidden;display:grid;gap:4px}
+.player-card-tile-label{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--player-card-body-colour,var(--text-muted))}
+.tile-span-1x1{grid-column:span 1}
+.tile-span-2x1{grid-column:span 2}
+.player-card-tile-name .player-card-name{line-height:1.2}
+.player-card-tile-level .player-card-level-row{display:inline-flex}
+.player-card-tile-xp .xp-bar{margin-top:2px}
+.player-card-tile-steam .player-card-link,.player-card-tile-leetify .player-card-link{font-size:.9rem}
 .player-card-full-variant{width:100%;max-width:none;min-width:0;display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);gap:18px;align-items:center;box-sizing:border-box}.player-card-full-variant .player-card-avatar{width:140px;height:140px}.player-card-full-variant .player-card-body{min-width:0}
+.player-card-snapshot-variant .player-card{height:100%}
+.player-card-snapshot-variant .player-card-tile{padding:7px 9px}
 .profile-banner-wrap{position:relative}.profile-banner-actions{position:absolute;right:16px;bottom:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;z-index:2}
-@media (max-width:700px){.player-card-full-variant{grid-template-columns:1fr}.profile-banner-actions{position:static;padding:10px;justify-content:flex-start}}
+@media (max-width:700px){.player-card-info-grid{grid-template-columns:1fr}.tile-span-2x1{grid-column:span 1}.player-card-full-variant{grid-template-columns:1fr}.profile-banner-actions{position:static;padding:10px;justify-content:flex-start}}
 
 @media (max-width:640px){.player-card-full-variant{grid-template-columns:1fr}.player-card-full-variant .player-card-avatar{width:112px;height:112px}}

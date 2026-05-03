@@ -3,6 +3,7 @@
   const init=(n)=>{const p=String(n||'?').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[1]?.[0]||'')).toUpperCase();};
   const safeHttpUrl=(value)=>{const text=String(value||'').trim();if(!/^https?:\/\//i.test(text))return '';if(/^\s*(javascript|data|vbscript|file):/i.test(text))return '';return text;};
   const levelHtml=(level)=>{if(window.grevDad?.level?.render){const w=document.createElement('span');w.append(window.grevDad.level.render(level));return w.innerHTML;}return `Lv. ${Number(level)||1}`;};
+  const buildTile=(klass,span,label,value)=>`<div class='player-card-tile ${klass} ${span}'>${label?`<div class='player-card-tile-label'>${label}</div>`:''}${value}</div>`;
   window.renderPlayerCard=function(profile,options={}){
     const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,variant:'full',...options};
     const show=(k,d=1)=>o.useCardSettings?(Number(p[k]??d)===1):d===1;
@@ -15,10 +16,18 @@
     const rankLine=show('card_show_rank',1)?`<span>${rank}</span>`:'';
     if (o.variant === 'header') return `<a href='/profile.html' class='header-player-card player-card player-card-custom player-card-header-variant' style='${st}' title='Open profile'><span class='player-card-avatar compact-header-avatar'>${avatar}</span><span class='player-card-body player-card-content compact-header-text'>${show('card_show_display_name',1)?`<span class='player-card-name compact-header-name'>${esc(p.display_name||p.username||'User')}</span>`:''}${show('card_show_username',1)?`<span class='player-card-username compact-header-username'>@${esc(p.username||'')}</span>`:''}<span class='compact-header-meta'>${levelLine}${rankLine?` · ${rankLine}`:''}</span>${(show('card_show_xp',1)&&o.showXp)?`<span class='xp-bar xp-bar-header'><span class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></span></span>`:''}</span></a>`;
     const variantClass=`player-card-${esc(o.variant||'full')}-variant`;
-    const status=show('card_show_status',0)&&p.status_message?`<div class='player-card-meta'>${esc(p.status_message)}</div>`:'';
-    const steam=show('card_show_steam',0)&&steamUrl?`<a class='player-card-link' href='${esc(steamUrl)}' target='_blank' rel='noopener noreferrer'>Steam</a>`:'';
-    const leetify=show('card_show_leetify',0)&&leetifyUrl?`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>Leetify</a>`:'';
-    const links=(steam||leetify)?`<div class='player-card-links'>${steam}${leetify}</div>`:'';
-    return `<article class='player-card player-card-custom ${variantClass}' style='${st}'><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'>${show('card_show_display_name',1)?`<div class='player-card-name'>${esc(p.display_name||p.username||'User')}</div>`:''}${show('card_show_username',1)?`<div class='player-card-username'>@${esc(p.username||'')}</div>`:''}${(o.showUserId&&show('card_show_user_id',0))?`<div class='player-card-meta'>ID: ${Number(p.id)||0}</div>`:''}${show('card_show_role',1)?`<div class='player-card-meta'>${esc(p.roleLabel||p.role||'Member')}</div>`:''}${levelLine?`<div class='player-card-meta player-card-level-row'>${levelLine}</div>`:''}${rankLine?`<div class='player-card-meta'>${rankLine}</div>`:''}${status}${links}${(o.showXp&&show('card_show_xp',1))?`<div class='xp-bar'><div class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></div></div>`:''}</div></article>`;
+    const isSnapshot=o.variant==='snapshot';
+    const tiles=[];
+    if (show('card_show_display_name',1)) tiles.push(buildTile('player-card-tile-name','tile-span-2x1','',`<div class='player-card-name'>${esc(p.display_name||p.username||'User')}</div>`));
+    if (show('card_show_username',1)) tiles.push(buildTile('player-card-tile-username','tile-span-1x1','Username',`<div class='player-card-username'>@${esc(p.username||'')}</div>`));
+    if (!isSnapshot && o.showUserId && show('card_show_user_id',0)) tiles.push(buildTile('player-card-tile-id','tile-span-1x1','User ID',`<div class='player-card-meta'>${Number(p.id)||0}</div>`));
+    if (show('card_show_role',1)) tiles.push(buildTile('player-card-tile-role','tile-span-1x1','Role',`<div class='player-card-meta'>${esc(p.roleLabel||p.role||'Member')}</div>`));
+    if (levelLine) tiles.push(buildTile('player-card-tile-level','tile-span-1x1','grev.dad.level',`<div class='player-card-meta player-card-level-row'>${levelLine}</div>`));
+    if (rankLine) tiles.push(buildTile('player-card-tile-rank','tile-span-1x1','Rank',`<div class='player-card-meta'>${rank}</div>`));
+    if (o.showXp&&show('card_show_xp',1)) tiles.push(buildTile('player-card-tile-xp','tile-span-2x1','XP',`<div class='player-card-meta'>${Number(p.accountXp)||0} XP</div><div class='xp-bar'><div class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></div></div>`));
+    if (!isSnapshot && show('card_show_status',0)&&p.status_message) tiles.push(buildTile('player-card-tile-status','tile-span-2x1','Status',`<div class='player-card-meta'>${esc(p.status_message)}</div>`));
+    if (show('card_show_steam',0)&&steamUrl) tiles.push(buildTile('player-card-tile-steam','tile-span-1x1','Steam',`<a class='player-card-link' href='${esc(steamUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`));
+    if (show('card_show_leetify',0)&&leetifyUrl) tiles.push(buildTile('player-card-tile-leetify','tile-span-1x1','Leetify',`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`));
+    return `<article class='player-card player-card-custom ${variantClass}' style='${st}'><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'><div class='player-card-info-grid'>${tiles.join('')}</div></div></article>`;
   };
 })();
