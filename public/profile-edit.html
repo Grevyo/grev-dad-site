@@ -7,110 +7,50 @@
   <link rel="stylesheet" href="/styles.css"/>
 </head>
 <body>
-  <header class="site-header">
-    <a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png"/></a>
-    <nav id="authStatus" class="site-nav">Checking login...</nav>
-  </header>
-  <main class='page-shell profile-editor-page'>
-    <h1>Edit Profile</h1>
-    <div class="profile-actions">
-      <a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>
-      <a class="nav-button" href="/profile.html">Back to Profile</a>
+<header class="site-header"><a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev"/></a><nav id="authStatus" class="site-nav">Checking login...</nav></header>
+<main class="page-shell editor-page">
+  <div class="editor-header"><div class="editor-header-main"><h1>Edit Profile</h1><p class="editor-help-text">Update your identity, links, backgrounds, and visibility settings.</p></div><div class="editor-header-actions"><a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a><a class="button-secondary" href="/profile.html">Back to Profile</a></div></div>
+  <p id="edit-status" class="editor-message" aria-live="polite">Loading...</p>
+  <form id="profile-edit-form" class="editor-layout">
+    <aside class="editor-sidebar"><div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></aside>
+    <div class="editor-main">
+      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Identity</h2></div><div class="editor-grid">
+        <label class="editor-field" for="display_name">Display name<input id="display_name" name="display_name" maxlength="64"></label>
+        <label class="editor-field" for="profile_title">Profile title<input id="profile_title" name="profile_title" maxlength="120"></label>
+        <label class="editor-field editor-field-wide" for="status_message">Status message<input id="status_message" name="status_message" maxlength="140"></label>
+        <label class="editor-field editor-field-wide" for="bio">Bio<textarea id="bio" name="bio" maxlength="2000"></textarea></label>
+        <label class="editor-field" for="location">Location<input id="location" name="location" maxlength="120"></label>
+      </div></section>
+      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Images & Backgrounds</h2><p class="editor-section-description">Image and GIF links are supported.</p></div><div class="editor-grid">
+        <label class="editor-field" for="avatar_url">Avatar URL<input id="avatar_url" name="avatar_url" type="url" maxlength="500"></label>
+        <label class="editor-field" for="banner_url">Banner URL<input id="banner_url" name="banner_url" type="url" maxlength="500"></label>
+        <label class="editor-field" for="banner_display_size">Banner display size<select id="banner_display_size" name="banner_display_size"><option value="compact">compact</option><option value="wide">wide</option><option value="tall">tall</option><option value="full">full</option></select></label>
+        <label class="editor-field" for="profile_background_url">Profile background image/GIF URL<input id="profile_background_url" name="profile_background_url" type="url" maxlength="500"></label>
+        <label class="editor-field" for="profile_background_size">Profile background size/fit<select id="profile_background_size" name="profile_background_size"><option value="cover">cover</option><option value="contain">contain</option><option value="repeat">repeat</option><option value="stretch">stretch</option><option value="center">center</option></select></label>
+        <label class="editor-field" for="profile_background_colour">Profile background colour<input id="profile_background_colour" type="color" name="profile_background_colour"></label>
+        <label class="editor-field" for="profile_accent_colour">Profile accent colour<input id="profile_accent_colour" type="color" name="profile_accent_colour"></label>
+        <label class="editor-field" for="favourite_colour">Favourite colour<input id="favourite_colour" type="color" name="favourite_colour"></label>
+      </div></section>
+      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Links</h2></div><div class="editor-grid">
+        <label class="editor-field" for="website_url">Website URL<input id="website_url" name="website_url" type="url" maxlength="200"></label>
+        <label class="editor-field" for="steam_url">Steam URL<input id="steam_url" name="steam_url" type="url" maxlength="300"></label>
+        <label class="editor-field" for="leetify_url">Leetify URL<input id="leetify_url" name="leetify_url" type="url" maxlength="300"></label>
+      </div><p class="editor-help-text">Steam and Leetify links can be shown on your player card from Edit Profile Card.</p><div class="editor-actions"><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
+      <section class="editor-section"><div class="editor-section-header"><h2 class="editor-section-title">Visibility / Display</h2></div><div class="editor-grid">
+        <label class="editor-field" for="profile_layout">Profile layout<select id="profile_layout" name="profile_layout"><option value="standard">standard</option><option value="showcase">showcase</option><option value="minimal">minimal</option></select></label>
+        <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_level"> <span>Show level</span></label>
+        <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_rank"> <span>Show rank</span></label>
+        <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_badges"> <span>Show badges</span></label>
+        <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_last_active"> <span>Show last active</span></label>
+      </div></section>
+      <div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div>
     </div>
-    <p id="edit-status">Loading...</p>
-    <form id="profile-edit-form" class="profile-edit-form profile-editor-grid">
-      <section class="edit-card">
-        <h2>Identity</h2>
-        <label>Display name<input name="display_name" maxlength="64"></label>
-        <label>Profile title<input name="profile_title" maxlength="120"></label>
-        <label>Status message<input name="status_message" maxlength="140"></label>
-        <label>Bio<textarea name="bio" maxlength="2000"></textarea></label>
-        <label>Location<input name="location" maxlength="120"></label>
-      </section>
-      <section class="edit-card profile-editor-section">
-        <h2>Images &amp; Backgrounds</h2><p>Image and GIF links are supported.</p>
-        <label>Avatar URL<input name="avatar_url" maxlength="500"></label>
-        <label>Banner URL<input name="banner_url" maxlength="500"></label><label>Banner display size<select name='banner_display_size'><option value='compact'>compact</option><option value='wide'>wide</option><option value='tall'>tall</option><option value='full'>full</option></select></label>
-        <label>Profile background image/GIF URL<input name="profile_background_url" maxlength="500"></label><label>Profile background size/fit<select name='profile_background_size'><option value='cover'>cover</option><option value='contain'>contain</option><option value='repeat'>repeat</option><option value='stretch'>stretch</option><option value='center'>center</option></select></label>
-      </section>
-      <section class="edit-card"><h2>Links</h2>
-        <label>Website URL<input name="website_url" maxlength="200"></label>
-        <label>Steam URL<input name="steam_url" maxlength="300" placeholder="https://steamcommunity.com/id/yourname"/></label><small>Steam URL example: https://steamcommunity.com/id/yourname</small><small>Steam data can be shown on your profile if a Steam API key is configured.</small>
-        <label>Leetify URL<input name="leetify_url" maxlength="300" placeholder="https://leetify.com/app/profile/..."/></label><small>Leetify URL example: https://leetify.com/app/profile/...</small><small>Leetify data can be shown if the profile is public/available through Leetify's public API.</small><p class='form-help'>These links can also be shown on your player card from Edit Profile Card.</p><a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a>
-      </section>
-      <section class="edit-card"><h2>Colours / Theme</h2>
-        <label>Favourite colour<input type="color" name="favourite_colour"></label>
-        <label>Profile accent colour<input type="color" name="profile_accent_colour"></label>
-        <label>Profile background colour<input type="color" name="profile_background_colour"></label>
-      </section>
-      <section class="edit-card"><h2>Layout & Visibility</h2>
-        <label>Profile layout<select name="profile_layout"><option value="standard">standard</option><option value="showcase">showcase</option><option value="minimal">minimal</option></select></label>
-        <label><input type="checkbox" name="show_level"> Show level</label>
-        <label><input type="checkbox" name="show_rank"> Show rank</label>
-        <label><input type="checkbox" name="show_badges"> Show badges</label>
-        <label><input type="checkbox" name="show_last_active"> Show last active</label>
-      </section>
-      <button type="submit" class="nav-button">Save Profile</button>
-    </form>
-  </main>
-  <script>
-    const colourDefaults={favourite_colour:'#88aaff',profile_accent_colour:'#88aaff',profile_background_colour:'#0b1020'};
-    const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message'];
-    const selectFields=['profile_layout','banner_display_size','profile_background_size'];
-    const toggleFields=['show_level','show_rank','show_badges','show_last_active'];
-    const safeSelectDefaults={profile_layout:'standard',banner_display_size:'wide',profile_background_size:'cover'};
-    const safeSelectAllowed={profile_layout:new Set(['standard','showcase','minimal']),banner_display_size:new Set(['compact','wide','tall','full']),profile_background_size:new Set(['cover','contain','repeat','stretch','center'])};
-    function safeSelectValue(key,value){const normalized=String(value||safeSelectDefaults[key]||'').trim().toLowerCase();return safeSelectAllowed[key]?.has(normalized)?normalized:safeSelectDefaults[key];}
-    async function load(){
-      const s=document.getElementById('edit-status');
-      try{
-        const r=await fetch('/api/profile/me');
-        if(r.status===401){location.href='/unregistered.html';return;}
-        const text=await r.text();
-        let d={};
-        try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}
-        if(!r.ok){s.textContent=d.error||'Load failed';return;}
-        const p=d.profile||{};
-        const f=document.getElementById('profile-edit-form');
-        for(const k of textFields) if(f.elements[k]) f.elements[k].value=p[k]||'';
-        for (const k of selectFields) if(f.elements[k]) f.elements[k].value=safeSelectValue(k,p[k]);
-        for(const k of toggleFields) if(f.elements[k]) f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;
-        for(const k of Object.keys(colourDefaults)) if(f.elements[k]) f.elements[k].value=p[k]||colourDefaults[k];
-        s.textContent='Loaded.';
-      }catch(error){
-        s.textContent=`Load failed: ${error?.message||'Unknown error'}`;
-      }
-    }
-
-    const form=document.getElementById('profile-edit-form');
-    const saveButton=form?.querySelector('button[type="submit"]');
-    if(!form) console.error('[profile-edit] Missing profile form');
-    if(!saveButton) console.error('[profile-edit] Missing save button');
-
-    form?.addEventListener('submit',async(e)=>{
-      e.preventDefault();
-      const status=document.getElementById('edit-status');
-      const submit=e.target.querySelector('button[type="submit"]');
-      submit.disabled=true;
-      status.textContent='Saving...';
-      try {
-        const f=e.target; const body={};
-        for(const k of textFields) body[k]=f.elements[k]?.value||'';
-        for(const k of Object.keys(colourDefaults)) body[k]=f.elements[k]?.value||'';
-        for (const k of selectFields) body[k]=safeSelectValue(k,f.elements[k]?.value);
-        for(const k of toggleFields) body[k]=f.elements[k]?.checked?1:0;
-        const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const text=await r.text();
-        let d={};
-        try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}
-        status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;
-      } catch (error) {
-        status.textContent=`Save failed: ${error?.message||'Request error'}`;
-      } finally { submit.disabled=false; }
-    });
-    load();
-  </script>
-  <script src="/scripts/theme.js"></script>
-  <script src="/scripts/auth-status.js"></script>
-</body>
-</html>
+  </form>
+</main>
+<script>
+const colourDefaults={favourite_colour:'#88aaff',profile_accent_colour:'#88aaff',profile_background_colour:'#0b1020'};const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message'];const selectFields=['profile_layout','banner_display_size','profile_background_size'];const toggleFields=['show_level','show_rank','show_badges','show_last_active'];const safeSelectDefaults={profile_layout:'standard',banner_display_size:'wide',profile_background_size:'cover'};const safeSelectAllowed={profile_layout:new Set(['standard','showcase','minimal']),banner_display_size:new Set(['compact','wide','tall','full']),profile_background_size:new Set(['cover','contain','repeat','stretch','center'])};
+function safeSelectValue(key,value){const n=String(value||safeSelectDefaults[key]||'').trim().toLowerCase();return safeSelectAllowed[key]?.has(n)?n:safeSelectDefaults[key];}
+async function load(){const s=document.getElementById('edit-status');try{const r=await fetch('/api/profile/me');if(r.status===401){location.href='/unregistered.html';return;}const text=await r.text();let d={};try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}if(!r.ok){s.textContent=d.error||'Load failed';return;}const p=d.profile||{};const f=document.getElementById('profile-edit-form');for(const k of textFields)if(f.elements[k])f.elements[k].value=p[k]||'';for(const k of selectFields)if(f.elements[k])f.elements[k].value=safeSelectValue(k,p[k]);for(const k of toggleFields)if(f.elements[k])f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;for(const k of Object.keys(colourDefaults))if(f.elements[k])f.elements[k].value=p[k]||colourDefaults[k];s.textContent='Loaded.';}catch(e){s.textContent=`Load failed: ${e?.message||'Unknown error'}`;}}
+const form=document.getElementById('profile-edit-form');form?.addEventListener('submit',async(e)=>{e.preventDefault();const status=document.getElementById('edit-status');const submit=e.target.querySelector('button[type="submit"]');submit.disabled=true;status.textContent='Saving...';try{const f=e.target,body={};for(const k of textFields)body[k]=f.elements[k]?.value||'';for(const k of Object.keys(colourDefaults))body[k]=f.elements[k]?.value||'';for(const k of selectFields)body[k]=safeSelectValue(k,f.elements[k]?.value);for(const k of toggleFields)body[k]=f.elements[k]?.checked?1:0;const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const text=await r.text();let d={};try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;}catch(error){status.textContent=`Save failed: ${error?.message||'Request error'}`;}finally{submit.disabled=false;}});load();
+</script><script src="/scripts/theme.js"></script><script src="/scripts/auth-status.js"></script>
+</body></html>
