@@ -42,6 +42,29 @@
     return (window.location.pathname || '/').toLowerCase();
   }
 
+  function loadScriptOnce(src, marker) {
+    return new Promise((resolve, reject) => {
+      if (marker && window[marker]) return resolve();
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        if (marker && window[marker]) return resolve();
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.append(script);
+    });
+  }
+
+  async function ensurePlayerCardDependencies() {
+    await loadScriptOnce('/scripts/level-badge.js', 'levelBadgeHtml');
+    await loadScriptOnce('/scripts/player-card.js', 'renderPlayerCard');
+  }
+
   function renderLoggedOut(container) {
     const path = getCurrentPath();
     const isLoginPage = path.endsWith('/login.html');
@@ -60,15 +83,14 @@
   }
 
   function createProfileSummary(profile) {
-    const wrap = document.createElement('div');
-    wrap.className = 'compact-header-account';
     if (window.renderPlayerCard) {
-      wrap.innerHTML = window.renderPlayerCard(profile, { variant: 'header', showXp: true, useCardSettings: true });
-      return wrap.firstElementChild || wrap;
+      const template = document.createElement('template');
+      template.innerHTML = String(window.renderPlayerCard(profile, { variant: 'header', showXp: true, useCardSettings: true }) || '').trim();
+      if (template.content.firstElementChild) return template.content.firstElementChild;
     }
     const fallback = document.createElement('a');
     fallback.href = '/profile.html';
-    fallback.className = 'header-player-card';
+    fallback.className = 'header-player-card player-card-header-variant';
     fallback.textContent = profile.username || 'Profile';
     return fallback;
   }
@@ -185,6 +207,23 @@
         avatar_url: data.avatar_url || '',
         accountLevel: Number(data.accountLevel) || 1,
         rank: data.rank || '',
+        card_background_url: data.card_background_url || '',
+        card_background_colour: data.card_background_colour || '',
+        card_accent_colour: data.card_accent_colour || '',
+        card_text_colour: data.card_text_colour || '',
+        card_border_colour: data.card_border_colour || '',
+        card_layout: data.card_layout || 'standard',
+        card_show_avatar: Number(data.card_show_avatar ?? 1),
+        card_show_display_name: Number(data.card_show_display_name ?? 1),
+        card_show_username: Number(data.card_show_username ?? 1),
+        card_show_user_id: Number(data.card_show_user_id ?? 0),
+        card_show_role: Number(data.card_show_role ?? 1),
+        card_show_level: Number(data.card_show_level ?? 1),
+        card_show_rank: Number(data.card_show_rank ?? 1),
+        card_show_xp: Number(data.card_show_xp ?? 1),
+        card_show_status: Number(data.card_show_status ?? 0),
+        card_show_steam: Number(data.card_show_steam ?? 0),
+        card_show_leetify: Number(data.card_show_leetify ?? 0),
         timestamp: Date.now()
       }));
     } catch {}
@@ -207,14 +246,9 @@
         return;
       }
 
+      await ensurePlayerCardDependencies();
       const cached = readProfileCache(user.username);
-      const cachedProfile = cached ? {
-        username: user.username,
-        display_name: cached.display_name || user.username,
-        avatar_url: cached.avatar_url || '',
-        accountLevel: Number(cached.accountLevel) || 1,
-        rank: { name: cached.rank || 'Unranked' }
-      } : { username: user.username, display_name: user.username, avatar_url: '', accountLevel: 1, rank: { name: 'Unranked' } };
+      const cachedProfile = cached ? { ...cached, username: user.username, rank: { name: cached.rank?.name || cached.rank || 'Unranked' } } : { username: user.username, display_name: user.username, avatar_url: '', accountLevel: 1, rank: { name: 'Unranked' } };
       renderLoggedIn(container, user, cachedProfile);
       ensureChatWidget(user);
 
