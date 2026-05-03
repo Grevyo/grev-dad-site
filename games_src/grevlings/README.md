@@ -2,31 +2,51 @@
 
 Grevlings is an original cosy space creature-raising game concept built around caring for and bonding with small alien companions called **Orbitlings**.
 
-The game is inspired by the *feeling* of creature gardens and companion progression, while staying fully original in worldbuilding, terminology, systems, and presentation.
+## Source Project Structure
 
-## Current Prototype Goal
+The Godot source project lives entirely under:
 
-The current phase is to establish a clear, implementation-ready design foundation for a **solo-first local prototype**:
+- `games_src/grevlings/project.godot`
+- `games_src/grevlings/scenes/`
+- `games_src/grevlings/scripts/`
 
-- Hatch and raise Orbitlings on a home planet.
-- Support feeding, bonding, and early training interactions.
-- Define reusable systems for events (races, battles, contests) using participant slots.
-- Keep architecture flexible so co-op/multiplayer can be added later without rewriting core systems.
+This keeps gameplay/source files separate from the deployed site files.
 
-## Tech Stack
+## Web Export Preset
 
-- **Engine:** Godot 4
-- **Language target:** GDScript (readable, modular style)
+The Godot web export preset is defined in:
 
-## Build Target Roadmap
+- `games_src/grevlings/export_presets.cfg`
 
-1. **First build target:** local desktop prototype (single-machine development and playtesting).
-2. **Later target:** web export, once core gameplay loops are stable.
+Preset details:
 
-## Future Site Integration
+- **Preset name:** `Web`
+- **Target export path:** `../../public/games/grevlings/index.html`
+- **Goal:** simple Web export settings for CI validation first
+- **Current constraints:** no threaded web requirements and no SharedArrayBuffer dependency added in this step
 
-Long-term, Grevlings is intended to integrate into the grev.dad site under:
+## GitHub Action (Manual Export)
+
+Workflow file:
+
+- `.github/workflows/export-grevlings-web.yml`
+
+What it does:
+
+1. Runs manually via `workflow_dispatch`.
+2. Checks out this repository.
+3. Installs Godot 4 headless with export templates.
+4. Exports preset `Web` from `games_src/grevlings`.
+5. Uploads `public/games/grevlings/` as an artifact.
+
+This workflow is artifact-only for now and does **not** auto-commit exported files.
+
+## Build Output Target
+
+Exported web build target directory:
+
+- `public/games/grevlings`
+
+When integrated, players will open:
 
 - `/games/grevlings/`
-
-That integration is a later milestone and not part of the initial gameplay prototype phase.

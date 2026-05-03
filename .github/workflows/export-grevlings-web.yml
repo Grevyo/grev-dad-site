@@ -1,14 +1,30 @@
-name: Export Grevlings Web (Placeholder)
+name: Export Grevlings Web
 
 on:
   workflow_dispatch:
 
 jobs:
-  placeholder:
+  export-web:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Placeholder
-        run: |
-          echo "Grevlings web export workflow placeholder."
-          echo "Godot export wiring will be added in a future task."
-          echo "No build artifacts are generated or committed by this workflow."
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4 headless
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.2.2
+          use-dotnet: false
+          include-templates: true
+
+      - name: Export Web preset
+        working-directory: games_src/grevlings
+        run: godot --headless --verbose --export-release "Web" ../../public/games/grevlings/index.html
+
+      - name: Upload Grevlings web build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: grevlings-web-build
+          path: public/games/grevlings/
+          if-no-files-found: error
