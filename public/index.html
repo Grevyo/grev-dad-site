@@ -16,27 +16,169 @@
     <main>
       <h1>Home</h1>
       <div class="dashboard-grid">
-        <section class="dashboard-panel"><h2>Welcome / Account Summary</h2><div class="stat-row"><strong>Name:</strong> <span id="summary-name">Loading…</span></div><div class="stat-row"><strong>Username:</strong> <span id="summary-username">Loading…</span></div><div class="stat-row"><strong>Role:</strong> <span id="summary-role">Loading…</span></div><div class="stat-row"><strong>Level:</strong> <span id="summary-level">Loading…</span></div><div class="stat-row"><strong>Rank:</strong> <span id="summary-rank">Loading…</span></div><p id="summary-xp-label">Loading XP…</p><div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="summary-xp-fill" class="xp-bar-fill" style="width:0%"></div></div></section>
+        <section class="dashboard-panel account-snapshot">
+          <h2>Account Snapshot</h2>
+          <div class="account-snapshot-main">
+            <div id="snapshot-avatar" class="account-snapshot-avatar" aria-hidden="true">?</div>
+            <div class="account-snapshot-meta">
+              <div><strong>Name:</strong> <span id="summary-name">Loading…</span></div>
+              <div><strong>Username:</strong> <span id="summary-username">Loading…</span></div>
+              <div><strong>Role:</strong> <span id="summary-role">Loading…</span></div>
+              <div><strong>Joined:</strong> <span id="summary-joined">Unknown</span></div>
+              <div><strong>Level:</strong> <span id="summary-level">Loading…</span></div>
+              <div><strong>Rank:</strong> <span id="summary-rank">Loading…</span></div>
+            </div>
+          </div>
+          <p id="summary-xp-label">Loading XP…</p>
+          <div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="summary-xp-fill" class="xp-bar-fill" style="width:0%"></div></div>
+          <p id="homepage-error" class="homepage-error" hidden></p>
+        </section>
+
         <section class="dashboard-panel"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"></div></section>
-        <section class="dashboard-panel profile-completion"><h2>Profile Completion</h2><p id="completion-percent">Loading…</p><ul id="completion-list"></ul></section>
-        <section class="dashboard-panel member-preview"><h2>Recent Members Preview</h2><p id="members-preview-status">Loading members…</p><ul id="member-preview-list" class="member-preview-list"></ul></section>
-        <section class="dashboard-panel"><h2>Coming Later</h2><ul><li>more profile customisation</li><li>achievements</li><li>account unlocks</li><li>site activity</li></ul></section>
+
+        <section class="dashboard-panel profile-completion"><h2>Profile Completion</h2><p id="completion-percent">Loading…</p><ul id="completion-list" class="completion-list"></ul></section>
+
+        <section class="dashboard-panel member-preview"><h2>Members Preview</h2><p id="members-preview-status">Loading members…</p><ul id="member-preview-list" class="member-preview-list"></ul></section>
+
+        <section class="dashboard-panel showcase-preview" id="showcase-preview-panel" hidden>
+          <h2>Your Showcase Preview</h2>
+          <p id="showcase-preview-status">Loading showcase…</p>
+          <ul id="showcase-preview-list" class="completion-list"></ul>
+          <p><a id="showcase-preview-link" href="/profile.html">Open profile</a></p>
+        </section>
+
+        <section class="dashboard-panel"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li><li>Minigames later</li></ul></section>
       </div>
     </main>
     <script src="/scripts/auth-status.js"></script>
     <script src="/scripts/theme.js"></script>
     <script>
       (function(){
+        const els = {
+          summaryName: document.getElementById("summary-name"),
+          summaryUsername: document.getElementById("summary-username"),
+          summaryRole: document.getElementById("summary-role"),
+          summaryLevel: document.getElementById("summary-level"),
+          summaryRank: document.getElementById("summary-rank"),
+          summaryXpLabel: document.getElementById("summary-xp-label"),
+          summaryXpFill: document.getElementById("summary-xp-fill"),
+          quickActions: document.getElementById("quick-actions"),
+          completionPercent: document.getElementById("completion-percent"),
+          completionList: document.getElementById("completion-list"),
+          membersPreviewStatus: document.getElementById("members-preview-status"),
+          memberPreviewList: document.getElementById("member-preview-list"),
+          summaryJoined: document.getElementById("summary-joined"),
+          snapshotAvatar: document.getElementById("snapshot-avatar"),
+          homepageError: document.getElementById("homepage-error"),
+          showcasePreviewPanel: document.getElementById("showcase-preview-panel"),
+          showcasePreviewStatus: document.getElementById("showcase-preview-status"),
+          showcasePreviewList: document.getElementById("showcase-preview-list"),
+          showcasePreviewLink: document.getElementById("showcase-preview-link")
+        };
+
         const txt=(v,f='-')=>typeof v==='string'&&v.trim()?v.trim():f;
         async function getJson(url){try{const r=await fetch(url);const t=await r.text();let d=null;try{d=t?JSON.parse(t):null;}catch{}return {ok:r.ok,status:r.status,data:d};}catch{return {ok:false,status:0,data:null};}}
-        function account(p,a){const au=a?.user||a||{};const pr=p?.profile||p?.user||p||{};const username=txt(pr.username||au.username,'unknown');const displayName=txt(pr.display_name||au.display_name,username);const role=txt(pr.role||au.role,au.is_admin?'admin':'member');const level=Number(pr.accountLevel??pr.account_level??au.accountLevel??au.account_level??1)||1;const rank=txt(pr.rank?.name||pr.displayed_rank?.name||au.rank?.name||au.displayed_rank?.name,'Unranked');const cur=Number(pr.accountXpCurrent??pr.xp_current??au.accountXpCurrent??au.xp_current??0)||0;const req=Number(pr.accountXpRequired??pr.xp_required??au.accountXpRequired??au.xp_required??100)||100;const percent=Math.max(0,Math.min(100,Math.round((cur/Math.max(req,1))*100)));return{username,displayName,role,level,rank,cur,req,percent,isAdmin:role.toLowerCase()==='admin'||au.is_admin===true||Number(au.is_admin)===1,profile:pr};}
-        function render(a){summary_name.textContent=a.displayName;summary_username.textContent='@'+a.username;summary_role.textContent=a.role;summary_level.textContent=String(a.level);summary_rank.textContent=a.rank;summary_xp_label.textContent=`${a.cur} / ${a.req} XP`;summary_xp_fill.style.width=a.percent+'%';summary_xp_fill.parentElement.setAttribute('aria-valuenow',String(a.percent));
-          quick_actions.textContent='';[['/profile.html','My Profile'],['/members.html','Members'],['/account.html','Account Settings']].concat(a.isAdmin?[['/admin.html','Admin']]:[]).forEach(([h,l])=>{const x=document.createElement('a');x.href=h;x.className='nav-button';x.textContent=l;quick_actions.append(x);});
-          const checks=[['avatar set',!!txt(a.profile.avatar_url||'', '')],['display name set',!!txt(a.profile.display_name||'', '')],['bio set',!!txt(a.profile.bio||'', '')],['profile title set',!!txt(a.profile.profile_title||'', '')],['selected rank set',!!(a.profile.selected_rank_id||a.profile.rank?.id)],['showcase set',Array.isArray(a.profile.showcase)?a.profile.showcase.some(s=>s&&s.unlock):null]];
-          completion_list.textContent='';let done=0,total=0;checks.forEach(([label,val])=>{if(val===null||val===undefined)return;total++;if(val)done++;const li=document.createElement('li');li.textContent=(val?'✓ ':'○ ')+label;completion_list.append(li);});completion_percent.textContent=total?`${done}/${total} complete (${Math.round((done/total)*100)}%)`:'No profile completion fields available.';
+        function initials(name, username){const src=txt(name,'').trim()||txt(username,'').trim();if(!src)return '?';const bits=src.split(/\s+/).filter(Boolean);return (bits[0]?.[0]||'?').toUpperCase()+((bits[1]?.[0]||'').toUpperCase());}
+        function fmtDate(input){if(!input) return 'Unknown';const d=new Date(input);return Number.isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString();}
+
+        function account(p,a){
+          const au=a?.user||a||{};
+          const pr=p?.profile||p?.user||p||{};
+          const username=txt(pr.username||au.username,'Unavailable');
+          const displayName=txt(pr.display_name||pr.displayName||au.display_name||au.displayName,username);
+          const role=txt(pr.roleLabel||pr.role_label||pr.role||au.roleLabel||au.role,'Unavailable');
+          const level=Number(pr.accountLevel??pr.account_level??au.accountLevel??au.account_level??1)||1;
+          const rank=txt(pr.rank?.name||pr.displayed_rank?.name||pr.rank_name||au.rank?.name||'Unranked','Unranked');
+          const cur=Number(pr.accountXpCurrent??pr.account_xp_current??pr.xp_current??pr.accountXp??au.accountXpCurrent??au.xp_current??0)||0;
+          const req=Number(pr.accountXpRequired??pr.account_xp_required??pr.xp_required??au.accountXpRequired??au.xp_required??100)||100;
+          const percentRaw=Number(pr.accountXpPercent??pr.account_xp_percent??((cur/Math.max(req,1))*100));
+          const percent=Math.max(0,Math.min(100,Math.round(Number.isFinite(percentRaw)?percentRaw:0)));
+          const joined=pr.joined_at||pr.created_at||au.created_at||au.joined_at||null;
+          return { username, displayName, role, level, rank, cur, req, percent, joined, isAdmin: String(role).toLowerCase()==='admin'||au.is_admin===true||Number(au.is_admin)===1, profile: pr };
         }
-        function renderMembers(payload){const rows=payload?.members||payload?.users||[];member_preview_list.textContent='';if(!Array.isArray(rows)||!rows.length){members_preview_status.textContent='Members preview unavailable.';return;}members_preview_status.textContent='Showing recent members.';rows.slice(0,8).forEach(m=>{const un=txt(m.username,'unknown');const dn=txt(m.display_name,un);const role=txt(m.role,'member');const level=Number(m.accountLevel??m.account_level??m.level??1)||1;const rank=txt(m.rank?.name||m.displayed_rank?.name,'Unranked');const li=document.createElement('li');const a=document.createElement('a');a.href='/profile.html?username='+encodeURIComponent(un);a.textContent=dn;li.append(a,document.createTextNode(` · @${un} · ${role} · L${level} · ${rank}`));member_preview_list.append(li);});}
-        async function init(){const p=await getJson('/api/profile/me');const a=await getJson('/api/auth/me');if(!p.ok&&!a.ok){summary_name.textContent='Unable to load account summary.';members_preview_status.textContent='Members preview unavailable.';return;}const acct=account(p.data,a.data);render(acct);const m=await getJson('/api/members');if(m.ok)renderMembers(m.data);else members_preview_status.textContent='Members preview unavailable.';}
+
+        function render(a){
+          els.summaryName.textContent=a.displayName;
+          els.summaryUsername.textContent='@'+a.username;
+          els.summaryRole.textContent=a.role;
+          els.summaryLevel.textContent=String(a.level);
+          els.summaryRank.textContent=a.rank;
+          els.summaryJoined.textContent=fmtDate(a.joined);
+          els.summaryXpLabel.textContent=`${a.cur} / ${a.req} XP`;
+          els.summaryXpFill.style.width=a.percent+'%';
+          els.summaryXpFill.parentElement.setAttribute('aria-valuenow',String(a.percent));
+          els.snapshotAvatar.textContent=initials(a.displayName,a.username);
+
+          els.quickActions.textContent='';
+          const actions=[['/profile.html','My Profile'],['/profile-edit.html','Edit Profile'],['/members.html','Members'],['/account.html','Account Settings']];
+          if(a.isAdmin)actions.push(['/admin.html','Admin']);
+          actions.forEach(([h,l])=>{const x=document.createElement('a');x.href=h;x.className='nav-button';x.textContent=l;els.quickActions.append(x);});
+
+          const showcaseArray=Array.isArray(a.profile.showcase) ? a.profile.showcase : [];
+          const checks=[
+            ['avatar set',!!txt(a.profile.avatar_url||'', '')],
+            ['display name set',!!txt(a.profile.display_name||'', '')],
+            ['bio set',!!txt(a.profile.bio||'', '')],
+            ['profile title set',!!txt(a.profile.profile_title||'', '')],
+            ['banner set',!!txt(a.profile.banner_url||a.profile.profile_banner||'', '')],
+            ['selected rank set',!!(a.profile.selected_rank_id||a.profile.rank?.id)],
+            ['showcase slot used',showcaseArray.length?showcaseArray.some(s=>s&&(s.unlock||s.title||s.id)):false]
+          ];
+          els.completionList.textContent='';
+          let done=0;const missing=[];
+          checks.forEach(([label,val])=>{if(val)done++;else missing.push(label);});
+          const total=checks.length;
+          els.completionPercent.textContent=`${done}/${total} complete (${Math.round((done/total)*100)}%)`;
+          if(missing.length){missing.forEach(item=>{const li=document.createElement('li');li.textContent='○ '+item;els.completionList.append(li);});}
+          else {const li=document.createElement('li');li.textContent='✓ Profile baseline complete.';els.completionList.append(li);}
+          const editLi=document.createElement('li');editLi.innerHTML='↗ <a href="/profile-edit.html">Edit your profile</a>';els.completionList.append(editLi);
+
+          if(Array.isArray(a.profile.showcase)){
+            els.showcasePreviewPanel.hidden=false;
+            els.showcasePreviewList.textContent='';
+            if(a.profile.showcase.length===0){els.showcasePreviewStatus.textContent='No showcase items selected yet.';}
+            else {els.showcasePreviewStatus.textContent='Selected showcase items:';a.profile.showcase.slice(0,6).forEach((slot,idx)=>{const li=document.createElement('li');li.textContent=`Slot ${idx+1}: ${txt(slot?.title||slot?.unlock||slot?.id,'Empty')}`;els.showcasePreviewList.append(li);});}
+          }
+        }
+
+        function renderMembers(payload){
+          const rows=payload?.members||payload?.users||[];
+          els.memberPreviewList.textContent='';
+          if(!Array.isArray(rows)||!rows.length){els.membersPreviewStatus.textContent='Members preview unavailable.';return;}
+          els.membersPreviewStatus.textContent='Showing up to 6 members.';
+          rows.slice(0,6).forEach(m=>{const un=txt(m.username,'unknown');const dn=txt(m.display_name||m.displayName,un);const role=txt(m.roleLabel||m.role,'member');const level=Number(m.accountLevel??m.account_level??m.level??1)||1;const rank=txt(m.rank?.name||m.displayed_rank?.name||m.rank_name,'Unranked');const li=document.createElement('li');const a=document.createElement('a');a.href='/profile.html?username='+encodeURIComponent(un);a.textContent=dn;li.append(a,document.createTextNode(` · @${un} · ${role} · L${level} · ${rank}`));els.memberPreviewList.append(li);});
+        }
+
+        function renderFullFallback(){
+          els.summaryName.textContent='Unavailable'; els.summaryUsername.textContent='Unavailable'; els.summaryRole.textContent='Unavailable';
+          els.summaryLevel.textContent='1'; els.summaryRank.textContent='Unranked'; els.summaryXpLabel.textContent='0 / 100 XP';
+          els.summaryXpFill.style.width='0%'; els.membersPreviewStatus.textContent='Members preview unavailable.';
+          els.completionPercent.textContent='Profile completion unavailable.'; els.completionList.textContent='';
+          const li=document.createElement('li'); li.textContent='Could not assess profile completion yet.'; els.completionList.append(li);
+        }
+
+        async function init(){
+          const p=await getJson('/api/profile/me');
+          if(p.ok){render(account(p.data,null));}
+          else {
+            const a=await getJson('/api/auth/me');
+            if(a.ok){render(account(null,a.data));}
+            else {renderFullFallback();}
+          }
+
+          if(!p.ok){
+            const a=await getJson('/api/auth/me');
+            if(!a.ok){
+              const error=new Error('profile and auth endpoints failed');
+              console.error('[home] Failed to load dashboard', error);
+              els.homepageError.hidden=false;
+              els.homepageError.textContent='Could not load homepage account data.';
+            }
+          }
+
+          const m=await getJson('/api/members');
+          if(m.ok)renderMembers(m.data); else els.membersPreviewStatus.textContent='Members preview unavailable.';
+        }
         if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
       })();
     </script>

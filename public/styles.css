@@ -344,3 +344,13 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-completion{display:grid;gap:.4rem}
 .public-home{max-width:900px;margin:0 auto}
 .public-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+
+.account-snapshot-main{display:grid;grid-template-columns:72px 1fr;gap:.75rem;align-items:start}
+.account-snapshot-avatar{width:72px;height:72px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem}
+.account-snapshot-meta{display:grid;gap:.3rem;min-width:0}
+.completion-list{list-style:none;padding:0;margin:0;display:grid;gap:.3rem}
+.homepage-error{margin-top:.75rem;color:#fff;background:var(--danger);border:1px solid var(--danger);padding:.45rem .55rem}
+.showcase-preview{display:grid;gap:.45rem}
+.member-preview-list{list-style:none;padding:0;margin:0;display:grid;gap:.35rem}
+
+@media (max-width:700px){.account-snapshot-main{grid-template-columns:1fr}}
