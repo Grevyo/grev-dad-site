@@ -454,3 +454,12 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .edit-card{border:1px solid var(--border);padding:12px;background:var(--surface)}
 .profile-edit-grid button[type="submit"]{grid-column:1/-1;position:sticky;bottom:8px}
+
+.admin-tile-config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.admin-tile-config-card{border:1px solid var(--border);padding:10px;background:var(--surface);display:grid;gap:8px}
+.size-group{border:1px solid var(--border);padding:8px}
+.size-group-title{font-weight:700;margin-bottom:4px}
+.size-checkbox-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.size-preset-row{display:flex;flex-wrap:wrap;gap:6px}
+.tile-preview-mini{font-size:.85rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:6px}
+.homepage-tile-status,.homepage-tile-showcase,.homepage-tile-leaderboard,.homepage-tile-spotlight,.homepage-tile-notices,.homepage-tile-admin-tools{display:grid;gap:6px;color:var(--text)}

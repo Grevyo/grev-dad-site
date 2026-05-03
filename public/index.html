@@ -64,8 +64,8 @@
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v4_mobile';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
                 const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
-        const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 4, minH: 2 },'quick-actions': { minW: 2, minH: 2 },'profile-completion': { minW: 2, minH: 2 },'members-preview': { minW: 4, minH: 2 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 2 },status: { minW: 2, minH: 2 }};
-        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 60 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
+        const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 4, minH: 2 },'quick-actions': { minW: 2, minH: 2 },'profile-completion': { minW: 2, minH: 2 },'members-preview': { minW: 4, minH: 2 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 2 },status: { minW: 2, minH: 2 },'profile-status': { minW: 4, minH: 2 },'showcase-preview': { minW: 4, minH: 2 },'leaderboard-preview': { minW: 4, minH: 2 },'member-spotlight': { minW: 3, minH: 2 },'site-notices': { minW: 4, minH: 2 },'admin-quick-tools': { minW: 4, minH: 2 }};
+        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x2','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
         let TILE_SIZE_RULES = JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));
         const DEFAULT_TILE_LAYOUT = {
           'profile-snapshot': { col: 1, row: 1, size: '4x2' },
@@ -188,6 +188,7 @@
           }
         }
         function ensureTilesExist() {
+          Object.keys(dashboardLayout.tiles).forEach((id)=>{ if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeDynamicTile(id)); });
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
             if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeBlankTile(id, dashboardLayout.blankTiles[id].size));
           });
@@ -257,6 +258,7 @@
           clearTimeout(showTileMessage._t);
           showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.'; }, 1800);
         }
+        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;tile.innerHTML=`<h2>${id}</h2><div class='homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}' id='${id}-content'>Loading…</div>`;return tile;}
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
           tile.className = 'dashboard-tile blank-dashboard-tile';
@@ -554,6 +556,13 @@
               console.error('[home] members preview failed', error);
               document.getElementById('members-preview-content').textContent = 'Members preview unavailable.';
             }
+            try{const p=profileData||{};const statusEl=document.getElementById('profile-status-content');if(statusEl){statusEl.innerHTML=`<div class='homepage-tile-status'><p>${p.status_message||'No status message set.'}</p><p>${p.profile_quote||''}</p>${p.steam_url?`<a href='${p.steam_url}' target='_blank' rel='noopener'>Steam</a>`:''}<p>Visibility: ${p.profile_visibility||'public'}</p><a href='/profile-edit.html'>Edit Profile</a></div>`;}}catch{}
+            try{const scEl=document.getElementById('showcase-preview-content');if(scEl){const slots=(profileData?.showcase||[]).filter((s)=>s.unlock);scEl.innerHTML=slots.length?`<div class='homepage-tile-showcase'>${slots.slice(0,4).map((s)=>`<div>${s.unlock.name}</div>`).join('')}</div>`:'No showcase items selected yet.';}}catch{}
+            try{const lbEl=document.getElementById('leaderboard-preview-content');if(lbEl){try{const lb=await fetchJsonSafe('/api/leaderboard/levels');lbEl.innerHTML=`<div class='homepage-tile-leaderboard'>${(lb.leaderboard||[]).slice(0,5).map((u,i)=>`<div>${i+1}. ${u.username} (Lv ${u.accountLevel||1})</div>`).join('')}<a href='/leaderboard.html'>Open leaderboard</a></div>`;}catch{lbEl.textContent='Leaderboard unavailable.';}}}catch{}
+            try{const msEl=document.getElementById('member-spotlight-content');if(msEl){try{const mr=await fetchJsonSafe('/api/members');const m=(mr.members||[])[0];msEl.innerHTML=m?`<div class='homepage-tile-spotlight'><strong>${m.display_name||m.username}</strong><div>@${m.username}</div></div>`:'No members available.';}catch{msEl.textContent='Member spotlight unavailable.';}}}catch{}
+            const nt=document.getElementById('site-notices-content');if(nt)nt.innerHTML="<div class='homepage-tile-notices'>No site notices.</div>";
+            const at=document.getElementById('admin-quick-tools-content');if(at){if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Home</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Homepage Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";}else{const tile=document.querySelector('[data-tile-id="admin-quick-tools"]');if(tile)tile.remove();delete dashboardLayout.tiles['admin-quick-tools'];}}
+
           } catch (error) {
             console.error('[home] Failed to load dashboard', error);
             document.getElementById('account-summary-content').textContent = 'Unable to load account snapshot.';
