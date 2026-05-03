@@ -132,7 +132,10 @@
     container.textContent = '';
     container.append(createLink('/members.html', 'Members'));
     if (isAdmin) container.append(createLink('/admin.html', 'Admin', 'nav-button admin-link'));
-    container.append(createButton('Logout', 'nav-button logout-button', handleLogout));
+    const logoutButton = createButton('🚪', 'nav-button logout-button', handleLogout);
+    logoutButton.setAttribute('aria-label', 'Log out');
+    logoutButton.title = 'Log out';
+    container.append(logoutButton);
     container.append(createThemeToggle());
   }
 
@@ -153,13 +156,44 @@
     return { response, data };
   }
 
+  const PROFILE_CACHE_KEY = 'grev_header_profile_cache';
+  const PROFILE_CACHE_TTL_MS = 60 * 1000;
+
+  function readProfileCache(username) {
+    try {
+      const raw = sessionStorage.getItem(PROFILE_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.username !== username) return null;
+      if (!Number.isFinite(parsed.timestamp) || Date.now() - parsed.timestamp > PROFILE_CACHE_TTL_MS) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeProfileCache(data) {
+    try {
+      sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({
+        username: data.username,
+        display_name: data.display_name || '',
+        avatar_url: data.avatar_url || '',
+        accountLevel: Number(data.accountLevel) || 1,
+        rank: data.rank || '',
+        timestamp: Date.now()
+      }));
+    } catch {}
+  }
+
   async function loadAuthStatus() {
     const container = document.getElementById('authStatus');
     if (!container) return;
-    container.textContent = 'Checking login...';
+    renderLoggedOut(container);
 
     try {
+      const authStart = performance.now();
       const { response, data } = await safeFetchJson('/api/auth/me');
+      console.debug('[auth-status] /api/auth/me took', Math.round(performance.now() - authStart), 'ms');
       const user = data?.user;
       if (!response.ok || !user || !user.username) {
         removeProfileSummary(container);
@@ -167,13 +201,33 @@
         return;
       }
 
-      let profileUser = null;
-      try {
-        const profileResp = await safeFetchJson('/api/profile/me');
-        if (profileResp.response.ok) profileUser = profileResp.data?.profile || profileResp.data?.user || null;
-      } catch {}
+      const cached = readProfileCache(user.username);
+      const cachedProfile = cached ? {
+        displayName: cached.display_name || user.username,
+        avatarUrl: cached.avatar_url || '',
+        level: Number(cached.accountLevel) || 1,
+        rankName: cached.rank || ''
+      } : { displayName: user.username, avatarUrl: '', level: 1, rankName: '' };
+      renderLoggedIn(container, user, cachedProfile);
 
-      renderLoggedIn(container, user, parseProfileData(user, profileUser));
+      (async function refreshProfile() {
+        try {
+          const profileStart = performance.now();
+          const profileResp = await safeFetchJson('/api/profile/me');
+          console.debug('[auth-status] /api/profile/me took', Math.round(performance.now() - profileStart), 'ms');
+          if (!profileResp.response.ok) return;
+          const profileUser = profileResp.data?.profile || profileResp.data?.user || null;
+          const parsed = parseProfileData(user, profileUser);
+          renderLoggedIn(container, user, parsed);
+          writeProfileCache({
+            username: user.username,
+            display_name: parsed.displayName,
+            avatar_url: parsed.avatarUrl,
+            accountLevel: parsed.level,
+            rank: parsed.rankName
+          });
+        } catch {}
+      })();
     } catch {
       removeProfileSummary(container);
       renderLoggedOut(container);
