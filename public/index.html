@@ -23,7 +23,7 @@
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Drag tiles to reorder your homepage and resize cards.</p>
 
       <section class="dashboard-grid" id="dashboard-grid">
-        <article class="dashboard-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile profile-snapshot-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
@@ -221,16 +221,29 @@
           wrap.textContent = '';
           const root = document.createElement('div'); root.className = 'account-snapshot';
           const avatar = document.createElement('div'); avatar.className = 'account-snapshot-avatar';
-          const fallback = document.createElement('div'); fallback.className = 'account-snapshot-avatar-fallback'; fallback.textContent = initials(displayName, username);
+          const img = document.createElement('img');
+          img.id = 'account-snapshot-avatar-img';
+          img.alt = '';
+          img.hidden = true;
+          img.loading = 'lazy';
+          const fallback = document.createElement('div');
+          fallback.id = 'account-snapshot-avatar-fallback';
+          fallback.className = 'account-snapshot-avatar-fallback';
+          fallback.textContent = initials(displayName, username);
+          function showFallback() {
+            img.hidden = true;
+            img.removeAttribute('src');
+            fallback.hidden = false;
+          }
           if (profile?.avatar_url) {
-            const img = document.createElement('img');
-            img.src = profile.avatar_url;
-            img.alt = displayName + ' avatar';
-            img.loading = 'lazy';
-            img.onerror = function () { img.remove(); fallback.hidden = false; };
+            img.onerror = showFallback;
+            img.hidden = false;
             fallback.hidden = true;
-            avatar.append(img, fallback);
-          } else avatar.append(fallback);
+            img.src = profile.avatar_url;
+          } else {
+            showFallback();
+          }
+          avatar.append(img, fallback);
           const metaWrap = document.createElement('div'); metaWrap.className = 'account-snapshot-meta';
           const name = document.createElement('p'); name.className = 'account-snapshot-name'; name.textContent = displayName;
           const user = document.createElement('p'); user.className = 'account-snapshot-username'; user.textContent = '@' + username;
