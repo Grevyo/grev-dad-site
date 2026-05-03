@@ -54,6 +54,10 @@ jobs:
           done
 
       - name: Upload Grevlings web build artifact
+        # Keep this workflow artifact-only: do not commit or copy exported Godot web files into public/.
+        # Exported files are expected to be downloaded from this artifact and uploaded to Cloudflare R2
+        # (or another large-file static host) because .wasm/.pck may exceed Workers/Pages asset limits.
+        # public/games/grevlings remains a launcher page that points to the external build URL.
         uses: actions/upload-artifact@v4
         with:
           name: grevlings-web-build
