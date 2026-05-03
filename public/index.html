@@ -36,8 +36,9 @@
     <script src="/scripts/auth-status.js"></script>
     <script>
       (function () {
-        const LAYOUT_KEY = 'grev_dashboard_layout_v2';
+        const LAYOUT_KEY = 'grev_dashboard_layout_v3';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
+        const BOARD_COLUMNS = { desktop: 6, medium: 4, small: 2, mobile: 1 };
         const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x2', '2x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
         const TILE_SIZE_RULES = {
           'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['2x1', '4x2'] },
@@ -46,14 +47,21 @@
           'members-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
           chat: { defaultSize: '2x2', allowedSizes: ['2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'] },
           'coming-later': { defaultSize: '2x2', allowedSizes: ['2x2'] },
-          'showcase-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
           blank: { defaultSize: '1x1', allowedSizes: ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3'] }
         };
-        const DEFAULT_SIZES = Object.fromEntries(Object.entries(TILE_SIZE_RULES).map(([tileId, rule]) => [tileId, rule.defaultSize]));
+        const DEFAULT_TILE_LAYOUT = {
+          'profile-snapshot': { col: 1, row: 1, size: '2x1' },
+          'quick-actions': { col: 3, row: 1, size: '2x2' },
+          'profile-completion': { col: 5, row: 1, size: '1x1' },
+          'members-preview': { col: 1, row: 2, size: '2x1' },
+          chat: { col: 3, row: 3, size: '2x2' },
+          'coming-later': { col: 5, row: 2, size: '2x2' }
+        };
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const editHelp = document.getElementById('dashboard-edit-help');
+        editHelp.textContent = 'Use arrows to move tiles around the homepage grid.';
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
@@ -61,186 +69,158 @@
         let isEditing = false;
         let homeChatTimer = null;
         let homeChatRoomId = null;
+        let dashboardLayout = { tiles: {}, blankTiles: {} };
 
-        function getDashboardColumnCount() {
-          const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean);
-          return Math.max(1, columns.length);
+        function getBoardColumnCount() {
+          if (window.matchMedia('(max-width: 640px)').matches) return BOARD_COLUMNS.mobile;
+          if (window.matchMedia('(max-width: 900px)').matches) return BOARD_COLUMNS.small;
+          if (window.matchMedia('(max-width: 1300px)').matches) return BOARD_COLUMNS.medium;
+          return BOARD_COLUMNS.desktop;
         }
 
-        function moveTile(tile, direction) {
-          const tiles = Array.from(grid.querySelectorAll('.dashboard-tile'));
-          const index = tiles.indexOf(tile);
-          if (index < 0) return;
-          const step = getDashboardColumnCount();
-          const deltas = { left: -1, right: 1, up: -step, down: step };
-          const target = index + (deltas[direction] ?? 0);
-          if (target < 0 || target >= tiles.length || target === index) return;
-          const swapWith = tiles[target];
-          if (!swapWith) return;
-          if (target > index) grid.insertBefore(swapWith, tile);
-          else grid.insertBefore(tile, swapWith);
-          saveLayout();
-          createEditControls();
+        function parseTileSize(size) {
+          const m = /^([1-6])x([1-6])$/.exec(String(size || ''));
+          if (!m) return { w: 1, h: 1 };
+          return { w: Number(m[1]), h: Number(m[2]) };
         }
+        function tileRuleFor(tileId) { return tileId && tileId.startsWith('blank-') ? TILE_SIZE_RULES.blank : (TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: TILE_SIZES }); }
+        function normalizeTileSize(tileId, size) { const r = tileRuleFor(tileId); return r.allowedSizes.includes(size) ? size : r.defaultSize; }
+        function getLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch { return null; } }
+        function saveLayout() { localStorage.setItem(LAYOUT_KEY, JSON.stringify(dashboardLayout)); }
 
-        async function fetchJsonSafe(url, options = {}) {
-          const response = await fetch(url, options);
-          const text = await response.text();
-          let data = null;
-
-          try { data = text ? JSON.parse(text) : null; }
-          catch { throw new Error(`Invalid JSON from ${url}`); }
-
-          if (!response.ok || !data || data.ok === false) {
-            throw new Error(data?.error || `Request failed: ${response.status}`);
-          }
-
-          return data;
+        function getTileEntries() {
+          return [...Object.entries(dashboardLayout.tiles), ...Object.entries(dashboardLayout.blankTiles)];
         }
-
-        function getLayout() {
-          try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch { return null; }
-        }
-
-        function tileRuleFor(tileId) {
-          if (tileId && tileId.startsWith('blank-')) return TILE_SIZE_RULES.blank;
-          return TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: TILE_SIZES };
-        }
-
-        function normalizeTileSize(tileId, size) {
-          const rule = tileRuleFor(tileId);
-          if (rule.allowedSizes.includes(size)) return size;
-          return rule.defaultSize;
-        }
-
-        function getTileSize(tileId) {
-          const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-          return normalizeTileSize(tileId, tile?.dataset.tileSize || DEFAULT_SIZES[tileId] || '1x1');
-        }
-
-        function applyTileSize(tile, size) {
-          const tileId = tile.dataset.tileId;
-          const valid = normalizeTileSize(tileId, size);
-          TILE_SIZES.forEach((s) => tile.classList.remove(`tile-${s}`));
-          tile.classList.add(`tile-${valid}`);
-          tile.dataset.tileSize = valid;
-        }
-
-        function saveLayout() {
-          const ids = [];
-          const sizes = {};
-          const blankTiles = [];
-          grid.querySelectorAll('[data-tile-id]').forEach((tile) => {
-            const id = tile.dataset.tileId;
-            if (!id || ids.includes(id)) return;
-            ids.push(id);
-            sizes[id] = getTileSize(id);
-            if (id.startsWith('blank-')) blankTiles.push(id);
+        function getOccupiedCells(excludingTileId = null) {
+          const cells = new Set();
+          getTileEntries().forEach(([id, entry]) => {
+            if (!entry || id === excludingTileId) return;
+            const { w, h } = parseTileSize(entry.size);
+            for (let c = entry.col; c < entry.col + w; c += 1) for (let r = entry.row; r < entry.row + h; r += 1) cells.add(`${c},${r}`);
           });
-          localStorage.setItem(LAYOUT_KEY, JSON.stringify({ order: ids, sizes, blankTiles }));
+          return cells;
         }
-
+        function canPlaceTile(tileId, targetCol, targetRow, size, columnCount = getBoardColumnCount()) {
+          const { w, h } = parseTileSize(size);
+          if (targetCol < 1 || targetRow < 1 || targetCol + w - 1 > columnCount) return false;
+          const occupied = getOccupiedCells(tileId);
+          for (let c = targetCol; c < targetCol + w; c += 1) for (let r = targetRow; r < targetRow + h; r += 1) if (occupied.has(`${c},${r}`)) return false;
+          return h > 0;
+        }
+        function ensureLayoutFitsColumns(columnCount = getBoardColumnCount()) {
+          getTileEntries().forEach(([id, entry]) => {
+            if (!entry) return;
+            entry.size = normalizeTileSize(id, entry.size);
+            const sz = parseTileSize(entry.size);
+            if (sz.w > columnCount) entry.size = `${columnCount}x${Math.max(1, sz.h)}`;
+            if (entry.col < 1) entry.col = 1;
+            if (entry.row < 1) entry.row = 1;
+            const { w } = parseTileSize(entry.size);
+            if (entry.col + w - 1 > columnCount) entry.col = Math.max(1, columnCount - w + 1);
+          });
+        }
+        function renderTilePositions() {
+          const cols = getBoardColumnCount();
+          grid.style.setProperty('--board-columns', String(cols));
+          grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
+            const id = tile.dataset.tileId;
+            const entry = dashboardLayout.tiles[id] || dashboardLayout.blankTiles[id];
+            if (!entry) return;
+            const { w, h } = parseTileSize(entry.size);
+            tile.dataset.tileSize = entry.size;
+            if (cols === 1) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
+            tile.style.gridColumn = `${entry.col} / span ${w}`;
+            tile.style.gridRow = `${entry.row} / span ${h}`;
+          });
+        }
+        function ensureTilesExist() {
+          Object.keys(dashboardLayout.blankTiles).forEach((id) => {
+            if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeBlankTile(id, dashboardLayout.blankTiles[id].size));
+          });
+          Array.from(grid.querySelectorAll('[data-tile-id^="blank-"]')).forEach((n) => { if (!dashboardLayout.blankTiles[n.dataset.tileId]) n.remove(); });
+        }
+        function hydrateLayout() {
+          const saved = getLayout();
+          dashboardLayout = { tiles: {}, blankTiles: {} };
+          defaultIds.forEach((id) => {
+            const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
+            dashboardLayout.tiles[id] = { col: Number(fromSaved.col) || 1, row: Number(fromSaved.row) || 1, size: normalizeTileSize(id, fromSaved.size || tileRuleFor(id).defaultSize) };
+          });
+          Object.entries(saved?.blankTiles || {}).forEach(([id, entry]) => {
+            dashboardLayout.blankTiles[id] = { col: Number(entry.col) || 1, row: Number(entry.row) || 1, size: normalizeTileSize(id, entry.size || '1x1') };
+          });
+          ensureLayoutFitsColumns(); ensureTilesExist(); saveLayout(); renderTilePositions();
+        }
+        function moveTile(tileId, dx, dy) {
+          const source = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          if (!source) return;
+          const nc = source.col + dx; const nr = source.row + dy;
+          if (!canPlaceTile(tileId, nc, nr, source.size)) return;
+          source.col = nc; source.row = nr; saveLayout(); renderTilePositions(); createEditControls();
+        }
+        function showTileMessage(message) {
+          editHelp.textContent = message;
+          editHelp.hidden = false;
+          clearTimeout(showTileMessage._t);
+          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage grid.'; }, 1800);
+        }
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
           tile.className = 'dashboard-tile blank-dashboard-tile';
           tile.dataset.tileId = id;
-          tile.dataset.tileSize = size;
-          tile.innerHTML = '<div class="blank-tile-label">Blank space</div>';
-          applyTileSize(tile, size);
+          tile.innerHTML = '<h2>Blank</h2><div class="blank-tile-label">Blank space</div>';
           return tile;
         }
-
-        function applySavedLayout() {
-          const layout = getLayout();
-          const base = new Map(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => [n.dataset.tileId, n]));
-          if (layout?.blankTiles && Array.isArray(layout.blankTiles)) {
-            layout.blankTiles.forEach((id) => { if (id && !base.has(id)) base.set(id, makeBlankTile(id, normalizeTileSize(id, layout.sizes?.[id] || '1x1'))); });
-          }
-          const ordered = [];
-          const used = new Set();
-          (Array.isArray(layout?.order) ? layout.order : defaultIds).forEach((id) => {
-            if (base.has(id) && !used.has(id)) { ordered.push(base.get(id)); used.add(id); }
-          });
-          base.forEach((node, id) => { if (!used.has(id)) ordered.push(node); });
-          ordered.forEach((node) => grid.append(node));
-          ordered.forEach((tile) => applyTileSize(tile, normalizeTileSize(tile.dataset.tileId, layout?.sizes?.[tile.dataset.tileId] || DEFAULT_SIZES[tile.dataset.tileId] || tile.dataset.tileSize || '1x1')));
-        }
-
         function createEditControls() {
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
-            tile.draggable = false;
-
             let controls = tile.querySelector('.tile-edit-controls');
             if (!controls) {
-              controls = document.createElement('div');
-              controls.className = 'tile-edit-controls';
-              const moveControls = document.createElement('div');
-              moveControls.className = 'tile-move-controls';
-              const arrows = [
-                { dir: 'up', label: '↑' },
-                { dir: 'left', label: '←' },
-                { dir: 'right', label: '→' },
-                { dir: 'down', label: '↓' }
-              ];
-              arrows.forEach(({ dir, label }) => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'tile-move-button';
-                button.textContent = label;
-                button.setAttribute('aria-label', `Move tile ${dir}`);
-                button.addEventListener('click', () => moveTile(tile, dir));
+              controls = document.createElement('div'); controls.className = 'tile-edit-controls';
+              const moveControls = document.createElement('div'); moveControls.className = 'tile-move-controls';
+              [{dir:'up',dx:0,dy:-1,label:'↑'},{dir:'left',dx:-1,dy:0,label:'←'},{dir:'right',dx:1,dy:0,label:'→'},{dir:'down',dx:0,dy:1,label:'↓'}].forEach(({dir,dx,dy,label}) => {
+                const button = document.createElement('button'); button.type='button'; button.className='tile-move-button'; button.textContent=label; button.setAttribute('aria-label', `Move tile ${dir}`);
+                button.addEventListener('click', () => {
+                  const before = JSON.stringify(dashboardLayout);
+                  moveTile(tileId, dx, dy);
+                  if (before === JSON.stringify(dashboardLayout)) showTileMessage('Move blocked: destination cells are not available.');
+                });
                 moveControls.append(button);
               });
-              controls.append(moveControls);
-              tile.prepend(controls);
+              controls.append(moveControls); tile.prepend(controls);
             }
             controls.hidden = !isEditing;
-
             let sizeControl = tile.querySelector('.tile-size-control');
             if (!sizeControl) {
-              sizeControl = document.createElement('label');
-              sizeControl.className = 'tile-size-control';
-              sizeControl.textContent = 'Size ';
+              sizeControl = document.createElement('label'); sizeControl.className='tile-size-control'; sizeControl.textContent='Size ';
               const select = document.createElement('select');
-              const options = tileRuleFor(tileId).allowedSizes;
-              options.forEach((size) => { const opt = document.createElement('option'); opt.value = size; opt.textContent = size; select.append(opt); });
-              select.value = normalizeTileSize(tileId, tile.dataset.tileSize || DEFAULT_SIZES[tileId] || '1x1');
-              select.addEventListener('change', function () { applyTileSize(tile, select.value); saveLayout(); });
-              sizeControl.append(select);
-              tile.prepend(sizeControl);
+              tileRuleFor(tileId).allowedSizes.forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
+              select.addEventListener('change', () => {
+                const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+                const next = normalizeTileSize(tileId, select.value);
+                if (!canPlaceTile(tileId, entry.col, entry.row, next)) { select.value = entry.size; showTileMessage('Size change blocked: tile does not fit at current position.'); return; }
+                entry.size = next; saveLayout(); renderTilePositions();
+              });
+              sizeControl.append(select); tile.prepend(sizeControl);
             }
-            sizeControl.hidden = !isEditing || tileRuleFor(tileId).allowedSizes.length <= 1;
             const select = sizeControl.querySelector('select');
-            if (select) select.value = tile.dataset.tileSize || '1x1';
+            const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+            if (select && entry) select.value = entry.size;
+            sizeControl.hidden = !isEditing || tileRuleFor(tileId).allowedSizes.length <= 1;
 
-            if (tileId && tileId.startsWith('blank-')) {
+            if (tileId.startsWith('blank-')) {
               let removeBtn = tile.querySelector('.blank-remove-button');
-              if (!removeBtn) {
-                removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'blank-remove-button';
-                removeBtn.textContent = 'Remove blank tile';
-                removeBtn.addEventListener('click', function () { tile.remove(); saveLayout(); });
-                tile.prepend(removeBtn);
-              }
+              if (!removeBtn) { removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='blank-remove-button'; removeBtn.textContent='Remove blank tile'; removeBtn.addEventListener('click', ()=>{ delete dashboardLayout.blankTiles[tileId]; saveLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); }); tile.prepend(removeBtn); }
               removeBtn.hidden = !isEditing;
             }
           });
         }
-
         function setEditMode(enabled) {
-          isEditing = !!enabled;
-          if (isEditing) document.body.classList.add('dashboard-editing');
-          else document.body.classList.remove('dashboard-editing');
-          editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage';
-          resetButton.hidden = !isEditing;
-          addBlankButton.hidden = !isEditing;
-          editHelp.hidden = !isEditing;
-          createEditControls();
-          localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
+          isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
+          editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
+          if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage grid.';
+          createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
-
         function initials(name, username) {
           const src = (name || username || '').trim();
           if (!src) return '?';
@@ -446,27 +426,26 @@
         editButton.addEventListener('click', () => setEditMode(!isEditing));
         resetButton.addEventListener('click', function () {
           localStorage.removeItem(LAYOUT_KEY);
-          defaultIds.forEach((id) => {
-            const node = grid.querySelector(`[data-tile-id="${id}"]`);
-            if (node) grid.append(node);
-          });
-          Array.from(grid.querySelectorAll('[data-tile-id^="blank-"]')).forEach((n) => n.remove());
-          grid.querySelectorAll('[data-tile-id]').forEach((tile) => applyTileSize(tile, DEFAULT_SIZES[tile.dataset.tileId] || '1x1'));
-          saveLayout();
+          hydrateLayout();
+          createEditControls();
         });
 
         addBlankButton.addEventListener('click', function () {
-          const ids = new Set(Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId));
+          const ids = new Set(Object.keys(dashboardLayout.blankTiles));
           let i = 1; while (ids.has(`blank-${i}`)) i += 1;
-          const blank = makeBlankTile(`blank-${i}`);
-          grid.append(blank);
+          const id = `blank-${i}`;
+          dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' };
+          ensureLayoutFitsColumns();
+          ensureTilesExist();
+          renderTilePositions();
           createEditControls();
           saveLayout();
         });
 
-        applySavedLayout();
+        hydrateLayout();
         createEditControls();
         setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');
+        window.addEventListener('resize', () => { ensureLayoutFitsColumns(); renderTilePositions(); createEditControls(); saveLayout(); });
         loadDashboard();
         initHomeChat();
       })();
