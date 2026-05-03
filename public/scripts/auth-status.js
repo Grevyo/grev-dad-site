@@ -61,7 +61,7 @@
     if (!header) {
       return;
     }
-    const existing = header.querySelector('.header-profile-summary');
+    const existing = header.querySelector('.compact-header-account');
     if (existing) {
       existing.remove();
     }
@@ -70,10 +70,11 @@
   function createProfileSummary(profile) {
     const summaryLink = document.createElement('a');
     summaryLink.href = '/profile.html';
-    summaryLink.className = 'header-profile-summary';
+    summaryLink.title = 'Open profile';
+    summaryLink.className = 'compact-header-account';
 
     const avatarWrap = document.createElement('span');
-    avatarWrap.className = 'header-avatar';
+    avatarWrap.className = 'compact-header-avatar';
 
     if (profile.avatarUrl) {
       const avatarImg = document.createElement('img');
@@ -83,24 +84,24 @@
       avatarWrap.append(avatarImg);
     } else {
       const fallback = document.createElement('span');
-      fallback.className = 'header-avatar-fallback';
+      fallback.className = 'compact-header-avatar-fallback';
       fallback.textContent = getInitials(profile.displayName, profile.username);
       avatarWrap.append(fallback);
     }
 
     const textWrap = document.createElement('span');
-    textWrap.className = 'header-profile-text';
+    textWrap.className = 'compact-header-text';
 
     const displayName = document.createElement('span');
-    displayName.className = 'header-display-name';
+    displayName.className = 'compact-header-name';
     displayName.textContent = profile.displayName || profile.username;
 
     const username = document.createElement('span');
-    username.className = 'header-username';
+    username.className = 'compact-header-username';
     username.textContent = '@' + profile.username;
 
     const meta = document.createElement('span');
-    meta.className = 'header-meta';
+    meta.className = 'compact-header-meta';
     meta.textContent = profile.rankName ? ('Level ' + profile.level + ' · ' + profile.rankName) : ('Level ' + profile.level + ' · Unranked');
 
     textWrap.append(displayName, username, meta);
@@ -139,21 +140,6 @@
       container.append(createLink('/admin.html', 'Admin', 'nav-button admin-link'));
     }
 
-    const logoutButton = document.createElement('button');
-    logoutButton.type = 'button';
-    logoutButton.className = 'nav-button logout-button';
-    logoutButton.textContent = 'Logout';
-    logoutButton.addEventListener('click', async function () {
-      logoutButton.disabled = true;
-      try {
-        await fetch('/api/auth/logout', { method: 'POST' });
-      } catch {
-        // Ignore network errors and still move user to login.
-      }
-      window.location.href = '/login.html';
-    });
-
-    container.append(logoutButton);
     container.append(createThemeToggle());
   }
 
