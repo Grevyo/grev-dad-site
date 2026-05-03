@@ -404,58 +404,17 @@
         function renderAccount(profile, authUser) {
           const wrap = document.getElementById('account-summary-content');
           const username = profile?.username || authUser?.username || 'unavailable';
-          const displayName = profile?.display_name || username || 'Unavailable';
-          const role = profile?.roleLabel || authUser?.role || (authUser?.is_admin ? 'Admin' : 'Member');
-          const level = Number(profile?.accountLevel || profile?.account_level || 1) || 1;
-          const rank = profile?.rank?.name || 'Unranked';
-          const xpCurrent = Number(profile?.accountXpCurrent || 0) || 0;
-          const xpRequired = Number(profile?.accountXpRequired || 100) || 100;
-          const xpPercent = Math.max(0, Math.min(100, Number(profile?.accountXpPercent || ((xpCurrent / Math.max(1, xpRequired)) * 100) || 0)));
+          const snapshotProfile = {
+            ...profile,
+            username,
+            display_name: profile?.display_name || username,
+            avatar_url: profile?.avatar_url || '',
+            accountLevel: Number(profile?.accountLevel || profile?.account_level || 1) || 1,
+            rank: profile?.rank || { name: 'Unranked' }
+          };
           wrap.textContent = '';
-          const tileEl = document.querySelector('[data-tile-id="profile-snapshot"]');
-          const snapSize = parseTileSize(tileEl?.dataset.tileSize || '1x1');
-          const compact = snapSize.w <= 2 && snapSize.h <= 2;
-          const root = document.createElement('div'); root.className = `account-snapshot ${compact ? 'account-snapshot-compact' : 'account-snapshot-full'}`;
-          const avatar = document.createElement('div'); avatar.className = 'account-snapshot-avatar';
-          const img = document.createElement('img');
-          img.id = 'account-snapshot-avatar-img';
-          img.alt = '';
-          img.hidden = true;
-          img.loading = 'lazy';
-          const fallback = document.createElement('div');
-          fallback.id = 'account-snapshot-avatar-fallback';
-          fallback.className = 'account-snapshot-avatar-fallback';
-          fallback.textContent = initials(displayName, username);
-          function showFallback() {
-            img.hidden = true;
-            img.removeAttribute('src');
-            fallback.hidden = false;
-          }
-          if (profile?.avatar_url) {
-            img.onerror = showFallback;
-            img.hidden = false;
-            fallback.hidden = true;
-            img.src = profile.avatar_url;
-          } else {
-            showFallback();
-          }
-          avatar.append(img, fallback);
-          const metaWrap = document.createElement('div'); metaWrap.className = 'account-snapshot-meta';
-          const name = document.createElement('p'); name.className = 'account-snapshot-name'; name.textContent = displayName;
-          const user = document.createElement('p'); user.className = 'account-snapshot-username'; user.textContent = '@' + username;
-          const meta = document.createElement('p'); meta.textContent = compact ? role : `${role} · ID ${profile?.id || authUser?.id || 'n/a'}`;
-          const levelRank = document.createElement('p'); levelRank.className = 'account-snapshot-rank';
-          if (window.renderLevelBadge) { levelRank.append(window.renderLevelBadge(level), document.createTextNode(' · ' + rank)); }
-          else levelRank.textContent = `Level ${level} · ${rank}`;
-          const xp = document.createElement('p'); xp.textContent = compact ? `XP ${xpCurrent}` : `XP ${xpCurrent} / ${xpRequired}`;
-          const xpBar = document.createElement('div'); xpBar.className = 'xp-bar';
-          const xpFill = document.createElement('div'); xpFill.className = 'xp-bar-fill'; xpFill.style.width = xpPercent + '%';
-          xpBar.append(xpFill);
-          const link = document.createElement('a'); link.href = '/profile-edit.html'; link.textContent = 'Open profile';
-          if (compact) metaWrap.append(name, user, levelRank, xp, xpBar);
-          else metaWrap.append(name, user, meta, levelRank, xp, xpBar, link);
-          root.append(avatar, metaWrap);
-          wrap.append(root);
+          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true });
+          else wrap.textContent = `${snapshotProfile.display_name} (@${snapshotProfile.username})`;
         }
 
         function renderQuickActions(isAdmin) {
@@ -595,7 +554,7 @@
         }
         async function loadProfileStatusTile() { try { const p=((await getProfileForHome())?.profile)||{}; const statusEl=clearTile('profile-status-content'); if(!statusEl) return; const root=document.createElement('div'); root.className='homepage-tile-status'; const p1=document.createElement('p'); p1.textContent=p.status_message||'No status message set.'; const p2=document.createElement('p'); p2.textContent=p.profile_quote||''; root.append(p1,p2); if(p.steam_url){const a=document.createElement('a'); a.href=p.steam_url; a.target='_blank'; a.rel='noopener'; a.textContent='Steam'; root.append(a);} const p3=document.createElement('p'); p3.textContent=`Visibility: ${p.profile_visibility||'public'}`; const edit=document.createElement('a'); edit.href='/profile-edit.html'; edit.textContent='Edit Profile'; root.append(p3,edit); statusEl.append(root); } catch (error) { console.error('[home] profile status failed', error); showTileError('profile-status', 'Profile status unavailable.'); } }
         async function loadShowcasePreviewTile() { try { const scEl=clearTile('showcase-preview-content'); if(!scEl) return; const slots=((((await getProfileForHome())?.profile)||{}).showcase||[]).filter((s)=>s.unlock); if(!slots.length) return setTileText('showcase-preview-content', 'No showcase items selected yet.'); const wrap=document.createElement('div'); wrap.className='homepage-tile-showcase'; slots.slice(0,4).forEach((s)=>{const div=document.createElement('div'); div.textContent=s.unlock.name||'Unnamed'; wrap.append(div);}); scEl.append(wrap);} catch (error) { console.error('[home] showcase preview failed', error); showTileError('showcase-preview', 'Showcase unavailable.'); } }
-        async function loadLeaderboardPreviewTile() { try { const lbEl=clearTile('leaderboard-preview-content'); if(!lbEl) return; const lb=await fetchJsonSafe('/api/leaderboard/levels'); const wrap=document.createElement('div'); wrap.className='homepage-tile-leaderboard'; (lb.leaderboard||[]).slice(0,5).forEach((u,i)=>{const div=document.createElement('div'); div.textContent=`${i+1}. ${u.username} (Lv ${u.accountLevel||1})`; wrap.append(div);}); const a=document.createElement('a'); a.href='/leaderboard.html'; a.textContent='Open leaderboard'; wrap.append(a); lbEl.append(wrap);} catch (error) { console.error('[home] leaderboard preview failed', error); showTileError('leaderboard-preview', 'Leaderboard unavailable.'); } }
+        async function loadLeaderboardPreviewTile() { try { const lbEl=clearTile('leaderboard-preview-content'); if(!lbEl) return; const lb=await fetchJsonSafe('/api/leaderboard/levels'); const wrap=document.createElement('div'); wrap.className='homepage-tile-leaderboard'; (lb.leaderboard||[]).slice(0,5).forEach((u,i)=>{const div=document.createElement('div'); div.textContent=`${i+1}. ${u.username} `; if (window.grevDad?.level?.render) div.append(window.grevDad.level.render(u.accountLevel||1)); else div.append(document.createTextNode(`Lv. ${u.accountLevel||1}`)); wrap.append(div);}); const a=document.createElement('a'); a.href='/leaderboard.html'; a.textContent='Open leaderboard'; wrap.append(a); lbEl.append(wrap);} catch (error) { console.error('[home] leaderboard preview failed', error); showTileError('leaderboard-preview', 'Leaderboard unavailable.'); } }
         async function loadMemberSpotlightTile() { try { const msEl=clearTile('member-spotlight-content'); if(!msEl) return; const mr=await getMembersForHome(); const m=(mr?.members||[])[0]; if(!m) return setTileText('member-spotlight-content','No members available.'); const wrap=document.createElement('div'); wrap.className='homepage-tile-spotlight'; const strong=document.createElement('strong'); strong.textContent=m.display_name||m.username||'Unknown'; const user=document.createElement('div'); user.textContent='@'+(m.username||'unknown'); wrap.append(strong,user); msEl.append(wrap);} catch (error) { console.error('[home] member spotlight failed', error); showTileError('member-spotlight', 'Member spotlight unavailable.'); } }
         async function loadSiteNoticesTile() { const nt = clearTile('site-notices-content') || clearTile('coming-later-content'); if (!nt) return; const wrap = document.createElement('div'); wrap.className='homepage-tile-notices'; wrap.textContent='No site notices.'; nt.append(wrap); }
         async function loadAdminQuickToolsTile() { try { const at=clearTile('admin-quick-tools-content'); if(!at) return; const authUser=(await getAuthForHome())?.user; if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Home</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Homepage Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";} else { at.textContent='Admin tools unavailable.'; } } catch (error) { console.error('[home] admin quick tools failed', error); showTileError('admin-quick-tools', 'Admin tools unavailable.'); } }
@@ -627,7 +586,7 @@
           const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout();
         });
         function safeHydrateLayout() { try { hydrateLayout(); } catch (error) { console.error('[home] layout failed', error); console.error('[home] layout hydrate failed; resetting layout', error); localStorage.removeItem('grev_dashboard_layout_v4'); hydrateLayout(); } }
-        (async function initDashboard(){await loadTileConfig();safeHydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();initHomeChat();})();
+        (async function initDashboard(){await loadTileConfig();safeHydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();requestAnimationFrame(()=>setTimeout(()=>{loadMembersPreviewTile();loadLeaderboardPreviewTile();initHomeChat();},0));})();
       })();
     </script>
   </body>

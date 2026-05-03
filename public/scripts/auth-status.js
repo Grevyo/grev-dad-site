@@ -63,7 +63,7 @@
   async function ensureHeaderDependencies() {
     if (!window.renderPlayerCard) await loadScriptOnce('/scripts/player-card.js', 'renderPlayerCard');
     if (!window.levelBadgeHtml) {
-      try { await loadScriptOnce('/scripts/level-badge.js', 'levelBadgeHtml'); } catch {}
+      try { await loadScriptOnce('/scripts/level-badge.js', 'grevDad'); } catch {}
     }
   }
 
@@ -186,7 +186,7 @@
     return { response, data };
   }
 
-  const PROFILE_CACHE_KEY = 'grev_header_profile_cache';
+  const PROFILE_CACHE_KEY = 'grev_header_profile_cache_v2';
   const PROFILE_CACHE_TTL_MS = 60 * 1000;
 
   function readProfileCache(username) {
