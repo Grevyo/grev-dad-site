@@ -2,6 +2,13 @@ name: Export Grevlings Web
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - games_src/grevlings/**
+      - .github/workflows/export-grevlings-web.yml
+
+permissions:
+  contents: write
 
 jobs:
   export-web:
@@ -18,15 +25,33 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Ensure export directory exists
-        run: mkdir -p public/games/grevlings
+      - name: Clean previous Grevlings web export
+        run: |
+          mkdir -p public/games/grevlings
+          find public/games/grevlings -mindepth 1 -delete
 
       - name: Export Web preset
         working-directory: games_src/grevlings
         run: godot --headless --verbose --path . --export-release "Web" ../../public/games/grevlings/index.html
 
       - name: Verify export output exists
-        run: test -f public/games/grevlings/index.html
+        run: |
+          test -f public/games/grevlings/index.html
+          find public/games/grevlings -maxdepth 1 -name '*.wasm' -print -quit | grep -q .
+          find public/games/grevlings -maxdepth 1 -name '*.pck' -print -quit | grep -q .
+          find public/games/grevlings -maxdepth 1 -name '*.js' -print -quit | grep -q .
+
+      - name: Commit exported web build
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/games/grevlings
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+          else
+            git commit -m 'Build Grevlings web export'
+            git push
+          fi
 
       - name: Upload Grevlings web build artifact
         uses: actions/upload-artifact@v4
