@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grev - Register</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-brand" href="/" aria-label="Grev home">
+        <img class="site-logo" src="/grev.dad.logo.png" alt="Grev" />
+      </a>
+      <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
+    </header>
+    <main>
+      <h1>Register</h1>
+      <p>Do not use an email address. Create a username and password only.</p>
+
+      <form id="register-form">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" required />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required />
+
+        <label for="confirm-password">Confirm password</label>
+        <input id="confirm-password" name="confirmPassword" type="password" required />
+
+        <button type="submit">Create account</button>
+      </form>
+
+      <p id="status" role="status" aria-live="polite"></p>
+      <a href="/login.html">Go to login</a>
+    </main>
+
+    <script>
+      const form = document.getElementById('register-form');
+      const statusEl = document.getElementById('status');
+
+      async function redirectIfLoggedIn() {
+        try {
+          const response = await fetch('/api/auth/me', { method: 'GET' });
+          const data = await response.json();
+          if (response.ok && data?.ok && data?.user) {
+            window.location.href = '/';
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      redirectIfLoggedIn();
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        statusEl.textContent = '';
+
+        const username = form.username.value.trim();
+        const password = form.password.value;
+        const confirmPassword = form.confirmPassword.value;
+
+        if (!username) {
+          statusEl.textContent = 'Username is required';
+          return;
+        }
+        if (!password) {
+          statusEl.textContent = 'Password is required';
+          return;
+        }
+        if (!confirmPassword) {
+          statusEl.textContent = 'Confirm password is required';
+          return;
+        }
+        if (password !== confirmPassword) {
+          statusEl.textContent = 'Passwords do not match';
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+          });
+
+          const text = await response.text();
+          let data = null;
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch {
+              statusEl.textContent = 'Server returned an invalid response';
+              return;
+            }
+          }
+
+          if (!response.ok || !data?.ok) {
+            statusEl.textContent = data?.error || text || 'Registration failed';
+            return;
+          }
+
+          statusEl.textContent = 'Registration successful. Redirecting to login...';
+          window.location.href = '/login.html';
+        } catch {
+          statusEl.textContent = 'Network error. Please try again.';
+        }
+      });
+    </script>
+  <script src="/scripts/theme.js"></script></body>
+</html>
