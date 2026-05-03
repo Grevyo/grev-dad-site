@@ -1,52 +1,38 @@
-# Grevlings
+# Grevlings (Godot 4 Source)
 
-Grevlings is an original cosy space creature-raising game concept built around caring for and bonding with small alien companions called **Orbitlings**.
+Grevlings is an original cozy creature-care prototype centered on Orbitlings.
 
-## Source Project Structure
+## Open in Godot 4
 
-The Godot source project lives entirely under:
+1. Open Godot 4.x.
+2. Click **Import**.
+3. Select `games_src/grevlings/project.godot`.
+4. Import and open the project.
 
-- `games_src/grevlings/project.godot`
-- `games_src/grevlings/scenes/`
-- `games_src/grevlings/scripts/`
+## Run the main scene
 
-This keeps gameplay/source files separate from the deployed site files.
+- Press **F5** to run the project.
+- The configured main scene is: `res://scenes/main/Main.tscn`.
 
-## Web Export Preset
+## Controls
 
-The Godot web export preset is defined in:
+- **WASD**: Move player placeholder.
 
-- `games_src/grevlings/export_presets.cfg`
+## v0.1 Tiny Home Planet Prototype (expected behavior)
 
-Preset details:
+- A tiny home-planet style test arena loads.
+- A player placeholder can move with keyboard input.
+- One Orbitling placeholder is present.
+- Orbitling starts in **Wander** and roams randomly around its home area.
+- When the player is close, Orbitling switches to **ReactToPlayer** and faces toward the player.
+- A debug UI shows Orbitling stats and current state:
+  - Name
+  - Speed
+  - Bond
+  - Mood
+  - Hunger
+  - Current state
 
-- **Preset name:** `Web`
-- **Target export path:** `../../public/games/grevlings/index.html`
-- **Goal:** simple Web export settings for CI validation first
-- **Current constraints:** no threaded web requirements and no SharedArrayBuffer dependency added in this step
+## Next planned step
 
-## GitHub Action (Manual Export)
-
-Workflow file:
-
-- `.github/workflows/export-grevlings-web.yml`
-
-What it does:
-
-1. Runs manually via `workflow_dispatch`.
-2. Checks out this repository.
-3. Installs Godot 4 headless with export templates.
-4. Exports preset `Web` from `games_src/grevlings`.
-5. Uploads `public/games/grevlings/` as an artifact.
-
-This workflow is artifact-only for now and does **not** auto-commit exported files.
-
-## Build Output Target
-
-Exported web build target directory:
-
-- `public/games/grevlings`
-
-When integrated, players will open:
-
-- `/games/grevlings/`
+- Add a simple **food interaction loop** (spawn + seek/eat response), while keeping scope prototype-sized.

@@ -1,10 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/Player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/creatures/Orbitling.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/ui/DebugUI.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/food/Food.tscn" id="4"]
-[ext_resource type="Script" path="res://scripts/systems/save_system.gd" id="5"]
 
 [node name="HomePlanet" type="Node2D"]
 
@@ -13,22 +11,17 @@ offset_left = -640.0
 offset_top = -360.0
 offset_right = 640.0
 offset_bottom = 360.0
-color = Color(0.1, 0.14, 0.18, 1)
+color = Color(0.09, 0.12, 0.16, 1)
 
-[node name="FoodContainer" type="Node2D" parent="."]
+[node name="PlanetCore" type="Polygon2D" parent="."]
+position = Vector2(0, 0)
+color = Color(0.18, 0.32, 0.24, 1)
+polygon = PackedVector2Array(-240, 0, -170, -120, 0, -200, 160, -130, 220, 0, 150, 130, 0, 210, -180, 120)
 
 [node name="Player" parent="." instance=ExtResource("1")]
-position = Vector2(-120, 0)
-food_scene = ExtResource("4")
-food_container_path = NodePath("../FoodContainer")
+position = Vector2(-140, 40)
 
 [node name="Orbitling" parent="." instance=ExtResource("2")]
-position = Vector2(80, 0)
+position = Vector2(90, -20)
 
 [node name="DebugUI" parent="." instance=ExtResource("3")]
-orbitling_path = NodePath("../Orbitling")
-
-[node name="SaveSystem" type="Node" parent="."]
-script = ExtResource("5")
-orbitling_path = NodePath("../Orbitling")
-debug_ui_path = NodePath("../DebugUI")
