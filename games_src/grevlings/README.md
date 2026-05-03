@@ -1,64 +1,52 @@
-# Grevlings (Godot 4 Source)
-
-Grevlings is an original cozy creature-care prototype centered on Orbitlings.
-
-## Open in Godot 4
-
-1. Open Godot 4.x.
-2. Click **Import**.
-3. Select `games_src/grevlings/project.godot`.
-4. Import and open the project.
-
-## Run the main scene
-
-- Press **F5** to run the project.
-- The configured main scene is: `res://scenes/main/Main.tscn`.
+# Grevlings Prototype (Godot 4)
 
 ## Controls
+- **W/A/S/D**: Move player
+- **F**: Spawn/drop food near player
+- **F5**: Manual debug save
+- **F9**: Manual debug load
+- **R**: Start Moon Sprint from HomePlanet
+- **Esc**: Return home (from Moon Sprint)
 
-- **WASD**: Move player placeholder.
+## Gameplay loop (prototype)
+1. Spawn into **HomePlanet** with player + Orbitling + Debug UI.
+2. Move around and drop food.
+3. Orbitling seeks and eats food, changing stats (hunger/mood/bond).
+4. Stats and state update live in Debug UI.
+5. Save/load Orbitling locally with debug keys.
+6. Enter Moon Sprint with **R** and race in 4 participant slots.
+7. Return to HomePlanet after race.
 
-## v0.1 Tiny Home Planet Prototype (expected behavior)
+## Food usage
+- Press **F** to drop a food piece close to the player.
+- Orbitling detects nearby food and transitions into **SeekFood**.
+- On contact, Orbitling enters **Eat**, consumes food, and updates stats.
 
-- A tiny home-planet style test arena loads.
-- A player placeholder can move with keyboard input.
-- One Orbitling placeholder is present.
-- Orbitling starts in **Wander** and roams randomly around its home area.
-- When the player is close, Orbitling switches to **ReactToPlayer** and faces toward the player.
-- A debug UI shows Orbitling stats and current state:
-  - Name
-  - Speed
-  - Bond
-  - Mood
-  - Hunger
-  - Current state
+## Save / load
+- Save file: `user://orbitling_save.json`.
+- Loads automatically when HomePlanet starts if a save exists.
+- Autosaves every **30 seconds**.
+- Manual save/load via **F5/F9**.
 
-## Exporting a web build with GitHub Actions
+Saved fields:
+- Orbitling name
+- speed
+- bond
+- mood
+- hunger
+- position
 
-The repository includes a manual workflow:
+## Moon Sprint
+- Start from HomePlanet with **R**.
+- Uses participant slots:
+  - Slot 1 = local Orbitling (name/speed loaded from save when available)
+  - Slots 2-4 = CPU Orbitlings
+- Speed affects race movement and finishing order is shown.
+- Press **Esc** or the return button to go back HomePlanet.
 
-- Workflow file: `.github/workflows/export-grevlings-web.yml`
-- Trigger: **workflow_dispatch** (run manually from the GitHub Actions UI)
-- Godot project working directory: `games_src/grevlings`
-- Export preset used: `Web`
-- Export output path: `../../public/games/grevlings/index.html`
-
-### How to run it manually
-
-1. Open the repository on GitHub.
-2. Go to **Actions**.
-3. Select **Export Grevlings Web**.
-4. Click **Run workflow** and confirm.
-
-### Where the build appears
-
-- The workflow uploads an artifact named: `grevlings-web-build`.
-- The artifact contents are from: `public/games/grevlings/`.
-
-## Placeholder behavior
-
-`public/games/grevlings/index.html` remains a placeholder in source control until exported web artifacts are intentionally deployed.
-
-## Next planned step
-
-After export stability is confirmed, the next gameplay step is wiring food interaction, save/load, and MoonSprint into one playable prototype flow.
+## Still placeholder / prototype
+- Placeholder shapes and minimal UI.
+- Simple state logic and race presentation.
+- No account/web integration.
+- No multiplayer.
+- No advanced evolution systems yet.
