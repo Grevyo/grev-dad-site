@@ -17,11 +17,12 @@
         <h1>Home</h1>
         <div class="dashboard-edit-controls">
           <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit homepage</button>
-          <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
+          <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset this layout</button>
         </div>
       </div>
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
 
+      <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
         <article class="dashboard-tile profile-snapshot-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
@@ -30,6 +31,7 @@
         <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
+      </div>
     </main>
 
     <script src="/scripts/theme.js"></script>
@@ -57,32 +59,34 @@
 
           return data;
         }
-        const LAYOUT_KEY = 'grev_dashboard_layout_v2';
+        const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v3_desktop';
+        const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v3_mobile';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const BOARD_COLUMNS = { desktop: 4, medium: 2, mobile: 1 };
-        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
+        const BOARD_COLUMNS = { desktop: 6, mobile: 1 };
+        const BASE_TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
+        const CHAT_SIZES = ['2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
         const TILE_SIZE_RULES = {
-          'profile-snapshot': { defaultSize: '2x2', allowedSizes: TILE_SIZES },
-          'quick-actions': { defaultSize: '1x1', allowedSizes: TILE_SIZES },
-          'profile-completion': { defaultSize: '1x1', allowedSizes: TILE_SIZES },
-          'members-preview': { defaultSize: '2x1', allowedSizes: TILE_SIZES },
-          chat: { defaultSize: '2x2', allowedSizes: TILE_SIZES },
-          'coming-later': { defaultSize: '1x1', allowedSizes: TILE_SIZES },
-          blank: { defaultSize: '1x1', allowedSizes: TILE_SIZES }
+          'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['2x1', '4x2'] },
+          'quick-actions': { defaultSize: '2x2', allowedSizes: ['2x2'] },
+          'profile-completion': { defaultSize: '1x1', allowedSizes: BASE_TILE_SIZES },
+          'members-preview': { defaultSize: '2x1', allowedSizes: BASE_TILE_SIZES },
+          chat: { defaultSize: '2x2', allowedSizes: CHAT_SIZES },
+          'coming-later': { defaultSize: '2x2', allowedSizes: ['2x2'] },
+          blank: { defaultSize: '1x1', allowedSizes: BASE_TILE_SIZES }
         };
         const DEFAULT_TILE_LAYOUT = {
-          'profile-snapshot': { col: 1, row: 1, size: '2x2' },
-          'quick-actions': { col: 3, row: 1, size: '1x1' },
-          'profile-completion': { col: 4, row: 1, size: '1x1' },
-          'members-preview': { col: 1, row: 3, size: '2x1' },
-          chat: { col: 3, row: 2, size: '2x2' },
-          'coming-later': { col: 1, row: 4, size: '1x1' }
+          'profile-snapshot': { col: 1, row: 1, size: '2x1' },
+          'quick-actions': { col: 3, row: 1, size: '2x2' },
+          'profile-completion': { col: 5, row: 1, size: '1x1' },
+          'members-preview': { col: 1, row: 2, size: '2x1' },
+          chat: { col: 3, row: 3, size: '2x2' },
+          'coming-later': { col: 5, row: 2, size: '2x2' }
         };
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const editHelp = document.getElementById('dashboard-edit-help');
-        editHelp.textContent = 'Use arrows to move tiles around the homepage grid.';
+        editHelp.textContent = 'Use arrows to move tiles around the homepage layout.';
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
@@ -91,40 +95,53 @@
         let homeChatTimer = null;
         let homeChatRoomId = null;
         let dashboardLayout = { tiles: {}, blankTiles: {} };
+        let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
+        let wasMobileDashboard = isMobileDashboard();
 
-        function getBoardColumnCount() {
-          if (window.matchMedia('(max-width: 640px)').matches) return BOARD_COLUMNS.mobile;
-          if (window.matchMedia('(max-width: 1100px)').matches) return BOARD_COLUMNS.medium;
-          return BOARD_COLUMNS.desktop;
-        }
+        function isMobileDashboard() { return window.matchMedia('(max-width: 640px)').matches; }
+        function getBoardColumnCount() { return isMobileDashboard() ? BOARD_COLUMNS.mobile : BOARD_COLUMNS.desktop; }
 
         function parseTileSize(size) {
           const m = /^([1-6])x([1-6])$/.exec(String(size || ''));
           if (!m) return { w: 1, h: 1 };
           return { w: Number(m[1]), h: Number(m[2]) };
         }
-        function tileRuleFor(tileId) { return tileId && tileId.startsWith('blank-') ? TILE_SIZE_RULES.blank : (TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: TILE_SIZES }); }
+        function tileRuleFor(tileId) { return tileId && tileId.startsWith('blank-') ? TILE_SIZE_RULES.blank : (TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: BASE_TILE_SIZES }); }
         function normalizeTileSize(tileId, size) { const r = tileRuleFor(tileId); return r.allowedSizes.includes(size) ? size : r.defaultSize; }
-        function getLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'); } catch { return null; } }
-        function saveLayout() { localStorage.setItem(LAYOUT_KEY, JSON.stringify(dashboardLayout)); }
+        function getDesktopLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY_DESKTOP) || 'null'); } catch { return null; } }
+        function getMobileLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY_MOBILE) || 'null'); } catch { return null; } }
+        function saveDesktopLayout() { localStorage.setItem(LAYOUT_KEY_DESKTOP, JSON.stringify(dashboardLayout)); }
+        function saveMobileLayout() { localStorage.setItem(LAYOUT_KEY_MOBILE, JSON.stringify(mobileLayout)); }
 
         function getTileEntries() {
           return [...Object.entries(dashboardLayout.tiles), ...Object.entries(dashboardLayout.blankTiles)];
         }
-        function getOccupiedCells(excludingTileId = null) {
-          const cells = new Set();
-          getTileEntries().forEach(([id, entry]) => {
-            if (!entry || id === excludingTileId) return;
-            const { w, h } = parseTileSize(entry.size);
-            for (let c = entry.col; c < entry.col + w; c += 1) for (let r = entry.row; r < entry.row + h; r += 1) cells.add(`${c},${r}`);
-          });
+        function getTileRect(tileId, layout = dashboardLayout) {
+          const entry = layout.tiles[tileId] || layout.blankTiles[tileId];
+          if (!entry) return null;
+          const { w, h } = parseTileSize(entry.size);
+          return { tileId, col: entry.col, row: entry.row, w, h, size: entry.size };
+        }
+        function rectCells(rect) {
+          const cells = [];
+          for (let c = rect.col; c < rect.col + rect.w; c += 1) for (let r = rect.row; r < rect.row + rect.h; r += 1) cells.push(`${c},${r}`);
           return cells;
         }
-        function canPlaceTile(tileId, targetCol, targetRow, size, columnCount = getBoardColumnCount()) {
+        function getOccupyingTileIds(rect, layout = dashboardLayout, excludingTileId = null) {
+          const ids = new Set();
+          const wanted = new Set(rectCells(rect));
+          getTileEntries().forEach(([id, entry]) => {
+            if (!entry || id === excludingTileId) return;
+            if (rectCells({ col: entry.col, row: entry.row, ...parseTileSize(entry.size) }).some((cell) => wanted.has(cell))) ids.add(id);
+          });
+          return [...ids];
+        }
+        function canPlaceTile(tileId, targetCol, targetRow, size, layout = dashboardLayout, excludingTileIds = []) {
           const { w, h } = parseTileSize(size);
-          if (targetCol < 1 || targetRow < 1 || targetCol + w - 1 > columnCount) return false;
-          const occupied = getOccupiedCells(tileId);
-          for (let c = targetCol; c < targetCol + w; c += 1) for (let r = targetRow; r < targetRow + h; r += 1) if (occupied.has(`${c},${r}`)) return false;
+          const columnCount = BOARD_COLUMNS.desktop;
+          if (targetCol < 1 || targetRow < 1 || targetCol + w - 1 > columnCount || h < 1) return false;
+          const occupied = getOccupyingTileIds({ col: targetCol, row: targetRow, w, h }, layout, tileId).filter((id) => !excludingTileIds.includes(id));
+          if (occupied.length > 0) return false;
           return h > 0;
         }
         function ensureLayoutFitsColumns(columnCount = getBoardColumnCount()) {
@@ -140,18 +157,21 @@
           });
         }
         function renderTilePositions() {
-          const cols = getBoardColumnCount();
-          grid.style.setProperty('--board-columns', String(cols));
+          const isMobile = isMobileDashboard();
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const id = tile.dataset.tileId;
             const entry = dashboardLayout.tiles[id] || dashboardLayout.blankTiles[id];
             if (!entry) return;
             const { w, h } = parseTileSize(entry.size);
             tile.dataset.tileSize = entry.size;
-            if (cols === 1) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
+            if (isMobile) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
             tile.style.gridColumn = `${entry.col} / span ${w}`;
             tile.style.gridRow = `${entry.row} / span ${h}`;
           });
+          if (isMobile) {
+            const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
+            grid.append(...order.map((id) => grid.querySelector(`[data-tile-id="${id}"]`)));
+          }
         }
         function ensureTilesExist() {
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
@@ -160,7 +180,8 @@
           Array.from(grid.querySelectorAll('[data-tile-id^="blank-"]')).forEach((n) => { if (!dashboardLayout.blankTiles[n.dataset.tileId]) n.remove(); });
         }
         function hydrateLayout() {
-          const saved = getLayout();
+          const saved = getDesktopLayout();
+          const savedMobile = getMobileLayout();
           dashboardLayout = { tiles: {}, blankTiles: {} };
           defaultIds.forEach((id) => {
             const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
@@ -169,20 +190,31 @@
           Object.entries(saved?.blankTiles || {}).forEach(([id, entry]) => {
             dashboardLayout.blankTiles[id] = { col: Number(entry.col) || 1, row: Number(entry.row) || 1, size: normalizeTileSize(id, entry.size || '1x1') };
           });
-          ensureLayoutFitsColumns(); ensureTilesExist(); saveLayout(); renderTilePositions();
+          mobileLayout = (savedMobile && Array.isArray(savedMobile.order)) ? savedMobile : { order: [...defaultIds], sizes: {}, blankTiles: [] };
+          ensureLayoutFitsColumns(); ensureTilesExist(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions();
         }
-        function moveTile(tileId, dx, dy) {
+        function tryMoveOrSwapTile(tileId, dx, dy) {
           const source = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
-          if (!source) return;
+          if (!source) return false;
           const nc = source.col + dx; const nr = source.row + dy;
-          if (!canPlaceTile(tileId, nc, nr, source.size)) return;
-          source.col = nc; source.row = nr; saveLayout(); renderTilePositions(); createEditControls();
+          if (canPlaceTile(tileId, nc, nr, source.size)) { source.col = nc; source.row = nr; saveDesktopLayout(); renderTilePositions(); createEditControls(); return true; }
+          const srcRect = getTileRect(tileId); const targetRect = { col: nc, row: nr, ...parseTileSize(source.size) };
+          const occupying = getOccupyingTileIds(targetRect, dashboardLayout, tileId);
+          if (occupying.length !== 1) { showTileMessage('No space to move there.'); return false; }
+          const otherId = occupying[0]; const otherRect = getTileRect(otherId);
+          if (!otherRect) return false;
+          if (!canPlaceTile(otherId, srcRect.col, srcRect.row, otherRect.size, dashboardLayout, [tileId])) { showTileMessage('No space to swap there.'); return false; }
+          if (!canPlaceTile(tileId, otherRect.col, otherRect.row, source.size, dashboardLayout, [otherId])) { showTileMessage('No space to swap there.'); return false; }
+          source.col = otherRect.col; source.row = otherRect.row;
+          const otherEntry = dashboardLayout.tiles[otherId] || dashboardLayout.blankTiles[otherId];
+          otherEntry.col = srcRect.col; otherEntry.row = srcRect.row;
+          saveDesktopLayout(); renderTilePositions(); createEditControls(); return true;
         }
         function showTileMessage(message) {
           editHelp.textContent = message;
           editHelp.hidden = false;
           clearTimeout(showTileMessage._t);
-          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage grid.'; }, 1800);
+          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage layout.'; }, 1800);
         }
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
@@ -198,13 +230,20 @@
             if (!controls) {
               controls = document.createElement('div'); controls.className = 'tile-edit-controls';
               const moveControls = document.createElement('div'); moveControls.className = 'tile-move-controls';
-              [{dir:'up',dx:0,dy:-1,label:'↑'},{dir:'left',dx:-1,dy:0,label:'←'},{dir:'right',dx:1,dy:0,label:'→'},{dir:'down',dx:0,dy:1,label:'↓'}].forEach(({dir,dx,dy,label}) => {
+              [{dir:'up',dx:0,dy:-1,label:'↑',mobile:true},{dir:'left',dx:-1,dy:0,label:'←',mobile:false},{dir:'right',dx:1,dy:0,label:'→',mobile:false},{dir:'down',dx:0,dy:1,label:'↓',mobile:true}].forEach(({dir,dx,dy,label,mobile}) => {
                 const button = document.createElement('button'); button.type='button'; button.className='tile-move-button'; button.textContent=label; button.setAttribute('aria-label', `Move tile ${dir}`);
                 button.addEventListener('click', () => {
-                  const before = JSON.stringify(dashboardLayout);
-                  moveTile(tileId, dx, dy);
-                  if (before === JSON.stringify(dashboardLayout)) showTileMessage('Move blocked: destination cells are not available.');
+                  if (isMobileDashboard()) {
+                    const idx = mobileLayout.order.indexOf(tileId);
+                    const nextIdx = dir === 'up' ? idx - 1 : dir === 'down' ? idx + 1 : idx;
+                    if (idx < 0 || nextIdx < 0 || nextIdx >= mobileLayout.order.length || !mobile) return showTileMessage('No space to move there.');
+                    const [moved] = mobileLayout.order.splice(idx, 1);
+                    mobileLayout.order.splice(nextIdx, 0, moved);
+                    saveMobileLayout(); renderTilePositions(); return;
+                  }
+                  if (!tryMoveOrSwapTile(tileId, dx, dy)) showTileMessage('No space to move there.');
                 });
+                button.classList.add(`tile-move-${dir}`);
                 moveControls.append(button);
               });
               controls.append(moveControls); tile.prepend(controls);
@@ -219,7 +258,10 @@
                 const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
                 const next = normalizeTileSize(tileId, select.value);
                 if (!canPlaceTile(tileId, entry.col, entry.row, next)) { select.value = entry.size; showTileMessage('Size change blocked: tile does not fit at current position.'); return; }
-                entry.size = next; saveLayout(); renderTilePositions();
+                entry.size = next;
+                if (isMobileDashboard()) { mobileLayout.sizes[tileId] = next; saveMobileLayout(); }
+                else saveDesktopLayout();
+                renderTilePositions();
               });
               sizeControl.append(select); tile.prepend(sizeControl);
             }
@@ -230,7 +272,7 @@
 
             if (tileId.startsWith('blank-')) {
               let removeBtn = tile.querySelector('.blank-remove-button');
-              if (!removeBtn) { removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='blank-remove-button'; removeBtn.textContent='Remove blank tile'; removeBtn.addEventListener('click', ()=>{ delete dashboardLayout.blankTiles[tileId]; saveLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); }); tile.prepend(removeBtn); }
+              if (!removeBtn) { removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='blank-remove-button'; removeBtn.textContent='Remove blank tile'; removeBtn.addEventListener('click', ()=>{ delete dashboardLayout.blankTiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); }); tile.prepend(removeBtn); }
               removeBtn.hidden = !isEditing;
             }
           });
@@ -238,7 +280,7 @@
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
           editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
-          if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage grid.';
+          if (isEditing) editHelp.textContent = 'Use arrows to move tiles around the homepage layout.';
           createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
         function initials(name, username) {
@@ -445,7 +487,8 @@
 
         editButton.addEventListener('click', () => setEditMode(!isEditing));
         resetButton.addEventListener('click', function () {
-          localStorage.removeItem(LAYOUT_KEY);
+          if (isMobileDashboard()) localStorage.removeItem(LAYOUT_KEY_MOBILE);
+          else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
           hydrateLayout();
           createEditControls();
         });
@@ -455,17 +498,29 @@
           let i = 1; while (ids.has(`blank-${i}`)) i += 1;
           const id = `blank-${i}`;
           dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' };
+          mobileLayout.order.push(id);
           ensureLayoutFitsColumns();
           ensureTilesExist();
           renderTilePositions();
           createEditControls();
-          saveLayout();
+          saveDesktopLayout();
+          saveMobileLayout();
         });
 
         hydrateLayout();
         createEditControls();
         setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');
-        window.addEventListener('resize', () => { ensureLayoutFitsColumns(); renderTilePositions(); createEditControls(); saveLayout(); });
+        window.addEventListener('resize', () => {
+          const mobile = isMobileDashboard();
+          ensureLayoutFitsColumns();
+          if (mobile !== wasMobileDashboard) {
+            wasMobileDashboard = mobile;
+            createEditControls();
+          }
+          renderTilePositions();
+          saveDesktopLayout();
+          saveMobileLayout();
+        });
         loadDashboard();
         initHomeChat();
       })();
