@@ -20,15 +20,15 @@
           <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
       </div>
-      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Drag tiles to reorder your homepage and resize cards.</p>
+      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
 
       <section class="dashboard-grid" id="dashboard-grid">
         <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
+        <article class="dashboard-tile tile-2x2" data-tile-id="quick-actions" data-tile-size="2x2"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
         <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
+        <article class="dashboard-tile tile-2x2" data-tile-id="coming-later" data-tile-size="2x2"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
     </main>
 
@@ -38,16 +38,16 @@
       (function () {
         const LAYOUT_KEY = 'grev_dashboard_layout_v2';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1', '4x2'];
+        const TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x2', '2x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
         const TILE_SIZE_RULES = {
           'profile-snapshot': { defaultSize: '2x1', allowedSizes: ['2x1', '4x2'] },
-          'quick-actions': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
+          'quick-actions': { defaultSize: '2x2', allowedSizes: ['2x2'] },
           'profile-completion': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
           'members-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
-          chat: { defaultSize: '2x2', allowedSizes: ['2x2', '4x2'] },
-          'coming-later': { defaultSize: '1x1', allowedSizes: ['1x1', '2x1'] },
+          chat: { defaultSize: '2x2', allowedSizes: ['2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'] },
+          'coming-later': { defaultSize: '2x2', allowedSizes: ['2x2'] },
           'showcase-preview': { defaultSize: '2x1', allowedSizes: ['2x1', '2x2', '4x2'] },
-          blank: { defaultSize: '1x1', allowedSizes: ['1x1', '2x1', '1x2', '2x2'] }
+          blank: { defaultSize: '1x1', allowedSizes: ['1x1', '2x1', '1x2', '2x2', '2x3', '3x2', '3x3'] }
         };
         const DEFAULT_SIZES = Object.fromEntries(Object.entries(TILE_SIZE_RULES).map(([tileId, rule]) => [tileId, rule.defaultSize]));
         const grid = document.getElementById('dashboard-grid');
@@ -59,9 +59,29 @@
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
         document.querySelector('.dashboard-edit-controls').append(addBlankButton);
         let isEditing = false;
-        let dragBound = false;
         let homeChatTimer = null;
         let homeChatRoomId = null;
+
+        function getDashboardColumnCount() {
+          const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean);
+          return Math.max(1, columns.length);
+        }
+
+        function moveTile(tile, direction) {
+          const tiles = Array.from(grid.querySelectorAll('.dashboard-tile'));
+          const index = tiles.indexOf(tile);
+          if (index < 0) return;
+          const step = getDashboardColumnCount();
+          const deltas = { left: -1, right: 1, up: -step, down: step };
+          const target = index + (deltas[direction] ?? 0);
+          if (target < 0 || target >= tiles.length || target === index) return;
+          const swapWith = tiles[target];
+          if (!swapWith) return;
+          if (target > index) grid.insertBefore(swapWith, tile);
+          else grid.insertBefore(tile, swapWith);
+          saveLayout();
+          createEditControls();
+        }
 
         async function fetchJsonSafe(url, options = {}) {
           const response = await fetch(url, options);
@@ -146,21 +166,36 @@
           ordered.forEach((tile) => applyTileSize(tile, normalizeTileSize(tile.dataset.tileId, layout?.sizes?.[tile.dataset.tileId] || DEFAULT_SIZES[tile.dataset.tileId] || tile.dataset.tileSize || '1x1')));
         }
 
-        function createDragHandles() {
+        function createEditControls() {
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
-            let handle = tile.querySelector('.tile-drag-handle');
-            if (!handle) {
-              handle = document.createElement('button');
-              handle.type = 'button';
-              handle.textContent = 'Drag';
-              handle.className = 'tile-drag-handle';
-              tile.prepend(handle);
-              handle.addEventListener('dragstart', () => { if (isEditing) tile.classList.add('is-dragging'); });
-              handle.addEventListener('dragend', () => { tile.classList.remove('is-dragging'); if (isEditing) saveLayout(); });
+            tile.draggable = false;
+
+            let controls = tile.querySelector('.tile-edit-controls');
+            if (!controls) {
+              controls = document.createElement('div');
+              controls.className = 'tile-edit-controls';
+              const moveControls = document.createElement('div');
+              moveControls.className = 'tile-move-controls';
+              const arrows = [
+                { dir: 'up', label: '↑' },
+                { dir: 'left', label: '←' },
+                { dir: 'right', label: '→' },
+                { dir: 'down', label: '↓' }
+              ];
+              arrows.forEach(({ dir, label }) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tile-move-button';
+                button.textContent = label;
+                button.setAttribute('aria-label', `Move tile ${dir}`);
+                button.addEventListener('click', () => moveTile(tile, dir));
+                moveControls.append(button);
+              });
+              controls.append(moveControls);
+              tile.prepend(controls);
             }
-            handle.draggable = isEditing;
-            tile.draggable = isEditing;
+            controls.hidden = !isEditing;
 
             let sizeControl = tile.querySelector('.tile-size-control');
             if (!sizeControl) {
@@ -175,7 +210,7 @@
               sizeControl.append(select);
               tile.prepend(sizeControl);
             }
-            sizeControl.hidden = !isEditing;
+            sizeControl.hidden = !isEditing || tileRuleFor(tileId).allowedSizes.length <= 1;
             const select = sizeControl.querySelector('select');
             if (select) select.value = tile.dataset.tileSize || '1x1';
 
@@ -194,22 +229,6 @@
           });
         }
 
-        function bindDragSurface() {
-          if (dragBound) return;
-          dragBound = true;
-          grid.addEventListener('dragover', (e) => {
-            if (!isEditing) return;
-            e.preventDefault();
-            const dragging = grid.querySelector('.is-dragging');
-            if (!dragging) return;
-            const after = Array.from(grid.querySelectorAll('.dashboard-tile:not(.is-dragging)')).find((card) => {
-              const r = card.getBoundingClientRect();
-              return e.clientY < r.top + r.height / 2;
-            });
-            if (!after) grid.append(dragging); else grid.insertBefore(dragging, after);
-          });
-        }
-
         function setEditMode(enabled) {
           isEditing = !!enabled;
           if (isEditing) document.body.classList.add('dashboard-editing');
@@ -218,7 +237,7 @@
           resetButton.hidden = !isEditing;
           addBlankButton.hidden = !isEditing;
           editHelp.hidden = !isEditing;
-          createDragHandles();
+          createEditControls();
           localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
 
@@ -441,14 +460,13 @@
           let i = 1; while (ids.has(`blank-${i}`)) i += 1;
           const blank = makeBlankTile(`blank-${i}`);
           grid.append(blank);
-          createDragHandles();
+          createEditControls();
           saveLayout();
         });
 
         applySavedLayout();
-        bindDragSurface();
-        createDragHandles();
-        setEditMode(false);
+        createEditControls();
+        setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');
         loadDashboard();
         initHomeChat();
       })();
