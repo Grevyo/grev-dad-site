@@ -3,8 +3,8 @@ extends Node
 @export var orbitling_path: NodePath
 @export var debug_ui_path: NodePath
 @export var autosave_interval_seconds: float = 30.0
-@export var manual_save_action: StringName = &"debug_save_orbitling"
-@export var manual_load_action: StringName = &"debug_load_orbitling"
+@export var manual_save_action: StringName = &"debug_save"
+@export var manual_load_action: StringName = &"debug_load"
 
 const SAVE_FILE_PATH := "user://orbitling_save.json"
 
