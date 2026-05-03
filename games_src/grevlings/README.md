@@ -51,10 +51,10 @@ Saved fields:
 - No multiplayer.
 - No advanced evolution systems yet.
 
-## Web Export Test
-1. Open the GitHub Actions tab and run the **Export Grevlings Web** workflow manually (`workflow_dispatch`).
-2. Wait for the `export-web` job to finish.
-3. Download the **grevlings-web-build** artifact from the run summary page.
-4. Confirm the artifact contains the Godot web export in `public/games/grevlings/` (at minimum `index.html` plus Godot-generated `.pck` and loader/runtime files).
-5. After validation, use the artifact contents to replace the placeholder at `public/games/grevlings/index.html` in a normal commit/release flow.
-6. The browser route for testing after publish is: `/games/grevlings/`.
+## Web Export Deployment
+1. Open the GitHub Actions tab and run **Export Grevlings Web** manually.
+2. The workflow performs a headless Godot export from `games_src/grevlings` using the `Web` preset.
+3. It writes the build directly into `public/games/grevlings/` (including `index.html`) and commits those generated files back to the current branch with the message **Build Grevlings web export**.
+4. The workflow also uploads the same files as the **grevlings-web-build** artifact for debugging.
+5. Once that commit lands, Cloudflare deploys `/games/grevlings/` from the committed export files.
+6. If `/games/grevlings/` still says "Grevlings web build coming soon.", the export workflow has not committed successfully yet.
