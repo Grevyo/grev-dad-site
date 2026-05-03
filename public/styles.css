@@ -497,11 +497,12 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .grev-level-shape-notch,.level-shape-notch{clip-path:polygon(0 0,100% 0,100% 100%,65% 100%,50% 80%,35% 100%,0 100%)}
 .grev-level-shape-elite-frame,.level-shape-elite-frame{border-radius:4px;box-shadow:0 0 0 2px #000,inset 0 0 0 2px rgba(255,255,255,.35)}
 .player-card-snapshot-variant{max-width:100%}
-.player-card-full-variant{max-width:900px}
 
 .profile-top-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
 .profile-header-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
 .profile-summary{display:grid;gap:.35rem;margin-top:10px}
+.profile-player-card-section{width:100%;max-width:none;margin:16px 0;padding:0 24px;box-sizing:border-box}
+.profile-player-card-section .player-card,.profile-player-card-section .player-card-full-variant{width:100%;max-width:none;min-width:0}
 .profile-banner-size-compact{height:140px;max-height:none}
 .profile-banner-size-wide{height:220px;max-height:none}
 .profile-banner-size-tall{height:320px;max-height:none}
@@ -524,3 +525,5 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .player-card-full-variant{width:100%;max-width:none;min-width:0;display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);gap:18px;align-items:center}.player-card-full-variant .player-card-avatar{width:140px;height:140px}.player-card-full-variant .player-card-body{min-width:0}
 .profile-banner-wrap{position:relative}.profile-banner-actions{position:absolute;right:16px;bottom:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;z-index:2}
 @media (max-width:700px){.player-card-full-variant{grid-template-columns:1fr}.profile-banner-actions{position:static;padding:10px;justify-content:flex-start}}
+
+@media (max-width:640px){.player-card-full-variant{grid-template-columns:1fr}.player-card-full-variant .player-card-avatar{width:112px;height:112px}}
