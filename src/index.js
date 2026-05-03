@@ -35,6 +35,7 @@ export default { async fetch(request, env) { const url = new URL(request.url);
   if (url.pathname === '/api/profile/me/showcase' && request.method === 'POST') return handleProfileMyShowcaseUpdate(request, env);
   if (url.pathname === '/api/profile' && request.method === 'GET') return handleProfileLookup(request, env);
   if (url.pathname === '/api/profile/steam' && request.method === 'GET') return handleSteamProfile(request, env);
+  if (url.pathname === '/api/integrations/steam/profile' && request.method === 'GET') return handleSteamProfile(request, env);
   if (url.pathname === '/api/account' && request.method === 'GET') return handleAccount(request, env);
   if (url.pathname === '/api/account/password' && request.method === 'POST') return handleAccountPassword(request, env);
   if (url.pathname === '/api/wallet/me' && request.method === 'GET') return handleWalletMe(request, env);
@@ -452,6 +453,52 @@ async function handleChatRead(request, env){ try{const auth=await requireChatUse
 async function handleAdminChatDelete(request, env, path){ try{const auth=await requireAdmin(request, env); if(auth) return auth; const id=Number(path.split('/')[5]); if(!Number.isInteger(id)||id<1) return json({ok:false,error:'Invalid id'},400); const db=getDatabase(env); await ensureSchema(db); await db.prepare("UPDATE chat_messages SET deleted_at=datetime('now') WHERE id=?").bind(id).run(); return json({ok:true});}catch(error){return json({ok:false,error:friendlyError(error)},500);} }
 
 const steamProfileCache = new Map();
+const STEAM_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 function parseSteamIdFromUrl(url) { try { const u = new URL(url); const m1 = u.pathname.match(/\/profiles\/(\d{17})/); if (m1) return { steamid: m1[1], vanity: null }; const m2 = u.pathname.match(/\/id\/([^/]+)/); if (m2) return { steamid: null, vanity: m2[1] }; } catch {} return { steamid: null, vanity: null }; }
-async function handleSteamProfile(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' },401); const db=getDatabase(env); await ensureSchema(db); const id=Number(new URL(request.url).searchParams.get('id')); if(!Number.isInteger(id)||id<1) return json({ ok:false, error:'Invalid user id' },400); const row=await db.prepare('SELECT steam_url FROM user_profiles WHERE user_id = ?').bind(id).first(); if(!row?.steam_url) return json({ ok:false, error:'No Steam URL set' },404); const profileUrl=String(row.steam_url); const key=profileUrl; const cached=steamProfileCache.get(key); if(cached && Date.now()-cached.ts<600000) return json(cached.value); const apiKey=env.STEAM_API_KEY; if(!apiKey){ const value={ ok:true, steam:{ available:false, profileUrl, message:'Steam API key not configured' } }; steamProfileCache.set(key,{ts:Date.now(),value}); return json(value); }
- let steamid=null; const parsed=parseSteamIdFromUrl(profileUrl); steamid=parsed.steamid; try { if(!steamid && parsed.vanity){ const vr=await fetch(`https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=${encodeURIComponent(apiKey)}&vanityurl=${encodeURIComponent(parsed.vanity)}`); const vd=await vr.json(); steamid=vd?.response?.steamid||null; } if(!steamid){ const value={ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }; steamProfileCache.set(key,{ts:Date.now(),value}); return json(value); } const sr=await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${encodeURIComponent(apiKey)}&steamids=${encodeURIComponent(steamid)}`); const sd=await sr.json(); const pl=sd?.response?.players?.[0]; if(!pl){ const value={ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }; steamProfileCache.set(key,{ts:Date.now(),value}); return json(value);} const value={ok:true, steam:{ available:true, profileUrl, steamid:pl.steamid, personaname:pl.personaname, profileurl:pl.profileurl, avatar:pl.avatar, avatarmedium:pl.avatarmedium, avatarfull:pl.avatarfull, personastate:pl.personastate, communityvisibilitystate:pl.communityvisibilitystate, lastlogoff:pl.lastlogoff ?? null }}; steamProfileCache.set(key,{ts:Date.now(),value}); return json(value); } catch { const value={ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }; steamProfileCache.set(key,{ts:Date.now(),value}); return json(value); } }
+function readSteamCache(cacheKey) { const cached = steamProfileCache.get(cacheKey); if (!cached) return null; if (cached.expiresAt < Date.now()) { steamProfileCache.delete(cacheKey); return null; } return cached.data; }
+function writeSteamCache(cacheKey, data) { steamProfileCache.set(cacheKey, { expiresAt: Date.now() + STEAM_PROFILE_CACHE_TTL_MS, data }); return data; }
+async function handleSteamProfile(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({ ok:false, error:'Not logged in' },401);
+  const db=getDatabase(env);
+  await ensureSchema(db);
+  const url = new URL(request.url);
+  const requestedId = url.searchParams.get('user_id') || url.searchParams.get('id');
+  const userId = requestedId ? Number(requestedId) : Number(user.id);
+  if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
+  const row=await db.prepare('SELECT steam_url FROM user_profiles WHERE user_id = ?').bind(userId).first();
+  if(!row?.steam_url) return json({ ok:false, error:'No Steam URL set' });
+  const profileUrl=String(row.steam_url).trim();
+  const parsed=parseSteamIdFromUrl(profileUrl);
+  const cacheKey = parsed.steamid || profileUrl;
+  const cached = readSteamCache(cacheKey);
+  if (cached) return json(cached);
+
+  const apiKey=env.STEAM_API_KEY;
+  if(!apiKey){
+    return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam API key not configured' } }));
+  }
+
+  try {
+    let steamid = parsed.steamid;
+    if(!steamid && parsed.vanity){
+      const vanityParams = new URLSearchParams({ key: apiKey, vanityurl: parsed.vanity });
+      const vr=await fetch(`https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?${vanityParams.toString()}`);
+      const vd=await vr.json();
+      steamid=vd?.response?.steamid||null;
+    }
+    if(!steamid){
+      return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
+    }
+    const summaryParams = new URLSearchParams({ key: apiKey, steamids: steamid });
+    const sr=await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?${summaryParams.toString()}`);
+    const sd=await sr.json();
+    const pl=sd?.response?.players?.[0];
+    if(!pl){
+      return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
+    }
+    return json(writeSteamCache(cacheKey,{ok:true, steam:{ available:true, profileUrl, steamid:pl.steamid, personaname:pl.personaname, profileurl:pl.profileurl, avatar:pl.avatar, avatarmedium:pl.avatarmedium, avatarfull:pl.avatarfull, personastate:pl.personastate, communityvisibilitystate:pl.communityvisibilitystate, lastlogoff:pl.lastlogoff ?? null }}));
+  } catch {
+    return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
+  }
+}

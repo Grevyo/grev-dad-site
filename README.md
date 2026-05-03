@@ -43,3 +43,8 @@ curl https://<your-domain>/api/setup/status
 
 Set `STEAM_API_KEY` in your worker environment to enable Steam profile data lookups.
 If it is not set, profile pages still show a Steam link with a "Steam data unavailable." message.
+
+## Steam integration note
+
+Set `STEAM_API_KEY` on the server to enable Steam profile data lookups. Without it, Steam profile links still render, Steam data returns unavailable, and the site continues to run normally.
+
