@@ -23,6 +23,7 @@
       <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
 
       <div class="dashboard-board">
+      <div class="dashboard-grid-bg" id="dashboard-grid-bg" aria-hidden="true"></div>
       <section class="dashboard-grid" id="dashboard-grid">
         <article class="dashboard-tile profile-snapshot-tile tile-2x2" data-tile-id="profile-snapshot" data-tile-size="2x2"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
@@ -62,7 +63,7 @@
         const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v3_desktop';
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v3_mobile';
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
-        const BOARD_COLUMNS = { desktop: 6, mobile: 1 };
+        const DASHBOARD_GRID = { columns: 6, gap: 16 };
         const BASE_TILE_SIZES = ['1x1', '2x1', '1x2', '2x2', '3x1', '4x1'];
         const CHAT_SIZES = ['2x2', '2x3', '3x2', '3x3', '3x4', '4x3', '4x4', '4x5', '5x4', '5x5', '5x6', '6x5', '6x6'];
         const TILE_SIZE_RULES = {
@@ -99,10 +100,15 @@
         let wasMobileDashboard = isMobileDashboard();
 
         function isMobileDashboard() { return window.matchMedia('(max-width: 640px)').matches; }
-        function getBoardColumnCount() { return isMobileDashboard() ? BOARD_COLUMNS.mobile : BOARD_COLUMNS.desktop; }
+        function getDashboardColumnCount() {
+          if (window.matchMedia('(max-width: 640px)').matches) return 1;
+          if (window.matchMedia('(max-width: 900px)').matches) return 2;
+          if (window.matchMedia('(max-width: 1300px)').matches) return 4;
+          return DASHBOARD_GRID.columns;
+        }
 
         function parseTileSize(size) {
-          const m = /^([1-6])x([1-6])$/.exec(String(size || ''));
+          const m = String(size || '').match(/^(\d+)x(\d+)$/);
           if (!m) return { w: 1, h: 1 };
           return { w: Number(m[1]), h: Number(m[2]) };
         }
@@ -138,13 +144,13 @@
         }
         function canPlaceTile(tileId, targetCol, targetRow, size, layout = dashboardLayout, excludingTileIds = []) {
           const { w, h } = parseTileSize(size);
-          const columnCount = BOARD_COLUMNS.desktop;
+          const columnCount = getDashboardColumnCount();
           if (targetCol < 1 || targetRow < 1 || targetCol + w - 1 > columnCount || h < 1) return false;
           const occupied = getOccupyingTileIds({ col: targetCol, row: targetRow, w, h }, layout, tileId).filter((id) => !excludingTileIds.includes(id));
           if (occupied.length > 0) return false;
           return h > 0;
         }
-        function ensureLayoutFitsColumns(columnCount = getBoardColumnCount()) {
+        function ensureLayoutFitsColumns(columnCount = getDashboardColumnCount()) {
           getTileEntries().forEach(([id, entry]) => {
             if (!entry) return;
             entry.size = normalizeTileSize(id, entry.size);
@@ -155,6 +161,28 @@
             const { w } = parseTileSize(entry.size);
             if (entry.col + w - 1 > columnCount) entry.col = Math.max(1, columnCount - w + 1);
           });
+        }
+        function getLayoutMaxRows(layout = dashboardLayout) {
+          let max = 1;
+          getTileEntries().forEach(([, entry]) => {
+            if (!entry) return;
+            const { h } = parseTileSize(entry.size);
+            max = Math.max(max, Number(entry.row || 1) + h - 1);
+          });
+          return max;
+        }
+        function renderDashboardBackgroundGrid() {
+          const bg = document.getElementById('dashboard-grid-bg');
+          if (!bg) return;
+          const cols = getDashboardColumnCount();
+          const rows = Math.max(getLayoutMaxRows(), 4);
+          bg.innerHTML = '';
+          if (isMobileDashboard()) return;
+          for (let i = 0; i < cols * rows; i += 1) {
+            const cell = document.createElement('div');
+            cell.className = 'dashboard-grid-bg-cell';
+            bg.append(cell);
+          }
         }
         function renderTilePositions() {
           const isMobile = isMobileDashboard();
@@ -172,6 +200,7 @@
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
             grid.append(...order.map((id) => grid.querySelector(`[data-tile-id="${id}"]`)));
           }
+          renderDashboardBackgroundGrid();
         }
         function ensureTilesExist() {
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
@@ -491,6 +520,7 @@
           else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
           hydrateLayout();
           createEditControls();
+          renderDashboardBackgroundGrid();
         });
 
         addBlankButton.addEventListener('click', function () {
@@ -505,10 +535,12 @@
           createEditControls();
           saveDesktopLayout();
           saveMobileLayout();
+          renderDashboardBackgroundGrid();
         });
 
         hydrateLayout();
         createEditControls();
+        renderDashboardBackgroundGrid();
         setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');
         window.addEventListener('resize', () => {
           const mobile = isMobileDashboard();
@@ -520,6 +552,7 @@
           renderTilePositions();
           saveDesktopLayout();
           saveMobileLayout();
+          renderDashboardBackgroundGrid();
         });
         loadDashboard();
         initHomeChat();
