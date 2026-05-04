@@ -8,9 +8,21 @@
 </head>
 <body>
 <header class="site-header"><a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev"/></a><nav id="authStatus" class="site-nav">Checking login...</nav></header>
-<main class="page-shell editor-page">
-  <div class="editor-header"><div class="editor-header-main"><h1>Edit Profile</h1><p class="editor-help-text">Update your identity, links, backgrounds, and visibility settings.</p></div><div class="editor-header-actions"><button type="submit" form="profile-edit-form" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></div>
-  <p id="edit-status" class="editor-message" aria-live="polite">Loading...</p>
+<main class="page-shell profile-edit-page editor-page">
+  <div class="editor-header">
+    <div class="editor-header-main">
+      <h1>Edit Profile</h1>
+      <p>Update your full profile information, images, links, and display settings.</p>
+    </div>
+    <div class="editor-header-actions">
+      <button id="save-profile-top" class="nav-button" type="button">Save Profile</button>
+      <a class="nav-button" href="/profile.html">Back to Profile</a>
+      <a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>
+    </div>
+  </div>
+
+  <p id="profile-edit-message" class="editor-message" aria-live="polite">Loading...</p>
+
   <form id="profile-edit-form">
     <div class="editor-tile-grid">
       <section class="editor-tile editor-tile-6"><div class="editor-section-header"><h2 class="editor-section-title">Identity</h2></div><div class="editor-grid">
@@ -20,7 +32,7 @@
         <label class="editor-field editor-field-wide" for="bio">Bio<textarea id="bio" name="bio" maxlength="2000"></textarea></label>
         <label class="editor-field" for="location">Location<input id="location" name="location" maxlength="120"></label>
       </div></section>
-      <section class="editor-tile editor-tile-6"><div class="editor-section-header"><h2 class="editor-section-title">Images & Backgrounds</h2><p class="editor-section-description">Image and GIF links are supported.</p></div><div class="editor-grid">
+      <section class="editor-tile editor-tile-6"><div class="editor-section-header"><h2 class="editor-section-title">Images &amp; Backgrounds</h2><p class="editor-section-description">Image and GIF links are supported.</p></div><div class="editor-grid">
         <label class="editor-field" for="avatar_url">Avatar URL<input id="avatar_url" name="avatar_url" type="url" maxlength="500"></label>
         <label class="editor-field" for="banner_url">Banner URL<input id="banner_url" name="banner_url" type="url" maxlength="500"></label>
         <label class="editor-field" for="banner_display_size">Banner display size<select id="banner_display_size" name="banner_display_size"><option value="compact">compact</option><option value="wide">wide</option><option value="tall">tall</option><option value="full">full</option></select></label>
@@ -34,7 +46,7 @@
         <label class="editor-field" for="website_url">Website URL<input id="website_url" name="website_url" type="url" maxlength="200"></label>
         <label class="editor-field" for="steam_url">Steam URL<input id="steam_url" name="steam_url" type="url" maxlength="300"></label>
         <label class="editor-field" for="leetify_url">Leetify URL<input id="leetify_url" name="leetify_url" type="url" maxlength="300"></label>
-      </div><p class="editor-help-text">Steam and Leetify links can be shown on your player card from Edit Profile Card.</p><div class="editor-actions"><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
+      </div></section>
       <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Visibility / Display</h2></div><div class="editor-grid">
         <label class="editor-field" for="profile_layout">Profile layout<select id="profile_layout" name="profile_layout"><option value="standard">standard</option><option value="showcase">showcase</option><option value="minimal">minimal</option></select></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_level"> <span>Show level</span></label>
@@ -42,15 +54,16 @@
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_badges"> <span>Show badges</span></label>
         <label class="editor-field editor-checkbox-row"><input type="checkbox" name="show_last_active"> <span>Show last active</span></label>
       </div></section>
-      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Save / Notes</h2></div><p class="editor-help-text">Use Edit Profile Card to configure card-specific display and tile behavior.</p></section>
-      <section class="editor-tile editor-tile-12"><div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="button-secondary" href="/profile.html">Back to Profile</a><a class="button-secondary" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
+      <section class="editor-tile editor-tile-4"><div class="editor-section-header"><h2 class="editor-section-title">Profile Notes / Help</h2></div><p class="editor-help-text">Use Edit Profile Card to configure card-specific display and tile behavior.</p><div class="editor-actions"><a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
+      <section class="editor-tile editor-tile-12"><div class="editor-save-bar"><button type="submit" class="nav-button">Save Profile</button><a class="nav-button" href="/profile.html">Back to Profile</a><a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a></div></section>
     </div>
   </form>
 </main>
 <script>
 const colourDefaults={favourite_colour:'#88aaff',profile_accent_colour:'#88aaff',profile_background_colour:'#0b1020'};const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','profile_background_url','status_message'];const selectFields=['profile_layout','banner_display_size','profile_background_size'];const toggleFields=['show_level','show_rank','show_badges','show_last_active'];const safeSelectDefaults={profile_layout:'standard',banner_display_size:'wide',profile_background_size:'cover'};const safeSelectAllowed={profile_layout:new Set(['standard','showcase','minimal']),banner_display_size:new Set(['compact','wide','tall','full']),profile_background_size:new Set(['cover','contain','repeat','stretch','center'])};
 function safeSelectValue(key,value){const n=String(value||safeSelectDefaults[key]||'').trim().toLowerCase();return safeSelectAllowed[key]?.has(n)?n:safeSelectDefaults[key];}
-async function load(){const s=document.getElementById('edit-status');try{const r=await fetch('/api/profile/me');if(r.status===401){location.href='/unregistered.html';return;}const text=await r.text();let d={};try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}if(!r.ok){s.textContent=d.error||'Load failed';return;}const p=d.profile||{};const f=document.getElementById('profile-edit-form');for(const k of textFields)if(f.elements[k])f.elements[k].value=p[k]||'';for(const k of selectFields)if(f.elements[k])f.elements[k].value=safeSelectValue(k,p[k]);for(const k of toggleFields)if(f.elements[k])f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;for(const k of Object.keys(colourDefaults))if(f.elements[k])f.elements[k].value=p[k]||colourDefaults[k];s.textContent='Loaded.';}catch(e){s.textContent=`Load failed: ${e?.message||'Unknown error'}`;}}
-const form=document.getElementById('profile-edit-form');form?.addEventListener('submit',async(e)=>{e.preventDefault();const status=document.getElementById('edit-status');const submit=e.target.querySelector('button[type="submit"]');submit.disabled=true;status.textContent='Saving...';try{const f=e.target,body={};for(const k of textFields)body[k]=f.elements[k]?.value||'';for(const k of Object.keys(colourDefaults))body[k]=f.elements[k]?.value||'';for(const k of selectFields)body[k]=safeSelectValue(k,f.elements[k]?.value);for(const k of toggleFields)body[k]=f.elements[k]?.checked?1:0;const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const text=await r.text();let d={};try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;}catch(error){status.textContent=`Save failed: ${error?.message||'Request error'}`;}finally{submit.disabled=false;}});load();
+function editStatusElement(){return document.getElementById('profile-edit-message')||document.getElementById('edit-status');}
+async function load(){const s=editStatusElement();try{const r=await fetch('/api/profile/me');if(r.status===401){location.href='/unregistered.html';return;}const text=await r.text();let d={};try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}if(!r.ok){s.textContent=d.error||'Load failed';return;}const p=d.profile||{};const f=document.getElementById('profile-edit-form');for(const k of textFields)if(f.elements[k])f.elements[k].value=p[k]||'';for(const k of selectFields)if(f.elements[k])f.elements[k].value=safeSelectValue(k,p[k]);for(const k of toggleFields)if(f.elements[k])f.elements[k].checked=Number(p[k]??(k==='show_last_active'?0:1))===1;for(const k of Object.keys(colourDefaults))if(f.elements[k])f.elements[k].value=p[k]||colourDefaults[k];s.textContent='Loaded.';}catch(e){s.textContent=`Load failed: ${e?.message||'Unknown error'}`;}}
+const form=document.getElementById('profile-edit-form');document.getElementById('save-profile-top')?.addEventListener('click',()=>{document.getElementById('profile-edit-form')?.requestSubmit();});form?.addEventListener('submit',async(e)=>{e.preventDefault();const status=editStatusElement();const submit=e.target.querySelector('button[type="submit"]');submit.disabled=true;status.textContent='Saving...';try{const f=e.target,body={};for(const k of textFields)body[k]=f.elements[k]?.value||'';for(const k of Object.keys(colourDefaults))body[k]=f.elements[k]?.value||'';for(const k of selectFields)body[k]=safeSelectValue(k,f.elements[k]?.value);for(const k of toggleFields)body[k]=f.elements[k]?.checked?1:0;const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const text=await r.text();let d={};try{d=text?JSON.parse(text):{};}catch{throw new Error('Invalid response from server.');}status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;}catch(error){status.textContent=`Save failed: ${error?.message||'Request error'}`;}finally{submit.disabled=false;}});load();
 </script><script src="/scripts/theme.js"></script><script src="/scripts/auth-status.js"></script>
 </body></html>
