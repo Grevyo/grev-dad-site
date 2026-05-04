@@ -782,19 +782,17 @@
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
           const wrap = tile?.querySelector('.custom-member-card-content');
           if (!wrap) {
-            console.warn('[dashboard] Member Profile Card wrapper missing', { tileId, memberId });
+            console.warn('[dashboard] member card wrapper missing', { tileId, memberId });
             return;
           }
           wrap.textContent = 'Loading member Profile Card…';
           try {
             let profileLike = null;
-            let profileSource = 'profile';
             try {
               const profileRes = await fetchJsonSafe(`/api/profile?id=${encodeURIComponent(memberId)}`);
               profileLike = profileRes?.profile || null;
             } catch (_) {}
             if (!profileLike) {
-              profileSource = 'members-fallback';
               console.warn('[dashboard] Full Profile Card unavailable, using basic fallback', { memberId });
               const res = await getMembersForHome();
               const members = res?.members || res?.users || [];
@@ -808,7 +806,7 @@
               tileId,
               memberId,
               tileSize,
-              source: profileSource,
+              source: 'profile',
               card_show_xp: profileLike.card_show_xp,
               card_show_status: profileLike.card_show_status,
               card_show_steam: profileLike.card_show_steam,
