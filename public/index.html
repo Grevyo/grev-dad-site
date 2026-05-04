@@ -413,7 +413,7 @@
           tile.dataset.tileId = id;
           tile.dataset.customTileType = 'member-card';
           tile.innerHTML = `
-            <h2 class="tile-title-visually-hidden">Member Card</h2>
+            <h2 class="tile-title-visually-hidden">Member Profile Card</h2>
             <div class="member-card-tile-fill">
               <div class="custom-member-card-content" data-member-id="${memberId}">Loading…</div>
             </div>
@@ -785,7 +785,7 @@
             console.warn('[dashboard] member card wrapper missing', { tileId, memberId });
             return;
           }
-          wrap.textContent = 'Loading member card…';
+          wrap.textContent = 'Loading member Profile Card…';
           try {
             let profileLike = null;
             try {
@@ -793,23 +793,37 @@
               profileLike = profileRes?.profile || null;
             } catch (_) {}
             if (!profileLike) {
+              console.warn('[dashboard] Full Profile Card unavailable, using basic fallback', { memberId });
               const res = await getMembersForHome();
               const members = res?.members || res?.users || [];
               profileLike = members.find((m) => Number(m.id) === Number(memberId)) || null;
             }
-            if (!profileLike) { wrap.textContent = 'Member unavailable.'; return; }
+            if (!profileLike) { wrap.textContent = 'Member Profile Card unavailable.'; return; }
             const username = profileLike.username || '';
             profileLike = { ...profileLike, display_name: profileLike.display_name || username, accountLevel: Number(profileLike.accountLevel || profileLike.account_level || 1) || 1, rank: profileLike.rank || { name: 'Unranked' } };
             const tileSize = getDashboardTileSize(tileId, '2x1');
+            console.debug('[dashboard] Member Profile Card full config', {
+              tileId,
+              memberId,
+              tileSize,
+              source: 'profile',
+              card_show_xp: profileLike.card_show_xp,
+              card_show_status: profileLike.card_show_status,
+              card_show_steam: profileLike.card_show_steam,
+              card_show_leetify: profileLike.card_show_leetify,
+              card_grid_columns: profileLike.card_grid_columns,
+              hasCardBackground: Boolean(profileLike.card_background_url),
+              hasCardTileSettings: Boolean(profileLike.cardTileSettings || profileLike.card_tile_settings_json)
+            });
             const hasRenderer = await ensurePlayerCardRenderer();
-            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: true, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
+            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: true, showUserId: true, useCardSettings: true, respectSnapshotToggles: true, tileSize }) : `${profileLike.display_name} (@${username})`;
             wrap.onclick = () => {
               if (isEditing) return;
               window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`;
             };
           } catch (error) {
-            console.error('[home] member card failed', error);
-            wrap.textContent = 'Member card unavailable.';
+            console.error('[home] member Profile Card failed', error);
+            wrap.textContent = 'Member Profile Card unavailable.';
           }
         }
         async function renderDashboardTileLibrary() {
@@ -818,12 +832,12 @@
           const authUser = (await getAuthForHome())?.user || {};
           const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
           const tileMeta = {
-            'profile-snapshot': { label: 'Profile Spotlight / Snapshot', description: 'Your player-card snapshot tile.' },
+            'profile-snapshot': { label: 'Profile Spotlight / Snapshot', description: 'Your Profile Card snapshot tile.' },
             'profile-completion': { label: 'Account Progress', description: 'Shows profile completion progress.' },
             'profile-status': { label: 'Profile Status', description: 'Status message and profile links.' },
             'showcase-preview': { label: 'Showcase Preview', description: 'Recent showcase unlock highlights.' },
             'members-preview': { label: 'Members Preview', description: 'Quick list of community members.' },
-            'member-spotlight': { label: 'Member Spotlight', description: 'Featured member card.' },
+            'member-spotlight': { label: 'Member Spotlight', description: 'Featured member Profile Card.' },
             chat: { label: 'Global Chat', description: 'Dashboard chat preview and quick send.' },
             'leaderboard-preview': { label: 'Leaderboard Preview', description: 'Top players preview tile.' },
             'site-notices': { label: 'Site Notices', description: 'Announcements and site status.' },
@@ -865,7 +879,7 @@
           blankRow.append(blankBtn); utilitySection.append(blankRow); root.append(utilitySection);
           const community = document.createElement('section');
           community.className = 'dashboard-tile-category';
-          community.innerHTML = '<h3 class="dashboard-tile-category-title">Member Cards</h3>';
+          community.innerHTML = '<h3 class="dashboard-tile-category-title">Member Profile Cards</h3>';
           try {
             const membersRes = await getMembersForHome();
             const members = membersRes?.members || membersRes?.users || [];
@@ -878,7 +892,7 @@
               row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${name}</strong><p>${authUser?.id===memberId?'You':''}</p></div>`;
               const b = document.createElement('button'); b.type='button'; b.className='nav-button';
               const exists = !!dashboardLayout.customTiles[tileId];
-              b.textContent = exists ? 'Remove' : 'Add';
+              b.textContent = exists ? 'Remove' : 'Add Profile Card';
               b.onclick = () => {
                 if (exists) { delete dashboardLayout.customTiles[tileId]; const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
                 else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; }
