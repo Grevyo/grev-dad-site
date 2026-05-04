@@ -192,23 +192,12 @@
               tile.style.setProperty('grid-row', 'auto', 'important');
               return;
             }
-            tile.style.removeProperty('grid-column');
-            tile.style.removeProperty('grid-row');
-            tile.style.setProperty('grid-column-start', String(entry.col), 'important');
-            tile.style.setProperty('grid-column-end', `span ${w}`, 'important');
-            tile.style.setProperty('grid-row-start', String(entry.row), 'important');
-            tile.style.setProperty('grid-row-end', `span ${h}`, 'important');
-            if (id === 'profile-snapshot') {
-              const expectedRowEnd = `span ${h}`;
-              if (tile.style.gridRowEnd !== expectedRowEnd) {
-                console.error('[home] Profile Snapshot row span mismatch', {
-                  expected: expectedRowEnd,
-                  actual: tile.style.gridRowEnd,
-                  size: entry.size,
-                  parsed: { w, h }
-                });
-              }
-            }
+            tile.style.removeProperty('grid-column-start');
+            tile.style.removeProperty('grid-column-end');
+            tile.style.removeProperty('grid-row-start');
+            tile.style.removeProperty('grid-row-end');
+            tile.style.setProperty('grid-column', `${entry.col} / span ${w}`, 'important');
+            tile.style.setProperty('grid-row', `${entry.row} / span ${h}`, 'important');
             if (id === 'profile-snapshot' || id === 'quick-actions') {
               requestAnimationFrame(() => {
                 const cs = getComputedStyle(tile);
@@ -465,12 +454,13 @@
                 if (window.__HOME_LAYOUT_DEBUG__) {
                   console.debug('[home:size-change:after]', {
                     tileId,
-                    size: dashboardLayout.tiles[tileId]?.size,
+                    entry: JSON.stringify(dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]),
                     dataTileSize: changedTile?.dataset.tileSize,
                     className: changedTile?.className,
                     gridColumn: changedTile?.style.gridColumn,
                     gridRow: changedTile?.style.gridRow,
-                    rect: changedTile?.getBoundingClientRect?.(),
+                    offsetWidth: changedTile?.offsetWidth,
+                    offsetHeight: changedTile?.offsetHeight,
                   });
                 }
                 if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
