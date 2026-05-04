@@ -1,4 +1,5 @@
-<!doctype html><html><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Members</title><link rel='stylesheet' href='/styles.css'/></head><body><header class='site-header'><a class='site-brand' href='/'><img class='site-logo' src='/grev.dad.logo.png'/></a><nav id='authStatus' class='site-nav'>Checking login...</nav></header><main><h1>Members</h1><p id='members-status'>Loading...</p><input id='member-search' placeholder='Search username' /><div id='members-grid' class='leaderboard-grid'></div></main><script src='/scripts/level-badge.js'></script><script src='/scripts/player-card.js'></script><script>
+<!doctype html><html><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Members</title><link rel='stylesheet' href='/styles.css'/></head><body><header class='site-header'><a class='site-brand' href='/'><img class='site-logo' src='/grev.dad.logo.png'/></a><nav id='authStatus' class='site-nav'>Checking login...</nav></header><main><h1>Members</h1><p id='members-status'>Loading...</p><input id='member-search' placeholder='Search username' /><div id='members-grid' class='leaderboard-grid'></div></main><script src='/scripts/level-badge.js'></script><script src='/scripts/player-card.js'></script>
+<script src='/scripts/api-cache.js'></script><script>
 let all=[];
 function draw(){
   const searchEl=document.getElementById('member-search');
@@ -24,4 +25,4 @@ function draw(){
     statusEl.textContent='Members unavailable.';
   }
 })();
-</script><script src='/scripts/theme.js'></script><script src='/scripts/auth-status.js'></script></body></html>
+</script><script src='/scripts/theme.js'></script><script src='/scripts/api-cache.js'></script><script src='/scripts/auth-status.js'></script></body></html>
