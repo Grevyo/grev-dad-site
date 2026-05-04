@@ -818,7 +818,7 @@
               hasCardTileSettings: Boolean(profileLike.cardTileSettings || profileLike.card_tile_settings_json)
             });
             const hasRenderer = await ensurePlayerCardRenderer();
-            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: true, showUserId: true, useCardSettings: true, respectSnapshotToggles: true, tileSize }) : `${profileLike.display_name} (@${username})`;
+            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: true, showUserId: false, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
             wrap.onclick = () => {
               if (isEditing) return;
               window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`;
