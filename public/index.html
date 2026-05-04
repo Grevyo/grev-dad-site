@@ -810,17 +810,7 @@
             const tileSize = getDashboardTileSize(tileId, '2x1');
             const hasRenderer = await ensurePlayerCardRenderer();
             const variant = usingBasicFallback ? 'snapshot' : 'member-dashboard';
-            if (hasRenderer) {
-              try {
-                wrap.innerHTML = window.renderPlayerCard(profileLike, { variant, showXp: true, useCardSettings: true, tileSize });
-              } catch (error) {
-                console.error('[dashboard] member player card render failed', error);
-                wrap.textContent = 'Member card unavailable.';
-                return;
-              }
-            } else {
-              wrap.textContent = `${profileLike.display_name} (@${username})`;
-            }
+            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant, showXp: true, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
             wrap.onclick = () => {
               if (isEditing) return;
               window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`;
