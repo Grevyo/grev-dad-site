@@ -374,6 +374,30 @@
           tile.innerHTML = '<h2>Blank</h2><div class="blank-tile-label">Blank space</div>';
           return tile;
         }
+        function debugTilePlacement(tileId) {
+          const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          if (!tile || !entry) return;
+          const cs = getComputedStyle(tile);
+          console.debug('[home:tile-placement]', tileId, {
+            entrySize: entry.size,
+            dataTileSize: tile.dataset.tileSize,
+            dataGridSize: tile.dataset.gridSize,
+            dataGridW: tile.dataset.gridW,
+            dataGridH: tile.dataset.gridH,
+            className: tile.className,
+            inlineColumnStart: tile.style.gridColumnStart,
+            inlineColumnEnd: tile.style.gridColumnEnd,
+            inlineRowStart: tile.style.gridRowStart,
+            inlineRowEnd: tile.style.gridRowEnd,
+            computedColumnStart: cs.gridColumnStart,
+            computedColumnEnd: cs.gridColumnEnd,
+            computedRowStart: cs.gridRowStart,
+            computedRowEnd: cs.gridRowEnd,
+            width: tile.getBoundingClientRect().width,
+            height: tile.getBoundingClientRect().height
+          });
+        }
         function createEditControls() {
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
@@ -468,22 +492,9 @@
                   saveDesktopLayout();
                   renderTilePositions();
                 }
+                if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
                 debugTilePlacement('profile-snapshot');
                 debugTilePlacement('quick-actions');
-                const changedTile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-                if (window.__HOME_LAYOUT_DEBUG__) {
-                  console.debug('[home:size-change:after]', {
-                    tileId,
-                    entry: JSON.stringify(dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]),
-                    dataTileSize: changedTile?.dataset.tileSize,
-                    className: changedTile?.className,
-                    gridColumn: changedTile?.style.gridColumn,
-                    gridRow: changedTile?.style.gridRow,
-                    offsetWidth: changedTile?.offsetWidth,
-                    offsetHeight: changedTile?.offsetHeight,
-                  });
-                }
-                if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
                 createEditControls();
               });
               sizeControl.append(select); tile.prepend(sizeControl);
