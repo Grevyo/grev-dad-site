@@ -25,11 +25,11 @@
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
         <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
-        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content">Loading…</div></div></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
-        <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
-        <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list">Loading…</div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
+        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
+        <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content"><div class="tile-loading"><span class="skeleton-line"></span></div></div></article>
+        <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
       </div>
@@ -44,10 +44,15 @@
     </main>
 
     <script src="/scripts/theme.js"></script>
+    <script src="/scripts/api-cache.js"></script>
     <script src="/scripts/auth-status.js"></script>
     <script>
       (function () {
         async function fetchJsonSafe(url, options = {}) {
+          if (window.GREVApi?.fetchJsonCached && String(options?.method||'GET').toUpperCase()==='GET') {
+            const ttl = url.includes('/api/homepage/tile-config') ? 300000 : (url.includes('/api/auth/me') ? 15000 : 60000);
+            return (await window.GREVApi.fetchJsonCached(url,{...options,ttlMs:ttl,cacheKey:`grev_api_cache:${url}`})).data;
+          }
           const response = await fetch(url, {
             credentials: "same-origin",
             ...options
@@ -96,6 +101,13 @@
         let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {} };
         let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
         let wasMobileDashboard = isMobileDashboard();
+        const tileLoadPromises = new Map();
+        const DEBUG_PERF = localStorage.getItem('grev_debug_perf') === '1';
+        function perfLog(label,start){ if (DEBUG_PERF) console.debug(`[perf] ${label}`, Math.round(performance.now()-start),'ms'); }
+        function scheduleSoon(fn){ requestAnimationFrame(()=>setTimeout(fn,0)); }
+        function scheduleIdle(fn){ if ('requestIdleCallback' in window) requestIdleCallback(fn,{timeout:2000}); else setTimeout(fn,250); }
+        function runTileLoadOnce(tileId, loader) { if (tileLoadPromises.has(tileId)) return tileLoadPromises.get(tileId); const promise = Promise.resolve().then(loader).finally(()=>tileLoadPromises.delete(tileId)); tileLoadPromises.set(tileId,promise); return promise; }
+
 
         function isMobileDashboard() { return window.matchMedia('(max-width: 640px)').matches; }
         function getDashboardColumnCount() {
@@ -406,7 +418,7 @@
           tile.innerHTML = `
             <h2 class="tile-title-visually-hidden">Member Profile Card</h2>
             <div class="member-card-tile-fill">
-              <div class="custom-member-card-content" data-member-id="${memberId}">Loading…</div>
+              <div class="custom-member-card-content" data-member-id="${memberId}"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div>
             </div>
           `;
           return tile;
@@ -924,7 +936,7 @@
           const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
         });
         function safeHydrateLayout() { try { hydrateLayout(); } catch (error) { console.error('[home] layout failed', error); console.error('[home] layout hydrate failed; resetting layout', error); localStorage.removeItem('grev_dashboard_layout_v4'); hydrateLayout(); } }
-        (async function initDashboard(){await loadTileConfig();safeHydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();await renderDashboardTileLibrary();requestAnimationFrame(()=>setTimeout(()=>{loadMembersPreviewTile();loadLeaderboardPreviewTile();initHomeChat();},0));})();
+        (async function initDashboard(){const paintStart=performance.now();safeHydrateLayout();ensureTilesExist();renderTilePositions();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');perfLog('dashboard initial paint',paintStart);window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});scheduleSoon(()=>{runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);loadCustomMemberCardTiles();});scheduleIdle(()=>{runTileLoadOnce('members-preview',loadMembersPreviewTile);runTileLoadOnce('leaderboard-preview',loadLeaderboardPreviewTile);runTileLoadOnce('chat',initHomeChat);loadSiteNoticesTile();loadAdminQuickToolsTile();});loadTileConfig();})();
       })();
     </script>
   </body>

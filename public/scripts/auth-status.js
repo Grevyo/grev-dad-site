@@ -235,11 +235,15 @@
   async function loadAuthStatus() {
     const container = document.getElementById('authStatus');
     if (!container) return;
-    renderLoggedOut(container);
+    const cachedAny = readProfileCache();
+    if (cachedAny?.username) { renderLoggedIn(container, { username: cachedAny.username, id: null }, cachedAny); }
+    else renderLoggedOut(container);
 
     try {
       const authStart = performance.now();
-      const { response, data } = await safeFetchJson('/api/auth/me');
+      const authFetch = window.GREVApi?.fetchJsonCached ? window.GREVApi.fetchJsonCached('/api/auth/me',{cacheKey:'grev_api_cache:/api/auth/me',ttlMs:15000}) : safeFetchJson('/api/auth/me').then(({data})=>({data}));
+      const { data } = await authFetch;
+      const response = { ok: true };
       console.debug('[auth-status] /api/auth/me took', Math.round(performance.now() - authStart), 'ms');
       const user = data?.user;
       if (!response.ok || !user || !user.username) {
@@ -262,9 +266,8 @@
       (async function refreshProfile() {
         try {
           const profileStart = performance.now();
-          const profileResp = await safeFetchJson('/api/profile/me');
+          const profileResp = window.GREVApi?.fetchJsonCached ? await window.GREVApi.fetchJsonCached('/api/profile/me',{cacheKey:'grev_api_cache:/api/profile/me',ttlMs:60000}) : await safeFetchJson('/api/profile/me').then((x)=>({data:x.data,response:x.response}));
           console.debug('[auth-status] /api/profile/me took', Math.round(performance.now() - profileStart), 'ms');
-          if (!profileResp.response.ok) return;
           const profileUser = profileResp.data?.profile || profileResp.data?.user || null;
           const parsed = parseProfileData(user, profileUser);
           renderLoggedIn(container, user, parsed);
