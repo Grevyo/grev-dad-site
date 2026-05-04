@@ -382,6 +382,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .tile-size-control{display:none;margin:0 0 8px 0}.dashboard-editing .tile-size-control{display:inline-flex;gap:8px;align-items:center;z-index:5}
 .tile-drag-handle{display:none;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:2px 6px;line-height:1;cursor:grab;border-radius:0;margin-left:4px}
 .dashboard-editing .tile-drag-handle{display:inline-block}
+.dashboard-editing .profile-snapshot-tile{outline:2px solid color-mix(in srgb,var(--accent) 65%,transparent);outline-offset:-2px}
 .tile-dragging{opacity:.85}
 
 .blank-remove-button{display:none;margin:0 0 8px 0}.dashboard-editing .blank-remove-button{display:inline-block;z-index:5}
