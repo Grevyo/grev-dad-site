@@ -116,8 +116,8 @@
         function saveDesktopLayout() { localStorage.setItem(LAYOUT_KEY_DESKTOP, JSON.stringify(dashboardLayout)); }
         function saveMobileLayout() { localStorage.setItem(LAYOUT_KEY_MOBILE, JSON.stringify(mobileLayout)); }
 
-        function getTileEntries() {
-          return [...Object.entries(dashboardLayout.tiles), ...Object.entries(dashboardLayout.blankTiles)];
+        function getTileEntries(layout = dashboardLayout) {
+          return [...Object.entries(layout.tiles || {}), ...Object.entries(layout.blankTiles || {})];
         }
         function getTileRect(tileId, layout = dashboardLayout) {
           const entry = layout.tiles[tileId] || layout.blankTiles[tileId];
@@ -133,7 +133,7 @@
         function getOccupyingTileIds(rect, layout = dashboardLayout, excludingTileId = null) {
           const ids = new Set();
           const wanted = new Set(rectCells(rect));
-          getTileEntries().forEach(([id, entry]) => {
+          getTileEntries(layout).forEach(([id, entry]) => {
             if (!entry || id === excludingTileId) return;
             if (rectCells({ col: entry.col, row: entry.row, ...parseTileSize(entry.size) }).some((cell) => wanted.has(cell))) ids.add(id);
           });
@@ -161,7 +161,7 @@
         }
         function getLayoutMaxRows(layout = dashboardLayout) {
           let max = 1;
-          getTileEntries().forEach(([, entry]) => {
+          getTileEntries(layout).forEach(([, entry]) => {
             if (!entry) return;
             const { h } = parseTileSize(entry.size);
             max = Math.max(max, Number(entry.row || 1) + h - 1);
@@ -487,7 +487,7 @@
                 saveDesktopLayout();
                 saveMobileLayout();
                 renderTilePositions();
-                if (tileId === 'profile-snapshot' && wasShrink && window.__HOME_ENABLE_PROFILE_SNAPSHOT_COMPACT__ === true) {
+                if (tileId === 'profile-snapshot' && wasShrink) {
                   compactDashboardLayout(dashboardLayout, { preserveTileId: tileId });
                   saveDesktopLayout();
                   renderTilePositions();
