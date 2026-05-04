@@ -999,6 +999,51 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   outline-offset:-2px;
 }
 
+
+.custom-member-card-tile{
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  overflow:hidden;
+  min-height:0;
+}
+
+.custom-member-card-tile .member-card-tile-fill,
+.custom-member-card-tile .custom-member-card-content{
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  padding:0;
+  margin:0;
+  overflow:hidden;
+  box-sizing:border-box;
+}
+
+.custom-member-card-tile .player-card,
+.custom-member-card-tile .player-card-custom,
+.custom-member-card-tile .player-card-snapshot-variant{
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  margin:0;
+  box-sizing:border-box;
+  border:1px solid var(--border);
+}
+
+.dashboard-editing .custom-member-card-tile{
+  outline:2px solid var(--accent);
+  outline-offset:-2px;
+}
+
+.custom-member-card-tile .tile-edit-controls,
+.custom-member-card-tile .tile-size-control,
+.custom-member-card-tile .tile-hide-button{
+  position:absolute;
+  z-index:5;
+}
+
 .dashboard-customise-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1500}
 .dashboard-customise-panel{position:fixed;top:0;right:-420px;width:420px;max-width:100vw;height:100vh;background:var(--panel,#111);border-left:1px solid var(--line,#333);z-index:1600;transition:right .2s ease;overflow-y:auto;padding:12px}
 .dashboard-customise-panel.is-open{right:0}
