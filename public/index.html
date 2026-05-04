@@ -14,8 +14,9 @@
 
     <main class="page-shell dashboard-page">
       <div class="dashboard-header-row">
-        <h1>Home</h1>
+        <h1>Your Dashboard</h1>
         <div class="dashboard-edit-controls">
+          <button id="dashboard-customise-toggle" type="button" class="nav-button">Customise Dashboard</button>
           <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit homepage</button>
           <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
@@ -33,6 +34,14 @@
         <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
       </div>
+      <div id="dashboard-customise-overlay" class="dashboard-customise-overlay" hidden></div>
+      <aside id="dashboard-customise-panel" class="dashboard-customise-panel" aria-hidden="true">
+        <div class="dashboard-customise-header">
+          <h2>Customise Dashboard</h2>
+          <button id="dashboard-customise-close" type="button" class="nav-button" aria-label="Close customise dashboard panel">×</button>
+        </div>
+        <div id="dashboard-tile-library"></div>
+      </aside>
     </main>
 
     <script src="/scripts/theme.js"></script>
@@ -65,7 +74,7 @@
         const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
                 const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
         const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 2, minH: 1 },'quick-actions': { minW: 2, minH: 1 },'profile-completion': { minW: 2, minH: 1 },'members-preview': { minW: 2, minH: 1 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 1 },status: { minW: 2, minH: 1 },'profile-status': { minW: 4, minH: 1 },'showcase-preview': { minW: 4, minH: 1 },'leaderboard-preview': { minW: 4, minH: 1 },'member-spotlight': { minW: 3, minH: 2 },'site-notices': { minW: 4, minH: 1 },'admin-quick-tools': { minW: 4, minH: 1 }};
-        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
+        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },'member-card': { defaultSize: '2x1', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1, sortOrder: 130 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
         let TILE_SIZE_RULES = JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));
         const DEFAULT_TILE_LAYOUT = {
           'profile-snapshot': { col: 1, row: 1, size: '4x2' },
@@ -90,7 +99,7 @@
         let isEditing = false;
         let homeChatTimer = null;
         let homeChatRoomId = null;
-        let dashboardLayout = { tiles: {}, hiddenTiles: [], blankTiles: {} };
+        let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {} };
         let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
         let wasMobileDashboard = isMobileDashboard();
 
@@ -107,7 +116,11 @@
           if (!m) return { w: 1, h: 1 };
           return { w: Number(m[1]), h: Number(m[2]) };
         }
-        function tileRuleFor(tileId) { return tileId && tileId.startsWith('blank-') ? TILE_SIZE_RULES.blank : (TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: BASE_TILE_SIZES }); }
+        function tileRuleFor(tileId) {
+          if (tileId && tileId.startsWith('blank-')) return TILE_SIZE_RULES.blank;
+          if (tileId && tileId.startsWith('member-card-')) return TILE_SIZE_RULES['member-card'] || { defaultSize: '2x1', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1 };
+          return TILE_SIZE_RULES[tileId] || { defaultSize: '1x1', allowedSizes: BASE_TILE_SIZES };
+        }
         function isSizeSafe(tileId,size){ if (tileId.startsWith('blank-')) return true; const min=TILE_MINIMUM_SIZES[tileId]; if(!min) return true; const {w,h}=parseTileSize(size); return w>=min.minW && h>=min.minH; }
         function safeAllowedSizes(tileId){ return tileRuleFor(tileId).allowedSizes.filter((s)=>isSizeSafe(tileId,s)); }
         function normalizeTileSize(tileId, size) { const r = tileRuleFor(tileId); const allowed=safeAllowedSizes(tileId); const target=allowed.length?allowed:r.allowedSizes; return target.includes(size) ? size : (target[0] || r.defaultSize); }
@@ -117,10 +130,10 @@
         function saveMobileLayout() { localStorage.setItem(LAYOUT_KEY_MOBILE, JSON.stringify(mobileLayout)); }
 
         function getTileEntries(layout = dashboardLayout) {
-          return [...Object.entries(layout.tiles || {}), ...Object.entries(layout.blankTiles || {})];
+          return [...Object.entries(layout.tiles || {}), ...Object.entries(layout.customTiles || {}), ...Object.entries(layout.blankTiles || {})];
         }
         function getTileRect(tileId, layout = dashboardLayout) {
-          const entry = layout.tiles[tileId] || layout.blankTiles[tileId];
+          const entry = layout.tiles[tileId] || layout.customTiles?.[tileId] || layout.blankTiles[tileId];
           if (!entry) return null;
           const { w, h } = parseTileSize(entry.size);
           return { tileId, col: entry.col, row: entry.row, w, h, size: entry.size };
@@ -172,7 +185,7 @@
           const isMobile = isMobileDashboard();
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const id = tile.dataset.tileId;
-            const entry = dashboardLayout.tiles[id] || dashboardLayout.blankTiles[id];
+            const entry = dashboardLayout.tiles[id] || dashboardLayout.customTiles?.[id] || dashboardLayout.blankTiles[id];
             if (!entry) return;
             const { w, h } = parseTileSize(entry.size);
             tile.dataset.tileSize = entry.size;
@@ -257,6 +270,11 @@
             if (hiddenSet.has(id) || !isEnabledTile(id)) return;
             if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeDynamicTile(id));
           });
+          Object.keys(dashboardLayout.customTiles || {}).forEach((id) => {
+            const entry = dashboardLayout.customTiles[id];
+            if (!entry || entry.type !== 'member-card') return;
+            if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeMemberCardTile(id, entry.memberId));
+          });
 
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
             if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeBlankTile(id, dashboardLayout.blankTiles[id].size));
@@ -272,7 +290,7 @@
         function hydrateLayout() {
           const saved = getDesktopLayout();
           const savedMobile = getMobileLayout();
-          dashboardLayout = { tiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles)?saved.hiddenTiles:[], blankTiles: {} };
+          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles)?saved.hiddenTiles:[], blankTiles: {} };
           const enabledIds = defaultIds.filter((id)=>tileRuleFor(id).isEnabled!==0);
           defaultIds.forEach((id) => {
             if (!enabledIds.includes(id)) return; if (dashboardLayout.hiddenTiles.includes(id)) return; const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
@@ -280,6 +298,10 @@
           });
           Object.entries(saved?.blankTiles || {}).forEach(([id, entry]) => {
             dashboardLayout.blankTiles[id] = { col: Number(entry.col) || 1, row: Number(entry.row) || 1, size: normalizeTileSize(id, entry.size || '1x1') };
+          });
+          Object.entries(saved?.customTiles || {}).forEach(([id, entry]) => {
+            if (!entry || entry.type !== 'member-card' || !entry.memberId) return;
+            dashboardLayout.customTiles[id] = { type: 'member-card', memberId: Number(entry.memberId), col: Number(entry.col) || 1, row: Number(entry.row) || 1, size: normalizeTileSize(id, entry.size || '2x1') };
           });
           mobileLayout = (savedMobile && Array.isArray(savedMobile.order)) ? savedMobile : { order: [...enabledIds], sizes: {}, blankTiles: [] };
           mobileLayout.order = mobileLayout.order.filter((id)=>dashboardLayout.tiles[id]||dashboardLayout.blankTiles[id]);
@@ -372,6 +394,15 @@
           tile.className = 'dashboard-tile blank-dashboard-tile';
           tile.dataset.tileId = id;
           tile.innerHTML = '<h2>Blank</h2><div class="blank-tile-label">Blank space</div>';
+          return tile;
+        }
+        function makeMemberCardTile(id, memberId) {
+          const tile = document.createElement('article');
+          tile.className = 'dashboard-tile custom-member-card-tile';
+          tile.dataset.tileId = id;
+          tile.dataset.customTileType = 'member-card';
+          tile.innerHTML = `<h2>Member Card</h2><div class="custom-member-card-content" data-member-id="${memberId}">Loading…</div>`;
+          loadMemberCardTile(id, memberId);
           return tile;
         }
         function debugTilePlacement(tileId) {
@@ -506,7 +537,8 @@
 
             if (!tileId.startsWith('blank-')) {
               let hideBtn = tile.querySelector('.tile-hide-button');
-              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent='Hide'; hideBtn.addEventListener('click',()=>{ dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); tile.remove(); ensureTilesExist(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions(); createEditControls(); renderHiddenPanel(); }); tile.prepend(hideBtn); }
+              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent=tileId.startsWith('member-card-')?'Remove':'Hide'; hideBtn.addEventListener('click',()=>{ if (tileId.startsWith('member-card-')) { delete dashboardLayout.customTiles[tileId]; } else { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; } mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); tile.remove(); ensureTilesExist(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions(); createEditControls(); renderHiddenPanel(); renderDashboardTileLibrary(); }); tile.prepend(hideBtn); }
+              hideBtn.textContent = tileId.startsWith('member-card-') ? 'Remove' : 'Hide';
               hideBtn.hidden = !isEditing;
             }
             
@@ -709,6 +741,79 @@
         async function loadMemberSpotlightTile() { try { const msEl=clearTile('member-spotlight-content'); if(!msEl) return; const mr=await getMembersForHome(); const m=(mr?.members||[])[0]; if(!m) return setTileText('member-spotlight-content','No members available.'); const wrap=document.createElement('div'); wrap.className='homepage-tile-spotlight'; const strong=document.createElement('strong'); strong.textContent=m.display_name||m.username||'Unknown'; const user=document.createElement('div'); user.textContent='@'+(m.username||'unknown'); wrap.append(strong,user); msEl.append(wrap);} catch (error) { console.error('[home] member spotlight failed', error); showTileError('member-spotlight', 'Member spotlight unavailable.'); } }
         async function loadSiteNoticesTile() { const nt = clearTile('site-notices-content') || clearTile('coming-later-content'); if (!nt) return; const wrap = document.createElement('div'); wrap.className='homepage-tile-notices'; wrap.textContent='No site notices.'; nt.append(wrap); }
         async function loadAdminQuickToolsTile() { try { const at=clearTile('admin-quick-tools-content'); if(!at) return; const authUser=(await getAuthForHome())?.user; if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Home</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Homepage Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";} else { at.textContent='Admin tools unavailable.'; } } catch (error) { console.error('[home] admin quick tools failed', error); showTileError('admin-quick-tools', 'Admin tools unavailable.'); } }
+        async function loadMemberCardTile(tileId, memberId) {
+          const wrap = grid.querySelector(`[data-tile-id="${tileId}"] .custom-member-card-content`);
+          if (!wrap) return;
+          try {
+            const res = await getMembersForHome();
+            const members = res?.members || res?.users || [];
+            const member = members.find((m) => Number(m.id) === Number(memberId));
+            if (!member) { wrap.textContent = 'Member unavailable.'; return; }
+            const username = member.username || '';
+            const profileLike = { ...member, display_name: member.display_name || username, accountLevel: Number(member.accountLevel || member.account_level || 1) || 1, rank: member.rank || { name: 'Unranked' } };
+            const tileSize = getDashboardTileSize(tileId, '2x1');
+            wrap.innerHTML = window.renderPlayerCard ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: false, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
+            wrap.addEventListener('click', () => { window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`; });
+          } catch (error) {
+            console.error('[home] member card failed', error);
+            wrap.textContent = 'Member card unavailable.';
+          }
+        }
+        async function renderDashboardTileLibrary() {
+          const root = document.getElementById('dashboard-tile-library');
+          if (!root) return;
+          const authUser = (await getAuthForHome())?.user || {};
+          const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
+          const categories = [
+            { name:'Account', ids:['profile-snapshot','profile-completion','profile-status','showcase-preview'] },
+            { name:'Community', ids:['members-preview','member-spotlight'] },
+            { name:'Activity', ids:['chat','leaderboard-preview','site-notices'] },
+            { name:'Admin', ids:['admin-quick-tools'], adminOnly:true },
+            { name:'Utility', ids:['quick-actions'] }
+          ];
+          root.innerHTML = '';
+          categories.forEach((cat) => {
+            if (cat.adminOnly && !isAdmin) return;
+            const section = document.createElement('section'); section.className='dashboard-tile-category';
+            section.innerHTML = `<h3 class="dashboard-tile-category-title">${cat.name}</h3>`;
+            cat.ids.forEach((tileId) => {
+              const row = document.createElement('div'); row.className='dashboard-tile-library-row';
+              const enabled = tileRuleFor(tileId).isEnabled !== 0;
+              const visible = !!dashboardLayout.tiles[tileId];
+              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${tileId}</strong><p>${enabled?'':'Disabled by admin.'}</p></div>`;
+              const a = document.createElement('div'); a.className='dashboard-tile-library-actions';
+              const b = document.createElement('button'); b.type='button'; b.className='nav-button'; b.textContent = visible ? 'Hide' : 'Show'; b.disabled = !enabled;
+              b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary(); };
+              a.append(b); row.append(a); section.append(row);
+            });
+            root.append(section);
+          });
+          const community = document.createElement('section');
+          community.className = 'dashboard-tile-category';
+          community.innerHTML = '<h3 class="dashboard-tile-category-title">Member Cards</h3>';
+          try {
+            const membersRes = await getMembersForHome();
+            const members = membersRes?.members || membersRes?.users || [];
+            members.forEach((member) => {
+              const memberId = Number(member.id);
+              if (!memberId) return;
+              const tileId = `member-card-${memberId}`;
+              const row = document.createElement('div'); row.className='dashboard-tile-library-row';
+              const name = member.display_name || member.username || `Member ${memberId}`;
+              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${name}</strong><p>${authUser?.id===memberId?'You':''}</p></div>`;
+              const b = document.createElement('button'); b.type='button'; b.className='nav-button';
+              const exists = !!dashboardLayout.customTiles[tileId];
+              b.textContent = exists ? 'Remove' : 'Add';
+              b.onclick = () => {
+                if (exists) { delete dashboardLayout.customTiles[tileId]; const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
+                else { const size='2x1'; const pos=findNearestFreePosition(tileId,size); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size }; }
+                ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary();
+              };
+              row.append(b); community.append(row);
+            });
+          } catch { community.insertAdjacentHTML('beforeend','<p>Members unavailable.</p>'); }
+          root.append(community);
+        }
         async function loadDashboard() {
           await Promise.allSettled([
             loadAccountSnapshotTile(),
@@ -726,18 +831,32 @@
 
         async function loadTileConfig(){try{const d=await fetchJsonSafe('/api/homepage/tile-config');const by={blank:TILE_SIZE_RULES_FALLBACK.blank};(d.tiles||[]).forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}catch(error){console.error('[home] tile config failed', error);TILE_SIZE_RULES=JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));}}
         editButton.addEventListener('click', () => setEditMode(!isEditing));
+        const customiseToggle = document.getElementById('dashboard-customise-toggle');
+        const customisePanel = document.getElementById('dashboard-customise-panel');
+        const customiseOverlay = document.getElementById('dashboard-customise-overlay');
+        const customiseClose = document.getElementById('dashboard-customise-close');
+        function setCustomisePanel(open) {
+          customisePanel.classList.toggle('is-open', !!open);
+          customisePanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+          customiseOverlay.hidden = !open;
+          if (open) renderDashboardTileLibrary();
+        }
+        customiseToggle.addEventListener('click', () => setCustomisePanel(true));
+        customiseClose.addEventListener('click', () => setCustomisePanel(false));
+        customiseOverlay.addEventListener('click', () => setCustomisePanel(false));
         resetButton.addEventListener('click', async function () {
           if (isMobileDashboard()) localStorage.removeItem(LAYOUT_KEY_MOBILE); else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
           await loadTileConfig();
           safeHydrateLayout();
           createEditControls();
+          renderDashboardTileLibrary();
         });
         addBlankButton.addEventListener('click', function () {
           const ids = new Set(Object.keys(dashboardLayout.blankTiles)); let i = 1; while (ids.has(`blank-${i}`)) i += 1;
-          const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout();
+          const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
         });
         function safeHydrateLayout() { try { hydrateLayout(); } catch (error) { console.error('[home] layout failed', error); console.error('[home] layout hydrate failed; resetting layout', error); localStorage.removeItem('grev_dashboard_layout_v4'); hydrateLayout(); } }
-        (async function initDashboard(){await loadTileConfig();safeHydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();requestAnimationFrame(()=>setTimeout(()=>{loadMembersPreviewTile();loadLeaderboardPreviewTile();initHomeChat();},0));})();
+        (async function initDashboard(){await loadTileConfig();safeHydrateLayout();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});loadDashboard();await renderDashboardTileLibrary();requestAnimationFrame(()=>setTimeout(()=>{loadMembersPreviewTile();loadLeaderboardPreviewTile();initHomeChat();},0));})();
       })();
     </script>
   </body>
