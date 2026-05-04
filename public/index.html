@@ -92,10 +92,7 @@
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
-        const hiddenBtn=document.createElement('button'); hiddenBtn.type='button'; hiddenBtn.className='nav-button'; hiddenBtn.id='show-hidden-boxes'; hiddenBtn.textContent='Show hidden boxes'; hiddenBtn.hidden=true;
-        const hiddenPanel=document.createElement('div'); hiddenPanel.id='hidden-boxes-panel'; hiddenPanel.className='hidden-boxes-panel'; hiddenPanel.hidden=true;
-        document.querySelector('.dashboard-edit-controls').append(addBlankButton, hiddenBtn);
-        document.querySelector('.dashboard-page').append(hiddenPanel);
+        document.querySelector('.dashboard-edit-controls').append(addBlankButton);
         let isEditing = false;
         let homeChatTimer = null;
         let homeChatRoomId = null;
@@ -469,130 +466,118 @@
         function createEditControls() {
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
-            let controls = tile.querySelector('.tile-edit-controls');
-            if (!controls) {
-              controls = document.createElement('div'); controls.className = 'tile-edit-controls';
-              const moveControls = document.createElement('div'); moveControls.className = 'tile-move-controls';
-              [{dir:'up',dx:0,dy:-1,label:'↑',mobile:true},{dir:'left',dx:-1,dy:0,label:'←',mobile:false},{dir:'right',dx:1,dy:0,label:'→',mobile:false},{dir:'down',dx:0,dy:1,label:'↓',mobile:true}].forEach(({dir,dx,dy,label,mobile}) => {
-                const button = document.createElement('button'); button.type='button'; button.className='tile-move-button'; button.textContent=label; button.setAttribute('aria-label', `Move tile ${dir}`);
-                button.addEventListener('click', () => {
-                  if (isMobileDashboard()) {
-                    const idx = mobileLayout.order.indexOf(tileId);
-                    const nextIdx = dir === 'up' ? idx - 1 : dir === 'down' ? idx + 1 : idx;
-                    if (idx < 0 || nextIdx < 0 || nextIdx >= mobileLayout.order.length || !mobile) return showTileMessage('No space to move there.');
-                    const [moved] = mobileLayout.order.splice(idx, 1);
-                    mobileLayout.order.splice(nextIdx, 0, moved);
-                    saveMobileLayout(); renderTilePositions(); return;
-                  }
-                  if (!tryMoveOrSwapTile(tileId, dx, dy)) showTileMessage('No space to move there.');
-                });
-                button.classList.add(`tile-move-${dir}`);
-                moveControls.append(button);
-              });
-              controls.append(moveControls); tile.prepend(controls);
-              let dragHandle = tile.querySelector('.tile-drag-handle');
-              if (!dragHandle) {
-                dragHandle = document.createElement('button');
-                dragHandle.type = 'button';
-                dragHandle.className = 'tile-drag-handle';
-                dragHandle.textContent = '↕';
-                dragHandle.setAttribute('aria-label', 'Move tile');
-                dragHandle.title = 'Move tile';
-                dragHandle.addEventListener('pointerdown', (ev) => {
-                  if (!isEditing || isMobileDashboard()) return;
-                  ev.preventDefault();
-                  tile.classList.add('tile-dragging');
-                  const preview = document.getElementById('dashboard-drop-preview');
-                  const move = (e) => { const target = getGridCellFromPointer(e); const entry = getLayoutEntry(dashboardLayout, tileId); const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=getLayoutEntry(snap,tileId); if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
-                  const up = (e) => { tile.classList.remove('tile-dragging'); preview.hidden=true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const target = getGridCellFromPointer(e); if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.'); };
-                  window.addEventListener('pointermove', move);
-                  window.addEventListener('pointerup', up, { once: false });
-                });
-                controls.append(dragHandle);
-              }
-            }
-            controls.hidden = !isEditing;
-            let sizeControl = tile.querySelector('.tile-size-control');
-            if (!sizeControl) {
-              sizeControl = document.createElement('label'); sizeControl.className='tile-size-control'; sizeControl.textContent='Tile size ';
-              const select = document.createElement('select');
-              safeAllowedSizes(tileId).forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
-              select.addEventListener('change', async () => {
-                const entry = getLayoutEntry(dashboardLayout, tileId);
-                if (!entry) return;
-                const previous = entry.size;
-                const next = normalizeTileSize(tileId, select.value);
-                if (window.__HOME_LAYOUT_DEBUG__) {
-                  console.debug('[home:size-change]', {
-                    tileId,
-                    previous,
-                    next,
-                    beforeEntry: JSON.stringify(entry),
-                    layoutEntry: JSON.stringify(dashboardLayout.tiles[tileId]),
-                  });
-                }
-                const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
-                entry.size = next;
-                if (parseTileSize(next).w > getDashboardColumnCount()) {
-                  dashboardLayout = snapshot;
-                  select.value = previous;
-                  showTileMessage('Size change blocked: selected width is larger than the board.');
-                  return;
-                }
-                const previousSize = parseTileSize(previous);
-                const nextSize = parseTileSize(next);
-                const wasShrink = (nextSize.w * nextSize.h) < (previousSize.w * previousSize.h);
-                const pushed = pushBlockingTiles(tileId, dashboardLayout);
-                if (!pushed) {
-                  dashboardLayout = snapshot;
-                  select.value = previous;
-                  showTileMessage('Could not place tile there.');
-                  return;
-                }
-                const finalEntry = getLayoutEntry(dashboardLayout, tileId);
-                if (finalEntry) finalEntry.size = next;
-                mobileLayout.sizes[tileId] = next;
-                saveDesktopLayout();
-                saveMobileLayout();
-                renderTilePositions();
-                if (tileId === 'profile-snapshot' && wasShrink) {
-                  compactDashboardLayout(dashboardLayout, { preserveTileId: tileId });
-                  saveDesktopLayout();
-                  renderTilePositions();
-                }
-                if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
-                debugTilePlacement('profile-snapshot');
-                debugTilePlacement('quick-actions');
-                createEditControls();
-              });
-              sizeControl.append(select); tile.prepend(sizeControl);
-            }
-            const select = sizeControl.querySelector('select');
-            const entry = getLayoutEntry(dashboardLayout, tileId);
-            if (select && entry) select.value = entry.size;
-            sizeControl.hidden = !isEditing || safeAllowedSizes(tileId).length <= 1;
+            tile.querySelectorAll('.tile-edit-overlay, .tile-edit-controls, .tile-size-control, .tile-hide-button, .tile-remove-button, .blank-remove-button').forEach((el) => el.remove());
 
-            if (!tileId.startsWith('blank-')) {
-              let hideBtn = tile.querySelector('.tile-hide-button');
-              if (!hideBtn) { hideBtn=document.createElement('button'); hideBtn.type='button'; hideBtn.className='tile-hide-button'; hideBtn.textContent=tileId.startsWith('member-card-')?'Remove':'Hide'; hideBtn.addEventListener('click',()=>{ if (tileId.startsWith('member-card-')) { delete dashboardLayout.customTiles[tileId]; } else { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; } mobileLayout.order = mobileLayout.order.filter((id)=>id!==tileId); tile.remove(); ensureTilesExist(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions(); createEditControls(); renderHiddenPanel(); renderDashboardTileLibrary(); }); tile.prepend(hideBtn); }
-              hideBtn.textContent = tileId.startsWith('member-card-') ? 'Remove' : 'Hide';
-              hideBtn.hidden = !isEditing;
+            const overlay = document.createElement('div');
+            overlay.className = 'tile-edit-overlay';
+
+            const moveControls = document.createElement('div');
+            moveControls.className = 'tile-move-controls';
+            [{dir:'up',dx:0,dy:-1,label:'↑',mobile:true},{dir:'left',dx:-1,dy:0,label:'←',mobile:false},{dir:'right',dx:1,dy:0,label:'→',mobile:false},{dir:'down',dx:0,dy:1,label:'↓',mobile:true}].forEach(({dir,dx,dy,label,mobile}) => {
+              const button = document.createElement('button'); button.type='button'; button.className='tile-move-button'; button.textContent=label; button.setAttribute('aria-label', `Move tile ${dir}`);
+              button.addEventListener('click', () => {
+                if (isMobileDashboard()) {
+                  const idx = mobileLayout.order.indexOf(tileId);
+                  const nextIdx = dir === 'up' ? idx - 1 : dir === 'down' ? idx + 1 : idx;
+                  if (idx < 0 || nextIdx < 0 || nextIdx >= mobileLayout.order.length || !mobile) return showTileMessage('No space to move there.');
+                  const [moved] = mobileLayout.order.splice(idx, 1);
+                  mobileLayout.order.splice(nextIdx, 0, moved);
+                  saveMobileLayout(); renderTilePositions(); return;
+                }
+                if (!tryMoveOrSwapTile(tileId, dx, dy)) showTileMessage('No space to move there.');
+              });
+              button.classList.add(`tile-move-${dir}`);
+              moveControls.append(button);
+            });
+            overlay.append(moveControls);
+
+            let dragHandle = tile.querySelector('.tile-drag-handle');
+            if (!dragHandle) {
+              dragHandle = document.createElement('button');
+              dragHandle.type = 'button';
+              dragHandle.className = 'tile-drag-handle';
+              dragHandle.textContent = '↕';
+              dragHandle.setAttribute('aria-label', 'Move tile');
+              dragHandle.title = 'Move tile';
+              dragHandle.addEventListener('pointerdown', (ev) => {
+                if (!isEditing || isMobileDashboard()) return;
+                ev.preventDefault();
+                tile.classList.add('tile-dragging');
+                const preview = document.getElementById('dashboard-drop-preview');
+                const move = (e) => { const target = getGridCellFromPointer(e); const entry = getLayoutEntry(dashboardLayout, tileId); const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=getLayoutEntry(snap,tileId); if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
+                const up = (e) => { tile.classList.remove('tile-dragging'); preview.hidden=true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const target = getGridCellFromPointer(e); if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.'); };
+                window.addEventListener('pointermove', move);
+                window.addEventListener('pointerup', up, { once: false });
+              });
             }
-            
-            if (tileId.startsWith('blank-')) {
-              let removeBtn = tile.querySelector('.blank-remove-button');
-              if (!removeBtn) { removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='blank-remove-button'; removeBtn.textContent='Remove blank tile'; removeBtn.addEventListener('click', ()=>{ delete dashboardLayout.blankTiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); }); tile.prepend(removeBtn); }
+            overlay.append(dragHandle);
+
+            const sizeControl = document.createElement('label'); sizeControl.className='tile-size-control'; sizeControl.textContent='Tile size ';
+            const select = document.createElement('select');
+            safeAllowedSizes(tileId).forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
+            select.addEventListener('change', async () => {
+              const entry = getLayoutEntry(dashboardLayout, tileId);
+              if (!entry) return;
+              const previous = entry.size;
+              const next = normalizeTileSize(tileId, select.value);
+              const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
+              entry.size = next;
+              if (parseTileSize(next).w > getDashboardColumnCount()) {
+                dashboardLayout = snapshot;
+                select.value = previous;
+                showTileMessage('Size change blocked: selected width is larger than the board.');
+                return;
+              }
+              const previousSize = parseTileSize(previous);
+              const nextSize = parseTileSize(next);
+              const wasShrink = (nextSize.w * nextSize.h) < (previousSize.w * previousSize.h);
+              const pushed = pushBlockingTiles(tileId, dashboardLayout);
+              if (!pushed) {
+                dashboardLayout = snapshot;
+                select.value = previous;
+                showTileMessage('Could not place tile there.');
+                return;
+              }
+              const finalEntry = getLayoutEntry(dashboardLayout, tileId);
+              if (finalEntry) finalEntry.size = next;
+              mobileLayout.sizes[tileId] = next;
+              saveDesktopLayout(); saveMobileLayout(); renderTilePositions();
+              if (tileId === 'profile-snapshot' && wasShrink) {
+                compactDashboardLayout(dashboardLayout, { preserveTileId: tileId });
+                saveDesktopLayout(); renderTilePositions();
+              }
+              if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
+              debugTilePlacement('profile-snapshot'); debugTilePlacement('quick-actions'); createEditControls();
+            });
+            const entry = getLayoutEntry(dashboardLayout, tileId);
+            if (entry) select.value = entry.size;
+            sizeControl.append(select);
+            sizeControl.hidden = !isEditing || safeAllowedSizes(tileId).length <= 1;
+            overlay.append(sizeControl);
+
+            if (tileId.startsWith('blank-') || tileId.startsWith('member-card-')) {
+              const removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='tile-remove-button';
+              removeBtn.textContent = tileId.startsWith('blank-') ? 'Remove blank tile' : 'Remove';
+              removeBtn.addEventListener('click', ()=>{
+                if (tileId.startsWith('blank-')) delete dashboardLayout.blankTiles[tileId];
+                if (tileId.startsWith('member-card-')) delete dashboardLayout.customTiles[tileId];
+                mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId);
+                const el = grid.querySelector(`[data-tile-id="${tileId}"]`); if (el) el.remove();
+                saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderDashboardTileLibrary();
+              });
               removeBtn.hidden = !isEditing;
+              overlay.append(removeBtn);
             }
+
+            overlay.hidden = !isEditing;
+            tile.prepend(overlay);
           });
         }
-        function renderHiddenPanel(){const panel=document.getElementById('hidden-boxes-panel'); const btn=document.getElementById('show-hidden-boxes'); const hidden=(dashboardLayout.hiddenTiles||[]); btn.disabled=hidden.length===0; btn.textContent=hidden.length?`Show hidden boxes (${hidden.length})`:'No hidden boxes'; panel.textContent=''; hidden.forEach((tileId)=>{const row=document.createElement('div'); row.className='hidden-box-row'; const label=document.createElement('span'); label.textContent=tileId; const r=document.createElement('button'); r.type='button'; r.className='tile-restore-button'; r.textContent='Restore'; r.addEventListener('click',()=>{dashboardLayout.hiddenTiles=(dashboardLayout.hiddenTiles||[]).filter((id)=>id!==tileId); const size=tileRuleFor(tileId).defaultSize; const normalizedSize=normalizeTileSize(tileId,size); const pos=findNearestFreePosition(tileId,normalizedSize,dashboardLayout,{col:1,row:1})||{col:1,row:getLayoutMaxRows()+1}; dashboardLayout.tiles[tileId]={col:pos.col,row:pos.row,size:normalizedSize}; if(!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); ensureTilesExist(); renderTilePositions(); createEditControls(); renderHiddenPanel(); saveDesktopLayout(); saveMobileLayout();}); row.append(label,r); panel.append(row);});}
-        document.addEventListener('click',(e)=>{ if(e.target&&e.target.id==='show-hidden-boxes'){const p=document.getElementById('hidden-boxes-panel'); p.hidden=!p.hidden;}});
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
           editButton.textContent = isEditing ? 'Done editing' : 'Edit Dashboard'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
           if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.';
-          createEditControls(); document.getElementById('show-hidden-boxes').hidden=!isEditing; document.getElementById('hidden-boxes-panel').hidden=!isEditing; renderHiddenPanel(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
+          createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
 
         function byId(id) { return document.getElementById(id); }
@@ -875,7 +860,7 @@
           utilitySection.innerHTML = '<h3 class="dashboard-tile-category-title">Utility</h3>';
           const blankRow = document.createElement('div'); blankRow.className = 'dashboard-tile-library-row';
           blankRow.innerHTML = '<div class="dashboard-tile-library-meta"><strong>Blank Tile</strong><p>Add a reusable empty tile spacer.</p></div>';
-          const blankBtn = document.createElement('button'); blankBtn.type = 'button'; blankBtn.className = 'nav-button'; blankBtn.textContent = 'Add';
+          const blankBtn = document.createElement('button'); blankBtn.type = 'button'; blankBtn.className = 'nav-button'; blankBtn.textContent = 'Add blank tile';
           blankBtn.onclick = () => addBlankButton.click();
           blankRow.append(blankBtn); utilitySection.append(blankRow); root.append(utilitySection);
           const community = document.createElement('section');
@@ -893,7 +878,7 @@
               row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${name}</strong><p>${authUser?.id===memberId?'You':''}</p></div>`;
               const b = document.createElement('button'); b.type='button'; b.className='nav-button';
               const exists = !!dashboardLayout.customTiles[tileId];
-              b.textContent = exists ? 'Remove' : 'Add Profile Card';
+              b.textContent = exists ? 'Remove' : 'Add';
               b.onclick = () => {
                 if (exists) { delete dashboardLayout.customTiles[tileId]; const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
                 else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; }

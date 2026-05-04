@@ -375,11 +375,21 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-grid{display:grid;grid-template-columns:repeat(var(--dashboard-cols),var(--dashboard-cell));grid-auto-rows:var(--dashboard-cell);gap:0;width:100vw;max-width:none;margin:0;padding:0;align-items:start;justify-content:start;grid-auto-flow:row;position:relative;z-index:1}
 .dashboard-tile{box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--border);background:var(--surface);padding:14px;border-radius:0;margin:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
 .tile-1x1{}.tile-1x2{}.tile-2x1{}.tile-2x2{}.tile-2x3{}.tile-2x4{}.tile-3x2{}.tile-3x3{}.tile-3x4{}.tile-3x5{}.tile-4x2{}.tile-4x3{}.tile-4x4{}.tile-4x5{}.tile-4x6{}.tile-4x8{}.tile-5x3{}.tile-5x4{}.tile-5x5{}.tile-5x6{}.tile-6x4{}.tile-6x5{}.tile-6x6{}.tile-6x8{}.tile-6x10{}.tile-8x4{}.tile-8x6{}.tile-8x8{}.tile-8x10{}.tile-10x6{}.tile-10x8{}.tile-12x6{}.tile-12x8{}.tile-12x12{}
-.tile-edit-controls{display:none;margin:0 0 8px 0}
-.dashboard-editing .tile-edit-controls{display:block;z-index:5}
 .tile-move-controls{display:grid;grid-template-columns:repeat(4,auto);gap:4px}
 .tile-move-button{border:1px solid var(--border);background:var(--bg);color:var(--text);padding:2px 6px;line-height:1;cursor:pointer;border-radius:0}
-.tile-size-control{display:none;margin:0 0 8px 0}.dashboard-editing .tile-size-control{display:inline-flex;gap:8px;align-items:center;z-index:5}
+
+.dashboard-tile{position:relative;}
+.tile-edit-overlay{position:absolute;top:6px;left:6px;right:6px;z-index:30;display:flex;align-items:flex-start;justify-content:space-between;gap:6px;pointer-events:none;}
+.tile-edit-overlay>*{pointer-events:auto;}
+.tile-move-controls{display:flex;gap:4px;flex-wrap:wrap;}
+.tile-size-control{display:none;align-items:center;gap:4px;max-width:180px;}
+.dashboard-editing .tile-size-control{display:inline-flex;z-index:5;}
+.tile-size-control select{max-width:95px;}
+.tile-remove-button{white-space:nowrap;}
+.dashboard-tile[data-grid-h="1"] .tile-edit-overlay,
+.dashboard-tile[data-tile-size$="x1"] .tile-edit-overlay{gap:4px;}
+.dashboard-tile[data-grid-h="1"] .tile-size-control{font-size:11px;}
+.dashboard-tile[data-grid-h="1"] .tile-size-control select{max-width:76px;}
 .tile-drag-handle{display:none;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:2px 6px;line-height:1;cursor:grab;border-radius:0;margin-left:4px}
 .dashboard-editing .tile-drag-handle{display:inline-block}
 .dashboard-editing .profile-snapshot-tile{outline:2px solid color-mix(in srgb,var(--accent) 65%,transparent);outline-offset:-2px}
@@ -387,7 +397,6 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-editing .profile-snapshot-tile::after{content:attr(data-grid-size);position:absolute;right:4px;bottom:4px;z-index:20;font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border);padding:2px 4px}
 
 
-.blank-remove-button{display:none;margin:0 0 8px 0}.dashboard-editing .blank-remove-button{display:inline-block;z-index:5}
 .profile-snapshot-tile{padding:0 !important;overflow:hidden;display:flex;flex-direction:column;position:relative}
 .profile-snapshot-tile.dashboard-tile{padding:0 !important}
 .profile-snapshot-tile .dashboard-tile-inner{width:100%;height:100%;min-width:0;min-height:0;margin:0;padding:0;box-sizing:border-box;display:block}
@@ -401,9 +410,6 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-snapshot-tile .account-snapshot-name,.profile-snapshot-tile .account-snapshot-username,.profile-snapshot-tile .account-snapshot-rank{overflow-wrap:anywhere}
 
 .tile-title-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
-.profile-snapshot-tile .tile-edit-controls,.profile-snapshot-tile .tile-size-control,.profile-snapshot-tile .tile-hide-button{position:absolute;z-index:5;left:6px;top:6px;margin:0}
-.profile-snapshot-tile .tile-size-control{top:34px}
-.profile-snapshot-tile .tile-hide-button{top:66px}
 .account-snapshot-compact .account-snapshot-avatar{width:64px;height:64px;min-width:64px;max-width:64px}
 .account-snapshot-compact{grid-template-columns:64px minmax(0,1fr);gap:12px}
 
@@ -467,10 +473,6 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 
 .dashboard-drop-preview{z-index:1;pointer-events:none;border:2px dashed var(--accent);background:color-mix(in srgb,var(--accent) 20%,transparent)}
 .dashboard-drop-preview-invalid{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 20%,transparent)}
-.tile-hide-button{display:none;margin:0 0 8px 0}
-.dashboard-editing .tile-hide-button{display:inline-block;z-index:5}
-.hidden-boxes-panel{display:grid;gap:8px;margin:8px 16px;padding:8px;border:1px solid var(--border);background:var(--surface)}
-.hidden-box-row{display:flex;justify-content:space-between;gap:8px}
 .profile-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .edit-card{border:1px solid var(--border);padding:12px;background:var(--surface)}
 .profile-edit-grid button[type="submit"]{grid-column:1/-1;position:sticky;bottom:8px}
@@ -1038,8 +1040,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 }
 
 .custom-member-card-tile .tile-edit-controls,
-.custom-member-card-tile .tile-size-control,
-.custom-member-card-tile .tile-hide-button{
+.custom-member-card-tile .tile-size-control{
   position:absolute;
   z-index:5;
 }
