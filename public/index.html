@@ -21,7 +21,6 @@
           <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
       </div>
-      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your dashboard and resize cards.</p>
 
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
@@ -87,8 +86,6 @@
         const grid = document.getElementById('dashboard-grid');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
-        const editHelp = document.getElementById('dashboard-edit-help');
-        editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.';
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
@@ -390,10 +387,7 @@
           return { col: Math.floor(x / cell) + 1, row: Math.floor(y / cell) + 1 };
         }
         function showTileMessage(message) {
-          editHelp.textContent = message;
-          editHelp.hidden = false;
-          clearTimeout(showTileMessage._t);
-          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.'; }, 1800);
+          console.debug('[dashboard]', message);
         }
         function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
         function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
@@ -464,10 +458,10 @@
           });
         }
         function createEditControls() {
+          grid.querySelectorAll('.tile-edit-overlay, .tile-edit-controls, .tile-size-control, .tile-hide-button, .tile-remove-button, .blank-remove-button').forEach((el) => el.remove());
+          if (!isEditing) return;
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
-            tile.querySelectorAll('.tile-edit-overlay, .tile-edit-controls, .tile-size-control, .tile-hide-button, .tile-remove-button, .blank-remove-button').forEach((el) => el.remove());
-
             const overlay = document.createElement('div');
             overlay.className = 'tile-edit-overlay';
 
@@ -496,9 +490,9 @@
               dragHandle = document.createElement('button');
               dragHandle.type = 'button';
               dragHandle.className = 'tile-drag-handle';
-              dragHandle.textContent = '↕';
-              dragHandle.setAttribute('aria-label', 'Move tile');
-              dragHandle.title = 'Move tile';
+              dragHandle.textContent = 'Move';
+              dragHandle.setAttribute('aria-label', 'Drag tile to move');
+              dragHandle.title = 'Drag tile to move';
               dragHandle.addEventListener('pointerdown', (ev) => {
                 if (!isEditing || isMobileDashboard()) return;
                 ev.preventDefault();
@@ -552,7 +546,7 @@
             const entry = getLayoutEntry(dashboardLayout, tileId);
             if (entry) select.value = entry.size;
             sizeControl.append(select);
-            sizeControl.hidden = !isEditing || safeAllowedSizes(tileId).length <= 1;
+            sizeControl.hidden = safeAllowedSizes(tileId).length <= 1;
             overlay.append(sizeControl);
 
             if (tileId.startsWith('blank-') || tileId.startsWith('member-card-')) {
@@ -565,18 +559,16 @@
                 const el = grid.querySelector(`[data-tile-id="${tileId}"]`); if (el) el.remove();
                 saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderDashboardTileLibrary();
               });
-              removeBtn.hidden = !isEditing;
               overlay.append(removeBtn);
             }
 
-            overlay.hidden = !isEditing;
             tile.prepend(overlay);
           });
         }
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
-          editButton.textContent = isEditing ? 'Done editing' : 'Edit Dashboard'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
-          if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.';
+          grid.classList.toggle('dashboard-editing', isEditing);
+          editButton.textContent = isEditing ? 'Done Editing' : 'Edit Dashboard'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing;
           createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
 

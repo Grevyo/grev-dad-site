@@ -369,29 +369,41 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .page-shell.dashboard-page{max-width:none;margin:0;width:100%;padding:0}
 .dashboard-header-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;padding-left:16px;padding-right:16px}
 .dashboard-edit-controls{display:flex;gap:8px;align-items:center}
-.dashboard-edit-help{margin:0 0 10px;color:var(--text-muted);padding-left:16px;padding-right:16px}
  .dashboard-board{--dashboard-cols:12;--dashboard-cell:calc(100vw / var(--dashboard-cols));position:relative;width:100vw;max-width:none;margin:0;padding:0;overflow-x:hidden}
 .dashboard-board::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(to right,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px);background-size:var(--dashboard-cell) var(--dashboard-cell);opacity:.55}
 .dashboard-grid{display:grid;grid-template-columns:repeat(var(--dashboard-cols),var(--dashboard-cell));grid-auto-rows:var(--dashboard-cell);gap:0;width:100vw;max-width:none;margin:0;padding:0;align-items:start;justify-content:start;grid-auto-flow:row;position:relative;z-index:1}
 .dashboard-tile{box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--border);background:var(--surface);padding:14px;border-radius:0;margin:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
 .tile-1x1{}.tile-1x2{}.tile-2x1{}.tile-2x2{}.tile-2x3{}.tile-2x4{}.tile-3x2{}.tile-3x3{}.tile-3x4{}.tile-3x5{}.tile-4x2{}.tile-4x3{}.tile-4x4{}.tile-4x5{}.tile-4x6{}.tile-4x8{}.tile-5x3{}.tile-5x4{}.tile-5x5{}.tile-5x6{}.tile-6x4{}.tile-6x5{}.tile-6x6{}.tile-6x8{}.tile-6x10{}.tile-8x4{}.tile-8x6{}.tile-8x8{}.tile-8x10{}.tile-10x6{}.tile-10x8{}.tile-12x6{}.tile-12x8{}.tile-12x12{}
-.tile-move-controls{display:grid;grid-template-columns:repeat(4,auto);gap:4px}
+.tile-edit-overlay,
+.tile-edit-controls,
+.tile-move-controls,
+.tile-size-control,
+.tile-drag-handle,
+.tile-remove-button{display:none}
 .tile-move-button{border:1px solid var(--border);background:var(--bg);color:var(--text);padding:2px 6px;line-height:1;cursor:pointer;border-radius:0}
 
 .dashboard-tile{position:relative;}
-.tile-edit-overlay{position:absolute;top:6px;left:6px;right:6px;z-index:30;display:flex;align-items:flex-start;justify-content:space-between;gap:6px;pointer-events:none;}
+.tile-edit-overlay{position:absolute;top:6px;left:6px;right:6px;z-index:30;align-items:flex-start;justify-content:space-between;gap:6px;pointer-events:none;}
 .tile-edit-overlay>*{pointer-events:auto;}
-.tile-move-controls{display:flex;gap:4px;flex-wrap:wrap;}
-.tile-size-control{display:none;align-items:center;gap:4px;max-width:180px;}
-.dashboard-editing .tile-size-control{display:inline-flex;z-index:5;}
+.tile-move-controls{gap:4px;flex-wrap:wrap;}
+.tile-size-control{align-items:center;gap:4px;max-width:180px;}
 .tile-size-control select{max-width:95px;}
 .tile-remove-button{white-space:nowrap;}
 .dashboard-tile[data-grid-h="1"] .tile-edit-overlay,
 .dashboard-tile[data-tile-size$="x1"] .tile-edit-overlay{gap:4px;}
 .dashboard-tile[data-grid-h="1"] .tile-size-control{font-size:11px;}
 .dashboard-tile[data-grid-h="1"] .tile-size-control select{max-width:76px;}
-.tile-drag-handle{display:none;border:1px solid var(--border);background:var(--bg);color:var(--text);padding:2px 6px;line-height:1;cursor:grab;border-radius:0;margin-left:4px}
-.dashboard-editing .tile-drag-handle{display:inline-block}
+.tile-drag-handle{border:1px solid var(--border);background:var(--bg);color:var(--text);padding:2px 6px;line-height:1;cursor:grab;border-radius:0;margin-left:4px}
+.dashboard-editing .tile-edit-overlay{display:flex}
+.dashboard-editing .tile-edit-controls,
+.dashboard-editing .tile-move-controls,
+.dashboard-editing .tile-size-control,
+.dashboard-editing .tile-drag-handle,
+.dashboard-editing .tile-remove-button{display:flex}
+.dashboard-editing .tile-drag-handle,
+.dashboard-editing .tile-remove-button,
+.dashboard-editing .tile-move-controls button{display:inline-flex}
+.dashboard-editing .tile-size-control{z-index:5;}
 .dashboard-editing .profile-snapshot-tile{outline:2px solid color-mix(in srgb,var(--accent) 65%,transparent);outline-offset:-2px}
 .tile-dragging{opacity:.85}
 .dashboard-editing .profile-snapshot-tile::after{content:attr(data-grid-size);position:absolute;right:4px;bottom:4px;z-index:20;font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border);padding:2px 4px}
