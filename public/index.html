@@ -412,7 +412,12 @@
           tile.className = 'dashboard-tile custom-member-card-tile';
           tile.dataset.tileId = id;
           tile.dataset.customTileType = 'member-card';
-          tile.innerHTML = `<h2>Member Card</h2><div class="custom-member-card-content" data-member-id="${memberId}">Loading…</div>`;
+          tile.innerHTML = `
+            <h2 class="tile-title-visually-hidden">Member Card</h2>
+            <div class="member-card-tile-fill">
+              <div class="custom-member-card-content" data-member-id="${memberId}">Loading…</div>
+            </div>
+          `;
           return tile;
         }
         async function ensurePlayerCardRenderer() {
