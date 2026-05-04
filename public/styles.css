@@ -404,6 +404,12 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-snapshot-tile .tile-hide-button{top:66px}
 .account-snapshot-compact .account-snapshot-avatar{width:64px;height:64px;min-width:64px;max-width:64px}
 .account-snapshot-compact{grid-template-columns:64px minmax(0,1fr);gap:12px}
+
+.profile-snapshot-tile{min-height:0 !important;height:100% !important;max-height:none;overflow:hidden}
+.profile-snapshot-tile .profile-snapshot-card-fill,
+.profile-snapshot-tile .profile-snapshot-content,
+.profile-snapshot-tile #account-summary-content,
+.profile-snapshot-tile .player-card-snapshot-variant{min-height:0 !important;max-height:100%;overflow:hidden}
 .blank-dashboard-tile{background:var(--bg)}
 .blank-dashboard-tile .blank-tile-label{display:none;color:var(--text-muted)}
 .dashboard-editing .blank-dashboard-tile .blank-tile-label{display:block}
