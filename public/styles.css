@@ -585,6 +585,13 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   box-sizing: border-box;
 }
 
+.editor-page > form,
+.editor-page .editor-tile form,
+.profile-card-editor-page form,
+.profile-edit-page form {
+  max-width: none;
+}
+
 .editor-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -687,12 +694,25 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   justify-content: flex-end;
 }
 
+.profile-edit-page #profile-edit-form {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: block;
+}
+
+.profile-edit-page #profile-edit-form .editor-tile-grid {
+  width: 100%;
+  max-width: none;
+}
+
 .profile-edit-page .editor-tile-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
   width: 100%;
+  max-width: none;
 }
 
 .profile-edit-page .editor-tile {
@@ -767,6 +787,12 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 
 .profile-edit-page .editor-main,
 .profile-edit-page .profile-editor-main {
+  width: 100%;
+  max-width: none;
+}
+
+.profile-edit-page .profile-editor-grid,
+.profile-edit-page .profile-card-editor-grid {
   width: 100%;
   max-width: none;
 }
