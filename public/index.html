@@ -234,7 +234,7 @@
         function rectsOverlap(a,b){return a.col < b.col + b.w && a.col + a.w > b.col && a.row < b.row + b.h && a.row + a.h > b.row;}
         function getBlockingTiles(tileId,targetRect,layout=dashboardLayout){return getTileEntries().map(([id])=>getTileRect(id,layout)).filter((r)=>r&&r.tileId!==tileId&&rectsOverlap(targetRect,r)).map((r)=>r.tileId);}
         function findNearestFreePosition(tileId,size,layout=dashboardLayout,preferredStart={col:1,row:1}){const {w,h}=parseTileSize(size);const cols=getDashboardColumnCount();if(w>cols)return null;for(let radius=0;radius<120;radius+=1){for(let row=Math.max(1,preferredStart.row-radius);row<=preferredStart.row+radius+20;row+=1){for(let col=1;col<=cols-w+1;col+=1){if(Math.abs(col-preferredStart.col)>radius&&row<preferredStart.row+radius)continue;if(canPlaceTile(tileId,col,row,size,layout))return{col,row};}}}return{col:1,row:getLayoutMaxRows(layout)+1};}
-        function pushBlockingTiles(tileId,newSize,layout=dashboardLayout){const entry=layout.tiles[tileId]||layout.blankTiles[tileId];if(!entry)return false;entry.size=newSize;const queue=[tileId];const seen=new Set();while(queue.length){const current=queue.shift();if(seen.has(current))continue;seen.add(current);const rect=getTileRect(current,layout);if(!rect)continue;const blockers=getBlockingTiles(current,rect,layout);for(const blockerId of blockers){const blocker=layout.tiles[blockerId]||layout.blankTiles[blockerId];if(!blocker)continue;const next=findNearestFreePosition(blockerId,blocker.size,layout,{col:Math.min(getDashboardColumnCount(),rect.col+rect.w),row:rect.row});if(!next)return false;blocker.col=next.col;blocker.row=next.row;queue.push(blockerId);}}return true;}
+        function pushBlockingTiles(tileId, layout = dashboardLayout){const entry=layout.tiles[tileId]||layout.blankTiles[tileId];if(!entry)return false;const queue=[tileId];const seen=new Set();while(queue.length){const current=queue.shift();if(seen.has(current))continue;seen.add(current);const rect=getTileRect(current,layout);if(!rect)continue;const blockers=getBlockingTiles(current,rect,layout);for(const blockerId of blockers){const blocker=layout.tiles[blockerId]||layout.blankTiles[blockerId];if(!blocker)continue;const next=findNearestFreePosition(blockerId,blocker.size,layout,{col:Math.min(getDashboardColumnCount(),rect.col+rect.w),row:rect.row});if(!next)return false;blocker.col=next.col;blocker.row=next.row;queue.push(blockerId);}}return true;}
         function tryMoveOrSwapTile(tileId, dx, dy) {
           const source = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
           if (!source) return false;
@@ -261,7 +261,7 @@
           const nextRow = Math.max(1, Math.floor(row || 1));
           const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
           entry.col = nextCol; entry.row = nextRow;
-          const pushed = pushBlockingTiles(tileId, entry.size, dashboardLayout);
+          const pushed = pushBlockingTiles(tileId, dashboardLayout);
           if (!pushed) { dashboardLayout = snapshot; return false; }
           saveDesktopLayout(); renderTilePositions(); createEditControls(); return true;
         }
@@ -325,7 +325,7 @@
                   ev.preventDefault();
                   tile.classList.add('tile-dragging');
                   const preview = document.getElementById('dashboard-drop-preview');
-                  const move = (e) => { const target = getGridCellFromPointer(e); const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]; const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=snap.tiles[tileId]||snap.blankTiles[tileId]; if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, entry.size, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
+                  const move = (e) => { const target = getGridCellFromPointer(e); const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]; const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=snap.tiles[tileId]||snap.blankTiles[tileId]; if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
                   const up = (e) => { tile.classList.remove('tile-dragging'); preview.hidden=true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const target = getGridCellFromPointer(e); if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.'); };
                   window.addEventListener('pointermove', move);
                   window.addEventListener('pointerup', up, { once: false });
@@ -339,19 +339,39 @@
               sizeControl = document.createElement('label'); sizeControl.className='tile-size-control'; sizeControl.textContent='Tile size ';
               const select = document.createElement('select');
               safeAllowedSizes(tileId).forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
-              select.addEventListener('change', () => {
+              select.addEventListener('change', async () => {
                 const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+                if (!entry) return;
+                const previous = entry.size;
                 const next = normalizeTileSize(tileId, select.value);
-                if (parseTileSize(next).w > getDashboardColumnCount()) { select.value = entry.size; showTileMessage('Size change blocked: selected width is larger than the board.'); return; }
-                const pushed = pushBlockingTiles(tileId, next, dashboardLayout); if (!pushed) { select.value = entry.size; showTileMessage('Could not place tile there.'); return; }
+                const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
                 entry.size = next;
+                if (parseTileSize(next).w > getDashboardColumnCount()) {
+                  dashboardLayout = snapshot;
+                  select.value = previous;
+                  showTileMessage('Size change blocked: selected width is larger than the board.');
+                  return;
+                }
+                const pushed = pushBlockingTiles(tileId, dashboardLayout);
+                if (!pushed) {
+                  dashboardLayout = snapshot;
+                  select.value = previous;
+                  showTileMessage('Could not place tile there.');
+                  return;
+                }
                 mobileLayout.sizes[tileId] = next;
                 saveDesktopLayout();
                 saveMobileLayout();
                 renderTilePositions();
-                if (tileId === 'profile-snapshot') {
-                  loadDashboard();
+                const changedTile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+                if (changedTile) {
+                  changedTile.dataset.tileSize = next;
+                  console.debug('[home] resized tile', tileId, next, { gridColumn: changedTile.style.gridColumn, gridRow: changedTile.style.gridRow });
                 }
+                if (tileId === 'profile-snapshot') {
+                  await loadAccountSnapshotTile();
+                }
+                createEditControls();
               });
               sizeControl.append(select); tile.prepend(sizeControl);
             }
@@ -401,6 +421,12 @@
           return src.slice(0, 2).toUpperCase();
         }
 
+        function getDashboardTileSize(tileId, fallback = '4x2') {
+          const tile = document.querySelector(`[data-tile-id="${tileId}"]`);
+          const entry = dashboardLayout?.tiles?.[tileId] || dashboardLayout?.blankTiles?.[tileId];
+          return entry?.size || tile?.dataset?.tileSize || fallback;
+        }
+
         function renderAccount(profile, authUser) {
           const wrap = document.getElementById('account-summary-content');
           const username = profile?.username || authUser?.username || 'unavailable';
@@ -412,8 +438,10 @@
             accountLevel: Number(profile?.accountLevel || profile?.account_level || 1) || 1,
             rank: profile?.rank || { name: 'Unranked' }
           };
+          const snapshotTileSize = getDashboardTileSize('profile-snapshot', '4x2');
           wrap.textContent = '';
-          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true });
+          wrap.dataset.tileSize = snapshotTileSize;
+          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true, tileSize: snapshotTileSize });
           else wrap.textContent = `${snapshotProfile.display_name} (@${snapshotProfile.username})`;
         }
 
