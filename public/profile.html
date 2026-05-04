@@ -1,147 +1,45 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Profile</title><link rel="stylesheet" href="/styles.css" /></head><body>
+<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Grev - Profile</title><link rel="stylesheet" href="/styles.css" /><style>
+.profile-page-custom-shell{position:relative;padding:12px;border-radius:14px;overflow:hidden}.profile-page-custom-shell::before{content:'';position:absolute;inset:0;background:rgba(0,0,0,var(--profile-overlay,0.2));pointer-events:none}.profile-page-custom-shell>*{position:relative;z-index:1}
+.profile-page-board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-auto-rows:95px;gap:10px;max-width:1100px;margin:0 auto}
+.profile-page-tile{background:rgba(16,16,20,.82);border:1px solid #2b2f38;border-radius:12px;padding:10px;position:relative;overflow:auto}.profile-page-tile h3{margin:0 0 6px}
+.profile-page-edit-controls{position:absolute;top:6px;right:6px;display:none;gap:4px}.profile-page-editing .profile-page-edit-controls{display:flex}
+.profile-layout-panel{margin:12px auto;max-width:1100px;padding:10px;border:1px solid #2b2f38;border-radius:10px;background:#111a}.profile-layout-panel[hidden]{display:none}
+@media (max-width:800px){.profile-page-board{grid-template-columns:1fr}.profile-page-tile{grid-column:1!important;grid-row:auto!important}}
+</style></head><body>
 <header class="site-header"><a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev" /></a><nav id="authStatus" class="site-nav">Checking login...</nav></header>
-<main><h1>Profile</h1><p id="profile-status">Loading...</p><div id="profile-view"></div></main>
+<main><h1>Profile Page</h1><p id="profile-status">Loading...</p><div id="profile-toolbar"></div><div id="profile-view"></div></main>
 <script src='/scripts/level-badge.js'></script><script src='/scripts/player-card.js'></script><script>
-let meId=null;const esc=s=>String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));const initials=n=>{const p=String(n||'?').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[1]?.[0]||'')).toUpperCase();};
-function showcaseMarkup(showcase){const slots=Array.isArray(showcase)?showcase:[];const rarityColor={common:'#9ca8b7',uncommon:'#2f8f4e',rare:'#2e7dff',epic:'#8a4fff',legendary:'#d49100'};return `<section><h2>Showcase</h2><div class='showcase-grid'>${[1,2,3,4].map(i=>{const slot=slots.find(s=>Number(s.slot)===i);const u=slot?.unlock;if(!u)return `<article class='showcase-slot showcase-slot-empty'><div class='showcase-title'>Slot ${i}</div><div>Empty showcase slot</div></article>`;return `<article class='showcase-slot'><div class='showcase-icon'>${u.icon_url?`<img src='${esc(u.icon_url)}' alt='icon'/>`:'▣'}</div><div class='showcase-title'>${esc(u.name)}</div><div class='showcase-meta'>${esc(u.unlock_type)} · <span class='showcase-rarity' style='color:${rarityColor[u.rarity]||'#9ca8b7'}'>${esc(u.rarity)}</span></div>${u.description?`<div>${esc(u.description)}</div>`:''}</article>`;}).join('')}</div></section>`;}
-function levelBadgeHtml(level){ if(window.renderLevelBadge){ const w=document.createElement('div'); w.append(window.renderLevelBadge(level)); return w.innerHTML; } return `Lv. ${Number(level)||1}`;}
-function safeBannerSize(value){const allowed=new Set(["compact","wide","tall","full"]);const text=String(value||"wide").trim().toLowerCase();return allowed.has(text)?text:"wide";}
-function safeBackgroundSize(value){const allowed=new Set(["cover","contain","repeat","stretch","center"]);const text=String(value||"cover").trim().toLowerCase();return allowed.has(text)?text:"cover";}
-function render(p){const own=meId===p.id;const showLevel=Number(p.show_level)!==0;const bannerSize=safeBannerSize(p.banner_display_size);const bannerClass=`profile-banner profile-banner-size-${bannerSize}`;const banner=p.banner_url?`<img class='${bannerClass}' src='${esc(p.banner_url)}' alt='banner'/>`:'';const bgMode=safeBackgroundSize(p.profile_background_size);const bgStyleMap={cover:'background-size:cover;background-position:center;background-repeat:no-repeat;',contain:'background-size:contain;background-position:center;background-repeat:no-repeat;',repeat:'background-size:auto;background-position:top left;background-repeat:repeat;',stretch:'background-size:100% 100%;background-position:center;background-repeat:no-repeat;',center:'background-size:auto;background-position:center;background-repeat:no-repeat;'};const bgStyle=p.profile_background_url?`background-image:url("${esc(p.profile_background_url)}");${bgStyleMap[bgMode]||bgStyleMap.cover}`:'';const accent=p.profile_accent_colour?`border-color:${esc(p.profile_accent_colour)};`:'';let card=`<div>${esc(p.display_name||p.username)}</div>`;try{if(window.renderPlayerCard){card=window.renderPlayerCard({...p, card_border_colour:p.card_border_colour||p.profile_accent_colour},{variant:'full',showXp:showLevel,useCardSettings:true,link:false});}}catch(error){console.error('[profile] render failed',error);card=`<article class='player-card player-card-custom player-card-full-variant'><div class='player-card-body'><div class='player-card-name'>${esc(p.display_name||p.username||'User')}</div></div></article>`;}document.getElementById('profile-view').innerHTML=`<section class='profile-background profile-background-size-${bgMode}' style='${bgStyle}${accent}'><div class='profile-banner-wrap'>${banner}<div class='profile-banner-actions'>${own?"<a class='nav-button' href='/profile-edit.html'>Edit Profile</a> <a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a> <a class='nav-button' href='/account.html'>Account Settings</a>":''}</div></div><section class='profile-player-card-section'><div id='profile-player-card'>${card}</div></section><section class='profile-summary'>${p.profile_title?`<div>${esc(p.profile_title)}</div>`:''}${p.location?`<div>${esc(p.location)}</div>`:''}${p.website_url?`<div><a href='${esc(p.website_url)}' target='_blank' rel='noopener noreferrer'>${esc(p.website_url)}</a></div>`:''}${p.bio?`<p>${esc(p.bio)}</p>`:''}</section></section><section class='profile-integration-grid' id='profile-integrations'></section>${showcaseMarkup(p.showcase)}`;}
-async function fetchJsonSafe(url, options = {}) {
-  const response = await fetch(url, options);
-  const text = await response.text();
-  let data = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    throw new Error(`Invalid JSON from ${url}: ${text.slice(0, 120)}`);
-  }
-
-  if (!response.ok || !data || data.ok === false) {
-    throw new Error((data && data.error) || `Request failed: ${response.status}`);
-  }
-
-  return data;
+let meId=null,currentProfile=null,profileEditMode=false;
+const DEFAULT_PROFILE_PAGE_LAYOUT={widgets:{'profile-card':{col:1,row:1,size:'4x2',enabled:true},bio:{col:1,row:3,size:'4x2',enabled:true},status:{col:1,row:5,size:'2x1',enabled:true},steam:{col:5,row:1,size:'2x2',enabled:true},leetify:{col:7,row:1,size:'2x2',enabled:true},showcase:{col:5,row:3,size:'4x2',enabled:true},links:{col:7,row:5,size:'2x1',enabled:true},progress:{col:5,row:5,size:'2x2',enabled:true}}};
+const ALLOWED_SIZES=new Set(['2x1','2x2','4x1','4x2','4x3','4x4','6x2','6x4']);
+const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+function safeBackgroundSize(v){return ['cover','contain','repeat','stretch','center'].includes(String(v))?v:'cover';}
+function parseProfileWidgetSize(size){const [w,h]=String(size||'2x2').split('x').map(Number);return {w:w||2,h:h||2};}
+function parseProfileLayout(raw){try{const parsed=raw?JSON.parse(raw):{};const out=JSON.parse(JSON.stringify(DEFAULT_PROFILE_PAGE_LAYOUT));for(const [k,v] of Object.entries(parsed.widgets||{})){if(!out.widgets[k]||!v)continue;if(Number.isInteger(v.col)&&v.col>0)out.widgets[k].col=v.col;if(Number.isInteger(v.row)&&v.row>0)out.widgets[k].row=v.row;if(ALLOWED_SIZES.has(v.size))out.widgets[k].size=v.size;if(typeof v.enabled==='boolean')out.widgets[k].enabled=v.enabled;}return out;}catch{return JSON.parse(JSON.stringify(DEFAULT_PROFILE_PAGE_LAYOUT));}}
+function widgetEnabledByData(id,p){if(id==='bio')return !!(p.bio||p.location||p.website_url);if(id==='status')return !!p.status_message;if(id==='steam')return !!p.steam_url;if(id==='leetify')return !!p.leetify_url;if(id==='showcase')return Array.isArray(p.showcase)&&p.showcase.some(s=>s?.unlock);if(id==='links')return !!(p.website_url||p.steam_url||p.leetify_url);return true;}
+function createWidget(id,p){if(id==='profile-card'){let card='<div>Profile Card unavailable.</div>';try{card=window.renderPlayerCard?window.renderPlayerCard({...p},{variant:'full',showXp:true,useCardSettings:true,link:false}):card;}catch{}return `<div class='profile-widget-card'>${card}</div>`;}
+if(id==='bio')return `<div class='profile-widget-bio'><h3>Bio</h3><div>${esc(p.profile_title||'')}</div><div>${esc(p.location||'')}</div><p>${esc(p.bio||'No bio set.')}</p></div>`;
+if(id==='status')return `<div class='profile-widget-status'><h3>Status</h3><div>${esc(p.status_message||'No status set.')}</div></div>`;
+if(id==='links')return `<div class='profile-widget-links'><h3>Links</h3>${p.website_url?`<a href='${esc(p.website_url)}' target='_blank' rel='noopener'>Website</a><br>`:''}${p.steam_url?`<a href='${esc(p.steam_url)}' target='_blank' rel='noopener'>Steam</a><br>`:''}${p.leetify_url?`<a href='${esc(p.leetify_url)}' target='_blank' rel='noopener'>Leetify</a>`:''}</div>`;
+if(id==='progress')return `<div><h3>Level / Rank / XP</h3><div>Level ${esc(p.accountLevel||1)}</div><div>${esc(p.rank?.label||'Rank unavailable')}</div><div>${esc(p.accountXpCurrent||0)}/${esc(p.accountXpRequired||100)} XP</div></div>`;
+if(id==='showcase')return `<div class='profile-widget-showcase'><h3>Showcase</h3><div>${(p.showcase||[]).filter(s=>s.unlock).map(s=>esc(s.unlock.name)).join(', ')||'No showcase items.'}</div></div>`;
+if(id==='steam')return `<div class='profile-widget-steam'><h3>Steam Profile</h3><div id='steam-widget-body'>Loading…</div></div>`;
+if(id==='leetify')return `<div class='profile-widget-leetify'><h3>Leetify Profile</h3><div id='leetify-widget-body'>Loading…</div></div>`;
+return '<div>Widget unavailable.</div>';}
+function renderProfileTilePositions(profileLayout,p){const board=document.getElementById('profile-page-board');board.innerHTML='';for(const [id,entry] of Object.entries(profileLayout.widgets)){const shouldShow=entry.enabled && (widgetEnabledByData(id,p)||meId===p.id);if(!shouldShow)continue;const {w,h}=parseProfileWidgetSize(entry.size);const tile=document.createElement('article');tile.className=`profile-page-tile profile-widget-${id}`;tile.dataset.widgetId=id;tile.style.gridColumn=`${entry.col} / span ${w}`;tile.style.gridRow=`${entry.row} / span ${h}`;tile.innerHTML=`${createWidget(id,p)}<div class='profile-page-edit-controls'><button onclick="moveProfileWidget('${id}','left')">←</button><button onclick="moveProfileWidget('${id}','right')">→</button><button onclick="moveProfileWidget('${id}','up')">↑</button><button onclick="moveProfileWidget('${id}','down')">↓</button><select onchange="resizeProfileWidget('${id}',this.value)">${[...ALLOWED_SIZES].map(s=>`<option ${s===entry.size?'selected':''}>${s}</option>`).join('')}</select></div>`;board.append(tile);}loadIntegrationWidgets(p);}
+function compactProfileLayout(){}
+function moveProfileWidget(widgetId,d){const e=currentProfile.profileLayout.widgets[widgetId];if(!e)return;if(d==='left')e.col=Math.max(1,e.col-1);if(d==='right')e.col=Math.min(8,e.col+1);if(d==='up')e.row=Math.max(1,e.row-1);if(d==='down')e.row=Math.max(1,e.row+1);renderProfileTilePositions(currentProfile.profileLayout,currentProfile);} 
+function resizeProfileWidget(widgetId,size){if(!ALLOWED_SIZES.has(size))return;currentProfile.profileLayout.widgets[widgetId].size=size;renderProfileTilePositions(currentProfile.profileLayout,currentProfile);} 
+function createProfileEditControls(p){const own=meId===p.id;const toolbar=document.getElementById('profile-toolbar');if(!own){toolbar.innerHTML='';return;}toolbar.innerHTML=`<button class='nav-button' id='toggle-edit-layout'>Edit Profile Layout</button> <button class='nav-button' id='toggle-widget-panel'>Customise Profile Page</button><button class='nav-button' id='save-layout' hidden>Save Layout</button><button class='nav-button' id='cancel-layout' hidden>Cancel</button> <a class='nav-button' href='/profile-edit.html'>Edit Profile</a> <a class='nav-button' href='/profile-card-edit.html'>Edit Profile Card</a>`;
+const panel=document.getElementById('profile-layout-panel');
+document.getElementById('toggle-edit-layout').onclick=()=>{profileEditMode=!profileEditMode;document.getElementById('profile-page-board').classList.toggle('profile-page-editing',profileEditMode);document.getElementById('save-layout').hidden=!profileEditMode;document.getElementById('cancel-layout').hidden=!profileEditMode;};
+document.getElementById('toggle-widget-panel').onclick=()=>panel.hidden=!panel.hidden;document.getElementById('save-layout').onclick=saveProfilePageLayout;document.getElementById('cancel-layout').onclick=()=>location.reload();}
+function buildPanel(p){const panel=document.getElementById('profile-layout-panel');const groups={Main:['profile-card','bio','status'],Connections:['steam','leetify','links'],Progress:['progress'],Collection:['showcase']};panel.innerHTML=Object.entries(groups).map(([g,ids])=>`<h3>${g}</h3>${ids.map(id=>`<label><input type='checkbox' data-widget='${id}' ${currentProfile.profileLayout.widgets[id].enabled?'checked':''}/> ${id.replace('-',' ')}</label><br>`).join('')}`).join('');panel.querySelectorAll('input[data-widget]').forEach(i=>i.onchange=()=>{currentProfile.profileLayout.widgets[i.dataset.widget].enabled=!!i.checked;renderProfileTilePositions(currentProfile.profileLayout,p);});}
+async function saveProfilePageLayout(){const body={profile_page_background_url:currentProfile.profile_page_background_url||'',profile_page_background_colour:currentProfile.profile_page_background_colour||'',profile_page_background_size:currentProfile.profile_page_background_size||'cover',profile_page_overlay_strength:Number(currentProfile.profile_page_overlay_strength||20),profile_page_tile_layout_json:JSON.stringify(currentProfile.profileLayout),profile_page_widget_settings_json:currentProfile.profile_page_widget_settings_json||''};const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...currentProfile,...body})});document.getElementById('profile-status').textContent=r.ok?'Layout saved.':'Save failed.';}
+async function loadIntegrationWidgets(p){if(p.steam_url){const t=document.getElementById('steam-widget-body');try{const d=await (await fetch(`/api/integrations/steam/profile?user_id=${p.id}`)).json();t.innerHTML=d?.steam?`<a href='${esc(p.steam_url)}' target='_blank'>Open Steam Profile</a><div>${esc(d.steam.personaname||'Steam profile')}</div>`:`<a href='${esc(p.steam_url)}' target='_blank'>Open Steam Profile</a><div>Steam data unavailable.</div>`;}catch{t.innerHTML=`<a href='${esc(p.steam_url)}' target='_blank'>Open Steam Profile</a><div>Steam data unavailable.</div>`;}}
+if(p.leetify_url){const t=document.getElementById('leetify-widget-body');try{const d=await (await fetch(`/api/integrations/leetify/profile?user_id=${p.id}`)).json();t.innerHTML=d?.leetify?`<a href='${esc(p.leetify_url)}' target='_blank'>Open Leetify Profile</a><div>${esc(d.leetify.name||'Leetify profile')}</div>`:`<a href='${esc(p.leetify_url)}' target='_blank'>Open Leetify Profile</a><div>Leetify data unavailable.</div>`;}catch{t.innerHTML=`<a href='${esc(p.leetify_url)}' target='_blank'>Open Leetify Profile</a><div>Leetify data unavailable.</div>`;}}
 }
-
-
-function integrationLink(url,label){return `<a class='integration-link' href='${esc(url)}' target='_blank' rel='noopener noreferrer'>${esc(label)}</a>`;}
-async function loadSteamBox(profile){
-  const box=document.getElementById('steam-profile-box-content');
-  if(!box) return;
-  try{ const data=await fetchIntegrationJson(`/api/integrations/steam/profile?user_id=${encodeURIComponent(profile.id)}`); const steam=data?.steam; if(!steam){ box.innerHTML+=`<div>Steam data unavailable.</div>`; return; }
-    const avatar=steam.avatarfull||steam.avatarmedium||steam.avatar;
-    const steamName=steam.personaname||steam.steamID||'';
-    const onlineState=steam.onlineState||'Unknown';
-    const visibility=steam.visibilityState||'Unknown';
-    const levelText=steam.steamLevel!=null?String(steam.steamLevel):'Unavailable';
-    const levelReason=steam.steamLevel==null&&steam.steamLevelUnavailableReason?`<div>${esc(steam.steamLevelUnavailableReason)}</div>`:'';
-    box.innerHTML=`<div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div>${avatar?`<img class='steam-profile-avatar' src='${esc(avatar)}' alt='Steam avatar'/>`:''}<div class='steam-profile-meta'><div>${esc(steamName)}</div><div>${steam.available?`Status: ${esc(onlineState)}`:'Steam data unavailable.'}</div>${steam.available?`<div>Visibility: ${esc(String(visibility))}</div><div>Steam Level: ${esc(levelText)}</div>${levelReason}`:''}</div>`;
-  }catch{ box.innerHTML+=`<div>Steam data unavailable.</div>`; }
-}
-
-async function loadLeetifyBox(profile){
-  const box=document.getElementById('leetify-profile-box-content');
-  if(!box) return;
-  try{ const data=await fetchIntegrationJson(`/api/integrations/leetify/profile?user_id=${encodeURIComponent(profile.id)}`); const leetify=data?.leetify; if(!leetify){ box.innerHTML+=`<div>Leetify data unavailable.</div>`; return; }
-    const bits=[];
-    if(leetify.name||leetify.nickname) bits.push(`<div>${esc(leetify.name||leetify.nickname)}</div>`);
-    if(leetify.leetifyRating!=null) bits.push(`<div>Leetify rating: ${esc(String(leetify.leetifyRating))}</div>`);
-    if(leetify.aimRating!=null) bits.push(`<div>Aim rating: ${esc(String(leetify.aimRating))}</div>`);
-    if(leetify.utilityRating!=null) bits.push(`<div>Utility rating: ${esc(String(leetify.utilityRating))}</div>`);
-    if(leetify.clutchRating!=null) bits.push(`<div>Clutch rating: ${esc(String(leetify.clutchRating))}</div>`);
-    if(leetify.recentMatchesCount!=null) bits.push(`<div>Recent matches: ${esc(String(leetify.recentMatchesCount))}</div>`);
-    box.innerHTML=`<div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div>${leetify.available&&bits.length?bits.join(''):'<div>Leetify data unavailable.</div>'}`;
-  }catch{ box.innerHTML+=`<div>Leetify data unavailable.</div>`; }
-}
-async function fetchIntegrationJson(url){
-  const response=await fetch(url,{credentials:"same-origin"});
-  const text=await response.text();
-  let data=null;
-  try{data=text?JSON.parse(text):null;}catch{return null;}
-  if(!response.ok||!data) return null;
-  return data;
-}
-
-function withProfileFallbackFromAuth(authData){
-  const user=authData?.user||authData||{};
-  const username=String(user.username||'Unavailable');
-  return {
-    id:user.id||null,
-    username,
-    role:user.role||'Unavailable',
-    roleLabel:user.roleLabel||user.role||'Unavailable',
-    display_name:username,
-    show_level:1,
-    show_rank:1,
-    accountLevel:1,
-    accountXpCurrent:0,
-    accountXpRequired:100,
-    accountXpPercent:0,
-    rank:null,
-    showcase:[]
-  };
-}
-
-function unavailableFallbackProfile(){
-  return {
-    id:null,
-    username:'Unavailable',
-    role:'Unavailable',
-    roleLabel:'Unavailable',
-    display_name:'Unavailable',
-    show_level:1,
-    show_rank:1,
-    accountLevel:1,
-    accountXpCurrent:0,
-    accountXpRequired:100,
-    accountXpPercent:0,
-    rank:null,
-    showcase:[]
-  };
-}
-
-async function load(){
-  const statusEl=document.getElementById('profile-status');
-  const id=new URLSearchParams(location.search).get('id');
-  let authData=null;
-
-  try{
-    authData=await fetchJsonSafe('/api/auth/me');
-    meId=authData?.user?.id||null;
-  }catch(error){
-    meId=null;
-    console.error('[profile] Failed to load profile', error);
-  }
-
-  try{
-    const profileData=await fetchJsonSafe(id?`/api/profile?id=${encodeURIComponent(id)}`:'/api/profile/me');
-    statusEl.textContent='Loaded.';
-    const profile=profileData.profile||unavailableFallbackProfile();
-    try{render(profile);}catch(error){console.error("[profile] render failed",error);statusEl.textContent="Could not render profile.";try{render(unavailableFallbackProfile());}catch{document.getElementById('profile-view').textContent='Could not load profile.';}}
-    const integrations=document.getElementById('profile-integrations');
-    if(integrations){
-      const parts=[];
-      if(profile.steam_url){ parts.push(`<article class='steam-profile-box'><h2>Steam Profile</h2><div id='steam-profile-box-content'><div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div></div></article>`);}
-      if(profile.leetify_url){ parts.push(`<article class='leetify-profile-box'><h2>Leetify</h2><div id='leetify-profile-box-content'><div>${integrationLink(profile.leetify_url,'Open Leetify Profile')}</div></div></article>`);}
-      integrations.innerHTML=parts.join('');
-      if(profile.steam_url){ loadSteamBox(profile); }
-      if(profile.leetify_url){ loadLeetifyBox(profile); }
-    }
-    return;
-  }catch(error){
-    console.error('[profile] Failed to load profile', error);
-    if(!id&&authData){
-      statusEl.textContent='Loaded with limited data.';
-      try{render(withProfileFallbackFromAuth(authData));}catch(error){console.error("[profile] render failed",error);document.getElementById('profile-view').textContent='Could not load profile.';}
-      return;
-    }
-    statusEl.textContent='Could not load profile.';
-    try{render(unavailableFallbackProfile());}catch(error){console.error("[profile] render failed",error);document.getElementById('profile-view').textContent='Could not load profile.';}
-  }
-}
-
+function render(p){currentProfile=p;currentProfile.profileLayout=parseProfileLayout(p.profile_page_tile_layout_json);const bg=safeBackgroundSize(p.profile_page_background_size||'cover');const overlay=Math.min(80,Math.max(0,Number(p.profile_page_overlay_strength||20)));const shell=document.createElement('section');shell.className='profile-page-custom-shell';shell.style.setProperty('--profile-overlay',String(overlay/100));shell.style.backgroundColor=p.profile_page_background_colour||'#0f1117';if(p.profile_page_background_url){shell.style.backgroundImage=`url("${p.profile_page_background_url.replace(/"/g,'')}")`;}shell.style.backgroundSize=bg==='stretch'?'100% 100%':bg==='repeat'?'auto':bg;shell.style.backgroundRepeat=bg==='repeat'?'repeat':'no-repeat';shell.style.backgroundPosition=bg==='center'?'center':'center';shell.innerHTML="<section id='profile-page-board' class='profile-page-board'></section><aside id='profile-layout-panel' class='profile-layout-panel' hidden></aside>";const v=document.getElementById('profile-view');v.innerHTML='';v.append(shell);renderProfileTilePositions(currentProfile.profileLayout,p);createProfileEditControls(p);buildPanel(p);} 
+async function load(){const statusEl=document.getElementById('profile-status');const id=new URLSearchParams(location.search).get('id');try{const me=await fetch('/api/auth/me');if(me.ok){const d=await me.json();meId=d?.user?.id||null;}}catch{}const r=await fetch(id?`/api/profile?id=${encodeURIComponent(id)}`:'/api/profile/me');const d=await r.json();if(!r.ok){statusEl.textContent=d.error||'Load failed';return;}render(d.profile||{});statusEl.textContent='Loaded.';}
 load();
 </script><script src="/scripts/theme.js"></script><script src="/scripts/auth-status.js"></script></body></html>
