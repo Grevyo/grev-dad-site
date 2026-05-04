@@ -615,7 +615,11 @@
         }
 
         function getDashboardTileSize(tileId, fallback = '4x2') {
-          const entry = dashboardLayout?.tiles?.[tileId] || dashboardLayout?.blankTiles?.[tileId];
+          const entry =
+            dashboardLayout?.tiles?.[tileId] ||
+            dashboardLayout?.customTiles?.[tileId] ||
+            dashboardLayout?.blankTiles?.[tileId];
+
           return entry?.size || fallback;
         }
 
@@ -803,17 +807,12 @@
             if (!profileLike) { wrap.textContent = 'Member Profile Card unavailable.'; return; }
             const username = profileLike.username || '';
             profileLike = { ...profileLike, display_name: profileLike.display_name || username, accountLevel: Number(profileLike.accountLevel || profileLike.account_level || 1) || 1, rank: profileLike.rank || { name: 'Unranked' } };
-            const tileSize = getDashboardTileSize(tileId, '2x1');
-            console.debug('[dashboard] Member Profile Card full config', {
+            const tileSize = getDashboardTileSize(tileId, '4x2');
+            console.debug('[dashboard] Member Profile Card render', {
               tileId,
               memberId,
               tileSize,
-              source: profileSource,
-              card_show_xp: profileLike.card_show_xp,
-              card_show_status: profileLike.card_show_status,
-              card_show_steam: profileLike.card_show_steam,
-              card_show_leetify: profileLike.card_show_leetify,
-              card_grid_columns: profileLike.card_grid_columns,
+              customTileEntry: dashboardLayout.customTiles?.[tileId],
               hasCardBackground: Boolean(profileLike.card_background_url),
               hasCardTileSettings: Boolean(profileLike.cardTileSettings || profileLike.card_tile_settings_json)
             });
