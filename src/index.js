@@ -586,6 +586,18 @@ async function handleLeetifyProfile(request, env) {
 
 function readSteamCache(cacheKey) { const cached = steamProfileCache.get(cacheKey); if (!cached) return null; if (cached.expiresAt < Date.now()) { steamProfileCache.delete(cacheKey); return null; } return cached.data; }
 function writeSteamCache(cacheKey, data) { steamProfileCache.set(cacheKey, { expiresAt: Date.now() + STEAM_PROFILE_CACHE_TTL_MS, data }); return data; }
+function readSteamXmlField(xml, tag) {
+  const match = String(xml || '').match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return match ? match[1].trim() : null;
+}
+function decodeXmlEntities(value) {
+  return String(value || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+}
 async function handleSteamProfile(request, env) {
   const user = await getCurrentUser(request, env);
   if (!user) return json({ ok:false, error:'Not logged in' },401);
@@ -603,30 +615,57 @@ async function handleSteamProfile(request, env) {
   const cached = readSteamCache(cacheKey);
   if (cached) return json(cached);
 
-  const apiKey=env.STEAM_API_KEY;
-  if(!apiKey){
-    return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam API key not configured' } }));
-  }
-
   try {
-    let steamid = parsed.steamid;
-    if(!steamid && parsed.vanity){
-      const vanityParams = new URLSearchParams({ key: apiKey, vanityurl: parsed.vanity });
-      const vr=await fetch(`https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?${vanityParams.toString()}`);
-      const vd=await vr.json();
-      steamid=vd?.response?.steamid||null;
-    }
-    if(!steamid){
+    const xmlUrl = profileUrl.includes('?') ? `${profileUrl}&xml=1` : `${profileUrl}?xml=1`;
+    const xmlResponse = await fetch(xmlUrl);
+    const xmlText = await xmlResponse.text();
+    const xmlSteamId64 = readSteamXmlField(xmlText, 'steamID64');
+    const xmlSteamName = decodeXmlEntities(readSteamXmlField(xmlText, 'steamID') || '');
+    const xmlCustomUrl = readSteamXmlField(xmlText, 'customURL');
+    const xmlError = readSteamXmlField(xmlText, 'error');
+    if (!xmlResponse.ok || xmlError || !xmlSteamId64) {
       return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
     }
-    const summaryParams = new URLSearchParams({ key: apiKey, steamids: steamid });
-    const sr=await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?${summaryParams.toString()}`);
-    const sd=await sr.json();
-    const pl=sd?.response?.players?.[0];
-    if(!pl){
-      return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
+
+    const steam = {
+      available: true,
+      profileUrl,
+      steamid: xmlSteamId64,
+      steamID64: xmlSteamId64,
+      personaname: xmlSteamName || null,
+      steamID: xmlSteamName || null,
+      avatar: readSteamXmlField(xmlText, 'avatarIcon'),
+      avatarmedium: readSteamXmlField(xmlText, 'avatarMedium'),
+      avatarfull: readSteamXmlField(xmlText, 'avatarFull'),
+      onlineState: readSteamXmlField(xmlText, 'onlineState'),
+      privacyState: readSteamXmlField(xmlText, 'privacyState'),
+      visibilityState: readSteamXmlField(xmlText, 'visibilityState'),
+      customURL: xmlCustomUrl,
+      memberSince: readSteamXmlField(xmlText, 'memberSince'),
+      location: readSteamXmlField(xmlText, 'location'),
+      realname: decodeXmlEntities(readSteamXmlField(xmlText, 'realname') || '') || null,
+      summary: decodeXmlEntities(readSteamXmlField(xmlText, 'summary') || '') || null,
+      steamLevel: null
+    };
+
+    const apiKey=env.STEAM_API_KEY;
+    if (!apiKey) {
+      steam.steamLevelUnavailableReason = 'Steam level requires Steam Web API key';
+      return json(writeSteamCache(cacheKey,{ ok:true, steam }));
     }
-    return json(writeSteamCache(cacheKey,{ok:true, steam:{ available:true, profileUrl, steamid:pl.steamid, personaname:pl.personaname, profileurl:pl.profileurl, avatar:pl.avatar, avatarmedium:pl.avatarmedium, avatarfull:pl.avatarfull, personastate:pl.personastate, communityvisibilitystate:pl.communityvisibilitystate, lastlogoff:pl.lastlogoff ?? null }}));
+
+    try {
+      const levelParams = new URLSearchParams({ key: apiKey, steamid: xmlSteamId64 });
+      const levelResp = await fetch(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?${levelParams.toString()}`);
+      const levelData = await levelResp.json();
+      steam.steamLevel = Number.isFinite(Number(levelData?.response?.player_level)) ? Number(levelData.response.player_level) : null;
+      if (steam.steamLevel == null) steam.steamLevelUnavailableReason = 'Steam level unavailable from Steam Web API';
+    } catch {
+      steam.steamLevel = null;
+      steam.steamLevelUnavailableReason = 'Steam level unavailable from Steam Web API';
+    }
+
+    return json(writeSteamCache(cacheKey,{ok:true, steam}));
   } catch {
     return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
   }

@@ -33,9 +33,12 @@ async function loadSteamBox(profile){
   if(!box) return;
   try{ const data=await fetchIntegrationJson(`/api/integrations/steam/profile?user_id=${encodeURIComponent(profile.id)}`); const steam=data?.steam; if(!steam){ box.innerHTML+=`<div>Steam data unavailable.</div>`; return; }
     const avatar=steam.avatarfull||steam.avatarmedium||steam.avatar;
-    const statusMap={0:'Offline',1:'Online',2:'Busy',3:'Away',4:'Snooze',5:'Looking to trade',6:'Looking to play'};
-    const lastOnline=steam.lastlogoff?new Date(Number(steam.lastlogoff)*1000).toLocaleString():'';
-    box.innerHTML=`<div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div>${avatar?`<img class='steam-profile-avatar' src='${esc(avatar)}' alt='Steam avatar'/>`:''}<div class='steam-profile-meta'><div>${esc(steam.personaname||'')}</div><div>${steam.available?`Status: ${esc(statusMap[Number(steam.personastate)]||'Unknown')}`:'Steam data unavailable.'}</div>${steam.available?`<div>Visibility: ${esc(String(steam.communityvisibilitystate ?? 'Unknown'))}</div>`:''}${lastOnline?`<div>Last online: ${esc(lastOnline)}</div>`:''}</div>`;
+    const steamName=steam.personaname||steam.steamID||'';
+    const onlineState=steam.onlineState||'Unknown';
+    const visibility=steam.visibilityState||'Unknown';
+    const levelText=steam.steamLevel!=null?String(steam.steamLevel):'Unavailable';
+    const levelReason=steam.steamLevel==null&&steam.steamLevelUnavailableReason?`<div>${esc(steam.steamLevelUnavailableReason)}</div>`:'';
+    box.innerHTML=`<div>${integrationLink(profile.steam_url,'Open Steam Profile')}</div>${avatar?`<img class='steam-profile-avatar' src='${esc(avatar)}' alt='Steam avatar'/>`:''}<div class='steam-profile-meta'><div>${esc(steamName)}</div><div>${steam.available?`Status: ${esc(onlineState)}`:'Steam data unavailable.'}</div>${steam.available?`<div>Visibility: ${esc(String(visibility))}</div><div>Steam Level: ${esc(levelText)}</div>${levelReason}`:''}</div>`;
   }catch{ box.innerHTML+=`<div>Steam data unavailable.</div>`; }
 }
 
