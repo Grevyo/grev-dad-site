@@ -8,7 +8,7 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="site-brand" href="/" aria-label="Grev home"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev" /></a>
+      <a class="site-brand" href="/" aria-label="Grev dashboard"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev" /></a>
       <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
     </header>
 
@@ -17,11 +17,11 @@
         <h1>Your Dashboard</h1>
         <div class="dashboard-edit-controls">
           <button id="dashboard-customise-toggle" type="button" class="nav-button">Customise Dashboard</button>
-          <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit homepage</button>
+          <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit Dashboard</button>
           <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
       </div>
-      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your homepage and resize cards.</p>
+      <p id="dashboard-edit-help" class="dashboard-edit-help" hidden>Use arrow buttons to reorder your dashboard and resize cards.</p>
 
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
@@ -88,7 +88,7 @@
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const editHelp = document.getElementById('dashboard-edit-help');
-        editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.';
+        editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.';
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
@@ -264,8 +264,11 @@
             }
 
             const isHidden = hiddenSet.has(id);
-            const isMissing = !dashboardLayout.tiles[id];
-            const isDisabled = !isEnabledTile(id);
+            const isCustomTile = !!dashboardLayout.customTiles?.[id];
+            const isNormalTile = !!dashboardLayout.tiles?.[id];
+            const isBlankTile = !!dashboardLayout.blankTiles?.[id];
+            const isMissing = !isNormalTile && !isCustomTile && !isBlankTile;
+            const isDisabled = !isCustomTile && !isBlankTile && !isEnabledTile(id);
             if (isHidden || isMissing || isDisabled) tile.remove();
           });
 
@@ -276,7 +279,12 @@
           Object.keys(dashboardLayout.customTiles || {}).forEach((id) => {
             const entry = dashboardLayout.customTiles[id];
             if (!entry || entry.type !== 'member-card') return;
-            if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeMemberCardTile(id, entry.memberId));
+            let tile = grid.querySelector(`[data-tile-id="${id}"]`);
+            if (!tile) {
+              tile = makeMemberCardTile(id, entry.memberId);
+              grid.append(tile);
+            }
+            loadMemberCardTile(id, entry.memberId);
           });
 
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
@@ -388,7 +396,7 @@
           editHelp.textContent = message;
           editHelp.hidden = false;
           clearTimeout(showTileMessage._t);
-          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.'; }, 1800);
+          showTileMessage._t = setTimeout(() => { if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.'; }, 1800);
         }
         function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
         function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
@@ -405,8 +413,29 @@
           tile.dataset.tileId = id;
           tile.dataset.customTileType = 'member-card';
           tile.innerHTML = `<h2>Member Card</h2><div class="custom-member-card-content" data-member-id="${memberId}">Loading…</div>`;
-          loadMemberCardTile(id, memberId);
           return tile;
+        }
+        async function ensurePlayerCardRenderer() {
+          if (window.renderPlayerCard) return true;
+          await new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[src="/scripts/player-card.js"]');
+            if (existing) {
+              existing.addEventListener('load', resolve, { once: true });
+              existing.addEventListener('error', reject, { once: true });
+              return;
+            }
+            const script = document.createElement('script');
+            script.src = '/scripts/player-card.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.append(script);
+          }).catch(() => {});
+          return !!window.renderPlayerCard;
+        }
+        function loadCustomMemberCardTiles() {
+          Object.entries(dashboardLayout.customTiles || {}).forEach(([tileId, entry]) => {
+            if (entry?.type === 'member-card') loadMemberCardTile(tileId, entry.memberId);
+          });
         }
         function debugTilePlacement(tileId) {
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
@@ -556,8 +585,8 @@
         document.addEventListener('click',(e)=>{ if(e.target&&e.target.id==='show-hidden-boxes'){const p=document.getElementById('hidden-boxes-panel'); p.hidden=!p.hidden;}});
         function setEditMode(enabled) {
           isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
-          editButton.textContent = isEditing ? 'Done editing' : 'Edit homepage'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
-          if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around the homepage layout.';
+          editButton.textContent = isEditing ? 'Done editing' : 'Edit Dashboard'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing; editHelp.hidden = !isEditing;
+          if (isEditing) editHelp.textContent = 'Use arrows or the ↕ handle to move tiles around your dashboard.';
           createEditControls(); document.getElementById('show-hidden-boxes').hidden=!isEditing; document.getElementById('hidden-boxes-panel').hidden=!isEditing; renderHiddenPanel(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
         }
 
@@ -743,20 +772,36 @@
         async function loadLeaderboardPreviewTile() { try { const lbEl=clearTile('leaderboard-preview-content'); if(!lbEl) return; const lb=await fetchJsonSafe('/api/leaderboard/levels'); const wrap=document.createElement('div'); wrap.className='homepage-tile-leaderboard'; (lb.leaderboard||[]).slice(0,5).forEach((u,i)=>{const div=document.createElement('div'); div.textContent=`${i+1}. ${u.username} `; if (window.grevDad?.level?.render) div.append(window.grevDad.level.render(u.accountLevel||1)); else div.append(document.createTextNode(`Lv. ${u.accountLevel||1}`)); wrap.append(div);}); const a=document.createElement('a'); a.href='/leaderboard.html'; a.textContent='Open leaderboard'; wrap.append(a); lbEl.append(wrap);} catch (error) { console.error('[home] leaderboard preview failed', error); showTileError('leaderboard-preview', 'Leaderboard unavailable.'); } }
         async function loadMemberSpotlightTile() { try { const msEl=clearTile('member-spotlight-content'); if(!msEl) return; const mr=await getMembersForHome(); const m=(mr?.members||[])[0]; if(!m) return setTileText('member-spotlight-content','No members available.'); const wrap=document.createElement('div'); wrap.className='homepage-tile-spotlight'; const strong=document.createElement('strong'); strong.textContent=m.display_name||m.username||'Unknown'; const user=document.createElement('div'); user.textContent='@'+(m.username||'unknown'); wrap.append(strong,user); msEl.append(wrap);} catch (error) { console.error('[home] member spotlight failed', error); showTileError('member-spotlight', 'Member spotlight unavailable.'); } }
         async function loadSiteNoticesTile() { const nt = clearTile('site-notices-content') || clearTile('coming-later-content'); if (!nt) return; const wrap = document.createElement('div'); wrap.className='homepage-tile-notices'; wrap.textContent='No site notices.'; nt.append(wrap); }
-        async function loadAdminQuickToolsTile() { try { const at=clearTile('admin-quick-tools-content'); if(!at) return; const authUser=(await getAuthForHome())?.user; if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Home</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Homepage Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";} else { at.textContent='Admin tools unavailable.'; } } catch (error) { console.error('[home] admin quick tools failed', error); showTileError('admin-quick-tools', 'Admin tools unavailable.'); } }
+        async function loadAdminQuickToolsTile() { try { const at=clearTile('admin-quick-tools-content'); if(!at) return; const authUser=(await getAuthForHome())?.user; if(authUser?.is_admin===1||authUser?.is_admin===true||authUser?.role==='admin'){at.innerHTML="<div class='homepage-tile-admin-tools'><a href='/admin.html'>Admin Dashboard</a> <a href='/admin.html#users'>Users</a> <a href='/admin.html#showcase'>Showcase Catalogue</a> <a href='/admin.html#homepage-tiles'>Dashboard Tile Settings</a> <a href='/admin.html#chat'>Chat Moderation</a></div>";} else { at.textContent='Admin tools unavailable.'; } } catch (error) { console.error('[home] admin quick tools failed', error); showTileError('admin-quick-tools', 'Admin tools unavailable.'); } }
         async function loadMemberCardTile(tileId, memberId) {
-          const wrap = grid.querySelector(`[data-tile-id="${tileId}"] .custom-member-card-content`);
-          if (!wrap) return;
+          const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+          const wrap = tile?.querySelector('.custom-member-card-content');
+          if (!wrap) {
+            console.warn('[dashboard] member card wrapper missing', { tileId, memberId });
+            return;
+          }
+          wrap.textContent = 'Loading member card…';
           try {
-            const res = await getMembersForHome();
-            const members = res?.members || res?.users || [];
-            const member = members.find((m) => Number(m.id) === Number(memberId));
-            if (!member) { wrap.textContent = 'Member unavailable.'; return; }
-            const username = member.username || '';
-            const profileLike = { ...member, display_name: member.display_name || username, accountLevel: Number(member.accountLevel || member.account_level || 1) || 1, rank: member.rank || { name: 'Unranked' } };
+            let profileLike = null;
+            try {
+              const profileRes = await fetchJsonSafe(`/api/profile?id=${encodeURIComponent(memberId)}`);
+              profileLike = profileRes?.profile || null;
+            } catch (_) {}
+            if (!profileLike) {
+              const res = await getMembersForHome();
+              const members = res?.members || res?.users || [];
+              profileLike = members.find((m) => Number(m.id) === Number(memberId)) || null;
+            }
+            if (!profileLike) { wrap.textContent = 'Member unavailable.'; return; }
+            const username = profileLike.username || '';
+            profileLike = { ...profileLike, display_name: profileLike.display_name || username, accountLevel: Number(profileLike.accountLevel || profileLike.account_level || 1) || 1, rank: profileLike.rank || { name: 'Unranked' } };
             const tileSize = getDashboardTileSize(tileId, '2x1');
-            wrap.innerHTML = window.renderPlayerCard ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: false, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
-            wrap.addEventListener('click', () => { window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`; });
+            const hasRenderer = await ensurePlayerCardRenderer();
+            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: false, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
+            wrap.onclick = () => {
+              if (isEditing) return;
+              window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`;
+            };
           } catch (error) {
             console.error('[home] member card failed', error);
             wrap.textContent = 'Member card unavailable.';
@@ -774,7 +819,7 @@
             'showcase-preview': { label: 'Showcase Preview', description: 'Recent showcase unlock highlights.' },
             'members-preview': { label: 'Members Preview', description: 'Quick list of community members.' },
             'member-spotlight': { label: 'Member Spotlight', description: 'Featured member card.' },
-            chat: { label: 'Global Chat', description: 'Homepage chat preview and quick send.' },
+            chat: { label: 'Global Chat', description: 'Dashboard chat preview and quick send.' },
             'leaderboard-preview': { label: 'Leaderboard Preview', description: 'Top players preview tile.' },
             'site-notices': { label: 'Site Notices', description: 'Announcements and site status.' },
             'admin-quick-tools': { label: 'Admin Quick Tools', description: 'Admin shortcuts and moderation links.' },
@@ -832,7 +877,7 @@
               b.onclick = () => {
                 if (exists) { delete dashboardLayout.customTiles[tileId]; const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
                 else { const size='2x1'; const pos=findNearestFreePosition(tileId,size); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size }; }
-                ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary();
+                ensureTilesExist(); renderTilePositions(); loadCustomMemberCardTiles(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary();
               };
               row.append(b); community.append(row);
             });
@@ -840,6 +885,7 @@
           root.append(community);
         }
         async function loadDashboard() {
+          loadCustomMemberCardTiles();
           await Promise.allSettled([
             loadAccountSnapshotTile(),
             loadQuickActionsTile(),
