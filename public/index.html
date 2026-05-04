@@ -180,9 +180,35 @@
               if (/^tile-\d+x\d+$/.test(className)) tile.classList.remove(className);
             });
             tile.classList.add(`tile-${entry.size}`);
-            if (isMobile) { tile.style.setProperty('grid-column', '1 / -1'); tile.style.setProperty('grid-row', 'auto'); return; }
-            tile.style.setProperty('grid-column', `${entry.col} / span ${w}`);
-            tile.style.setProperty('grid-row', `${entry.row} / span ${h}`);
+            tile.dataset.gridSize = entry.size;
+            tile.dataset.gridW = String(w);
+            tile.dataset.gridH = String(h);
+            if (isMobile) {
+              tile.style.removeProperty('grid-column-start');
+              tile.style.removeProperty('grid-column-end');
+              tile.style.removeProperty('grid-row-start');
+              tile.style.removeProperty('grid-row-end');
+              tile.style.setProperty('grid-column', '1 / -1', 'important');
+              tile.style.setProperty('grid-row', 'auto', 'important');
+              return;
+            }
+            tile.style.removeProperty('grid-column');
+            tile.style.removeProperty('grid-row');
+            tile.style.setProperty('grid-column-start', String(entry.col), 'important');
+            tile.style.setProperty('grid-column-end', `span ${w}`, 'important');
+            tile.style.setProperty('grid-row-start', String(entry.row), 'important');
+            tile.style.setProperty('grid-row-end', `span ${h}`, 'important');
+            if (id === 'profile-snapshot') {
+              const expectedRowEnd = `span ${h}`;
+              if (tile.style.gridRowEnd !== expectedRowEnd) {
+                console.error('[home] Profile Snapshot row span mismatch', {
+                  expected: expectedRowEnd,
+                  actual: tile.style.gridRowEnd,
+                  size: entry.size,
+                  parsed: { w, h }
+                });
+              }
+            }
             if (id === 'profile-snapshot' || id === 'quick-actions') {
               requestAnimationFrame(() => {
                 const cs = getComputedStyle(tile);
@@ -430,7 +456,7 @@
                 saveDesktopLayout();
                 saveMobileLayout();
                 renderTilePositions();
-                if (tileId === 'profile-snapshot' && wasShrink) {
+                if (tileId === 'profile-snapshot' && wasShrink && window.__HOME_ENABLE_PROFILE_SNAPSHOT_COMPACT__ === true) {
                   compactDashboardLayout(dashboardLayout, { preserveTileId: tileId });
                   saveDesktopLayout();
                   renderTilePositions();

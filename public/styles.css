@@ -374,7 +374,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-board::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(to right,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px);background-size:var(--dashboard-cell) var(--dashboard-cell);opacity:.55}
 .dashboard-grid{display:grid;grid-template-columns:repeat(var(--dashboard-cols),var(--dashboard-cell));grid-auto-rows:var(--dashboard-cell);gap:0;width:100vw;max-width:none;margin:0;padding:0;align-items:start;justify-content:start;grid-auto-flow:row;position:relative;z-index:1}
 .dashboard-tile{box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--border);background:var(--surface);padding:14px;border-radius:0;margin:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
-.tile-1x1{grid-column:span 1;grid-row:span 1}.tile-1x2{grid-column:span 1;grid-row:span 2}.tile-2x1{grid-column:span 2;grid-row:span 1}.tile-2x2{grid-column:span 2;grid-row:span 2}.tile-2x3{grid-column:span 2;grid-row:span 3}.tile-2x4{grid-column:span 2;grid-row:span 4}.tile-3x2{grid-column:span 3;grid-row:span 2}.tile-3x3{grid-column:span 3;grid-row:span 3}.tile-3x4{grid-column:span 3;grid-row:span 4}.tile-3x5{grid-column:span 3;grid-row:span 5}.tile-4x2{grid-column:span 4;grid-row:span 2}.tile-4x3{grid-column:span 4;grid-row:span 3}.tile-4x4{grid-column:span 4;grid-row:span 4}.tile-4x5{grid-column:span 4;grid-row:span 5}.tile-4x6{grid-column:span 4;grid-row:span 6}.tile-4x8{grid-column:span 4;grid-row:span 8}.tile-5x3{grid-column:span 5;grid-row:span 3}.tile-5x4{grid-column:span 5;grid-row:span 4}.tile-5x5{grid-column:span 5;grid-row:span 5}.tile-5x6{grid-column:span 5;grid-row:span 6}.tile-6x4{grid-column:span 6;grid-row:span 4}.tile-6x5{grid-column:span 6;grid-row:span 5}.tile-6x6{grid-column:span 6;grid-row:span 6}.tile-6x8{grid-column:span 6;grid-row:span 8}.tile-6x10{grid-column:span 6;grid-row:span 10}.tile-8x4{grid-column:span 8;grid-row:span 4}.tile-8x6{grid-column:span 8;grid-row:span 6}.tile-8x8{grid-column:span 8;grid-row:span 8}.tile-8x10{grid-column:span 8;grid-row:span 10}.tile-10x6{grid-column:span 10;grid-row:span 6}.tile-10x8{grid-column:span 10;grid-row:span 8}.tile-12x6{grid-column:span 12;grid-row:span 6}.tile-12x8{grid-column:span 12;grid-row:span 8}.tile-12x12{grid-column:span 12;grid-row:span 12}
+.tile-1x1{}.tile-1x2{}.tile-2x1{}.tile-2x2{}.tile-2x3{}.tile-2x4{}.tile-3x2{}.tile-3x3{}.tile-3x4{}.tile-3x5{}.tile-4x2{}.tile-4x3{}.tile-4x4{}.tile-4x5{}.tile-4x6{}.tile-4x8{}.tile-5x3{}.tile-5x4{}.tile-5x5{}.tile-5x6{}.tile-6x4{}.tile-6x5{}.tile-6x6{}.tile-6x8{}.tile-6x10{}.tile-8x4{}.tile-8x6{}.tile-8x8{}.tile-8x10{}.tile-10x6{}.tile-10x8{}.tile-12x6{}.tile-12x8{}.tile-12x12{}
 .tile-edit-controls{display:none;margin:0 0 8px 0}
 .dashboard-editing .tile-edit-controls{display:block;z-index:5}
 .tile-move-controls{display:grid;grid-template-columns:repeat(4,auto);gap:4px}
@@ -384,6 +384,8 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-editing .tile-drag-handle{display:inline-block}
 .dashboard-editing .profile-snapshot-tile{outline:2px solid color-mix(in srgb,var(--accent) 65%,transparent);outline-offset:-2px}
 .tile-dragging{opacity:.85}
+.dashboard-editing .profile-snapshot-tile::after{content:attr(data-grid-size);position:absolute;right:4px;bottom:4px;z-index:20;font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border);padding:2px 4px}
+
 
 .blank-remove-button{display:none;margin:0 0 8px 0}.dashboard-editing .blank-remove-button{display:inline-block;z-index:5}
 .profile-snapshot-tile{padding:0 !important;overflow:hidden;display:flex;flex-direction:column;position:relative}
@@ -405,11 +407,11 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .account-snapshot-compact .account-snapshot-avatar{width:64px;height:64px;min-width:64px;max-width:64px}
 .account-snapshot-compact{grid-template-columns:64px minmax(0,1fr);gap:12px}
 
-.profile-snapshot-tile{min-height:0 !important;height:100% !important;max-height:none;overflow:hidden}
+.profile-snapshot-tile{min-height:0 !important;max-height:none;overflow:hidden}
 .profile-snapshot-tile .profile-snapshot-card-fill,
 .profile-snapshot-tile .profile-snapshot-content,
 .profile-snapshot-tile #account-summary-content,
-.profile-snapshot-tile .player-card-snapshot-variant{min-height:0 !important;max-height:100%;overflow:hidden}
+.profile-snapshot-tile .player-card-snapshot-variant{height:100%;min-height:0 !important;max-height:100%;overflow:hidden}
 .blank-dashboard-tile{background:var(--bg)}
 .blank-dashboard-tile .blank-tile-label{display:none;color:var(--text-muted)}
 .dashboard-editing .blank-dashboard-tile .blank-tile-label{display:block}
