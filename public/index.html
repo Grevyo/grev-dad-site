@@ -788,21 +788,29 @@
           wrap.textContent = 'Loading member card…';
           try {
             let profileLike = null;
+            let usingBasicFallback = false;
             try {
               const profileRes = await fetchJsonSafe(`/api/profile?id=${encodeURIComponent(memberId)}`);
               profileLike = profileRes?.profile || null;
-            } catch (_) {}
+            } catch (error) {
+              console.warn('[dashboard] full member profile unavailable', memberId, error);
+            }
             if (!profileLike) {
               const res = await getMembersForHome();
               const members = res?.members || res?.users || [];
               profileLike = members.find((m) => Number(m.id) === Number(memberId)) || null;
+              if (profileLike) {
+                usingBasicFallback = true;
+                console.warn('[dashboard] using basic member fallback; full profile unavailable', memberId);
+              }
             }
             if (!profileLike) { wrap.textContent = 'Member unavailable.'; return; }
             const username = profileLike.username || '';
             profileLike = { ...profileLike, display_name: profileLike.display_name || username, accountLevel: Number(profileLike.accountLevel || profileLike.account_level || 1) || 1, rank: profileLike.rank || { name: 'Unranked' } };
             const tileSize = getDashboardTileSize(tileId, '2x1');
             const hasRenderer = await ensurePlayerCardRenderer();
-            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: false, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
+            const variant = usingBasicFallback ? 'snapshot' : 'member-dashboard';
+            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant, showXp: true, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
             wrap.onclick = () => {
               if (isEditing) return;
               window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`;
