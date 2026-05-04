@@ -184,6 +184,8 @@
             tile.dataset.gridW = String(w);
             tile.dataset.gridH = String(h);
             if (isMobile) {
+              tile.style.removeProperty('grid-column');
+              tile.style.removeProperty('grid-row');
               tile.style.removeProperty('grid-column-start');
               tile.style.removeProperty('grid-column-end');
               tile.style.removeProperty('grid-row-start');
@@ -207,6 +209,30 @@
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
             grid.append(...order.map((id) => grid.querySelector(`[data-tile-id="${id}"]`)));
           }
+        }
+        function debugTilePlacement(tileId) {
+          const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          if (!tile || !entry) return;
+          const cs = getComputedStyle(tile);
+          console.debug('[home:tile-placement]', tileId, {
+            entrySize: entry.size,
+            dataTileSize: tile.dataset.tileSize,
+            dataGridSize: tile.dataset.gridSize,
+            dataGridW: tile.dataset.gridW,
+            dataGridH: tile.dataset.gridH,
+            className: tile.className,
+            inlineColumnStart: tile.style.gridColumnStart,
+            inlineColumnEnd: tile.style.gridColumnEnd,
+            inlineRowStart: tile.style.gridRowStart,
+            inlineRowEnd: tile.style.gridRowEnd,
+            computedColumnStart: cs.gridColumnStart,
+            computedColumnEnd: cs.gridColumnEnd,
+            computedRowStart: cs.gridRowStart,
+            computedRowEnd: cs.gridRowEnd,
+            width: tile.getBoundingClientRect().width,
+            height: tile.getBoundingClientRect().height
+          });
         }
         function ensureTilesExist() {
           const hiddenSet = new Set(dashboardLayout.hiddenTiles || []);
