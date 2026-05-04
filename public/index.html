@@ -132,6 +132,9 @@
         function getTileEntries(layout = dashboardLayout) {
           return [...Object.entries(layout.tiles || {}), ...Object.entries(layout.customTiles || {}), ...Object.entries(layout.blankTiles || {})];
         }
+        function getLayoutEntry(layout, tileId) {
+          return layout?.tiles?.[tileId] || layout?.customTiles?.[tileId] || layout?.blankTiles?.[tileId] || null;
+        }
         function getTileRect(tileId, layout = dashboardLayout) {
           const entry = layout.tiles[tileId] || layout.customTiles?.[tileId] || layout.blankTiles[tileId];
           if (!entry) return null;
@@ -225,7 +228,7 @@
         }
         function debugTilePlacement(tileId) {
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          const entry = getLayoutEntry(dashboardLayout, tileId);
           if (!tile || !entry) return;
           const cs = getComputedStyle(tile);
           console.debug('[home:tile-placement]', tileId, {
@@ -342,9 +345,9 @@
             entry.row = best.row;
           }
         }
-        function pushBlockingTiles(tileId, layout = dashboardLayout){const entry=layout.tiles[tileId]||layout.blankTiles[tileId];if(!entry)return false;const queue=[tileId];const seen=new Set();while(queue.length){const current=queue.shift();if(seen.has(current))continue;seen.add(current);const rect=getTileRect(current,layout);if(!rect)continue;const blockers=getBlockingTiles(current,rect,layout);for(const blockerId of blockers){const blocker=layout.tiles[blockerId]||layout.blankTiles[blockerId];if(!blocker)continue;const next=findNearestFreePosition(blockerId,blocker.size,layout,{col:Math.min(getDashboardColumnCount(),rect.col+rect.w),row:rect.row});if(!next)return false;blocker.col=next.col;blocker.row=next.row;queue.push(blockerId);}}return true;}
+        function pushBlockingTiles(tileId, layout = dashboardLayout){const entry=getLayoutEntry(layout,tileId);if(!entry)return false;const queue=[tileId];const seen=new Set();while(queue.length){const current=queue.shift();if(seen.has(current))continue;seen.add(current);const rect=getTileRect(current,layout);if(!rect)continue;const blockers=getBlockingTiles(current,rect,layout);for(const blockerId of blockers){const blocker=getLayoutEntry(layout,blockerId);if(!blocker)continue;const next=findNearestFreePosition(blockerId,blocker.size,layout,{col:Math.min(getDashboardColumnCount(),rect.col+rect.w),row:rect.row});if(!next)return false;blocker.col=next.col;blocker.row=next.row;queue.push(blockerId);}}return true;}
         function tryMoveOrSwapTile(tileId, dx, dy) {
-          const source = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          const source = getLayoutEntry(dashboardLayout, tileId);
           if (!source) return false;
           const nc = source.col + dx; const nr = source.row + dy;
           if (canPlaceTile(tileId, nc, nr, source.size)) { source.col = nc; source.row = nr; saveDesktopLayout(); renderTilePositions(); createEditControls(); return true; }
@@ -361,7 +364,7 @@
           saveDesktopLayout(); renderTilePositions(); createEditControls(); return true;
         }
         function moveTileTo(tileId, col, row) {
-          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          const entry = getLayoutEntry(dashboardLayout, tileId);
           if (!entry) return false;
           const { w } = parseTileSize(entry.size);
           const maxCol = Math.max(1, getDashboardColumnCount() - w + 1);
@@ -407,7 +410,7 @@
         }
         function debugTilePlacement(tileId) {
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          const entry = getLayoutEntry(dashboardLayout, tileId);
           if (!tile || !entry) return;
           const cs = getComputedStyle(tile);
           console.debug('[home:tile-placement]', tileId, {
@@ -466,7 +469,7 @@
                   ev.preventDefault();
                   tile.classList.add('tile-dragging');
                   const preview = document.getElementById('dashboard-drop-preview');
-                  const move = (e) => { const target = getGridCellFromPointer(e); const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]; const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=snap.tiles[tileId]||snap.blankTiles[tileId]; if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
+                  const move = (e) => { const target = getGridCellFromPointer(e); const entry = getLayoutEntry(dashboardLayout, tileId); const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=getLayoutEntry(snap,tileId); if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
                   const up = (e) => { tile.classList.remove('tile-dragging'); preview.hidden=true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const target = getGridCellFromPointer(e); if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.'); };
                   window.addEventListener('pointermove', move);
                   window.addEventListener('pointerup', up, { once: false });
@@ -481,7 +484,7 @@
               const select = document.createElement('select');
               safeAllowedSizes(tileId).forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
               select.addEventListener('change', async () => {
-                const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+                const entry = getLayoutEntry(dashboardLayout, tileId);
                 if (!entry) return;
                 const previous = entry.size;
                 const next = normalizeTileSize(tileId, select.value);
@@ -512,7 +515,7 @@
                   showTileMessage('Could not place tile there.');
                   return;
                 }
-                const finalEntry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+                const finalEntry = getLayoutEntry(dashboardLayout, tileId);
                 if (finalEntry) finalEntry.size = next;
                 mobileLayout.sizes[tileId] = next;
                 saveDesktopLayout();
@@ -531,7 +534,7 @@
               sizeControl.append(select); tile.prepend(sizeControl);
             }
             const select = sizeControl.querySelector('select');
-            const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+            const entry = getLayoutEntry(dashboardLayout, tileId);
             if (select && entry) select.value = entry.size;
             sizeControl.hidden = !isEditing || safeAllowedSizes(tileId).length <= 1;
 
@@ -764,6 +767,19 @@
           if (!root) return;
           const authUser = (await getAuthForHome())?.user || {};
           const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
+          const tileMeta = {
+            'profile-snapshot': { label: 'Profile Spotlight / Snapshot', description: 'Your player-card snapshot tile.' },
+            'profile-completion': { label: 'Account Progress', description: 'Shows profile completion progress.' },
+            'profile-status': { label: 'Profile Status', description: 'Status message and profile links.' },
+            'showcase-preview': { label: 'Showcase Preview', description: 'Recent showcase unlock highlights.' },
+            'members-preview': { label: 'Members Preview', description: 'Quick list of community members.' },
+            'member-spotlight': { label: 'Member Spotlight', description: 'Featured member card.' },
+            chat: { label: 'Global Chat', description: 'Homepage chat preview and quick send.' },
+            'leaderboard-preview': { label: 'Leaderboard Preview', description: 'Top players preview tile.' },
+            'site-notices': { label: 'Site Notices', description: 'Announcements and site status.' },
+            'admin-quick-tools': { label: 'Admin Quick Tools', description: 'Admin shortcuts and moderation links.' },
+            'quick-actions': { label: 'Quick Actions', description: 'Common account shortcuts.' }
+          };
           const categories = [
             { name:'Account', ids:['profile-snapshot','profile-completion','profile-status','showcase-preview'] },
             { name:'Community', ids:['members-preview','member-spotlight'] },
@@ -780,7 +796,8 @@
               const row = document.createElement('div'); row.className='dashboard-tile-library-row';
               const enabled = tileRuleFor(tileId).isEnabled !== 0;
               const visible = !!dashboardLayout.tiles[tileId];
-              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${tileId}</strong><p>${enabled?'':'Disabled by admin.'}</p></div>`;
+              const meta = tileMeta[tileId] || { label: tileId, description: '' };
+              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${meta.label}</strong><p>${enabled ? meta.description : 'Disabled by admin.'}</p></div>`;
               const a = document.createElement('div'); a.className='dashboard-tile-library-actions';
               const b = document.createElement('button'); b.type='button'; b.className='nav-button'; b.textContent = visible ? 'Hide' : 'Show'; b.disabled = !enabled;
               b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary(); };
@@ -788,6 +805,14 @@
             });
             root.append(section);
           });
+          const utilitySection = document.createElement('section');
+          utilitySection.className = 'dashboard-tile-category';
+          utilitySection.innerHTML = '<h3 class="dashboard-tile-category-title">Utility</h3>';
+          const blankRow = document.createElement('div'); blankRow.className = 'dashboard-tile-library-row';
+          blankRow.innerHTML = '<div class="dashboard-tile-library-meta"><strong>Blank Tile</strong><p>Add a reusable empty tile spacer.</p></div>';
+          const blankBtn = document.createElement('button'); blankBtn.type = 'button'; blankBtn.className = 'nav-button'; blankBtn.textContent = 'Add';
+          blankBtn.onclick = () => addBlankButton.click();
+          blankRow.append(blankBtn); utilitySection.append(blankRow); root.append(utilitySection);
           const community = document.createElement('section');
           community.className = 'dashboard-tile-category';
           community.innerHTML = '<h3 class="dashboard-tile-category-title">Member Cards</h3>';
