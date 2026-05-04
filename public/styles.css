@@ -1020,9 +1020,17 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   box-sizing:border-box;
 }
 
+.player-card-member-dashboard-variant{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+
 .custom-member-card-tile .player-card,
 .custom-member-card-tile .player-card-custom,
-.custom-member-card-tile .player-card-snapshot-variant{
+.custom-member-card-tile .player-card-snapshot-variant,
+.custom-member-card-tile .player-card-member-dashboard-variant{
   width:100%;
   height:100%;
   min-width:0;
@@ -1030,6 +1038,20 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   margin:0;
   box-sizing:border-box;
   border:1px solid var(--border);
+}
+
+.custom-member-card-tile .player-card-snapshot-tiny{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
+
+.custom-member-card-tile .player-card-snapshot-tiny .player-card-tiny-name,
+.custom-member-card-tile .player-card-snapshot-tiny .player-card-tiny-sub,
+.custom-member-card-tile .player-card-snapshot-tiny .player-card-tiny-rank{
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
 }
 
 .dashboard-editing .custom-member-card-tile{
