@@ -180,9 +180,28 @@
               if (/^tile-\d+x\d+$/.test(className)) tile.classList.remove(className);
             });
             tile.classList.add(`tile-${entry.size}`);
-            if (isMobile) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
-            tile.style.gridColumn = `${entry.col} / span ${w}`;
-            tile.style.gridRow = `${entry.row} / span ${h}`;
+            if (isMobile) { tile.style.setProperty('grid-column', '1 / -1'); tile.style.setProperty('grid-row', 'auto'); return; }
+            tile.style.setProperty('grid-column', `${entry.col} / span ${w}`);
+            tile.style.setProperty('grid-row', `${entry.row} / span ${h}`);
+            if (id === 'profile-snapshot' || id === 'quick-actions') {
+              requestAnimationFrame(() => {
+                const cs = getComputedStyle(tile);
+                console.debug(`[home:${id}:grid]`, {
+                  entrySize: entry.size,
+                  parsed: { w, h },
+                  dataTileSize: tile.dataset.tileSize,
+                  className: tile.className,
+                  inlineGridColumn: tile.style.gridColumn,
+                  inlineGridRow: tile.style.gridRow,
+                  computedGridColumnStart: cs.gridColumnStart,
+                  computedGridColumnEnd: cs.gridColumnEnd,
+                  computedGridRowStart: cs.gridRowStart,
+                  computedGridRowEnd: cs.gridRowEnd,
+                  rectWidth: tile.getBoundingClientRect().width,
+                  rectHeight: tile.getBoundingClientRect().height
+                });
+              });
+            }
           });
           if (isMobile) {
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
