@@ -176,19 +176,13 @@
             if (!entry) return;
             const { w, h } = parseTileSize(entry.size);
             tile.dataset.tileSize = entry.size;
-            tile.className = tile.className.replace(/tile-\d+x\d+/g, '').replace(/\s+/g, ' ').trim();
+            Array.from(tile.classList).forEach((className) => {
+              if (/^tile-\d+x\d+$/.test(className)) tile.classList.remove(className);
+            });
             tile.classList.add(`tile-${entry.size}`);
             if (isMobile) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
             tile.style.gridColumn = `${entry.col} / span ${w}`;
             tile.style.gridRow = `${entry.row} / span ${h}`;
-            if (id === 'profile-snapshot') {
-              console.debug('[home] tile grid placement', id, entry.size, {
-                gridColumn: tile.style.gridColumn,
-                gridRow: tile.style.gridRow,
-                offsetWidth: tile.offsetWidth,
-                offsetHeight: tile.offsetHeight
-              });
-            }
           });
           if (isMobile) {
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
@@ -352,6 +346,13 @@
                 if (!entry) return;
                 const previous = entry.size;
                 const next = normalizeTileSize(tileId, select.value);
+                console.debug('[home:size-change]', {
+                  tileId,
+                  previous,
+                  next,
+                  beforeEntry: JSON.stringify(entry),
+                  layoutEntry: JSON.stringify(dashboardLayout.tiles[tileId]),
+                });
                 const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
                 entry.size = next;
                 if (parseTileSize(next).w > getDashboardColumnCount()) {
@@ -367,18 +368,24 @@
                   showTileMessage('Could not place tile there.');
                   return;
                 }
+                const finalEntry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+                if (finalEntry) finalEntry.size = next;
                 mobileLayout.sizes[tileId] = next;
                 saveDesktopLayout();
                 saveMobileLayout();
                 renderTilePositions();
                 const changedTile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-                if (changedTile) {
-                  changedTile.dataset.tileSize = next;
-                  console.debug('[home] resized tile', tileId, next, { gridColumn: changedTile.style.gridColumn, gridRow: changedTile.style.gridRow });
-                }
-                if (tileId === 'profile-snapshot') {
-                  await loadAccountSnapshotTile();
-                }
+                console.debug('[home:size-change:after]', {
+                  tileId,
+                  entry: JSON.stringify(dashboardLayout.tiles[tileId]),
+                  dataTileSize: changedTile?.dataset.tileSize,
+                  className: changedTile?.className,
+                  gridColumn: changedTile?.style.gridColumn,
+                  gridRow: changedTile?.style.gridRow,
+                  offsetWidth: changedTile?.offsetWidth,
+                  offsetHeight: changedTile?.offsetHeight,
+                });
+                if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
                 createEditControls();
               });
               sizeControl.append(select); tile.prepend(sizeControl);
