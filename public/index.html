@@ -25,7 +25,7 @@
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
         <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
-        <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2>Profile Snapshot</h2><div id="account-summary-content">Loading…</div></article>
+        <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div id="account-summary-content" class="profile-snapshot-fill">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
@@ -181,6 +181,14 @@
             if (isMobile) { tile.style.gridColumn = '1 / -1'; tile.style.gridRow = 'auto'; return; }
             tile.style.gridColumn = `${entry.col} / span ${w}`;
             tile.style.gridRow = `${entry.row} / span ${h}`;
+            if (id === 'profile-snapshot') {
+              console.debug('[home] tile grid placement', id, entry.size, {
+                gridColumn: tile.style.gridColumn,
+                gridRow: tile.style.gridRow,
+                offsetWidth: tile.offsetWidth,
+                offsetHeight: tile.offsetHeight
+              });
+            }
           });
           if (isMobile) {
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
