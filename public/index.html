@@ -25,7 +25,7 @@
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
         <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
-        <article class="dashboard-tile profile-snapshot-tile tile-2x1" data-tile-id="profile-snapshot" data-tile-size="2x1"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content">Loading…</div></div></article>
+        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content">Loading…</div></div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions">Loading…</div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content">Loading…</div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content">Loading members…</div></article>
@@ -192,31 +192,16 @@
               tile.style.setProperty('grid-row', 'auto', 'important');
               return;
             }
+            tile.style.removeProperty('grid-column');
+            tile.style.removeProperty('grid-row');
             tile.style.removeProperty('grid-column-start');
             tile.style.removeProperty('grid-column-end');
             tile.style.removeProperty('grid-row-start');
             tile.style.removeProperty('grid-row-end');
-            tile.style.setProperty('grid-column', `${entry.col} / span ${w}`, 'important');
-            tile.style.setProperty('grid-row', `${entry.row} / span ${h}`, 'important');
-            if (id === 'profile-snapshot' || id === 'quick-actions') {
-              requestAnimationFrame(() => {
-                const cs = getComputedStyle(tile);
-                console.debug(`[home:${id}:grid]`, {
-                  entrySize: entry.size,
-                  parsed: { w, h },
-                  dataTileSize: tile.dataset.tileSize,
-                  className: tile.className,
-                  inlineGridColumn: tile.style.gridColumn,
-                  inlineGridRow: tile.style.gridRow,
-                  computedGridColumnStart: cs.gridColumnStart,
-                  computedGridColumnEnd: cs.gridColumnEnd,
-                  computedGridRowStart: cs.gridRowStart,
-                  computedGridRowEnd: cs.gridRowEnd,
-                  rectWidth: tile.getBoundingClientRect().width,
-                  rectHeight: tile.getBoundingClientRect().height
-                });
-              });
-            }
+            tile.style.setProperty('grid-column-start', String(entry.col), 'important');
+            tile.style.setProperty('grid-column-end', `span ${w}`, 'important');
+            tile.style.setProperty('grid-row-start', String(entry.row), 'important');
+            tile.style.setProperty('grid-row-end', `span ${h}`, 'important');
           });
           if (isMobile) {
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
@@ -250,6 +235,13 @@
           Object.keys(dashboardLayout.blankTiles).forEach((id) => {
             if (!grid.querySelector(`[data-tile-id="${id}"]`)) grid.append(makeBlankTile(id, dashboardLayout.blankTiles[id].size));
           });
+          const profileSnapshotTiles = grid.querySelectorAll('[data-tile-id="profile-snapshot"]');
+          if (profileSnapshotTiles.length > 1) {
+            console.error('[home] Duplicate profile-snapshot tiles found', profileSnapshotTiles.length);
+            profileSnapshotTiles.forEach((tile, index) => {
+              if (index > 0) tile.remove();
+            });
+          }
         }
         function hydrateLayout() {
           const saved = getDesktopLayout();
@@ -356,6 +348,30 @@
           tile.innerHTML = '<h2>Blank</h2><div class="blank-tile-label">Blank space</div>';
           return tile;
         }
+        function debugTilePlacement(tileId) {
+          const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+          const entry = dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId];
+          if (!tile || !entry) return;
+          const cs = getComputedStyle(tile);
+          console.debug('[home:tile-placement]', tileId, {
+            entrySize: entry.size,
+            dataTileSize: tile.dataset.tileSize,
+            dataGridSize: tile.dataset.gridSize,
+            dataGridW: tile.dataset.gridW,
+            dataGridH: tile.dataset.gridH,
+            className: tile.className,
+            inlineColumnStart: tile.style.gridColumnStart,
+            inlineColumnEnd: tile.style.gridColumnEnd,
+            inlineRowStart: tile.style.gridRowStart,
+            inlineRowEnd: tile.style.gridRowEnd,
+            computedColumnStart: cs.gridColumnStart,
+            computedColumnEnd: cs.gridColumnEnd,
+            computedRowStart: cs.gridRowStart,
+            computedRowEnd: cs.gridRowEnd,
+            width: tile.getBoundingClientRect().width,
+            height: tile.getBoundingClientRect().height
+          });
+        }
         function createEditControls() {
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
@@ -450,20 +466,9 @@
                   saveDesktopLayout();
                   renderTilePositions();
                 }
-                const changedTile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-                if (window.__HOME_LAYOUT_DEBUG__) {
-                  console.debug('[home:size-change:after]', {
-                    tileId,
-                    entry: JSON.stringify(dashboardLayout.tiles[tileId] || dashboardLayout.blankTiles[tileId]),
-                    dataTileSize: changedTile?.dataset.tileSize,
-                    className: changedTile?.className,
-                    gridColumn: changedTile?.style.gridColumn,
-                    gridRow: changedTile?.style.gridRow,
-                    offsetWidth: changedTile?.offsetWidth,
-                    offsetHeight: changedTile?.offsetHeight,
-                  });
-                }
                 if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
+                debugTilePlacement('profile-snapshot');
+                debugTilePlacement('quick-actions');
                 createEditControls();
               });
               sizeControl.append(select); tile.prepend(sizeControl);
@@ -515,9 +520,8 @@
         }
 
         function getDashboardTileSize(tileId, fallback = '4x2') {
-          const tile = document.querySelector(`[data-tile-id="${tileId}"]`);
           const entry = dashboardLayout?.tiles?.[tileId] || dashboardLayout?.blankTiles?.[tileId];
-          return entry?.size || tile?.dataset?.tileSize || fallback;
+          return entry?.size || fallback;
         }
 
         function renderAccount(profile, authUser) {
