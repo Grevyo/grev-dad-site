@@ -14,8 +14,8 @@ const SETTING_KEYS = new Set(['registration_enabled', 'default_new_user_role', '
 const ROLES = { admin: { label: 'Admin', level: 100 }, operator: { label: 'Operator', level: 80 }, og: { label: 'OG', level: 50 }, member: { label: 'Member', level: 10 } };
 const PUBLIC_HTML_PATHS = new Set(['/unregistered.html', '/login.html', '/register.html']);
 const PUBLIC_API_PATHS = new Set(['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/auth/me']);
-const TILE_MINIMUM_SIZES = { 'profile-snapshot': { minW: 2, minH: 1 }, 'quick-actions': { minW: 2, minH: 2 }, 'profile-completion': { minW: 2, minH: 2 }, 'members-preview': { minW: 4, minH: 2 }, chat: { minW: 4, minH: 4 }, 'coming-later': { minW: 2, minH: 2 }, status: { minW: 2, minH: 2 }, 'profile-status': { minW: 4, minH: 2 }, 'showcase-preview': { minW: 4, minH: 2 }, 'leaderboard-preview': { minW: 4, minH: 2 }, 'member-spotlight': { minW: 3, minH: 2 }, 'site-notices': { minW: 4, minH: 2 }, 'admin-quick-tools': { minW: 4, minH: 2 }, blank: { minW: 1, minH: 1 } };
-const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1','2x1','1x2','2x2','3x2','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
+const TILE_MINIMUM_SIZES = { 'profile-snapshot': { minW: 2, minH: 1 }, 'quick-actions': { minW: 2, minH: 1 }, 'profile-completion': { minW: 2, minH: 1 }, 'members-preview': { minW: 2, minH: 1 }, chat: { minW: 4, minH: 4 }, 'coming-later': { minW: 2, minH: 1 }, status: { minW: 2, minH: 1 }, 'profile-status': { minW: 4, minH: 1 }, 'showcase-preview': { minW: 4, minH: 1 }, 'leaderboard-preview': { minW: 4, minH: 1 }, 'member-spotlight': { minW: 3, minH: 2 }, 'site-notices': { minW: 4, minH: 1 }, 'admin-quick-tools': { minW: 4, minH: 1 }, blank: { minW: 1, minH: 1 } };
+const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
 const CARD_TILE_KEYS = new Set(['name','username','role','level','rank','xp','status','steam','leetify']);
 let accountRankCache = null;
 
@@ -292,6 +292,7 @@ async function createSchemaTables(db) { await db.prepare("CREATE TABLE IF NOT EX
   for (const tile of getHomepageTileSeedConfigs()) {
     await db.prepare("INSERT OR IGNORE INTO homepage_tile_config (tile_id, label, default_size, allowed_sizes_json, is_enabled, sort_order, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))").bind(tile.tile_id, tile.label, tile.default_size, JSON.stringify(tile.allowed_sizes), tile.is_enabled, tile.sort_order).run();
   }
+  await migrateHomepageTileConfigs(db);
   await db.prepare("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = '' OR role = 'user'").run(); await db.prepare('UPDATE users SET is_admin = 1 WHERE is_admin IS NULL').run(); await db.prepare("UPDATE users SET status = 'active' WHERE status IS NULL OR status = ''").run();
 }
 async function getSetting(db, key, fallback) { const row = await db.prepare('SELECT value FROM site_settings WHERE key = ?').bind(key).first(); return row?.value ?? fallback; }
@@ -315,20 +316,37 @@ async function handleAdminUserUnlockUpsert(request, env, path) { try { const aut
 async function handleLeaderboardLevels(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' },401); const db=getDatabase(env); await ensureSchema(db); const rows=await db.prepare("SELECT id, username, role FROM users ORDER BY username ASC").all(); const ranks=await loadAccountRanks(request, env); const list=[]; for (const r of (rows.results||[])) { const pr=await getUserAccountProgress(db,r.id); list.push({id:r.id,username:r.username,role:r.role,roleLabel:getRoleLabel(r.role),...pr,displayedRank:getDisplayedRank(pr.accountLevel,null,ranks.ranks||[])});} list.sort((a,b)=>b.accountLevel-a.accountLevel||b.accountXp-a.accountXp||a.username.localeCompare(b.username)); return json({ok:true,leaderboard:list.slice(0,100).map((x,i)=>({rankPosition:i+1,...x}))}); }
 function getHomepageTileSeedConfigs() { return [
   { tile_id: 'profile-snapshot', label: 'Profile Snapshot', default_size: '4x2', allowed_sizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 10 },
-  { tile_id: 'quick-actions', label: 'Quick Actions', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 20 },
-  { tile_id: 'profile-completion', label: 'Profile Completion', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 30 },
-  { tile_id: 'members-preview', label: 'Members Preview', default_size: '4x2', allowed_sizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 40 },
-  { tile_id: 'chat', label: 'Global Chat', default_size: '4x4', allowed_sizes: ['2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], is_enabled: 1, sort_order: 50 },
-  { tile_id: 'coming-later', label: 'Status', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 60 },
-  { tile_id: 'status', label: 'Status', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x2'], is_enabled: 1, sort_order: 61 },
-  { tile_id: 'profile-status', label: 'Profile Status', default_size: '4x2', allowed_sizes: ['4x2','4x3','4x4','6x4'], is_enabled: 0, sort_order: 70 },
-  { tile_id: 'showcase-preview', label: 'Showcase Preview', default_size: '4x2', allowed_sizes: ['4x2','4x3','4x4','6x4','8x4'], is_enabled: 0, sort_order: 80 },
-  { tile_id: 'leaderboard-preview', label: 'Leaderboard Preview', default_size: '4x2', allowed_sizes: ['4x2','4x3','4x4','6x4'], is_enabled: 0, sort_order: 90 },
+  { tile_id: 'quick-actions', label: 'Quick Actions', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 20 },
+  { tile_id: 'profile-completion', label: 'Profile Completion', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 30 },
+  { tile_id: 'members-preview', label: 'Members Preview', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 40 },
+  { tile_id: 'chat', label: 'Global Chat', default_size: '4x4', allowed_sizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], is_enabled: 1, sort_order: 50 },
+  { tile_id: 'coming-later', label: 'Status', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 60 },
+  { tile_id: 'status', label: 'Status', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 61 },
+  { tile_id: 'profile-status', label: 'Profile Status', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], is_enabled: 0, sort_order: 70 },
+  { tile_id: 'showcase-preview', label: 'Showcase Preview', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 0, sort_order: 80 },
+  { tile_id: 'leaderboard-preview', label: 'Leaderboard Preview', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], is_enabled: 0, sort_order: 90 },
   { tile_id: 'member-spotlight', label: 'Member Spotlight', default_size: '3x2', allowed_sizes: ['3x2','4x2','4x3'], is_enabled: 0, sort_order: 100 },
-  { tile_id: 'site-notices', label: 'Site Notices', default_size: '4x2', allowed_sizes: ['4x2','4x3','6x4'], is_enabled: 0, sort_order: 110 },
-  { tile_id: 'admin-quick-tools', label: 'Admin Quick Tools', default_size: '4x2', allowed_sizes: ['4x2','4x3','6x4'], is_enabled: 0, sort_order: 120 }
+  { tile_id: 'site-notices', label: 'Site Notices', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','6x4'], is_enabled: 0, sort_order: 110 },
+  { tile_id: 'admin-quick-tools', label: 'Admin Quick Tools', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','6x4'], is_enabled: 0, sort_order: 120 }
 ]; }
 function parseAllowedSizes(value) { try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
+
+async function migrateHomepageTileConfigs(db) {
+  const add4x1Tiles = new Set(['quick-actions','profile-completion','members-preview','coming-later','status','profile-status','showcase-preview','leaderboard-preview','site-notices','admin-quick-tools']);
+  const rows = await db.prepare('SELECT tile_id, allowed_sizes_json, default_size FROM homepage_tile_config').all();
+  for (const row of (rows.results || [])) {
+    const allowed = parseAllowedSizes(row.allowed_sizes_json);
+    const nextAllowed = Array.from(new Set(allowed));
+    let changed = false;
+    if (nextAllowed.includes('2x2') && !nextAllowed.includes('2x1')) { nextAllowed.push('2x1'); changed = true; }
+    if (add4x1Tiles.has(row.tile_id) && !nextAllowed.includes('4x1')) { nextAllowed.push('4x1'); changed = true; }
+    if (!changed) continue;
+    const nextDefault = nextAllowed.includes(row.default_size) ? row.default_size : (nextAllowed[0] || '1x1');
+    await db.prepare("UPDATE homepage_tile_config SET allowed_sizes_json = ?, default_size = ?, updated_at = datetime('now') WHERE tile_id = ?")
+      .bind(JSON.stringify(nextAllowed), nextDefault, row.tile_id).run();
+  }
+}
+
 function normalizeHomepageTilePayload(tileId, body) { const allowed = Array.isArray(body?.allowed_sizes) ? body.allowed_sizes.map((s) => String(s || '').trim()).filter(Boolean) : []; const invalid = allowed.filter((size) => !HOMEPAGE_TILE_SIZE_OPTIONS.includes(size)); if (!allowed.length) return { error: 'allowed_sizes must contain at least one size' }; if (invalid.length) return { error: `Unsupported size(s): ${invalid.join(', ')}` }; const minSize=TILE_MINIMUM_SIZES[tileId]||TILE_MINIMUM_SIZES.blank; const tooSmall=allowed.some((size)=>{const m=String(size).match(/^(\d+)x(\d+)$/); return m && (Number(m[1])<minSize.minW||Number(m[2])<minSize.minH);}); if(tooSmall) return { error: 'Size is too small for this tile.' }; const defaultSize = String(body?.default_size || '').trim(); if (!allowed.includes(defaultSize)) return { error: 'default_size must be one of allowed_sizes' }; const dm=String(defaultSize).match(/^(\d+)x(\d+)$/); if(dm && (Number(dm[1])<minSize.minW||Number(dm[2])<minSize.minH)) return { error: 'Size is too small for this tile.' }; const isEnabled = Number(body?.is_enabled); if (!(isEnabled === 0 || isEnabled === 1)) return { error: 'is_enabled must be 0 or 1' }; return { tile_id: tileId, label: String(body?.label || '').trim() || tileId, default_size: defaultSize, allowed_sizes: allowed, is_enabled: isEnabled, sort_order: Number(body?.sort_order) || 0 }; }
 async function readHomepageTileConfigs(db, enabledOnly = false) { const rows = await db.prepare(`SELECT tile_id, label, default_size, allowed_sizes_json, is_enabled, sort_order FROM homepage_tile_config ${enabledOnly ? 'WHERE is_enabled = 1' : ''} ORDER BY sort_order ASC, tile_id ASC`).all(); return (rows.results || []).map((row) => ({ tile_id: row.tile_id, label: row.label, default_size: row.default_size, allowed_sizes: parseAllowedSizes(row.allowed_sizes_json), is_enabled: Number(row.is_enabled) === 1 ? 1 : 0, sort_order: Number(row.sort_order) || 0 })); }
 async function handleAdminHomepageTilesGet(request, env) { const auth = await requireAdmin(request, env); if (auth) return auth; const db = getDatabase(env); await ensureSchema(db); return json({ ok: true, tiles: await readHomepageTileConfigs(db, false) }); }
