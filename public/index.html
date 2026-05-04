@@ -350,7 +350,11 @@
                 saveMobileLayout();
                 renderTilePositions();
                 if (tileId === 'profile-snapshot') {
-                  loadDashboard();
+                  const profileSnapshotTile = document.querySelector('[data-tile-id="profile-snapshot"]');
+                  if (profileSnapshotTile) profileSnapshotTile.dataset.tileSize = next;
+                  loadAccountSnapshotTile().catch((error) => {
+                    console.error('[home] failed to rerender profile snapshot after size change', error);
+                  });
                 }
               });
               sizeControl.append(select); tile.prepend(sizeControl);
@@ -413,7 +417,9 @@
             rank: profile?.rank || { name: 'Unranked' }
           };
           wrap.textContent = '';
-          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true });
+          const snapshotTile = document.querySelector('[data-tile-id="profile-snapshot"]');
+          const tileSize = snapshotTile?.dataset.tileSize || dashboardLayout.tiles?.['profile-snapshot']?.size || '4x2';
+          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true, tileSize });
           else wrap.textContent = `${snapshotProfile.display_name} (@${snapshotProfile.username})`;
         }
 

@@ -17,6 +17,9 @@
   const getTileSetting=(settings,key)=>settings?.[key]||DEFAULTS[key]||DEFAULTS.username;
   const tileClass=(s,variant)=>{const span=(variant==='header'?(s.span==='2x2'?'2x1':'1x1'):s.span);const size=(variant==='header'&&s.size==='xl')?'md':s.size;return `card-span-${span} card-font-${safeFontStyle(s.fontStyle).replace('_','-')} card-font-family-${safeFontFamily(s.fontFamily)} card-text-${safeTextSize(s.size)} card-align-${safeAlign(s.align)}`;};
   const buildTile=(klass,key,label,value,settings,variant)=>({key,html:`<div class='player-card-tile ${klass} ${tileClass(getTileSetting(settings,key),variant)}' ${getTileSetting(settings,key).colour?`style='--tile-colour:${esc(getTileSetting(settings,key).colour)}'`:''}>${label?`<div class='player-card-tile-label'>${label}</div>`:''}${value}</div>`});
+
+  const parseSnapshotTileSize=(size)=>{const m=String(size||'').match(/^(\d+)x(\d+)$/);if(!m)return{w:4,h:2,size:'4x2'};return{w:Number(m[1]),h:Number(m[2]),size:`${Number(m[1])}x${Number(m[2])}`};};
+  const getSnapshotDensity=(tileSize)=>{const {w,h}=parseSnapshotTileSize(tileSize);const area=w*h; if(area<=2) return 'tiny'; if(area<=8) return 'compact'; return 'full';};
   window.renderPlayerCard=function(profile,options={}){try{
     const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,variant:'full',...options};
     const cardCols=o.variant==='header'?1:safeCols(p.card_grid_columns,4);
@@ -30,17 +33,25 @@
     const levelLine=show('card_show_level',1)?`${levelHtml(level)}`:''; const rankLine=show('card_show_rank',1)?`<span>${rank}</span>`:'';
     if (o.variant === 'header') return `<a href='/profile.html' class='header-player-card player-card player-card-custom player-card-header-variant' style='${st}' title='Open profile'><span class='player-card-avatar compact-header-avatar'>${avatar}</span><span class='player-card-body player-card-content compact-header-text'>${show('card_show_display_name',1)?`<span class='player-card-name compact-header-name'>${esc(p.display_name||p.username||'User')}</span>`:''}${show('card_show_username',1)?`<span class='player-card-username compact-header-username'>@${esc(p.username||'')}</span>`:''}<span class='compact-header-meta'>${levelLine}${rankLine?` · ${rankLine}`:''}</span>${(show('card_show_xp',1)&&o.showXp)?`<span class='xp-bar xp-bar-header'><span class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></span></span>`:''}</span></a>`;
     const variantClass=`player-card-${esc(o.variant||'full')}-variant`; const isSnapshot=o.variant==='snapshot'; const tiles=[];
+    const snapshotTileSize=String(o.tileSize||'4x2').match(/^\d+x\d+$/)?String(o.tileSize):'4x2';
+    const snapshotDensity=isSnapshot?getSnapshotDensity(snapshotTileSize):'full';
     if (show('card_show_display_name',1)) tiles.push(buildTile('player-card-tile-name','name','',`<div class='player-card-name'>${esc(p.display_name||p.username||'User')}</div>`,settings,o.variant));
     if (show('card_show_username',1)) tiles.push(buildTile('player-card-tile-username','username','Username',`<div class='player-card-username'>@${esc(p.username||'')}</div>`,settings,o.variant));
     if (!isSnapshot && o.showUserId && show('card_show_user_id',0)) tiles.push(buildTile('player-card-tile-id','username','User ID',`<div class='player-card-meta'>${Number(p.id)||0}</div>`,settings,o.variant));
-    if (show('card_show_role',1)) tiles.push(buildTile('player-card-tile-role','role','Role',`<div class='player-card-meta'>${esc(p.roleLabel||p.role||'Member')}</div>`,settings,o.variant));
+    if (!isSnapshot && show('card_show_role',1)) tiles.push(buildTile('player-card-tile-role','role','Role',`<div class='player-card-meta'>${esc(p.roleLabel||p.role||'Member')}</div>`,settings,o.variant));
     if (levelLine) tiles.push(buildTile('player-card-tile-level','level','grev.dad.level',`<div class='player-card-meta player-card-level-row'>${levelLine}</div>`,settings,o.variant));
     if (rankLine) tiles.push(buildTile('player-card-tile-rank','rank','Rank',`<div class='player-card-meta'>${rank}</div>`,settings,o.variant));
-    if (o.showXp&&show('card_show_xp',1)) tiles.push(buildTile('player-card-tile-xp','xp','XP',`<div class='player-card-meta'>${Number(p.accountXp)||0} XP</div><div class='xp-bar'><div class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></div></div>`,settings,o.variant));
+    if ((!isSnapshot || snapshotDensity==='full') && o.showXp&&show('card_show_xp',1)) tiles.push(buildTile('player-card-tile-xp','xp','XP',`<div class='player-card-meta'>${Number(p.accountXp)||0} XP</div><div class='xp-bar'><div class='xp-bar-fill' style='width:${Number(p.accountXpPercent)||0}%'></div></div>`,settings,o.variant));
     if (!isSnapshot && show('card_show_status',0)&&p.status_message) tiles.push(buildTile('player-card-tile-status','status','Status',`<div class='player-card-meta'>${esc(p.status_message)}</div>`,settings,o.variant));
-    if (show('card_show_steam',0)&&steamUrl) tiles.push(buildTile('player-card-tile-steam','steam','Steam',`<a class='player-card-link' href='${esc(steamUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`,settings,o.variant));
-    if (show('card_show_leetify',0)&&leetifyUrl) tiles.push(buildTile('player-card-tile-leetify','leetify','Leetify',`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`,settings,o.variant));
+    if ((!isSnapshot || snapshotDensity==='full') && show('card_show_steam',0)&&steamUrl) tiles.push(buildTile('player-card-tile-steam','steam','Steam',`<a class='player-card-link' href='${esc(steamUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`,settings,o.variant));
+    if ((!isSnapshot || snapshotDensity==='full') && show('card_show_leetify',0)&&leetifyUrl) tiles.push(buildTile('player-card-tile-leetify','leetify','Leetify',`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>View profile</a>`,settings,o.variant));
+    if (isSnapshot && snapshotDensity==='tiny') {
+      const tinyAllow=new Set(['name','username','level','rank']);
+      for (let i=tiles.length-1;i>=0;i-=1) if(!tinyAllow.has(tiles[i].key)) tiles.splice(i,1);
+    }
     tiles.sort((a,b)=>{const ao=getTileSetting(settings,a.key).order??999;const bo=getTileSetting(settings,b.key).order??999;return ao-bo||(TILE_DEFAULT_ORDER[a.key]??999)-(TILE_DEFAULT_ORDER[b.key]??999);});
-    return `<article class='player-card player-card-custom ${variantClass} player-card-cols-${cardCols}' style='${st}'><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'><div class='player-card-info-grid'>${tiles.map((t)=>t.html).join('')}</div></div></article>`;
+    const snapshotSizeClass=isSnapshot?` player-card-snapshot-size-${snapshotTileSize}`:'';
+    const snapshotDensityClass=isSnapshot?` player-card-snapshot-density-${snapshotDensity}`:'';
+    return `<article class='player-card player-card-custom ${variantClass}${snapshotSizeClass}${snapshotDensityClass} player-card-cols-${cardCols}' style='${st}'><a href='/profile.html?id=${Number(p.id)||0}' class='player-card-avatar compact-header-avatar'>${avatar}</a><div class='player-card-body player-card-content'><div class='player-card-info-grid'>${tiles.map((t)=>t.html).join('')}</div></div></article>`;
   }catch(error){console.error('[player-card] render failed',error); return `<article class='player-card player-card-custom player-card-full-variant'><div class='player-card-body'><div class='player-card-name'>${esc(profile?.display_name||profile?.username||'User')}</div></div></article>`;}};
 })();

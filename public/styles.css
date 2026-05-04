@@ -849,3 +849,29 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
     grid-column: 1 / -1;
   }
 }
+
+.profile-snapshot-tile .player-card-snapshot-variant{overflow:hidden}
+.profile-snapshot-tile .player-card-info-grid{min-width:0;min-height:0}
+.profile-snapshot-tile .player-card-tile{min-width:0;overflow:hidden}
+.profile-snapshot-tile .player-card-tile *{min-width:0}
+
+.profile-snapshot-tile .player-card-snapshot-size-2x1{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;padding:8px;align-items:center}
+.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-avatar{width:48px;height:48px}
+.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-info-grid{--player-card-cols:2;gap:4px;align-content:center}
+.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-tile{padding:3px 5px;min-height:0}
+.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-tile-label{display:none}
+.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-name{font-size:.9rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-username,.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-rank,.profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-meta{font-size:.72rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.profile-snapshot-tile .player-card-snapshot-size-4x2{padding:10px;gap:10px;grid-template-columns:auto minmax(0,1fr);align-items:center}
+.profile-snapshot-tile .player-card-snapshot-size-4x2 .player-card-avatar{width:64px;height:64px}
+.profile-snapshot-tile .player-card-snapshot-size-4x2 .player-card-info-grid{gap:6px}
+
+.profile-snapshot-tile .player-card-snapshot-size-4x3,
+.profile-snapshot-tile .player-card-snapshot-size-4x4,
+.profile-snapshot-tile .player-card-snapshot-size-6x4,
+.profile-snapshot-tile .player-card-snapshot-size-8x4{padding:12px;gap:12px;grid-template-columns:auto minmax(0,1fr);align-items:start}
+.profile-snapshot-tile .player-card-snapshot-size-4x3 .player-card-avatar,
+.profile-snapshot-tile .player-card-snapshot-size-4x4 .player-card-avatar,
+.profile-snapshot-tile .player-card-snapshot-size-6x4 .player-card-avatar,
+.profile-snapshot-tile .player-card-snapshot-size-8x4 .player-card-avatar{width:72px;height:72px}
