@@ -385,14 +385,14 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .tile-dragging{opacity:.85}
 
 .blank-remove-button{display:none;margin:0 0 8px 0}.dashboard-editing .blank-remove-button{display:inline-block}
-.profile-snapshot-tile{overflow:hidden}
-.profile-snapshot-tile.dashboard-tile{padding:0}
+.profile-snapshot-tile{padding:0 !important;overflow:hidden;display:block}
+.profile-snapshot-tile.dashboard-tile{padding:0 !important}
 .profile-snapshot-tile .dashboard-tile-inner,
 .profile-snapshot-tile #account-summary-content,
-.profile-snapshot-tile .account-summary-content{width:100%;height:100%;min-width:0;min-height:0;margin:0;padding:0;box-sizing:border-box}
+.profile-snapshot-tile .account-summary-content{width:100%;height:100%;min-width:0;min-height:0;margin:0;padding:0;box-sizing:border-box;display:block}
 .profile-snapshot-tile .player-card,
 .profile-snapshot-tile .player-card-custom,
-.profile-snapshot-tile .player-card-snapshot-variant{width:100%;height:100%;max-width:none;min-width:0;min-height:0;margin:0;padding:0;box-sizing:border-box}
+.profile-snapshot-tile .player-card-snapshot-variant{width:100%;height:100%;max-width:none;max-height:none;min-width:0;min-height:0;margin:0;box-sizing:border-box;display:grid;align-self:stretch;justify-self:stretch}
 .profile-snapshot-tile .dashboard-tile-inner{padding:0}
 .profile-snapshot-tile .account-snapshot{display:grid;grid-template-columns:96px minmax(0,1fr);gap:16px;align-items:start;min-width:0}
 .profile-snapshot-tile .account-snapshot-meta{min-width:0;overflow:visible;display:grid;gap:.3rem}
@@ -528,9 +528,11 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   .page-shell.profile-editor-page{padding:0 14px}
 }
 
-.profile-snapshot-tile #account-summary-content,.profile-snapshot-tile .account-summary-content{width:100%;height:100%;min-height:0;display:grid}.profile-snapshot-tile #account-summary-content>.player-card,.profile-snapshot-tile .account-summary-content>.player-card,.profile-snapshot-tile .player-card-snapshot-variant{width:100%;height:100%;min-width:0;min-height:0}.profile-snapshot-tile .player-card-snapshot-variant{max-width:none}
+.profile-snapshot-tile #account-summary-content,.profile-snapshot-tile .account-summary-content{width:100%;height:100%;min-height:0;display:block}.profile-snapshot-tile #account-summary-content>.player-card,.profile-snapshot-tile .account-summary-content>.player-card,.profile-snapshot-tile .player-card-snapshot-variant{width:100%;height:100%;min-width:0;min-height:0;max-width:none;max-height:none}
 .player-card-name{color:var(--player-card-name-colour,var(--text))}.player-card-username,.player-card-meta,.player-card-links,.player-card-link{color:var(--player-card-body-colour,var(--text-muted))}
 .player-card-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-content:start}
+.profile-snapshot-tile .player-card-content,.profile-snapshot-tile .player-card-body,.profile-snapshot-tile .player-card-info-grid{min-width:0;min-height:0;box-sizing:border-box}
+
 .player-card-tile{border:1px solid rgba(255,255,255,.08);padding:8px 10px;background:rgba(0,0,0,.15);min-width:0;overflow:hidden;display:grid;gap:4px}
 .player-card-tile-label{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--player-card-body-colour,var(--text-muted))}
 .tile-span-1x1{grid-column:span 1}
