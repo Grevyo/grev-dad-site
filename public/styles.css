@@ -858,3 +858,89 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-name{font-size:.85rem;line-height:1.1}
 .profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-username,
 .profile-snapshot-tile .player-card-snapshot-size-2x1 .player-card-meta{font-size:.7rem;line-height:1.1}
+
+/* Profile Snapshot tiny renderer + overflow safety */
+.profile-snapshot-tile { overflow: hidden; }
+.profile-snapshot-tile .player-card-snapshot-variant { overflow: hidden; }
+.profile-snapshot-tile .player-card-content,
+.profile-snapshot-tile .player-card-body,
+.profile-snapshot-tile .player-card-info-grid,
+.profile-snapshot-tile .player-card-tile {
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.profile-snapshot-tile .player-card-tile { overflow: hidden; }
+.profile-snapshot-tile .player-card-tile * { min-width: 0; }
+
+.profile-snapshot-tile .player-card-snapshot-tiny {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 6px;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-avatar,
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-avatar {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  max-width: 42px;
+  overflow: hidden;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-avatar img,
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-main {
+  min-width: 0;
+  overflow: hidden;
+  display: grid;
+  gap: 2px;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-name,
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-sub,
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-rank {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-name {
+  font-size: .86rem;
+  line-height: 1.05;
+  font-weight: 800;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-sub,
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-rank {
+  font-size: .68rem;
+  line-height: 1.05;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .player-card-tiny-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+.profile-snapshot-tile .player-card-snapshot-tiny .grev-level,
+.profile-snapshot-tile .player-card-snapshot-tiny .level-badge {
+  transform: scale(.78);
+  transform-origin: left center;
+}
+
+.profile-snapshot-tile .player-card-snapshot-compact .player-card-tile.card-text-xl,
+.profile-snapshot-tile .player-card-snapshot-compact .player-card-tile.card-text-lg {
+  font-size: .8rem;
+}
