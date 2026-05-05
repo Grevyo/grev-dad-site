@@ -1127,7 +1127,7 @@ input[type="range"]:focus-visible {
 .profile-page-custom-shell>*{position:relative;z-index:1}
 .profile-page-board-wrap{width:100%;max-width:none;padding:0 8px 32px;box-sizing:border-box}
 .profile-page-board{width:100%;max-width:none;margin:0;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:86px;gap:12px}
-.profile-page-custom-shell,.profile-page-main,.profile-page-board-wrap,.profile-page-board,.profile-page-widgets,.profile-profile-layout,.profile-layout-board{background:transparent!important;background-color:transparent!important}
+.profile-page-main,.profile-page-board-wrap,.profile-page-board,.profile-page-widgets,.profile-profile-layout,.profile-layout-board{background:transparent!important;background-color:transparent!important}
 .profile-page-board-wrap,.profile-page-board{border:0!important;box-shadow:none!important}
 .profile-page-tile,.profile-widget-tile{background:var(--profile-widget-bg,transparent);color:var(--profile-widget-text,var(--text));border:1px solid var(--profile-widget-border,color-mix(in srgb,var(--border) 55%, transparent));backdrop-filter:blur(var(--profile-widget-blur,0px));border-radius:0;padding:10px;position:relative;overflow:hidden}
 .profile-page-tile a,.profile-page-tile .muted,.profile-page-tile .profile-widget-text{color:inherit}
