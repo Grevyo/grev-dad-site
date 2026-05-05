@@ -1325,3 +1325,120 @@ input[type="range"]:focus-visible {
 .profile-card-editor-page .editor-tab-panel {
   grid-column: 1 / -1;
 }
+
+.profile-card-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+}
+
+.profile-card-preview-rail {
+  position: sticky;
+  top: 76px;
+  align-self: start;
+}
+
+.profile-card-live-preview {
+  min-height: 260px;
+}
+
+.profile-card-settings-panel {
+  min-width: 0;
+}
+
+.profile-card-settings-panel .editor-tab-panel {
+  grid-column: 1 / -1;
+}
+
+.editor-header-actions .nav-button,
+.editor-header-actions .editor-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 0;
+}
+
+.editor-header-actions .nav-button:hover,
+.editor-header-actions .editor-action-button:hover {
+  border-color: var(--accent);
+}
+
+.profile-edit-card-preview {
+  margin: 0 0 16px;
+}
+
+.profile-edit-card-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#profile-edit-card-preview-body {
+  max-width: 380px;
+}
+
+.steam-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.steam-level-ring {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.steam-level-number {
+  font-weight: 900;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.steam-level-label {
+  font-size: .8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.steam-level-unavailable {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.integration-debug {
+  margin-top: 8px;
+}
+
+.integration-debug pre {
+  overflow: auto;
+  max-width: 100%;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .profile-card-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-card-preview-rail {
+    position: static;
+  }
+}
