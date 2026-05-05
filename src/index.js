@@ -198,7 +198,7 @@ function normalizeProfileInput(body) {
   if (steam_url && steam_url.length > 300) return { error: 'steam_url max length is 300' };
   if (leetify_url && leetify_url.length > 300) return { error: 'leetify_url max length is 300' };
   if (steam_url && (!steam_url.startsWith('https://steamcommunity.com/id/') && !steam_url.startsWith('https://steamcommunity.com/profiles/'))) return { error: 'steam_url must be a valid Steam Community URL' };
-  if (leetify_url && !/^https:\/\/(?:www\.)?(?:leetify\.com\/(?:app/)?profile\/|steamcommunity\.gg/profiles\/)\S+/i.test(leetify_url)) return { error: 'leetify_url must be a valid Leetify/SteamCommunity profile URL' };
+  if (leetify_url && !/^https:\/\/(?:www\.)?(?:leetify\.com\/(?:app\/)?profile\/|steamcommunity\.gg\/profiles\/)\S+/i.test(leetify_url)) return { error: 'leetify_url must be a valid Leetify/SteamCommunity profile URL' };
   if (avatar_url === null) return { error: 'Invalid avatar_url' };
   if (banner_url === null) return { error: 'Invalid banner_url' };
   if (profile_background_url === null) return { error: 'Invalid profile_background_url' };
