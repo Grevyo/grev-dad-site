@@ -626,12 +626,27 @@ const STEAM_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 const LEETIFY_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
 function parseSteamIdFromUrl(url) { try { const u = new URL(url); const m1 = u.pathname.match(/\/profiles\/(\d{17})/); if (m1) return { steamid: m1[1], vanity: null }; const m2 = u.pathname.match(/\/id\/([^/]+)/); if (m2) return { steamid: null, vanity: m2[1] }; } catch {} return { steamid: null, vanity: null }; }
 
-function parseLeetifyFromUrl(url) {
+function parseLeetifyFromUrl(rawUrl) {
   try {
-    const u = new URL(url);
-    const steamIdMatch = u.href.match(/(7656119\d{10})/);
-    const slugMatch = u.pathname.match(/\/profile\/([^/?#]+)/);
-    return { steamid64: steamIdMatch ? steamIdMatch[1] : null, slug: slugMatch ? slugMatch[1] : null };
+    const u = new URL(String(rawUrl || '').trim());
+    const pathParts = u.pathname.split('/').filter(Boolean);
+    const steamIdMatch = `${u.hostname}${u.pathname}${u.search}`.match(/7656119\d{10}/);
+
+    let slug = null;
+    const profileIndex = pathParts.indexOf('profile');
+    if (profileIndex >= 0 && pathParts[profileIndex + 1]) {
+      slug = pathParts[profileIndex + 1];
+    }
+
+    const profilesIndex = pathParts.indexOf('profiles');
+    if (!slug && profilesIndex >= 0 && pathParts[profilesIndex + 1]) {
+      slug = pathParts[profilesIndex + 1];
+    }
+
+    return {
+      steamid64: steamIdMatch ? steamIdMatch[0] : null,
+      slug
+    };
   } catch {
     return { steamid64: null, slug: null };
   }
@@ -651,11 +666,13 @@ async function handleLeetifyProfile(request, env) {
   if(!row?.leetify_url) return json({ ok:true, available:false, reason:'No Leetify profile link set' });
   const profileUrl=String(row.leetify_url).trim();
   const parsed=parseLeetifyFromUrl(profileUrl);
-  const debug = request.headers.get('x-grev-debug-integrations') === '1';
-  const cacheKey=`${userId}|${profileUrl}`;
+  const debugRequested = request.headers.get('x-grev-debug-integrations') === '1' || url.searchParams.get('debug') === '1';
+  const debug = debugRequested && (Number(user.id) === userId || isUserAdmin(user));
+  const cacheKey=`${userId}|${profileUrl}|debug:${debug ? 1 : 0}`;
   const cached=readLeetifyCache(cacheKey);
   if(cached) return json(cached);
-  const unavailable = (reason='Leetify data unavailable or profile hidden') => ({ ok:true, available:false, profileUrl, steam64Id:parsed.steamid64||null, reason });
+  const attempts = [];
+  const unavailable = (reason='Leetify data unavailable or profile hidden') => ({ ok:true, available:false, profileUrl, steam64Id:parsed.steamid64||null, reason, ...(debug?{attempts}: {}) });
   const candidates = [];
   if (parsed.steamid64) candidates.push(`https://api-public.cs-prod.leetify.com/v1/profile/${parsed.steamid64}`);
   if (parsed.slug) candidates.push(`https://api-public.cs-prod.leetify.com/v1/profile/${encodeURIComponent(parsed.slug)}`);
@@ -663,48 +680,99 @@ async function handleLeetifyProfile(request, env) {
   for (const endpoint of candidates) {
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctrl ? setTimeout(()=>ctrl.abort('timeout'), 5000) : null;
+    const attempt = { endpoint, status: null, ok: false };
+    attempts.push(attempt);
     try {
       const resp = await fetch(endpoint, { headers:{'Accept':'application/json'}, ...(ctrl?{signal:ctrl.signal}:{}) });
-      if (debug) console.debug('[leetify] endpoint', { userId, endpoint, status: resp.status });
-      if ([403,404,429].includes(resp.status)) continue;
-      if (!resp.ok) continue;
-      const payload = await resp.json();
-      const profile = payload?.profile || payload?.data || payload;
-      if (!profile || typeof profile !== 'object') continue;
+      attempt.status = resp.status;
+      if (debug) console.debug('[leetify] endpoint', { userId, endpoint, status: resp.status, ok: resp.ok });
+      const text = await resp.text();
+      if (!resp.ok) {
+        attempt.reason = [403,404,429].includes(resp.status) ? `status_${resp.status}` : 'http_error';
+        continue;
+      }
+      let payload = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch {
+        attempt.reason = 'invalid_json';
+        continue;
+      }
+      const profile = payload?.profile || payload?.data?.profile || payload?.data || payload;
+      if (!profile || typeof profile !== 'object') {
+        attempt.reason = 'unexpected_response_shape';
+        continue;
+      }
       const normalized = normalizeLeetifyProfile(profile, profileUrl, parsed.steamid64);
-      return json(writeLeetifyCache(cacheKey, normalized));
+      attempt.ok = true;
+      return json(writeLeetifyCache(cacheKey, { ...normalized, ...(debug?{attempts}: {}) }));
     } catch (error) {
+      attempt.reason = error?.name === 'AbortError' || String(error?.message||error).includes('timeout') ? 'timeout' : 'fetch_failed';
       if (debug) console.debug('[leetify] fetch failed', { endpoint, error: String(error&&error.message||error) });
     } finally {
       if (timer) clearTimeout(timer);
     }
   }
-  return json(writeLeetifyCache(cacheKey, unavailable()));
+  const statusAttempt = attempts.find((attempt) => [403, 404, 429].includes(Number(attempt.status)));
+  const invalidJsonAttempt = attempts.find((attempt) => attempt.reason === 'invalid_json');
+  const shapeAttempt = attempts.find((attempt) => attempt.reason === 'unexpected_response_shape');
+  const timeoutAttempt = attempts.find((attempt) => attempt.reason === 'timeout');
+  const reason = statusAttempt
+    ? `Leetify endpoint returned ${statusAttempt.status}`
+    : invalidJsonAttempt
+      ? 'Leetify endpoint returned invalid JSON'
+      : shapeAttempt
+        ? 'Leetify response shape changed or profile data is hidden'
+        : timeoutAttempt
+          ? 'Leetify endpoint timed out'
+          : 'Leetify data unavailable or profile hidden';
+  return json(writeLeetifyCache(cacheKey, unavailable(reason)));
+}
+
+function pickDeep(obj, paths) {
+  for (const path of paths) {
+    const value = path.split('.').reduce((acc, key) => acc?.[key], obj);
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
 }
 
 function normalizeLeetifyProfile(profile, profileUrl, steam64IdFromUrl) {
   const numberOrNull = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
-  const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && v !== '');
-  const ranks = pick(profile?.ranks, profile?.profile?.ranks, profile?.competitiveMapRanks, profile?.mapRanks, profile?.profile?.mapRanks);
+  const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && v !== '') ?? null;
+  const steam64Id = pickDeep(profile, ['steam64Id','steamID64','steamId64','steamid64','steamId','data.steam64Id','profile.steam64Id','user.steam64Id']) || steam64IdFromUrl || null;
+  const ranks = pickDeep(profile, ['ranks','profile.ranks','data.ranks','rank.ranks','cs2.ranks','cs2Profile.ranks','competitive.ranks','competitiveMapRanks','mapRanks','profile.mapRanks']);
   let csRank = null, csRankType = null, csPremierRating = null, csCompetitiveRanks = null;
-  const premier = numberOrNull(pick(profile?.premierRating, profile?.cs2PremierRating, profile?.profile?.premierRating, profile?.rank?.premierRating));
+  const premier = numberOrNull(pickDeep(profile, ['premierRating','cs2PremierRating','rank.premierRating','ranks.premierRating','cs2.premierRating','cs2Profile.premierRating','premier.rating','currentRank.premierRating','competitive.premierRating','data.premierRating','profile.premierRating']));
   if (premier != null) { csPremierRating = premier; csRank = `Premier ${premier.toLocaleString('en-US')}`; csRankType='premier'; }
   if (!csRank) {
-    const named = pick(profile?.premierRank, profile?.matchmakingRank, profile?.competitiveRank, profile?.rank?.name, profile?.rank, profile?.profile?.rank);
+    const named = pickDeep(profile, ['premierRank','matchmakingRank','competitiveRank','rank.name','rank.label','rank.rank','rank','ranks.current','ranks.competitive','cs2.rank','cs2.currentRank','cs2Profile.rank','cs2Profile.currentRank','premier.rank','currentRank.name','currentRank.label','currentRank','competitive.rank','competitive.currentRank','profile.rank','profile.currentRank','data.rank','data.currentRank']);
     if (typeof named === 'string') { csRank = named; csRankType='competitive'; }
+    else if (named && typeof named === 'object') {
+      const label = pick(named.name, named.label, named.rank, named.rankName);
+      if (typeof label === 'string') { csRank = label; csRankType='competitive'; }
+    }
   }
   if (!csRank && ranks && typeof ranks === 'object') {
     const mapped = {};
-    for (const [k,v] of Object.entries(ranks)) { if (typeof v === 'string' && v.trim()) mapped[k]=v.trim(); else if (v && typeof v==='object' && typeof v.name==='string') mapped[k]=v.name; }
+    for (const [k,v] of Object.entries(ranks)) { if (typeof v === 'string' && v.trim()) mapped[k]=v.trim(); else if (v && typeof v==='object') { const label=pick(v.name,v.label,v.rank,v.rankName); if (typeof label==='string' && label.trim()) mapped[k]=label.trim(); } }
     const first = Object.values(mapped)[0] || null;
     if (first) { csCompetitiveRanks = mapped; csRank = first; csRankType='map'; }
   }
+  const leetifyRating = numberOrNull(pickDeep(profile, ['leetifyRating','rating','ratings.leetify','stats.leetifyRating','data.leetifyRating','profile.leetifyRating']));
+  const aimRating = numberOrNull(pickDeep(profile, ['aimRating','aim.rating','ratings.aim','stats.aimRating','data.aimRating','profile.aimRating']));
+  const positioningRating = numberOrNull(pickDeep(profile, ['positioningRating','positioning.rating','ratings.positioning','stats.positioningRating','data.positioningRating','profile.positioningRating']));
+  const utilityRating = numberOrNull(pickDeep(profile, ['utilityRating','utility.rating','ratings.utility','stats.utilityRating','data.utilityRating','profile.utilityRating']));
+  const clutchRating = numberOrNull(pickDeep(profile, ['clutchRating','clutch.rating','ratings.clutch','stats.clutchRating','data.clutchRating','profile.clutchRating']));
+  const openingDuelRating = numberOrNull(pickDeep(profile, ['openingDuelRating','openingDuels.rating','openingDuel.rating','ratings.openingDuel','stats.openingDuelRating','data.openingDuelRating','profile.openingDuelRating']));
   return {
-    ok:true, available:true, profileUrl, steam64Id: pick(profile?.steam64Id, profile?.steamID64, steam64IdFromUrl) || null,
-    name: pick(profile?.name, profile?.profile?.name) || null,
-    nickname: pick(profile?.nickname, profile?.alias, profile?.profile?.nickname) || null,
-    leetifyRating: numberOrNull(profile?.leetifyRating), aimRating: numberOrNull(profile?.aimRating), positioningRating: numberOrNull(profile?.positioningRating), utilityRating: numberOrNull(profile?.utilityRating), clutchRating: numberOrNull(profile?.clutchRating), openingDuelRating: numberOrNull(profile?.openingDuelRating), recentMatchesCount: numberOrNull(profile?.recentMatchesCount),
-    csRank, csRankType: csRankType || null, csPremierRating, csCompetitiveRanks, rawUpdatedAt: pick(profile?.updatedAt, profile?.updated_at, profile?.lastUpdatedAt) || null
+    ok:true, available:true, profileUrl, steam64Id,
+    name: pickDeep(profile, ['name','displayName','profile.name','data.name','user.name']) || null,
+    nickname: pickDeep(profile, ['nickname','alias','username','profile.nickname','data.nickname','user.nickname']) || null,
+    leetifyRating, aimRating, positioningRating, utilityRating, clutchRating, openingDuelRating,
+    recentMatchesCount: numberOrNull(pickDeep(profile, ['recentMatchesCount','matchesCount','stats.recentMatchesCount','data.recentMatchesCount','profile.recentMatchesCount'])),
+    csRank, csRankType: csRankType || null, csPremierRating, csCompetitiveRanks,
+    rawUpdatedAt: pickDeep(profile, ['updatedAt','updated_at','lastUpdatedAt','profile.updatedAt','data.updatedAt']) || null
   };
 }
 
@@ -722,6 +790,28 @@ function decodeXmlEntities(value) {
     .replace(/&#39;/g, "'")
     .replace(/&amp;/g, '&');
 }
+function parseSteamLevelFromHtml(html) {
+  const text = String(html || '');
+
+  const patterns = [
+    /friendPlayerLevelNum[^>]*>\s*(\d{1,5})\s*</i,
+    /persona_level[^>]*>\s*(\d{1,5})\s*</i,
+    /steam-level[^>]*>\s*(\d{1,5})\s*</i,
+    /Steam Level\s*<\/[^>]+>\s*<[^>]+>\s*(\d{1,5})/i,
+    /level\s*(\d{1,5})/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const level = Number(match[1]);
+      if (Number.isInteger(level) && level >= 0 && level <= 99999) return level;
+    }
+  }
+
+  return null;
+}
+
 async function handleSteamProfile(request, env) {
   const user = await getCurrentUser(request, env);
   if (!user) return json({ ok:false, error:'Not logged in' },401);
@@ -773,20 +863,39 @@ async function handleSteamProfile(request, env) {
     };
 
     const apiKey=env.STEAM_API_KEY;
-    if (!apiKey) {
-      steam.steamLevelUnavailableReason = 'Steam level requires Steam Web API key';
-      return json(writeSteamCache(cacheKey,{ ok:true, steam }));
+    if (apiKey) {
+      try {
+        const levelParams = new URLSearchParams({ key: apiKey, steamid: xmlSteamId64 });
+        const levelResp = await fetch(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?${levelParams.toString()}`);
+        const levelData = await levelResp.json();
+        steam.steamLevel = Number.isFinite(Number(levelData?.response?.player_level)) ? Number(levelData.response.player_level) : null;
+        if (steam.steamLevel != null) steam.steamLevelSource = 'steam-web-api';
+        else steam.steamLevelUnavailableReason = 'Steam level unavailable from Steam Web API';
+      } catch {
+        steam.steamLevel = null;
+        steam.steamLevelUnavailableReason = 'Steam level unavailable from Steam Web API';
+      }
     }
 
-    try {
-      const levelParams = new URLSearchParams({ key: apiKey, steamid: xmlSteamId64 });
-      const levelResp = await fetch(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?${levelParams.toString()}`);
-      const levelData = await levelResp.json();
-      steam.steamLevel = Number.isFinite(Number(levelData?.response?.player_level)) ? Number(levelData.response.player_level) : null;
-      if (steam.steamLevel == null) steam.steamLevelUnavailableReason = 'Steam level unavailable from Steam Web API';
-    } catch {
-      steam.steamLevel = null;
-      steam.steamLevelUnavailableReason = 'Steam level unavailable from Steam Web API';
+    if (steam.steamLevel == null) {
+      try {
+        const htmlResp = await fetch(profileUrl, {
+          headers: { 'Accept': 'text/html,*/*' }
+        });
+        if (htmlResp.ok) {
+          const html = await htmlResp.text();
+          const htmlLevel = parseSteamLevelFromHtml(html);
+          if (htmlLevel != null) {
+            steam.steamLevel = htmlLevel;
+            steam.steamLevelSource = 'public-profile-html';
+            delete steam.steamLevelUnavailableReason;
+          }
+        }
+      } catch {}
+    }
+
+    if (steam.steamLevel == null) {
+      steam.steamLevelUnavailableReason = 'Steam level unavailable from public profile page';
     }
 
     return json(writeSteamCache(cacheKey,{ok:true, steam}));
