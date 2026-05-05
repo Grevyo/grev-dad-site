@@ -67,7 +67,10 @@ async function loadSteamWidget(userId){
           ${steam.onlineState?`<div>State: ${esc(steam.onlineState)}</div>`:''}
           ${steam.visibilityState?`<div>Visibility: ${esc(steam.visibilityState)}</div>`:''}
           ${steam.memberSince?`<div>Member since: ${esc(steam.memberSince)}</div>`:''}
-          ${steam.steamLevel!=null?`<div>Steam level: ${esc(steam.steamLevel)}</div>`:'<div>Steam level: unavailable</div>'}
+          ${steam.steamLevel!=null
+            ? `<div>Steam level: ${esc(steam.steamLevel)}</div>`
+            : `<div>Steam level: unavailable${steam.steamLevelUnavailableReason ? ` (${esc(steam.steamLevelUnavailableReason)})` : ''}</div>`}
+          ${steam.steamLevelSource?`<small>Source: ${esc(steam.steamLevelSource === 'public-profile-html' ? 'public profile' : 'Steam API')}</small>`:''}
           ${steam.profileUrl?`<a href="${esc(steam.profileUrl)}" target="_blank" rel="noopener">Open Steam profile</a>`:''}
         </div>
       </div>
@@ -81,15 +84,21 @@ async function loadLeetifyWidget(userId){
   const body=document.getElementById('leetify-widget-body');
   if(!body)return;
   try{
-    const url=`/api/integrations/leetify/profile?user_id=${encodeURIComponent(userId)}`;
+    const debug=localStorage.getItem('grev_debug_integrations')==='1';
+    const url=`/api/integrations/leetify/profile?user_id=${encodeURIComponent(userId)}${debug?'&debug=1':''}`;
+    const fetchOptions=debug?{headers:{'x-grev-debug-integrations':'1'}}:{};
     const res=window.GREVApi?.fetchJsonCached
-      ? await window.GREVApi.fetchJsonCached(url,{ttlMs:10*60*1000,cacheKey:`grev_api_cache:${url}`})
-      : {data:await fetch(url).then((r)=>r.json())};
+      ? await window.GREVApi.fetchJsonCached(url,{ttlMs:10*60*1000,cacheKey:`grev_api_cache:${url}`,...fetchOptions})
+      : {data:await fetch(url,fetchOptions).then((r)=>r.json())};
     const data=res.data||{};
     if(!data.available){
+      const debugDetails=localStorage.getItem('grev_debug_integrations')==='1'&&Array.isArray(data.attempts)
+        ? `<details class="integration-debug"><summary>Debug details</summary><pre>${esc(JSON.stringify(data.attempts,null,2))}</pre></details>`
+        : '';
       body.innerHTML=`
         ${data.profileUrl?`<a href="${esc(data.profileUrl)}" target="_blank" rel="noopener">Open Leetify profile</a>`:''}
         <p>${esc(data.reason||'Leetify data unavailable.')}</p>
+        ${debugDetails}
       `;
       return;
     }

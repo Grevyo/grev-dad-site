@@ -22,20 +22,20 @@
     </div>
   </div>
 
-  <nav class="profile-edit-section-nav" aria-label="Edit profile sections">
-    <a href="#basic-info">Basic Info</a>
-    <a href="#images">Images</a>
-    <a href="#external-links">External Links</a>
-    <a href="#profile-background">Profile Page Background</a>
-    <a href="#banner-footer">Banner &amp; Footer</a>
-    <a href="#widget-styling">Profile Widget Styling</a>
-    <a href="#layout-visibility">Layout / Visibility</a>
-    <a href="#save-profile">Save</a>
+  <nav class="editor-tabs profile-edit-tabs" aria-label="Edit profile sections">
+    <button type="button" class="editor-tab-button active" data-tab="basic-info">Basic Info</button>
+    <button type="button" class="editor-tab-button" data-tab="images">Images</button>
+    <button type="button" class="editor-tab-button" data-tab="external-links">Links</button>
+    <button type="button" class="editor-tab-button" data-tab="profile-background">Page Background</button>
+    <button type="button" class="editor-tab-button" data-tab="banner-footer">Banner &amp; Footer</button>
+    <button type="button" class="editor-tab-button" data-tab="widget-styling">Widget Styling</button>
+    <button type="button" class="editor-tab-button" data-tab="layout-visibility">Layout</button>
+    <button type="button" class="editor-tab-button" data-tab="save-profile">Save</button>
   </nav>
 
   <form id="profile-edit-form">
     <div class="editor-tile-grid profile-edit-grid">
-      <section id="basic-info" class="editor-tile editor-tile-6">
+      <section id="basic-info" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>1. Basic Info</h2>
         <div class="editor-grid">
           <label class="editor-field">Display Name <input name="display_name" maxlength="40" /></label>
@@ -46,14 +46,14 @@
         </div>
       </section>
 
-      <section id="images" class="editor-tile editor-tile-6">
+      <section id="images" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>2. Images</h2>
         <div class="editor-grid">
           <label class="editor-field editor-field-wide">Avatar URL <input name="avatar_url" placeholder="https://..." /></label>
         </div>
       </section>
 
-      <section id="external-links" class="editor-tile editor-tile-6">
+      <section id="external-links" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>3. External Links</h2>
         <div class="editor-grid">
           <label class="editor-field">Website URL <input name="website_url" maxlength="200" placeholder="https://..." /></label>
@@ -62,7 +62,7 @@
         </div>
       </section>
 
-      <section id="profile-background" class="editor-tile editor-tile-6">
+      <section id="profile-background" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>4. Profile Page Background</h2>
         <div class="editor-grid">
           <label class="editor-field editor-field-wide">Profile page background image/GIF URL <input name="profile_page_background_url" placeholder="https://..." /><small id="profile-bg-url-status">No background URL loaded.</small></label>
@@ -72,7 +72,7 @@
         </div>
       </section>
 
-      <section id="banner-footer" class="editor-tile editor-tile-6">
+      <section id="banner-footer" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>5. Banner &amp; Footer</h2>
         <div class="editor-grid">
           <label class="editor-field editor-field-wide">Banner image/GIF URL <input name="banner_url" placeholder="https://..." /></label>
@@ -82,13 +82,13 @@
         </div>
       </section>
 
-      <section id="widget-styling" class="editor-tile editor-tile-6">
+      <section id="widget-styling" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>6. Profile Widget Styling</h2>
         <p class="editor-help-text">Default widgets are transparent: opacity 0 and blur 0. Expand a widget to style only that tile.</p>
         <div id="widget-style-editor" class="widget-style-list"></div>
       </section>
 
-      <section id="layout-visibility" class="editor-tile editor-tile-6">
+      <section id="layout-visibility" class="editor-tile editor-tab-panel editor-tile-6">
         <h2>7. Layout / Visibility</h2>
         <p class="editor-help-text">Use Move Tiles on your profile page to move, resize, show, and hide widgets. Resetting clears saved widget positions on your next save without changing widget styles.</p>
         <div class="editor-actions">
@@ -97,7 +97,7 @@
         </div>
       </section>
 
-      <section id="save-profile" class="editor-tile editor-tile-6 save-profile-tile">
+      <section id="save-profile" class="editor-tile editor-tab-panel editor-tile-6 save-profile-tile">
         <h2>8. Save</h2>
         <p class="editor-help-text">Save keeps your profile page tile layout, widget styling, background, banner, footer, links, and Profile Card settings together.</p>
         <div class="editor-save-bar">
@@ -112,6 +112,40 @@
 <script src="/scripts/theme.js"></script>
 <script src="/scripts/api-cache.js"></script>
 <script>
+function setupEditorTabs(rootSelector, buttonSelector, panelSelector) {
+  const root = document.querySelector(rootSelector) || document;
+  const buttons = root.querySelectorAll(buttonSelector);
+  const panels = root.querySelectorAll(panelSelector);
+
+  function activate(tabId) {
+    const fallbackTab = buttons[0]?.dataset.tab;
+    const nextTabId = Array.from(panels).some((panel) => panel.id === tabId) ? tabId : fallbackTab;
+    if (!nextTabId) return;
+
+    buttons.forEach((button) => {
+      const active = button.dataset.tab === nextTabId;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    panels.forEach((panel) => {
+      const active = panel.id === nextTabId;
+      panel.hidden = !active;
+      panel.classList.toggle('active', active);
+    });
+
+    try {
+      history.replaceState(null, '', `#${nextTabId}`);
+    } catch {}
+  }
+
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => activate(button.dataset.tab));
+  });
+
+  const initial = location.hash?.replace('#', '') || buttons[0]?.dataset.tab;
+  activate(initial);
+}
 const textFields=['display_name','profile_title','bio','location','website_url','steam_url','leetify_url','avatar_url','banner_url','status_message','profile_page_background_url','profile_page_background_colour','profile_footer_url'];
 const selectFields=['banner_display_size','profile_page_background_size','profile_footer_display_size'];
 const rangeFields=['profile_page_overlay_strength'];
@@ -136,6 +170,7 @@ document.querySelector('[name="profile_page_overlay_strength"]').addEventListene
 document.getElementById('profile-edit-form').addEventListener('input',()=>{formDirty=true;});
 document.getElementById('profile-edit-form').addEventListener('change',()=>{formDirty=true;});
 document.getElementById('profile-edit-form').addEventListener('submit',async(e)=>{e.preventDefault();const status=editStatusElement();if(!profileLoaded){status.textContent='Profile has not loaded yet. Please wait before saving.';return;}status.textContent='Saving...';const f=e.target,body={};for(const k of textFields)body[k]=f.elements[k]?.value||'';for(const k of selectFields)body[k]=f.elements[k]?.value||'';for(const k of rangeFields)body[k]=Number(f.elements[k]?.value||20);body.profile_page_tile_layout_json=hiddenState.profile_page_tile_layout_json;body.profile_page_widget_settings_json=hiddenState.profile_page_widget_settings_json;const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;if(r.ok)formDirty=false;});
+setupEditorTabs('.profile-edit-page', '.profile-edit-tabs .editor-tab-button', '#profile-edit-form .editor-tab-panel');
 load();
 </script>
 <script src="/scripts/auth-status.js"></script>

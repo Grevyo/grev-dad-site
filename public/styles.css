@@ -1288,3 +1288,40 @@ input[type="range"]:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+.editor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding: 0 12px;
+}
+
+.editor-tab-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.editor-tab-button.active,
+.editor-tab-button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.editor-tab-panel[hidden] {
+  display: none !important;
+}
+
+.editor-tab-panel.active {
+  display: block;
+}
+
+.profile-edit-page .editor-tab-panel,
+.profile-card-editor-page .editor-tab-panel {
+  grid-column: 1 / -1;
+}
