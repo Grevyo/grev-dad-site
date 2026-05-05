@@ -227,6 +227,8 @@
         card_show_status: Number(data.card_show_status ?? 0),
         card_show_steam: Number(data.card_show_steam ?? 0),
         card_show_leetify: Number(data.card_show_leetify ?? 0),
+        card_show_leetify_rank: Number(data.card_show_leetify_rank ?? 0),
+        card_show_leetify_rating: Number(data.card_show_leetify_rating ?? 0),
         timestamp: Date.now()
       }));
     } catch {}
