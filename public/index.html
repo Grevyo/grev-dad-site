@@ -642,20 +642,25 @@
           };
           const snapshotTileSize = getDashboardTileSize('profile-snapshot', '4x2');
           if (DEBUG_PROFILE_CARD) {
-            console.debug('[dashboard] Profile Spotlight profile card config', {
+            console.debug('[dashboard] Profile Spotlight Profile Card config', {
+              tileSize: snapshotTileSize,
+              respectConfiguredTiles: true,
               hasCardBackground: Boolean(snapshotProfile.card_background_url),
-              card_grid_columns: snapshotProfile.card_grid_columns,
               hasCardTileSettings: Boolean(snapshotProfile.cardTileSettings || snapshotProfile.card_tile_settings_json),
+              card_grid_columns: snapshotProfile.card_grid_columns,
+              card_show_user_id: snapshotProfile.card_show_user_id,
               card_show_xp: snapshotProfile.card_show_xp,
               card_show_status: snapshotProfile.card_show_status,
               card_show_steam: snapshotProfile.card_show_steam,
               card_show_leetify: snapshotProfile.card_show_leetify,
-              tileSize: snapshotTileSize
+              card_show_refrag: snapshotProfile.card_show_refrag,
+              card_show_leetify_rank: snapshotProfile.card_show_leetify_rank,
+              card_show_leetify_rating: snapshotProfile.card_show_leetify_rating
             });
           }
           wrap.textContent = '';
           wrap.dataset.tileSize = snapshotTileSize;
-          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true, tileSize: snapshotTileSize });
+          if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, showUserId: true, useCardSettings: true, respectConfiguredTiles: true, tileSize: snapshotTileSize });
           else wrap.textContent = `${snapshotProfile.display_name} (@${snapshotProfile.username})`;
         }
 
@@ -826,16 +831,25 @@
             const username = profileLike.username || '';
             profileLike = { ...profileLike, display_name: profileLike.display_name || username, accountLevel: Number(profileLike.accountLevel || profileLike.account_level || 1) || 1, rank: profileLike.rank || { name: 'Unranked' } };
             const tileSize = getDashboardTileSize(tileId, '4x2');
-            console.debug('[dashboard] Member Profile Card render', {
+            if (DEBUG_PROFILE_CARD) console.debug('[dashboard] Member Profile Card Profile Card config', {
               tileId,
               memberId,
               tileSize,
+              respectConfiguredTiles: true,
               customTileEntry: dashboardLayout.customTiles?.[tileId],
+              card_grid_columns: profileLike.card_grid_columns,
+              card_show_user_id: profileLike.card_show_user_id,
+              card_show_status: profileLike.card_show_status,
+              card_show_steam: profileLike.card_show_steam,
+              card_show_leetify: profileLike.card_show_leetify,
+              card_show_refrag: profileLike.card_show_refrag,
+              card_show_leetify_rank: profileLike.card_show_leetify_rank,
+              card_show_leetify_rating: profileLike.card_show_leetify_rating,
               hasCardBackground: Boolean(profileLike.card_background_url),
               hasCardTileSettings: Boolean(profileLike.cardTileSettings || profileLike.card_tile_settings_json)
             });
             const hasRenderer = await ensurePlayerCardRenderer();
-            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: true, showUserId: false, useCardSettings: true, tileSize }) : `${profileLike.display_name} (@${username})`;
+            wrap.innerHTML = hasRenderer ? window.renderPlayerCard(profileLike, { variant: 'snapshot', showXp: true, showUserId: true, useCardSettings: true, respectConfiguredTiles: true, tileSize }) : `${profileLike.display_name} (@${username})`;
             wrap.onclick = () => {
               if (isEditing) return;
               window.location.href = `/profile.html?id=${encodeURIComponent(memberId)}`;
