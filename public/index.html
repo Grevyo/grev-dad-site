@@ -103,6 +103,7 @@
         let wasMobileDashboard = isMobileDashboard();
         const tileLoadPromises = new Map();
         const DEBUG_PERF = localStorage.getItem('grev_debug_perf') === '1';
+        const DEBUG_PROFILE_CARD = localStorage.getItem('grev_debug_profile_card') === '1';
         function perfLog(label,start){ if (DEBUG_PERF) console.debug(`[perf] ${label}`, Math.round(performance.now()-start),'ms'); }
         function scheduleSoon(fn){ requestAnimationFrame(()=>setTimeout(fn,0)); }
         function scheduleIdle(fn){ if ('requestIdleCallback' in window) requestIdleCallback(fn,{timeout:2000}); else setTimeout(fn,250); }
@@ -613,18 +614,45 @@
           return entry?.size || fallback;
         }
 
-        function renderAccount(profile, authUser) {
+        async function renderAccount(profile, authUser) {
           const wrap = document.getElementById('account-summary-content');
-          const username = profile?.username || authUser?.username || 'unavailable';
+          const hasCardSettings = Boolean(
+            profile?.card_background_url ||
+            profile?.card_background_colour ||
+            profile?.card_tile_settings_json ||
+            profile?.cardTileSettings ||
+            profile?.card_grid_columns
+          );
+          let fullProfile = profile;
+          if (!hasCardSettings) {
+            console.warn('[dashboard] Profile Spotlight received reduced profile data; fetching full profile');
+            const fullProfileRes = await fetchJsonSafe('/api/profile/me');
+            fullProfile = fullProfileRes?.profile || profile;
+          }
+          const username = fullProfile?.username || authUser?.username || 'unavailable';
           const snapshotProfile = {
-            ...profile,
+            ...fullProfile,
             username,
-            display_name: profile?.display_name || username,
-            avatar_url: profile?.avatar_url || '',
-            accountLevel: Number(profile?.accountLevel || profile?.account_level || 1) || 1,
-            rank: profile?.rank || { name: 'Unranked' }
+            display_name: fullProfile?.display_name || username,
+            avatar_url: fullProfile?.avatar_url || '',
+            accountLevel: Number(fullProfile?.accountLevel || fullProfile?.account_level || 1) || 1,
+            accountXp: Number(fullProfile?.accountXp || fullProfile?.account_xp || 0) || 0,
+            accountXpPercent: Number(fullProfile?.accountXpPercent || fullProfile?.account_xp_percent || 0) || 0,
+            rank: fullProfile?.rank || { name: 'Unranked' }
           };
           const snapshotTileSize = getDashboardTileSize('profile-snapshot', '4x2');
+          if (DEBUG_PROFILE_CARD) {
+            console.debug('[dashboard] Profile Spotlight profile card config', {
+              hasCardBackground: Boolean(snapshotProfile.card_background_url),
+              card_grid_columns: snapshotProfile.card_grid_columns,
+              hasCardTileSettings: Boolean(snapshotProfile.cardTileSettings || snapshotProfile.card_tile_settings_json),
+              card_show_xp: snapshotProfile.card_show_xp,
+              card_show_status: snapshotProfile.card_show_status,
+              card_show_steam: snapshotProfile.card_show_steam,
+              card_show_leetify: snapshotProfile.card_show_leetify,
+              tileSize: snapshotTileSize
+            });
+          }
           wrap.textContent = '';
           wrap.dataset.tileSize = snapshotTileSize;
           if (window.renderPlayerCard) wrap.innerHTML = window.renderPlayerCard(snapshotProfile, { variant: 'snapshot', showXp: true, useCardSettings: true, tileSize: snapshotTileSize });
