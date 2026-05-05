@@ -11,19 +11,23 @@
 <main class="page-shell editor-page profile-card-editor-page">
   <div class='editor-header'>
     <div class='editor-header-main'><h1>Edit Profile Card</h1><p>Customise how your Profile Card appears across grev.dad.</p></div>
-    <div class='editor-header-actions'><button id='save-card-top' class='nav-button' type='button'>Save Profile Card</button><a class='button-secondary' href='/profile.html'>Back to Profile</a><a class='button-secondary' href='/profile-edit.html'>Edit Full Profile</a></div>
+    <div class='editor-header-actions'><button id='save-card-top' class='nav-button editor-action-button' type='button'>Save Profile Card</button><a class='nav-button editor-action-button' href='/profile.html'>Back to Profile</a><a class='nav-button editor-action-button' href='/profile-edit.html'>Edit Full Profile</a></div>
   </div>
   <p id='card-status' class='editor-message' aria-live='polite'>Loading profile…</p>
-  <nav class="editor-tabs profile-card-edit-tabs" aria-label="Edit Profile Card sections">
-    <button type="button" class="editor-tab-button active" data-tab="card-preview-panel">Preview</button>
-    <button type="button" class="editor-tab-button" data-tab="card-appearance-panel">Appearance</button>
-    <button type="button" class="editor-tab-button" data-tab="card-layout-panel">Layout</button>
-    <button type="button" class="editor-tab-button" data-tab="card-display-panel">Display Tiles</button>
-    <button type="button" class="editor-tab-button" data-tab="card-help-panel">Help</button>
-  </nav>
-  <div class='editor-tile-grid'>
-    <section id='card-preview-panel' class='editor-tile editor-tab-panel editor-tile-4 profile-card-preview'><h2>Live Preview</h2><div id='card-preview' class='profile-card-preview-frame'></div></section>
-    <section id='card-appearance-panel' class='editor-tile editor-tab-panel editor-tile-4 card-appearance-options'><h2>Card Appearance</h2>
+  <div class="profile-card-editor-layout">
+    <aside class="profile-card-preview-rail">
+      <section id='card-preview-panel' class='editor-tile profile-card-live-preview profile-card-preview'><h2>Live Preview</h2><div id='card-preview' class='profile-card-preview-frame'></div></section>
+    </aside>
+
+    <section class="profile-card-settings-panel">
+      <nav class="editor-tabs profile-card-edit-tabs" aria-label="Edit Profile Card sections">
+        <button type="button" class="editor-tab-button active" data-tab="card-appearance-panel">Appearance</button>
+        <button type="button" class="editor-tab-button" data-tab="card-layout-panel">Layout</button>
+        <button type="button" class="editor-tab-button" data-tab="card-display-panel">Display Tiles</button>
+        <button type="button" class="editor-tab-button" data-tab="card-help-panel">Help</button>
+      </nav>
+      <div class='editor-tile-grid'>
+        <section id='card-appearance-panel' class='editor-tile editor-tab-panel editor-tile-4 card-appearance-options'><h2>Card Appearance</h2>
       <label>Card background image/GIF URL<input id='card_background_url' type='url' placeholder='https://example.com/background.gif' maxlength='500'><span class='form-help'>Card background supports image and GIF links.</span><button type='button' class='button-secondary clear-field-button' data-clear='card_background_url'>Clear</button></label>
       <label>Card background colour<input id='card_background_colour' type='color' value='#000000'><button type='button' class='button-secondary clear-field-button' data-clear='card_background_colour'>Clear</button></label>
       <label>Accent colour<input id='card_accent_colour' type='color' value='#000000'><button type='button' class='button-secondary clear-field-button' data-clear='card_accent_colour'>Clear</button></label>
@@ -31,7 +35,9 @@
     </section>
     <section id='card-layout-panel' class='editor-tile editor-tab-panel editor-tile-4'><h2>Layout</h2><label>Card layout<select id='card_layout'><option value='standard'>standard</option><option value='compact'>compact</option><option value='showcase'>showcase</option></select></label><label>Profile Card columns<select id='card_grid_columns'><option value='2'>2 columns</option><option value='3'>3 columns</option><option value='4'>4 columns</option></select><span class='form-help'>Choose how many columns the card uses for its information tiles. Mobile may still stack.</span></label></section>
     <section id='card-display-panel' class='editor-tile editor-tab-panel editor-tile-8 card-display-options'><h2>Display Tiles</h2><div id='tile-settings' class='display-tile-list'></div><p class='form-help'>Steam and Leetify links: Link comes from Edit Full Profile.</p></section>
-    <section id='card-help-panel' class='editor-tile editor-tab-panel editor-tile-4'><h2>Help</h2><p class='editor-help-text'>Edit Full Profile controls the data: avatar, Steam, Leetify, status. Edit Profile Card controls what appears and how it looks.</p></section>
+        <section id='card-help-panel' class='editor-tile editor-tab-panel editor-tile-4'><h2>Help</h2><p class='editor-help-text'>Edit Full Profile controls the data: avatar, Steam, Leetify, status. Edit Profile Card controls what appears and how it looks.</p></section>
+      </div>
+    </section>
   </div>
 </main>
 <script src='/scripts/player-card.js'></script>
@@ -92,7 +98,7 @@ document.body.addEventListener('input',(e)=>{const n=e.target.name;if(n&&toggles
 document.body.addEventListener('change',(e)=>{if(appearanceFields.includes(e.target.id)&&e.target.type==='color'){e.target.dataset.empty='0';profile[e.target.id]=e.target.value;draw();}});
 document.body.addEventListener('click',(e)=>{const clearField=e.target.dataset.clear;if(clearField&&appearanceFields.includes(clearField)){profile[clearField]='';const el=document.getElementById(clearField);if(el){if(el.type==='color'){el.value='#000000';el.dataset.empty='1';}else el.value='';}draw();return;}const clearColour=e.target.dataset.clearColour;if(clearColour){profile.cardTileSettings[clearColour].colour='';renderPanels();draw();return;}const settingsKey=e.target.dataset.settings;if(settingsKey){expandedSettings=expandedSettings===settingsKey?'':settingsKey;renderPanels();return;}const dir=e.target.dataset.move;const moveKey=e.target.dataset.key;if(dir&&moveKey){const keys=getOrderedTileKeys(profile.cardTileSettings);const idx=keys.indexOf(moveKey);const target=dir==='up'?idx-1:idx+1;if(target>=0&&target<keys.length){[keys[idx],keys[target]]=[keys[target],keys[idx]];keys.forEach((key,i)=>{profile.cardTileSettings[key]=profile.cardTileSettings[key]||{};profile.cardTileSettings[key].order=(i+1)*10;});renderPanels();draw();}}});
 async function saveCard(){const saveBtn=document.getElementById('save-card-top');const status=document.getElementById('card-status');saveBtn.disabled=true;status.textContent='Saving...';try{const body={card_layout:profile.card_layout||'standard',card_grid_columns:safeCols(profile.card_grid_columns),card_background_url:String(profile.card_background_url||'').trim(),card_background_colour:String(profile.card_background_colour||''),card_accent_colour:String(profile.card_accent_colour||''),card_border_colour:String(profile.card_border_colour||'')};toggles.forEach(k=>body[k]=Number(profile[k]??1));normalizeTileOrder(profile.cardTileSettings);body.cardTileSettings=profile.cardTileSettings;const d=await fetchJsonSafe('/api/profile/me/card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});profile=d.profile||profile;profile.card_grid_columns=safeCols(profile.card_grid_columns);profile.cardTileSettings={...defaults,...(profile.cardTileSettings||{})};normalizeTileOrder(profile.cardTileSettings);syncAppearanceInputs();renderPanels();draw();status.textContent='Profile card saved.';}catch(error){console.error('[profile-card-edit] save failed',error);status.textContent=`Save failed: ${error?.message||'Unknown error'}`;}finally{saveBtn.disabled=false;}}
-setupEditorTabs('.profile-card-editor-page', '.profile-card-edit-tabs .editor-tab-button', '.editor-tab-panel');
+setupEditorTabs('.profile-card-settings-panel', '.profile-card-edit-tabs .editor-tab-button', '.profile-card-settings-panel .editor-tab-panel');
 document.getElementById('save-card-top').addEventListener('click',saveCard);
 </script><script src='/scripts/theme.js'></script><script src='/scripts/api-cache.js'></script><script src='/scripts/auth-status.js'></script>
 </body>

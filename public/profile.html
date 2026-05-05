@@ -19,6 +19,8 @@ const WIDGET_STYLE_KEYS=['profile-card','bio','status','steam','leetify','links'
 const DEBUG_PROFILE_BG = localStorage.getItem('grev_debug_profile_bg') === '1';
 const HEX=/^#[0-9a-fA-F]{6}$/;
 const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const escAttr=esc;
+function safeImageUrl(value){const text=String(value||'').trim();return /^https?:\/\//i.test(text)?text:'';}
 const safeBackgroundSize=v=>['cover','contain','repeat','stretch','center'].includes(String(v))?v:'cover';
 function parseProfileWidgetSize(size){const [w,h]=String(size||'2x2').split('x').map(Number);return {w:w||2,h:h||2};}
 function parseProfileLayout(raw){try{const parsed=raw?JSON.parse(raw):{};const out=JSON.parse(JSON.stringify(DEFAULT_PROFILE_PAGE_LAYOUT));for(const [k,v] of Object.entries(parsed.widgets||{})){if(!out.widgets[k]||!v)continue;if(Number.isInteger(v.col)&&v.col>0)out.widgets[k].col=v.col;if(Number.isInteger(v.row)&&v.row>0)out.widgets[k].row=v.row;if(ALLOWED_SIZES.has(v.size))out.widgets[k].size=v.size;if(typeof v.enabled==='boolean')out.widgets[k].enabled=v.enabled;}return out;}catch{return JSON.parse(JSON.stringify(DEFAULT_PROFILE_PAGE_LAYOUT));}}
@@ -58,20 +60,30 @@ async function loadSteamWidget(userId){
       body.innerHTML=`<p>${esc(steam.message||'Steam data unavailable.')}</p>`;
       return;
     }
-    const avatar=steam.avatarfull||steam.avatarmedium||steam.avatar;
+    const steamAvatar=steam.avatarfull||steam.avatarFull||steam.avatarmedium||steam.avatarMedium||steam.avatar||steam.avatarIcon||'';
+    const avatarUrl=safeImageUrl(steamAvatar);
     body.innerHTML=`
       <div class="integration-profile integration-steam-profile">
-        ${avatar?`<img class="integration-avatar" src="${esc(avatar)}" alt="Steam avatar" loading="lazy">`:''}
+        ${avatarUrl?`<img class="integration-avatar steam-avatar" src="${escAttr(avatarUrl)}" alt="Steam avatar" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}
         <div>
           <strong>${esc(steam.personaname||steam.steamID||'Steam Profile')}</strong>
           ${steam.onlineState?`<div>State: ${esc(steam.onlineState)}</div>`:''}
           ${steam.visibilityState?`<div>Visibility: ${esc(steam.visibilityState)}</div>`:''}
           ${steam.memberSince?`<div>Member since: ${esc(steam.memberSince)}</div>`:''}
-          ${steam.steamLevel!=null
-            ? `<div>Steam level: ${esc(steam.steamLevel)}</div>`
-            : `<div>Steam level: unavailable${steam.steamLevelUnavailableReason ? ` (${esc(steam.steamLevelUnavailableReason)})` : ''}</div>`}
+          ${steam.steamLevel!=null ? `
+            <div class="steam-level-badge" title="Steam Level">
+              <span class="steam-level-ring">
+                <span class="steam-level-number">${esc(steam.steamLevel)}</span>
+              </span>
+              <span class="steam-level-label">Steam Level</span>
+            </div>
+          ` : `
+            <div class="steam-level-unavailable">
+              Steam level unavailable${steam.steamLevelUnavailableReason ? ` — ${esc(steam.steamLevelUnavailableReason)}` : ''}
+            </div>
+          `}
           ${steam.steamLevelSource?`<small>Source: ${esc(steam.steamLevelSource === 'public-profile-html' ? 'public profile' : 'Steam API')}</small>`:''}
-          ${steam.profileUrl?`<a href="${esc(steam.profileUrl)}" target="_blank" rel="noopener">Open Steam profile</a>`:''}
+          ${steam.profileUrl?`<a href="${escAttr(steam.profileUrl)}" target="_blank" rel="noopener">Open Steam profile</a>`:''}
         </div>
       </div>
     `;
@@ -93,10 +105,10 @@ async function loadLeetifyWidget(userId){
     const data=res.data||{};
     if(!data.available){
       const debugDetails=localStorage.getItem('grev_debug_integrations')==='1'&&Array.isArray(data.attempts)
-        ? `<details class="integration-debug"><summary>Debug details</summary><pre>${esc(JSON.stringify(data.attempts,null,2))}</pre></details>`
+        ? `<details class="integration-debug"><summary>Leetify debug</summary><pre>${esc(JSON.stringify(data.attempts,null,2))}</pre></details>`
         : '';
       body.innerHTML=`
-        ${data.profileUrl?`<a href="${esc(data.profileUrl)}" target="_blank" rel="noopener">Open Leetify profile</a>`:''}
+        ${data.profileUrl?`<a href="${escAttr(data.profileUrl)}" target="_blank" rel="noopener">Open Leetify profile</a>`:''}
         <p>${esc(data.reason||'Leetify data unavailable.')}</p>
         ${debugDetails}
       `;
@@ -113,7 +125,7 @@ async function loadLeetifyWidget(userId){
           ${data.utilityRating!=null?`<div>Utility: ${esc(data.utilityRating)}</div>`:''}
           ${data.clutchRating!=null?`<div>Clutch: ${esc(data.clutchRating)}</div>`:''}
           ${data.recentMatchesCount!=null?`<div>Recent matches: ${esc(data.recentMatchesCount)}</div>`:''}
-          ${data.profileUrl?`<a href="${esc(data.profileUrl)}" target="_blank" rel="noopener">Open Leetify profile</a>`:''}
+          ${data.profileUrl?`<a href="${escAttr(data.profileUrl)}" target="_blank" rel="noopener">Open Leetify profile</a>`:''}
         </div>
       </div>
     `;

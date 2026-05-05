@@ -630,21 +630,14 @@ function parseLeetifyFromUrl(rawUrl) {
   try {
     const u = new URL(String(rawUrl || '').trim());
     const pathParts = u.pathname.split('/').filter(Boolean);
-    const steamIdMatch = `${u.hostname}${u.pathname}${u.search}`.match(/7656119\d{10}/);
-
     let slug = null;
     const profileIndex = pathParts.indexOf('profile');
-    if (profileIndex >= 0 && pathParts[profileIndex + 1]) {
-      slug = pathParts[profileIndex + 1];
-    }
-
+    if (profileIndex >= 0 && pathParts[profileIndex + 1]) slug = pathParts[profileIndex + 1];
     const profilesIndex = pathParts.indexOf('profiles');
-    if (!slug && profilesIndex >= 0 && pathParts[profilesIndex + 1]) {
-      slug = pathParts[profilesIndex + 1];
-    }
-
+    if (!slug && profilesIndex >= 0 && pathParts[profilesIndex + 1]) slug = pathParts[profilesIndex + 1];
+    const steamCandidate = [...pathParts, u.searchParams.get('steamid') || '', u.searchParams.get('steam64') || ''].find((part) => /^7656119\d{10}$/.test(String(part || '')));
     return {
-      steamid64: steamIdMatch ? steamIdMatch[0] : null,
+      steamid64: steamCandidate || null,
       slug
     };
   } catch {
@@ -672,7 +665,7 @@ async function handleLeetifyProfile(request, env) {
   const cached=readLeetifyCache(cacheKey);
   if(cached) return json(cached);
   const attempts = [];
-  const unavailable = (reason='Leetify data unavailable or profile hidden') => ({ ok:true, available:false, profileUrl, steam64Id:parsed.steamid64||null, reason, ...(debug?{attempts}: {}) });
+  const unavailable = (reason='Leetify data unavailable or profile hidden', status=null) => ({ ok:true, available:false, profileUrl, steam64Id:parsed.steamid64||null, reason, ...(status?{status}:{}), ...(debug?{attempts}: {}) });
   const candidates = [];
   if (parsed.steamid64) candidates.push(`https://api-public.cs-prod.leetify.com/v1/profile/${parsed.steamid64}`);
   if (parsed.slug) candidates.push(`https://api-public.cs-prod.leetify.com/v1/profile/${encodeURIComponent(parsed.slug)}`);
@@ -713,6 +706,9 @@ async function handleLeetifyProfile(request, env) {
       if (timer) clearTimeout(timer);
     }
   }
+  if (attempts.length && attempts.every((attempt) => Number(attempt.status) === 404)) {
+    return json(writeLeetifyCache(cacheKey, unavailable('Leetify profile was not found through the public API. The profile may be hidden, not registered, or unavailable to third-party apps.', 404)));
+  }
   const statusAttempt = attempts.find((attempt) => [403, 404, 429].includes(Number(attempt.status)));
   const invalidJsonAttempt = attempts.find((attempt) => attempt.reason === 'invalid_json');
   const shapeAttempt = attempts.find((attempt) => attempt.reason === 'unexpected_response_shape');
@@ -726,7 +722,7 @@ async function handleLeetifyProfile(request, env) {
         : timeoutAttempt
           ? 'Leetify endpoint timed out'
           : 'Leetify data unavailable or profile hidden';
-  return json(writeLeetifyCache(cacheKey, unavailable(reason)));
+  return json(writeLeetifyCache(cacheKey, unavailable(reason, statusAttempt?.status || null)));
 }
 
 function pickDeep(obj, paths) {
@@ -841,6 +837,9 @@ async function handleSteamProfile(request, env) {
       return json(writeSteamCache(cacheKey,{ ok:true, steam:{ available:false, profileUrl, message:'Steam data unavailable.' } }));
     }
 
+    const xmlAvatarIcon = readSteamXmlField(xmlText, 'avatarIcon');
+    const xmlAvatarMedium = readSteamXmlField(xmlText, 'avatarMedium');
+    const xmlAvatarFull = readSteamXmlField(xmlText, 'avatarFull');
     const steam = {
       available: true,
       profileUrl,
@@ -848,9 +847,12 @@ async function handleSteamProfile(request, env) {
       steamID64: xmlSteamId64,
       personaname: xmlSteamName || null,
       steamID: xmlSteamName || null,
-      avatar: readSteamXmlField(xmlText, 'avatarIcon'),
-      avatarmedium: readSteamXmlField(xmlText, 'avatarMedium'),
-      avatarfull: readSteamXmlField(xmlText, 'avatarFull'),
+      avatar: xmlAvatarIcon || xmlAvatarMedium || xmlAvatarFull || '',
+      avatarmedium: xmlAvatarMedium || '',
+      avatarfull: xmlAvatarFull || '',
+      avatarIcon: xmlAvatarIcon || '',
+      avatarMedium: xmlAvatarMedium || '',
+      avatarFull: xmlAvatarFull || '',
       onlineState: readSteamXmlField(xmlText, 'onlineState'),
       privacyState: readSteamXmlField(xmlText, 'privacyState'),
       visibilityState: readSteamXmlField(xmlText, 'visibilityState'),
