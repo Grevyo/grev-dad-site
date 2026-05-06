@@ -1833,3 +1833,10 @@ input[type="color"]::-moz-color-swatch {
     display: none;
   }
 }
+.achievement-toast{position:fixed;right:18px;bottom:18px;z-index:10000;max-width:360px;border:1px solid var(--accent);background:color-mix(in srgb,var(--bg) 92%,#000);color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:12px 14px;border-radius:0;font-size:.95rem}
+.achievement-toast strong{display:block;margin-bottom:6px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;font-size:.78rem}
+.achievement-unlocked-list{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+.achievement-unlocked-list li{line-height:1.25}
+.profile-widget-achievements{display:grid;gap:6px}
+.profile-widget-achievements h3{margin:0}
+.profile-widget-achievements .achievement-unlocked-list{padding-left:16px}
