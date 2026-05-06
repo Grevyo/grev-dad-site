@@ -1852,3 +1852,44 @@ input[type="color"]::-moz-color-swatch {
 .leetify-avatar,.player-card-leetify-avatar{max-width:64px;max-height:64px;object-fit:cover;border-radius:0;border:1px solid var(--border-colour,#2a2a2a);}
 .player-card-tile-leetify_attribution small{display:block;opacity:.82;}
 .player-card-tile-leetify_map_ranks .player-card-meta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.profile-customise-sidebar {
+  position: fixed;
+  top: 72px;
+  right: 0;
+  width: min(380px, 92vw);
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  z-index: 80;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+  box-shadow: -12px 0 30px rgba(0,0,0,.25);
+}
+.profile-customise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.profile-widget-library-group {
+  margin-top: 12px;
+}
+.profile-widget-library-row {
+  border: 1px solid var(--border);
+  background: transparent;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+.profile-widget-library-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+.profile-widget-empty,
+.player-card-missing {
+  color: var(--muted);
+}

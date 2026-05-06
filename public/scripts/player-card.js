@@ -26,12 +26,25 @@
   const compactMapRanks=(value)=>{if(!value)return '';if(Array.isArray(value))return value.map((x)=>typeof x==='string'?x:`${x.mapName||x.map||x.name||'Map'}: ${x.rank||x.csRank||x.value||''}`).filter(Boolean).join(', ');if(typeof value==='object')return Object.entries(value).map(([k,v])=>`${k}: ${typeof v==='object'?(v.rank||v.csRank||v.value||''):v}`).filter(Boolean).join(', ');return String(value);};
   const formatDate=(value)=>{if(!hasValue(value))return '';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleString():String(value);};
   const addStatTile=(tiles,settings,variant,key,label,value)=>{if(hasValue(value))tiles.push(buildTile(`player-card-tile-${key.replaceAll('_','-')} player-card-tile-leetify_${key}`,key,label,`<div class='player-card-meta'>${esc(value)}</div>`,settings,variant));};
+  function addOptionalStatTile(tiles,settings,variant,key,label,value,options={}){
+    if(hasValue(value)){addStatTile(tiles,settings,variant,key,label,value);return;}
+    if(options.showPlaceholder){
+      tiles.push(buildTile(
+        `player-card-tile-${key.replaceAll('_','-')} player-card-tile-missing`,
+        key,
+        label,
+        `<div class='player-card-meta player-card-missing'>${esc(options.placeholder||'No data yet')}</div>`,
+        settings,
+        variant
+      ));
+    }
+  }
   window.renderPlayerCard=function(profile,options={}){try{
-    const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,variant:'full',respectConfiguredTiles:false,...options};
+    const p=profile||{}; const o={showXp:true,showUserId:false,useCardSettings:true,variant:'full',respectConfiguredTiles:false,showMissingIntegrationPlaceholders:false,...options};
     const cardCols=o.variant==='header'?1:safeCols(p.card_grid_columns,4);
     const settings=safeCardTileSettings(p,cardCols);
     const show=(k,d=1)=>o.useCardSettings?(Number(p[k]??d)===1):d===1;
-    const steamUrl=safeHttpUrl(p.steam_url); const refragUrl=safeHttpUrl(p.refrag_profile_url||p.refrag_url); const leetify=(p.leetifyData&&typeof p.leetifyData==='object')?p.leetifyData:{}; const leetifyUrl=safeHttpUrl(leetify.viewUrl||leetify.profileUrl||p.leetify_profile_url||p.leetify_url); const leetifyRank=(leetify.csRank||leetify.rank)||null; const leetifyRating=leetify.leetifyRating; const refragStats=[['Rating',p.manual_refrag_rating],['Counter-strafe %',p.manual_refrag_counter_strafe_pct],['Reaction Time',p.manual_refrag_reaction_time],['TTD',p.manual_refrag_ttd],['Crosshair Drift',p.manual_refrag_crosshair_drift]].filter(([,v])=>String(v||'').trim());
+    const steamUrl=safeHttpUrl(p.steam_url); const refragUrl=safeHttpUrl(p.refrag_profile_url||p.refrag_url); const leetify=(p.leetifyData&&typeof p.leetifyData==='object')?p.leetifyData:{}; const leetifyUrl=safeHttpUrl(leetify.viewUrl||leetify.profileUrl||p.leetify_profile_url||p.leetify_url); const leetifyRank=(leetify.csRank||leetify.rank)||null; const leetifyRating=leetify.leetifyRating; const leetifyPlaceholder={showPlaceholder:o.showMissingIntegrationPlaceholders===true,placeholder:leetify.available===false?'Unavailable':'No data yet'}; const refragStats=[['Rating',p.manual_refrag_rating],['Counter-strafe %',p.manual_refrag_counter_strafe_pct],['Reaction Time',p.manual_refrag_reaction_time],['TTD',p.manual_refrag_ttd],['Crosshair Drift',p.manual_refrag_crosshair_drift]].filter(([,v])=>String(v||'').trim());
     const avatarUrl=(p.avatar_url||''); const level=Number(p.accountLevel||1); const rank=esc(p.rank?.name||'Unranked');
     const avatar=avatarUrl&&show('card_show_avatar',1)?`<img src='${esc(avatarUrl)}' alt='avatar'/>`:`<span class='compact-header-avatar-fallback'>${init(p.display_name||p.username)}</span>`;
     const bg=p.card_background_url?`background-image:url("${esc(p.card_background_url)}");background-size:cover;background-position:center;background-repeat:no-repeat;`:(p.card_background_colour?`background-color:${esc(p.card_background_colour)};`:'' );
@@ -51,20 +64,20 @@
     if ((snapshotDensity === 'full' || (respectConfiguredTiles && !isTinySnapshot)) && show('card_show_refrag',0)&&refragUrl) tiles.push(buildTile('player-card-tile-refrag','refrag','Refrag',`<a class='player-card-link' href='${esc(refragUrl)}' target='_blank' rel='noopener noreferrer'>View on Refrag</a>${refragStats.length?`<div class='player-card-meta'>${refragStats.slice(0,2).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>')}</div>`:`<div class='player-card-meta'>Manual stats not filled in yet.</div>`}`,settings,o.variant));
     const canShowLeetify=(snapshotDensity === 'full' || (respectConfiguredTiles && !isTinySnapshot));
     if (canShowLeetify && show('card_show_leetify',0)&&leetifyUrl) tiles.push(buildTile('player-card-tile-leetify player-card-tile-leetify_leetify','leetify','Leetify',`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>View on Leetify</a>`,settings,o.variant));
-    if (canShowLeetify && show('card_show_leetify_name',0)) addStatTile(tiles,settings,o.variant,'leetify_name','Leetify Name',leetify.nickname||leetify.name);
-    if (canShowLeetify && show('card_show_leetify_avatar',0)&&safeHttpUrl(leetify.avatarUrl)) tiles.push(buildTile('player-card-tile-leetify-avatar player-card-tile-leetify_avatar','leetify_avatar','Leetify Avatar',`<img class='player-card-leetify-avatar' src='${esc(safeHttpUrl(leetify.avatarUrl))}' alt='Leetify avatar' loading='lazy' referrerpolicy='no-referrer' onerror='this.remove()'>`,settings,o.variant));
-    if (canShowLeetify && show('card_show_leetify_steam_id',0)) addStatTile(tiles,settings,o.variant,'leetify_steam_id','Steam ID',leetify.steamId64);
-    if (canShowLeetify && show('card_show_leetify_rank',0)) addStatTile(tiles,settings,o.variant,'leetify_rank','CS Rank',leetifyRank);
-    if (canShowLeetify && show('card_show_leetify_premier',0)) addStatTile(tiles,settings,o.variant,'leetify_premier','Premier',leetify.csPremierRating);
-    if (canShowLeetify && show('card_show_leetify_rating',0)) addStatTile(tiles,settings,o.variant,'leetify_rating','Leetify Rating',leetifyRating);
-    if (canShowLeetify && show('card_show_leetify_aim',0)) addStatTile(tiles,settings,o.variant,'leetify_aim','Aim',leetify.aimRating);
-    if (canShowLeetify && show('card_show_leetify_positioning',0)) addStatTile(tiles,settings,o.variant,'leetify_positioning','Positioning',leetify.positioningRating);
-    if (canShowLeetify && show('card_show_leetify_utility',0)) addStatTile(tiles,settings,o.variant,'leetify_utility','Utility',leetify.utilityRating);
-    if (canShowLeetify && show('card_show_leetify_clutch',0)) addStatTile(tiles,settings,o.variant,'leetify_clutch','Clutch',leetify.clutchRating);
-    if (canShowLeetify && show('card_show_leetify_opening',0)) addStatTile(tiles,settings,o.variant,'leetify_opening','Opening Duel',leetify.openingDuelRating);
-    if (canShowLeetify && show('card_show_leetify_recent_matches',0)) addStatTile(tiles,settings,o.variant,'leetify_recent_matches','Recent Matches',leetify.recentMatchesCount);
-    if (canShowLeetify && show('card_show_leetify_map_ranks',0)){const ranks=compactMapRanks(leetify.csCompetitiveRanks);if(ranks){const short=ranks.length>80?`${ranks.slice(0,77)}…`:ranks;tiles.push(buildTile('player-card-tile-leetify-map-ranks player-card-tile-leetify_map_ranks','leetify_map_ranks','Map Ranks',`<div class='player-card-meta' title='${esc(ranks)}'>${esc(short)}</div>`,settings,o.variant));}}
-    if (canShowLeetify && show('card_show_leetify_updated',0)) addStatTile(tiles,settings,o.variant,'leetify_updated','Updated',formatDate(leetify.fetchedAt||leetify.rawUpdatedAt));
+    if (canShowLeetify && show('card_show_leetify_name',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_name','Leetify Name',leetify.nickname||leetify.name,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_avatar',0)){const avatar=safeHttpUrl(leetify.avatarUrl);if(avatar)tiles.push(buildTile('player-card-tile-leetify-avatar player-card-tile-leetify_avatar','leetify_avatar','Leetify Avatar',`<img class='player-card-leetify-avatar' src='${esc(avatar)}' alt='Leetify avatar' loading='lazy' referrerpolicy='no-referrer' onerror='this.remove()'>`,settings,o.variant));else addOptionalStatTile(tiles,settings,o.variant,'leetify_avatar','Leetify Avatar','',leetifyPlaceholder);}
+    if (canShowLeetify && show('card_show_leetify_steam_id',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_steam_id','Steam ID',leetify.steamId64||p.leetify_steam_id,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_rank',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_rank','CS Rank',leetifyRank,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_premier',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_premier','Premier',leetify.csPremierRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_rating',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_rating','Leetify Rating',leetifyRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_aim',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_aim','Aim',leetify.aimRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_positioning',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_positioning','Positioning',leetify.positioningRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_utility',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_utility','Utility',leetify.utilityRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_clutch',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_clutch','Clutch',leetify.clutchRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_opening',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_opening','Opening Duel',leetify.openingDuelRating,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_recent_matches',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_recent_matches','Recent Matches',leetify.recentMatchesCount,leetifyPlaceholder);
+    if (canShowLeetify && show('card_show_leetify_map_ranks',0)){const ranks=compactMapRanks(leetify.csCompetitiveRanks);if(ranks){const short=ranks.length>80?`${ranks.slice(0,77)}…`:ranks;tiles.push(buildTile('player-card-tile-leetify-map-ranks player-card-tile-leetify_map_ranks','leetify_map_ranks','Map Ranks',`<div class='player-card-meta' title='${esc(ranks)}'>${esc(short)}</div>`,settings,o.variant));}else addOptionalStatTile(tiles,settings,o.variant,'leetify_map_ranks','Map Ranks','',leetifyPlaceholder);}
+    if (canShowLeetify && show('card_show_leetify_updated',0)) addOptionalStatTile(tiles,settings,o.variant,'leetify_updated','Updated',formatDate(leetify.fetchedAt||leetify.rawUpdatedAt),{...leetifyPlaceholder,placeholder:leetify.available===false?'Unavailable':'Refresh Leetify'});
     const leetifyApiDerived=Object.keys(leetify).some((k)=>!['profileUrl','viewUrl','attribution','source','cache','ok','available','reason','reasonCode','status'].includes(k)&&hasValue(leetify[k]));
     if (canShowLeetify && leetifyApiDerived) tiles.push(buildTile('player-card-tile-leetify-attribution player-card-tile-leetify_attribution','leetify_attribution','Data Provided by Leetify',`${leetifyUrl?`<a class='player-card-link' href='${esc(leetifyUrl)}' target='_blank' rel='noopener noreferrer'>View on Leetify</a>`:''}<small>${esc(leetify.attribution||'Data Provided by Leetify')}</small>`,settings,o.variant));
     tiles.sort((a,b)=>{const ao=getTileSetting(settings,a.key).order??999;const bo=getTileSetting(settings,b.key).order??999;return ao-bo||(TILE_DEFAULT_ORDER[a.key]??999)-(TILE_DEFAULT_ORDER[b.key]??999);});
