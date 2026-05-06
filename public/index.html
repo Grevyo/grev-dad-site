@@ -136,6 +136,8 @@
         function getMobileLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY_MOBILE) || 'null'); } catch { return null; } }
         function saveDesktopLayout() { localStorage.setItem(LAYOUT_KEY_DESKTOP, JSON.stringify(dashboardLayout)); }
         function saveMobileLayout() { localStorage.setItem(LAYOUT_KEY_MOBILE, JSON.stringify(mobileLayout)); }
+        async function recordDashboardAchievement(achievement_key) { try { const r = await fetch('/api/achievements/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ achievement_key }) }); const d = await r.json(); if (r.ok && d?.achievementsAwarded?.length) showDashboardAchievementToast(d.achievementsAwarded); } catch {} }
+        function showDashboardAchievementToast(items) { try { const panel=document.createElement('div'); panel.className='achievement-toast'; panel.innerHTML=`<strong>Achievement unlocked</strong><ul class='achievement-unlocked-list'>${items.map((a)=>`<li>${String(a.title||a.achievement_key).replace(/[&<>]/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))} +${Number(a.xp_awarded||a.xp?.amount||0)} XP</li>`).join('')}</ul>`; document.body.append(panel); setTimeout(()=>panel.remove(),7000); } catch {} }
 
         function getTileEntries(layout = dashboardLayout) {
           return [...Object.entries(layout.tiles || {}), ...Object.entries(layout.customTiles || {}), ...Object.entries(layout.blankTiles || {})];
@@ -1023,7 +1025,7 @@
               b.textContent = exists ? 'Remove' : 'Add';
               b.onclick = () => {
                 if (exists) { delete dashboardLayout.customTiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
-                else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); }
+                else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); recordDashboardAchievement('dashboard.add_member_profile_card'); }
                 ensureTilesExist(); renderTilePositions(); loadCustomMemberCardTiles(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
               };
               row.append(b); community.append(row);
@@ -1052,6 +1054,7 @@
           if (isEditing) {
             saveDesktopLayout();
             saveMobileLayout();
+            recordDashboardAchievement('dashboard.custom_layout');
             setEditMode(false);
             renderDashboardTileLibrary?.();
           } else {
