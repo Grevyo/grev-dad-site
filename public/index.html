@@ -12,14 +12,13 @@
       <nav id="authStatus" class="site-nav" aria-label="Site navigation">Checking login...</nav>
     </header>
 
-    <main class="page-shell dashboard-page dashboard-custom-shell" id="dashboard-custom-shell">
+    <main class="page-shell dashboard-page">
       <div class="dashboard-header-row">
         <h1>Your Dashboard</h1>
-        <div class="dashboard-edit-controls page-quick-tabs" aria-label="Dashboard actions">
-          <button id="dashboard-quick-actions-toggle" type="button" class="page-quick-tab">Quick Actions</button>
-          <button id="dashboard-customise-toggle" type="button" class="page-quick-tab">Customise Dashboard</button>
-          <button id="toggle-dashboard-edit" type="button" class="page-quick-tab">Edit Dashboard</button>
-          <button id="reset-dashboard-layout" type="button" class="page-quick-tab" hidden>Reset layout</button>
+        <div class="dashboard-edit-controls">
+          <button id="dashboard-customise-toggle" type="button" class="nav-button">Customise Dashboard</button>
+          <button id="toggle-dashboard-edit" type="button" class="nav-button">Edit Dashboard</button>
+          <button id="reset-dashboard-layout" type="button" class="nav-button" hidden>Reset layout</button>
         </div>
       </div>
 
@@ -28,22 +27,11 @@
         <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
         <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
-        <article class="dashboard-tile tile-4x2" data-tile-id="grev-dad-tutorial" data-tile-size="4x2"><h2>grev.dad Tutorial</h2><div id="grev-dad-tutorial-content" class="dashboard-tutorial-content"></div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
         <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content"><div class="tile-loading"><span class="skeleton-line"></span></div></div></article>
         <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
       </section>
-      </div>
-      <div id="quick-actions-overlay" class="quick-actions-overlay" hidden>
-        <div class="quick-actions-backdrop" data-close-quick-actions></div>
-        <section class="quick-actions-panel" role="dialog" aria-modal="true" aria-labelledby="quick-actions-title">
-          <header class="quick-actions-panel-header">
-            <h2 id="quick-actions-title">Quick Actions</h2>
-            <button type="button" class="page-quick-tab" data-close-quick-actions>Close</button>
-          </header>
-          <div id="quick-actions-overlay-body"></div>
-        </section>
       </div>
       <div id="dashboard-customise-overlay" class="dashboard-customise-overlay" hidden></div>
       <aside id="dashboard-customise-panel" class="dashboard-customise-panel" aria-hidden="true">
@@ -88,13 +76,13 @@
         const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v4';
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v4_mobile';
                 const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
-        const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 2, minH: 1 },'quick-actions': { minW: 2, minH: 1 },'grev-dad-tutorial': { minW: 4, minH: 2 },'profile-completion': { minW: 2, minH: 1 },'members-preview': { minW: 2, minH: 1 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 1 },status: { minW: 2, minH: 1 },'profile-status': { minW: 4, minH: 1 },'showcase-preview': { minW: 4, minH: 1 },'leaderboard-preview': { minW: 4, minH: 1 },'member-spotlight': { minW: 3, minH: 2 },'site-notices': { minW: 4, minH: 1 },'admin-quick-tools': { minW: 4, minH: 1 }};
-        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'grev-dad-tutorial': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 25 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },'member-card': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1, sortOrder: 130 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
+        const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 2, minH: 1 },'quick-actions': { minW: 2, minH: 1 },'profile-completion': { minW: 2, minH: 1 },'members-preview': { minW: 2, minH: 1 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 1 },status: { minW: 2, minH: 1 },'profile-status': { minW: 4, minH: 1 },'showcase-preview': { minW: 4, minH: 1 },'leaderboard-preview': { minW: 4, minH: 1 },'member-spotlight': { minW: 3, minH: 2 },'site-notices': { minW: 4, minH: 1 },'admin-quick-tools': { minW: 4, minH: 1 }};
+        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },'member-card': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1, sortOrder: 130 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
         let TILE_SIZE_RULES = JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));
         const DEFAULT_TILE_LAYOUT = {
           'profile-snapshot': { col: 1, row: 1, size: '4x2' },
-          'grev-dad-tutorial': { col: 5, row: 1, size: '4x2' },
-          'profile-completion': { col: 9, row: 1, size: '2x2' },
+          'quick-actions': { col: 5, row: 1, size: '2x2' },
+          'profile-completion': { col: 7, row: 1, size: '2x2' },
           'members-preview': { col: 1, row: 3, size: '4x2' },
           chat: { col: 5, row: 3, size: '4x4' },
           'coming-later': { col: 9, row: 1, size: '2x2' }
@@ -104,7 +92,6 @@
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
-        const DEFAULT_HIDDEN_TILE_IDS = ['quick-actions'];
         const addBlankButton = document.createElement('button');
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
         document.querySelector('.dashboard-edit-controls').append(addBlankButton);
@@ -149,11 +136,6 @@
         function getMobileLayout() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY_MOBILE) || 'null'); } catch { return null; } }
         function saveDesktopLayout() { localStorage.setItem(LAYOUT_KEY_DESKTOP, JSON.stringify(dashboardLayout)); }
         function saveMobileLayout() { localStorage.setItem(LAYOUT_KEY_MOBILE, JSON.stringify(mobileLayout)); }
-        const DASHBOARD_BACKGROUND_DEFAULTS = { dashboard_background_colour: '', dashboard_background_url: '', dashboard_background_size: 'cover', dashboard_background_overlay_strength: 0 };
-        let dashboardBackgroundState = { ...DASHBOARD_BACKGROUND_DEFAULTS };
-        function isSafeDashboardUrl(value) { const text = String(value || '').trim(); if (!text) return true; if (/^(javascript|data|file|vbscript):/i.test(text)) return false; try { const u = new URL(text); return u.protocol === 'http:' || u.protocol === 'https:'; } catch { return false; } }
-        function normalizeDashboardBackground(input = {}) { const size = ['cover','contain','repeat','stretch','center'].includes(String(input.dashboard_background_size || '')) ? String(input.dashboard_background_size) : 'cover'; const colour = /^#[0-9a-f]{6}$/i.test(String(input.dashboard_background_colour || '').trim()) ? String(input.dashboard_background_colour).trim() : ''; const url = isSafeDashboardUrl(input.dashboard_background_url) ? String(input.dashboard_background_url || '').trim() : ''; const overlay = Math.max(0, Math.min(80, Math.round(Number(input.dashboard_background_overlay_strength) || 0))); return { dashboard_background_colour: colour, dashboard_background_url: url, dashboard_background_size: size, dashboard_background_overlay_strength: overlay }; }
-        function applyDashboardBackground(settings = dashboardBackgroundState) { const shell = document.getElementById('dashboard-custom-shell'); if (!shell) return; dashboardBackgroundState = normalizeDashboardBackground(settings); const s = dashboardBackgroundState; shell.style.setProperty('--dashboard-bg-colour', s.dashboard_background_colour || 'transparent'); shell.style.setProperty('--dashboard-bg-image', s.dashboard_background_url ? `url("${s.dashboard_background_url.replace(/"/g, '%22')}")` : 'none'); shell.style.setProperty('--dashboard-bg-overlay', String(s.dashboard_background_overlay_strength / 100)); if (s.dashboard_background_size === 'repeat') { shell.style.setProperty('--dashboard-bg-size', 'auto'); shell.style.setProperty('--dashboard-bg-repeat', 'repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } else if (s.dashboard_background_size === 'stretch') { shell.style.setProperty('--dashboard-bg-size', '100% 100%'); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } else if (s.dashboard_background_size === 'center') { shell.style.setProperty('--dashboard-bg-size', 'auto'); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center center'); } else { shell.style.setProperty('--dashboard-bg-size', s.dashboard_background_size); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } }
         async function recordDashboardAchievement(achievement_key) { try { const r = await fetch('/api/achievements/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ achievement_key }) }); const d = await r.json(); if (r.ok && d?.achievementsAwarded?.length) showDashboardAchievementToast(d.achievementsAwarded); } catch {} }
         function showDashboardAchievementToast(items) { try { const panel=document.createElement('div'); panel.className='achievement-toast'; panel.innerHTML=`<strong>Achievement unlocked</strong><ul class='achievement-unlocked-list'>${items.map((a)=>`<li>${String(a.title||a.achievement_key).replace(/[&<>]/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))} +${Number(a.xp_awarded||a.xp?.amount||0)} XP</li>`).join('')}</ul>`; document.body.append(panel); setTimeout(()=>panel.remove(),7000); } catch {} }
 
@@ -329,7 +311,7 @@
         function hydrateLayout() {
           const saved = getDesktopLayout();
           const savedMobile = getMobileLayout();
-          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles) ? saved.hiddenTiles : [...DEFAULT_HIDDEN_TILE_IDS], blankTiles: {} };
+          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles)?saved.hiddenTiles:[], blankTiles: {} };
           const enabledIds = defaultIds.filter((id)=>tileRuleFor(id).isEnabled!==0);
           defaultIds.forEach((id) => {
             if (!enabledIds.includes(id)) return; if (dashboardLayout.hiddenTiles.includes(id)) return; const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
@@ -505,8 +487,8 @@
           grid.dataset.dashboardDraggingBound = '1';
           grid.addEventListener('pointerdown', handleDashboardTileDragStart);
         }
-        function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','grev-dad-tutorial':'grev-dad-tutorial-content','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
-        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id==='grev-dad-tutorial'?'grev.dad Tutorial':id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
+        function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
+        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
           tile.className = 'dashboard-tile blank-dashboard-tile';
@@ -779,44 +761,17 @@
           else wrap.textContent = `${snapshotProfile.display_name} (@${snapshotProfile.username})`;
         }
 
-        function getQuickActionItems(isAdmin = false) {
-          const items = [
-            { title: 'View My Profile', description: 'Open your public Profile Page.', href: '/profile.html', group: 'Profile' },
-            { title: 'Edit Profile', description: 'Customise profile info, links, images, and integrations.', href: '/profile-edit.html', group: 'Profile' },
-            { title: 'Edit Profile Card', description: 'Customise your mini Profile Card shown around the site.', href: '/profile-card-edit.html', group: 'Profile' },
-            { title: 'Customise Profile Page', description: 'Open your Profile Page widgets and layout.', href: '/profile.html', group: 'Profile' },
-            { title: 'Edit Dashboard', description: 'Move and resize dashboard tiles.', action: () => { setEditMode(true); closeQuickActionsOverlay(); }, group: 'Dashboard' },
-            { title: 'Customise Dashboard', description: 'Show/hide tiles and add Member Profile Cards.', action: () => { setCustomisePanel(true); closeQuickActionsOverlay(); }, group: 'Dashboard' },
-            { title: 'Add Member Profile Card', description: 'Open Member Profile Cards in Customise Dashboard.', action: () => { setCustomisePanel(true); closeQuickActionsOverlay(); setTimeout(() => document.querySelector('#dashboard-tile-library .dashboard-tile-category:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }, group: 'Dashboard' },
-            { title: 'Change Dashboard Background', description: 'Open background colour, image/GIF, fit, and overlay controls.', action: () => { setCustomisePanel(true); closeQuickActionsOverlay(); setTimeout(() => document.getElementById('dashboard-background-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }, group: 'Dashboard' },
-            { title: 'Members', description: 'Browse other users’ Profile Cards.', href: '/members.html', group: 'Community' },
-            { title: 'Leaderboard', description: 'See grev.dad levels and XP.', href: '/leaderboard.html', group: 'Community' },
-            { title: 'Forum', description: 'Open community discussion when available.', href: '/#forum', group: 'Community' },
-            { title: 'Chat', description: 'Jump to the dashboard Global Chat tile.', action: () => { closeQuickActionsOverlay(); document.querySelector('[data-tile-id="chat"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, group: 'Community' },
-            { title: 'Achievements / XP', description: 'Review your XP and achievements.', href: '/account.html#xp', group: 'Account' },
-            { title: 'Account Settings', description: 'Manage your account options.', href: '/account.html', group: 'Account' },
-            { title: 'Logout', description: 'Sign out of grev.dad.', action: async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); location.href = '/login.html'; }, group: 'Account' }
-          ];
-          if (isAdmin) items.push({ title: 'Admin Panel', description: 'Open admin controls.', href: '/admin.html', group: 'Admin' });
-          return items;
-        }
         function renderQuickActions(isAdmin) {
           const container = document.getElementById('quick-actions');
-          if (!container) return;
           container.textContent = '';
-          getQuickActionItems(isAdmin).slice(0, 8).forEach((item) => {
-            const a = document.createElement(item.href ? 'a' : 'button'); a.className = 'nav-button'; a.textContent = item.title; if (item.href) a.href = item.href; else { a.type = 'button'; a.addEventListener('click', item.action); } container.append(a);
+          const actions = [
+            ['/profile.html', 'My Profile'], ['/profile-edit.html', 'Edit Profile'], ['/members.html', 'Members'], ['/leaderboard.html', 'Leaderboard'], ['/account.html', 'Account Settings']
+          ];
+          if (isAdmin) actions.push(['/admin.html', 'Admin']);
+          actions.forEach(([href, label]) => {
+            const a = document.createElement('a'); a.href = href; a.className = 'nav-button'; a.textContent = label; container.append(a);
           });
         }
-        async function renderQuickActionsOverlay() {
-          const body = document.getElementById('quick-actions-overlay-body'); if (!body) return;
-          const authUser = (await getAuthForHome())?.user || {}; const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
-          body.innerHTML = '<div class="quick-actions-grid"></div>'; const gridEl = body.querySelector('.quick-actions-grid');
-          getQuickActionItems(isAdmin).forEach((item) => { const el = document.createElement(item.href ? 'a' : 'button'); el.className = 'quick-action-card'; if (item.href) el.href = item.href; else { el.type = 'button'; el.addEventListener('click', item.action); } el.innerHTML = `<strong>${item.title}</strong><span>${item.description}</span><small>${item.group}</small>`; gridEl.append(el); });
-        }
-        function openQuickActionsOverlay() { const overlay = document.getElementById('quick-actions-overlay'); if (!overlay) return; renderQuickActionsOverlay(); overlay.hidden = false; document.body.classList.add('quick-actions-open'); overlay.querySelector('.quick-actions-panel')?.focus?.(); }
-        function closeQuickActionsOverlay() { const overlay = document.getElementById('quick-actions-overlay'); if (!overlay) return; overlay.hidden = true; document.body.classList.remove('quick-actions-open'); }
-        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> move, resize, show, and hide tiles.</p><p><strong>Customise Dashboard:</strong> add/remove tiles and Member Profile Cards.</p><p><strong>Members & Leaderboard:</strong> browse Profile Cards and grev.dad levels/XP.</p><p><strong>Profile Page:</strong> customise widgets, layout, XP, and achievements.</p></div>`; }
 
         function renderCompletion(profile) {
           const wrap = document.getElementById('profile-completion-content');
@@ -1001,22 +956,6 @@
             wrap.textContent = 'Member Profile Card unavailable.';
           }
         }
-        function renderDashboardBackgroundControls(root) {
-          const section = document.createElement('section');
-          section.id = 'dashboard-background-section';
-          section.className = 'dashboard-tile-category dashboard-background-section';
-          const colour = dashboardBackgroundState.dashboard_background_colour || '#000000';
-          section.innerHTML = `<h3 class="dashboard-tile-category-title">Dashboard Background</h3><div class="dashboard-background-controls"><label>Background colour <input id="dashboard-bg-colour-picker" type="color" value="${colour}"></label><label>Hex colour <input id="dashboard-bg-colour" maxlength="7" placeholder="#111111" value="${dashboardBackgroundState.dashboard_background_colour || ''}"></label><label>Image/GIF URL <input id="dashboard-bg-url" placeholder="https://..." value="${dashboardBackgroundState.dashboard_background_url || ''}"></label><label>Background fit <select id="dashboard-bg-size"><option value="cover">Cover</option><option value="contain">Contain</option><option value="repeat">Repeat</option><option value="stretch">Stretch</option><option value="center">Center</option></select></label><label>Overlay strength <input id="dashboard-bg-overlay" type="range" min="0" max="80" value="${dashboardBackgroundState.dashboard_background_overlay_strength || 0}"><span id="dashboard-bg-overlay-value">${dashboardBackgroundState.dashboard_background_overlay_strength || 0}%</span></label><div class="dashboard-background-preview" id="dashboard-bg-preview"><span>Preview</span></div><div class="dashboard-background-actions"><button type="button" class="nav-button" id="dashboard-bg-clear">Clear background</button><button type="button" class="nav-button" id="dashboard-bg-save">Save background</button></div><p id="dashboard-bg-status" class="muted"></p></div>`;
-          root.append(section);
-          const size = section.querySelector('#dashboard-bg-size'); size.value = dashboardBackgroundState.dashboard_background_size || 'cover';
-          const collect = () => normalizeDashboardBackground({ dashboard_background_colour: section.querySelector('#dashboard-bg-colour').value, dashboard_background_url: section.querySelector('#dashboard-bg-url').value, dashboard_background_size: size.value, dashboard_background_overlay_strength: section.querySelector('#dashboard-bg-overlay').value });
-          const syncPreview = () => { const next = collect(); applyDashboardBackground(next); section.querySelector('#dashboard-bg-overlay-value').textContent = `${next.dashboard_background_overlay_strength}%`; const preview = section.querySelector('#dashboard-bg-preview'); preview.style.backgroundColor = next.dashboard_background_colour || 'transparent'; preview.style.backgroundImage = next.dashboard_background_url ? `url("${next.dashboard_background_url.replace(/"/g, '%22')}")` : 'none'; preview.style.backgroundSize = next.dashboard_background_size === 'stretch' ? '100% 100%' : next.dashboard_background_size === 'repeat' || next.dashboard_background_size === 'center' ? 'auto' : next.dashboard_background_size; preview.style.backgroundRepeat = next.dashboard_background_size === 'repeat' ? 'repeat' : 'no-repeat'; };
-          section.querySelector('#dashboard-bg-colour-picker').addEventListener('input', (event) => { section.querySelector('#dashboard-bg-colour').value = event.target.value; syncPreview(); });
-          section.querySelectorAll('input, select').forEach((el) => el.addEventListener('input', syncPreview));
-          section.querySelector('#dashboard-bg-clear').addEventListener('click', () => { dashboardBackgroundState = { ...DASHBOARD_BACKGROUND_DEFAULTS }; renderDashboardTileLibrary(); applyDashboardBackground(dashboardBackgroundState); });
-          section.querySelector('#dashboard-bg-save').addEventListener('click', async () => { const status = section.querySelector('#dashboard-bg-status'); const next = collect(); if (next.dashboard_background_url && !isSafeDashboardUrl(next.dashboard_background_url)) { status.textContent = 'Use an http:// or https:// URL.'; return; } try { const res = await fetchJsonSafe('/api/dashboard/background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) }); dashboardBackgroundState = normalizeDashboardBackground(res.profile || next); applyDashboardBackground(dashboardBackgroundState); status.textContent = 'Dashboard background saved.'; } catch (error) { status.textContent = error.message || 'Save failed.'; } });
-          syncPreview();
-        }
         async function renderDashboardTileLibrary() {
           const root = document.getElementById('dashboard-tile-library');
           if (!root) return;
@@ -1024,7 +963,6 @@
           const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
           const tileMeta = {
             'profile-snapshot': { label: 'Profile Spotlight / Snapshot', description: 'Your Profile Card snapshot tile.' },
-            'grev-dad-tutorial': { label: 'grev.dad Tutorial', description: 'A concise guide to using grev.dad.' },
             'profile-completion': { label: 'Account Progress', description: 'Shows profile completion progress.' },
             'profile-status': { label: 'Profile Status', description: 'Status message and profile links.' },
             'showcase-preview': { label: 'Showcase Preview', description: 'Recent showcase unlock highlights.' },
@@ -1041,10 +979,9 @@
             { name:'Community', ids:['members-preview','member-spotlight'] },
             { name:'Activity', ids:['chat','leaderboard-preview','site-notices'] },
             { name:'Admin', ids:['admin-quick-tools'], adminOnly:true },
-            { name:'Utility', ids:['grev-dad-tutorial','quick-actions'] }
+            { name:'Utility', ids:['quick-actions'] }
           ];
           root.innerHTML = '';
-          renderDashboardBackgroundControls(root);
           categories.forEach((cat) => {
             if (cat.adminOnly && !isAdmin) return;
             const section = document.createElement('section'); section.className='dashboard-tile-category';
@@ -1102,7 +1039,6 @@
             loadAccountSnapshotTile(),
             loadQuickActionsTile(),
             loadProfileCompletionTile(),
-            Promise.resolve(renderTutorialTile()),
             loadMembersPreviewTile(),
             loadProfileStatusTile(),
             loadShowcasePreviewTile(),
@@ -1129,9 +1065,6 @@
         const customisePanel = document.getElementById('dashboard-customise-panel');
         const customiseOverlay = document.getElementById('dashboard-customise-overlay');
         const customiseClose = document.getElementById('dashboard-customise-close');
-        document.getElementById('dashboard-quick-actions-toggle')?.addEventListener('click', openQuickActionsOverlay);
-        document.getElementById('quick-actions-overlay')?.addEventListener('click', (event) => { if (event.target?.hasAttribute?.('data-close-quick-actions')) closeQuickActionsOverlay(); });
-        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeQuickActionsOverlay(); });
         function setCustomisePanel(open) {
           customisePanel.classList.toggle('is-open', !!open);
           customisePanel.setAttribute('aria-hidden', open ? 'false' : 'true');
@@ -1153,7 +1086,7 @@
           const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
         });
         function safeHydrateLayout() { try { hydrateLayout(); } catch (error) { console.error('[home] layout failed', error); console.error('[home] layout hydrate failed; resetting layout', error); localStorage.removeItem('grev_dashboard_layout_v4'); hydrateLayout(); } }
-        (async function initDashboard(){const paintStart=performance.now();safeHydrateLayout();ensureTilesExist();renderTilePositions();resetDashboardEditingModeForPageLoad();perfLog('dashboard initial paint',paintStart);const bootstrapStart=performance.now();try{const boot=(window.GREVApi?.fetchJsonCached?await window.GREVApi.fetchJsonCached('/api/bootstrap/dashboard',{ttlMs:20000,cacheKey:'grev_api_cache:/api/bootstrap/dashboard'}):{data:await fetchJsonSafe('/api/bootstrap/dashboard')});if(boot?.data?.ok){dashboardBootstrap=boot.data;applyDashboardBackground(dashboardBootstrap.profile || {});if(Array.isArray(dashboardBootstrap.homepageTileConfig)&&dashboardBootstrap.homepageTileConfig.length){const by={blank:TILE_SIZE_RULES_FALLBACK.blank};dashboardBootstrap.homepageTileConfig.forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);renderTutorialTile();runTileLoadOnce('quick-actions',loadQuickActionsTile);} }catch(e){console.warn('[home] bootstrap failed, falling back',e);}perfLog('bootstrap fetch',bootstrapStart);window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});scheduleSoon(()=>{runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);renderTutorialTile();loadCustomMemberCardTiles();});scheduleIdle(()=>{const idleStart=performance.now();runTileLoadOnce('members-preview',loadMembersPreviewTile);runTileLoadOnce('leaderboard-preview',loadLeaderboardPreviewTile);runTileLoadOnce('chat',initHomeChat);loadSiteNoticesTile();loadAdminQuickToolsTile();perfLog('low-priority widgets',idleStart);});if(!dashboardBootstrap) loadTileConfig();})();
+        (async function initDashboard(){const paintStart=performance.now();safeHydrateLayout();ensureTilesExist();renderTilePositions();resetDashboardEditingModeForPageLoad();perfLog('dashboard initial paint',paintStart);const bootstrapStart=performance.now();try{const boot=(window.GREVApi?.fetchJsonCached?await window.GREVApi.fetchJsonCached('/api/bootstrap/dashboard',{ttlMs:20000,cacheKey:'grev_api_cache:/api/bootstrap/dashboard'}):{data:await fetchJsonSafe('/api/bootstrap/dashboard')});if(boot?.data?.ok){dashboardBootstrap=boot.data;if(Array.isArray(dashboardBootstrap.homepageTileConfig)&&dashboardBootstrap.homepageTileConfig.length){const by={blank:TILE_SIZE_RULES_FALLBACK.blank};dashboardBootstrap.homepageTileConfig.forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);} }catch(e){console.warn('[home] bootstrap failed, falling back',e);}perfLog('bootstrap fetch',bootstrapStart);window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});scheduleSoon(()=>{runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);loadCustomMemberCardTiles();});scheduleIdle(()=>{const idleStart=performance.now();runTileLoadOnce('members-preview',loadMembersPreviewTile);runTileLoadOnce('leaderboard-preview',loadLeaderboardPreviewTile);runTileLoadOnce('chat',initHomeChat);loadSiteNoticesTile();loadAdminQuickToolsTile();perfLog('low-priority widgets',idleStart);});if(!dashboardBootstrap) loadTileConfig();})();
       })();
     </script>
   </body>
