@@ -75,7 +75,6 @@
         }
         const LAYOUT_KEY_DESKTOP = 'grev_dashboard_layout_v4';
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v4_mobile';
-        const EDIT_MODE_KEY = 'grev_dashboard_edit_mode';
                 const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
         const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 2, minH: 1 },'quick-actions': { minW: 2, minH: 1 },'profile-completion': { minW: 2, minH: 1 },'members-preview': { minW: 2, minH: 1 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 1 },status: { minW: 2, minH: 1 },'profile-status': { minW: 4, minH: 1 },'showcase-preview': { minW: 4, minH: 1 },'leaderboard-preview': { minW: 4, minH: 1 },'member-spotlight': { minW: 3, minH: 2 },'site-notices': { minW: 4, minH: 1 },'admin-quick-tools': { minW: 4, minH: 1 }};
         const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },'member-card': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1, sortOrder: 130 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
@@ -89,6 +88,7 @@
           'coming-later': { col: 9, row: 1, size: '2x2' }
         };
         const grid = document.getElementById('dashboard-grid');
+        const dashboardBoard = document.querySelector('.dashboard-board');
         const resetButton = document.getElementById('reset-dashboard-layout');
         const editButton = document.getElementById('toggle-dashboard-edit');
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
@@ -96,6 +96,7 @@
         addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
         document.querySelector('.dashboard-edit-controls').append(addBlankButton);
         let isEditing = false;
+        let dashboardDragState = { tileId: null, preview: null };
         let homeChatTimer = null;
         let homeChatRoomId = null;
         let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {} };
@@ -322,7 +323,7 @@
             dashboardLayout.customTiles[id] = { type: 'member-card', memberId: Number(entry.memberId), col: Number(entry.col) || 1, row: Number(entry.row) || 1, size: normalizeTileSize(id, entry.size || '4x2') };
           });
           mobileLayout = (savedMobile && Array.isArray(savedMobile.order)) ? savedMobile : { order: [...enabledIds], sizes: {}, blankTiles: [] };
-          mobileLayout.order = mobileLayout.order.filter((id)=>dashboardLayout.tiles[id]||dashboardLayout.blankTiles[id]);
+          mobileLayout.order = mobileLayout.order.filter((id)=>dashboardLayout.tiles[id]||dashboardLayout.customTiles[id]||dashboardLayout.blankTiles[id]);
           ensureLayoutFitsColumns(); ensureTilesExist(); saveDesktopLayout(); saveMobileLayout(); renderTilePositions();
         }
         function rectsOverlap(a,b){return a.col < b.col + b.w && a.col + a.w > b.col && a.row < b.row + b.h && a.row + a.h > b.row;}
@@ -401,6 +402,88 @@
         }
         function showTileMessage(message) {
           console.debug('[dashboard]', message);
+        }
+        function ensureDashboardDropPreview() {
+          let preview = document.getElementById('dashboard-drop-preview');
+          if (!preview) {
+            preview = document.createElement('div');
+            preview.id = 'dashboard-drop-preview';
+            preview.className = 'dashboard-drop-preview';
+            preview.hidden = true;
+            grid.prepend(preview);
+          }
+          return preview;
+        }
+        function clearDashboardMovePreview() {
+          const preview = ensureDashboardDropPreview();
+          if (preview) {
+            preview.hidden = true;
+            preview.classList.remove('dashboard-drop-preview-invalid');
+            preview.style.removeProperty('grid-column');
+            preview.style.removeProperty('grid-row');
+          }
+          grid.querySelectorAll('.dashboard-tile.is-dragging').forEach((tile) => tile.classList.remove('is-dragging'));
+          dashboardDragState = { tileId: null, preview: null };
+        }
+        function handleDashboardTileDragStart(event) {
+          if (!isEditing || isMobileDashboard()) return;
+          const handle = event.target.closest('.dashboard-tile-drag-handle, .tile-drag-handle');
+          if (!handle) return;
+          const tileId = handle.dataset.dashboardDrag;
+          const tile = handle.closest('.dashboard-tile');
+          const entry = getLayoutEntry(dashboardLayout, tileId);
+          if (!tileId || !tile || !entry) return;
+          event.preventDefault();
+          dashboardDragState = { tileId, preview: ensureDashboardDropPreview() };
+          tile.classList.add('is-dragging');
+          handleDashboardTileDragOver(event);
+          const move = (e) => handleDashboardTileDragOver(e);
+          const up = (e) => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            handleDashboardTileDrop(e);
+            tile.classList.remove('is-dragging');
+          };
+          window.addEventListener('pointermove', move);
+          window.addEventListener('pointerup', up);
+        }
+        function handleDashboardTileDragOver(event) {
+          if (!isEditing || !dashboardDragState.tileId || !dashboardDragState.preview) return;
+          const entry = getLayoutEntry(dashboardLayout, dashboardDragState.tileId);
+          if (!entry) return;
+          const target = getGridCellFromPointer(event);
+          const { w, h } = parseTileSize(entry.size);
+          const maxCol = Math.max(1, getDashboardColumnCount() - w + 1);
+          const nextCol = Math.max(1, Math.min(maxCol, Math.floor(target.col || 1)));
+          const nextRow = Math.max(1, Math.floor(target.row || 1));
+          dashboardDragState.preview.hidden = false;
+          dashboardDragState.preview.style.gridColumn = `${nextCol} / span ${w}`;
+          dashboardDragState.preview.style.gridRow = `${nextRow} / span ${h}`;
+          const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
+          const test = getLayoutEntry(snapshot, dashboardDragState.tileId);
+          if (test) {
+            test.col = nextCol;
+            test.row = nextRow;
+          }
+          const ok = !!test && pushBlockingTiles(dashboardDragState.tileId, snapshot);
+          dashboardDragState.preview.classList.toggle('dashboard-drop-preview-invalid', !ok);
+        }
+        function handleDashboardTileDrop(event) {
+          const tileId = dashboardDragState.tileId;
+          const preview = dashboardDragState.preview;
+          if (preview) preview.hidden = true;
+          if (!isEditing || !tileId || !getLayoutEntry(dashboardLayout, tileId)) {
+            clearDashboardMovePreview();
+            return;
+          }
+          const target = getGridCellFromPointer(event);
+          if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.');
+          clearDashboardMovePreview();
+        }
+        function initDashboardTileDragging() {
+          if (!grid || grid.dataset.dashboardDraggingBound === '1') return;
+          grid.dataset.dashboardDraggingBound = '1';
+          grid.addEventListener('pointerdown', handleDashboardTileDragStart);
         }
         function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
         function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
@@ -498,25 +581,13 @@
             });
             overlay.append(moveControls);
 
-            let dragHandle = tile.querySelector('.tile-drag-handle');
-            if (!dragHandle) {
-              dragHandle = document.createElement('button');
-              dragHandle.type = 'button';
-              dragHandle.className = 'tile-drag-handle';
-              dragHandle.textContent = 'Move';
-              dragHandle.setAttribute('aria-label', 'Drag tile to move');
-              dragHandle.title = 'Drag tile to move';
-              dragHandle.addEventListener('pointerdown', (ev) => {
-                if (!isEditing || isMobileDashboard()) return;
-                ev.preventDefault();
-                tile.classList.add('tile-dragging');
-                const preview = document.getElementById('dashboard-drop-preview');
-                const move = (e) => { const target = getGridCellFromPointer(e); const entry = getLayoutEntry(dashboardLayout, tileId); const {w,h}=parseTileSize(entry.size); preview.hidden=false; preview.style.gridColumn=`${target.col} / span ${w}`; preview.style.gridRow=`${target.row} / span ${h}`; const snap=JSON.parse(JSON.stringify(dashboardLayout)); const test=getLayoutEntry(snap,tileId); if(test){ test.col=target.col; test.row=target.row; } const ok = pushBlockingTiles(tileId, snap); preview.classList.toggle('dashboard-drop-preview-invalid', !ok); };
-                const up = (e) => { tile.classList.remove('tile-dragging'); preview.hidden=true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); const target = getGridCellFromPointer(e); if (!moveTileTo(tileId, target.col, target.row)) showTileMessage('Could not place tile there.'); };
-                window.addEventListener('pointermove', move);
-                window.addEventListener('pointerup', up, { once: false });
-              });
-            }
+            const dragHandle = document.createElement('button');
+            dragHandle.type = 'button';
+            dragHandle.className = 'tile-drag-handle dashboard-tile-drag-handle';
+            dragHandle.textContent = 'Move';
+            dragHandle.dataset.dashboardDrag = tileId;
+            dragHandle.setAttribute('aria-label', 'Drag tile to move');
+            dragHandle.title = 'Drag tile to move';
             overlay.append(dragHandle);
 
             const sizeControl = document.createElement('label'); sizeControl.className='tile-size-control'; sizeControl.textContent='Tile size ';
@@ -579,10 +650,34 @@
           });
         }
         function setEditMode(enabled) {
-          isEditing = !!enabled; document.body.classList.toggle('dashboard-editing', isEditing);
+          isEditing = !!enabled;
+          document.body.classList.toggle('dashboard-editing', isEditing);
+          dashboardBoard?.classList.toggle('dashboard-editing', isEditing);
           grid.classList.toggle('dashboard-editing', isEditing);
-          editButton.textContent = isEditing ? 'Done Editing' : 'Edit Dashboard'; resetButton.hidden = !isEditing; addBlankButton.hidden = !isEditing;
-          createEditControls(); localStorage.setItem(EDIT_MODE_KEY, isEditing ? '1' : '0');
+          editButton.textContent = isEditing ? 'Save Dashboard' : 'Edit Dashboard';
+          resetButton.hidden = !isEditing;
+          addBlankButton.hidden = !isEditing;
+          if (isEditing) {
+            createEditControls();
+            initDashboardTileDragging();
+          } else {
+            saveDesktopLayout();
+            saveMobileLayout();
+            createEditControls();
+            clearDashboardMovePreview();
+            renderTilePositions();
+          }
+        }
+        function resetDashboardEditingModeForPageLoad() {
+          isEditing = false;
+          document.body.classList.remove('dashboard-editing');
+          dashboardBoard?.classList.remove('dashboard-editing');
+          grid.classList.remove('dashboard-editing');
+          editButton.textContent = 'Edit Dashboard';
+          resetButton.hidden = true;
+          addBlankButton.hidden = true;
+          createEditControls();
+          clearDashboardMovePreview();
         }
 
         function byId(id) { return document.getElementById(id); }
@@ -897,7 +992,7 @@
               row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${meta.label}</strong><p>${enabled ? meta.description : 'Disabled by admin.'}</p></div>`;
               const a = document.createElement('div'); a.className='dashboard-tile-library-actions';
               const b = document.createElement('button'); b.type='button'; b.className='nav-button'; b.textContent = visible ? 'Hide' : 'Show'; b.disabled = !enabled;
-              b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary(); };
+              b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary(); };
               a.append(b); row.append(a); section.append(row);
             });
             root.append(section);
@@ -927,9 +1022,9 @@
               const exists = !!dashboardLayout.customTiles[tileId];
               b.textContent = exists ? 'Remove' : 'Add';
               b.onclick = () => {
-                if (exists) { delete dashboardLayout.customTiles[tileId]; const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
-                else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; }
-                ensureTilesExist(); renderTilePositions(); loadCustomMemberCardTiles(); createEditControls(); saveDesktopLayout(); renderDashboardTileLibrary();
+                if (exists) { delete dashboardLayout.customTiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); const el=grid.querySelector(`[data-tile-id="${tileId}"]`); if(el) el.remove(); }
+                else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); }
+                ensureTilesExist(); renderTilePositions(); loadCustomMemberCardTiles(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
               };
               row.append(b); community.append(row);
             });
@@ -953,7 +1048,16 @@
         }
 
         async function loadTileConfig(){try{const d=await fetchJsonSafe('/api/homepage/tile-config');const by={blank:TILE_SIZE_RULES_FALLBACK.blank};(d.tiles||[]).forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}catch(error){console.error('[home] tile config failed', error);TILE_SIZE_RULES=JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));}}
-        editButton.addEventListener('click', () => setEditMode(!isEditing));
+        editButton.addEventListener('click', () => {
+          if (isEditing) {
+            saveDesktopLayout();
+            saveMobileLayout();
+            setEditMode(false);
+            renderDashboardTileLibrary?.();
+          } else {
+            setEditMode(true);
+          }
+        });
         const customiseToggle = document.getElementById('dashboard-customise-toggle');
         const customisePanel = document.getElementById('dashboard-customise-panel');
         const customiseOverlay = document.getElementById('dashboard-customise-overlay');
@@ -979,7 +1083,7 @@
           const id = `blank-${i}`; dashboardLayout.blankTiles[id] = { col: 1, row: 1, size: '1x1' }; mobileLayout.order.push(id); ensureLayoutFitsColumns(); ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
         });
         function safeHydrateLayout() { try { hydrateLayout(); } catch (error) { console.error('[home] layout failed', error); console.error('[home] layout hydrate failed; resetting layout', error); localStorage.removeItem('grev_dashboard_layout_v4'); hydrateLayout(); } }
-        (async function initDashboard(){const paintStart=performance.now();safeHydrateLayout();ensureTilesExist();renderTilePositions();createEditControls();setEditMode(localStorage.getItem(EDIT_MODE_KEY) === '1');perfLog('dashboard initial paint',paintStart);const bootstrapStart=performance.now();try{const boot=(window.GREVApi?.fetchJsonCached?await window.GREVApi.fetchJsonCached('/api/bootstrap/dashboard',{ttlMs:20000,cacheKey:'grev_api_cache:/api/bootstrap/dashboard'}):{data:await fetchJsonSafe('/api/bootstrap/dashboard')});if(boot?.data?.ok){dashboardBootstrap=boot.data;if(Array.isArray(dashboardBootstrap.homepageTileConfig)&&dashboardBootstrap.homepageTileConfig.length){const by={blank:TILE_SIZE_RULES_FALLBACK.blank};dashboardBootstrap.homepageTileConfig.forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);} }catch(e){console.warn('[home] bootstrap failed, falling back',e);}perfLog('bootstrap fetch',bootstrapStart);window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});scheduleSoon(()=>{runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);loadCustomMemberCardTiles();});scheduleIdle(()=>{const idleStart=performance.now();runTileLoadOnce('members-preview',loadMembersPreviewTile);runTileLoadOnce('leaderboard-preview',loadLeaderboardPreviewTile);runTileLoadOnce('chat',initHomeChat);loadSiteNoticesTile();loadAdminQuickToolsTile();perfLog('low-priority widgets',idleStart);});if(!dashboardBootstrap) loadTileConfig();})();
+        (async function initDashboard(){const paintStart=performance.now();safeHydrateLayout();ensureTilesExist();renderTilePositions();resetDashboardEditingModeForPageLoad();perfLog('dashboard initial paint',paintStart);const bootstrapStart=performance.now();try{const boot=(window.GREVApi?.fetchJsonCached?await window.GREVApi.fetchJsonCached('/api/bootstrap/dashboard',{ttlMs:20000,cacheKey:'grev_api_cache:/api/bootstrap/dashboard'}):{data:await fetchJsonSafe('/api/bootstrap/dashboard')});if(boot?.data?.ok){dashboardBootstrap=boot.data;if(Array.isArray(dashboardBootstrap.homepageTileConfig)&&dashboardBootstrap.homepageTileConfig.length){const by={blank:TILE_SIZE_RULES_FALLBACK.blank};dashboardBootstrap.homepageTileConfig.forEach((t)=>{by[t.tile_id]={defaultSize:t.default_size,allowedSizes:(t.allowed_sizes||[]).filter((x)=>BASE_TILE_SIZES.includes(x)),isEnabled:Number(t.is_enabled)===1?1:0,sortOrder:Number(t.sort_order)||0};});TILE_SIZE_RULES={...TILE_SIZE_RULES_FALLBACK,...by};}runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);} }catch(e){console.warn('[home] bootstrap failed, falling back',e);}perfLog('bootstrap fetch',bootstrapStart);window.addEventListener('resize', () => {const mobile = isMobileDashboard();ensureLayoutFitsColumns();if (mobile !== wasMobileDashboard) {wasMobileDashboard = mobile;createEditControls();}renderTilePositions();saveDesktopLayout();saveMobileLayout();});scheduleSoon(()=>{runTileLoadOnce('profile-snapshot',loadAccountSnapshotTile);runTileLoadOnce('quick-actions',loadQuickActionsTile);runTileLoadOnce('profile-completion',loadProfileCompletionTile);loadCustomMemberCardTiles();});scheduleIdle(()=>{const idleStart=performance.now();runTileLoadOnce('members-preview',loadMembersPreviewTile);runTileLoadOnce('leaderboard-preview',loadLeaderboardPreviewTile);runTileLoadOnce('chat',initHomeChat);loadSiteNoticesTile();loadAdminQuickToolsTile();perfLog('low-priority widgets',idleStart);});if(!dashboardBootstrap) loadTileConfig();})();
       })();
     </script>
   </body>
