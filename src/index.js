@@ -820,11 +820,13 @@ async function handleLeetifyProfile(request, env) {
   const legacyParsed = row?.leetify_url && row.leetify_url !== savedUrl ? parseLeetifyFromUrl(row.leetify_url) : { identifier:'' };
   const debugRequested = request.headers.get('x-grev-debug-integrations') === '1' || url.searchParams.get('debug') === '1';
   const debug = debugRequested && (Number(user.id) === userId || isUserAdmin(user));
+  const debugParsed = { profileUrl, steamId64: parsed.steamId64 || '', identifier: parsed.identifier || '', sourcePath: parsed.sourcePath || '' };
   const cacheKey=`${userId}|${profileUrl}|${row?.leetify_steam_id||''}|debug:${debug ? 1 : 0}`;
   const cached=readLeetifyCache(cacheKey);
   if(cached) return json(cached);
   const attempts = [];
-  const unavailable = (reason='Leetify data unavailable', status=null, reasonCode='unknown') => ({ ok:true, available:false, source:'leetify', profileUrl, viewUrl:profileUrl, steamId64:parsed.steamId64||row?.leetify_steam_id||null, identifier:parsed.identifier||null, sourcePath:parsed.sourcePath||null, reasonCode, reason, attribution: LEETIFY_ATTRIBUTION, ...(status?{status}:{}), ...(debug?{attempts}: {}) });
+  const withDebug = (payload) => ({ ...payload, ...(debug?{ parsed: debugParsed, attempts }: {}) });
+  const unavailable = (reason='Leetify data unavailable', status=null, reasonCode='unknown') => withDebug({ ok:true, available:false, source:'leetify', profileUrl, viewUrl:profileUrl, steamId64:parsed.steamId64||row?.leetify_steam_id||null, identifier:parsed.identifier||null, sourcePath:parsed.sourcePath||null, reasonCode, reason, attribution: LEETIFY_ATTRIBUTION, ...(status?{status}:{}) });
   const attemptsToTry = [];
   const addAttempt = (kind, candidate, endpoint) => {
     const value = String(candidate || '').trim();
@@ -832,31 +834,43 @@ async function handleLeetifyProfile(request, env) {
     attemptsToTry.push({ kind, candidate:value, endpoint });
   };
   if (row?.leetify_steam_id) addAttempt('steamId', row.leetify_steam_id, `https://api-public.cs-prod.leetify.com/v3/profile?steamId=${encodeURIComponent(row.leetify_steam_id)}`);
-  if (parsed.steamid64 && parsed.steamid64 !== row?.leetify_steam_id) addAttempt('steamId', parsed.steamid64, `https://api-public.cs-prod.leetify.com/v3/profile?steamId=${encodeURIComponent(parsed.steamid64)}`);
-  if (parsed.slug && !/^7656119\d{10}$/.test(parsed.slug)) addAttempt('leetifyUserId', parsed.slug, `https://api-public.cs-prod.leetify.com/v3/profile?leetifyUserId=${encodeURIComponent(parsed.slug)}`);
+  if (parsed.steamId64 && parsed.steamId64 !== row?.leetify_steam_id) addAttempt('steamId', parsed.steamId64, `https://api-public.cs-prod.leetify.com/v3/profile?steamId=${encodeURIComponent(parsed.steamId64)}`);
+  if (parsed.identifier && !/^7656119\d{10}$/.test(parsed.identifier)) addAttempt('leetifyUserId', parsed.identifier, `https://api-public.cs-prod.leetify.com/v3/profile?leetifyUserId=${encodeURIComponent(parsed.identifier)}`);
   if (legacyParsed.identifier && !/^7656119\d{10}$/.test(legacyParsed.identifier)) addAttempt('leetifyUserId', legacyParsed.identifier, `https://api-public.cs-prod.leetify.com/v3/profile?leetifyUserId=${encodeURIComponent(legacyParsed.identifier)}`);
   if (!attemptsToTry.length) return json(writeLeetifyCache(cacheKey, unavailable('Leetify profile URL could not be parsed', null, 'invalid_url'), 120000));
   const headers = { 'Accept':'application/json', ...(env?.LEETIFY_API_KEY ? { 'Authorization': `Bearer ${env.LEETIFY_API_KEY}` } : {}) };
+  const previewResponse = (json) => json && typeof json === 'object' ? ({
+    hasId: Boolean(json.id),
+    hasName: Boolean(json.name),
+    hasRanks: Boolean(json.ranks),
+    hasRating: Boolean(json.rating),
+    hasRecentMatches: Boolean(json.recent_matches || json.recentMatches)
+  }) : null;
   for (const attemptToTry of attemptsToTry) {
     const { kind, candidate, endpoint } = attemptToTry;
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctrl ? setTimeout(()=>ctrl.abort('timeout'), 5000) : null;
-    const attempt = { kind, candidate, endpoint, status: null, ok: false, reason: 'pending' };
+    const attempt = { kind, candidate, endpoint, status: null, ok: false, reason: 'pending', responseKeys: [], topLevelPreview: null };
     attempts.push(attempt);
     try {
       const resp = await fetch(endpoint, { headers, ...(ctrl?{signal:ctrl.signal}:{}) });
       attempt.status = resp.status;
-      if (debug) console.debug('[leetify] endpoint', { userId, endpoint, status: resp.status, ok: resp.ok });
+      if (debug) console.debug('[leetify] endpoint', { userId, kind, candidate, endpoint, status: resp.status, ok: resp.ok });
       const text = await resp.text();
+      let payload = null;
+      if (text) {
+        try { payload = JSON.parse(text); }
+        catch {
+          attempt.reason = resp.ok ? 'invalid_json' : `status_${resp.status}`;
+          continue;
+        }
+      }
+      if (payload && typeof payload === 'object') {
+        attempt.responseKeys = Object.keys(payload);
+        attempt.topLevelPreview = previewResponse(payload);
+      }
       if (!resp.ok) {
         attempt.reason = [401,403,404,429].includes(resp.status) ? `status_${resp.status}` : 'http_error';
-        continue;
-      }
-      let payload = null;
-      try {
-        payload = text ? JSON.parse(text) : null;
-      } catch {
-        attempt.reason = 'invalid_json';
         continue;
       }
       const profile = payload?.profile || payload?.data?.profile || payload?.data || payload;
@@ -864,10 +878,17 @@ async function handleLeetifyProfile(request, env) {
         attempt.reason = 'unexpected_response_shape';
         continue;
       }
+      if (profile !== payload && profile && typeof profile === 'object') {
+        attempt.topLevelPreview = { ...attempt.topLevelPreview, profileKeys: Object.keys(profile).slice(0, 30), profilePreview: previewResponse(profile) };
+      }
       const normalized = normalizeLeetifyProfile(profile, profileUrl, parsed.steamId64 || row?.leetify_steam_id || null);
+      if (!hasMeaningfulLeetifyData(normalized)) {
+        attempt.reason = 'no_meaningful_data';
+        return json(writeLeetifyCache(cacheKey, unavailable('Leetify Public API did not return usable data for this profile. The profile page can still be public on Leetify.com, but grev.dad only uses the official Public API and does not scrape Leetify pages.', 200, 'no_api_profile_data'), 120000));
+      }
       attempt.ok = true;
       attempt.reason = 'ok';
-      return json(writeLeetifyCache(cacheKey, { ...normalized, ...(debug?{attempts}: {}) }));
+      return json(writeLeetifyCache(cacheKey, withDebug(normalized)));
     } catch (error) {
       attempt.reason = error?.name === 'AbortError' || String(error?.message||error).includes('timeout') ? 'timeout' : 'fetch_failed';
       if (debug) console.debug('[leetify] fetch failed', { endpoint, error: String(error&&error.message||error) });
@@ -879,6 +900,7 @@ async function handleLeetifyProfile(request, env) {
     return json(writeLeetifyCache(cacheKey, unavailable('Leetify Public API did not return this profile. The saved Leetify page can still be public in a browser, but the Public API may require the profile to be registered/non-hidden or available to third-party API access.', 404, 'not_found'), 120000));
   }
   const statusAttempt = attempts.find((attempt) => [401, 403, 404, 429].includes(Number(attempt.status)));
+  const noDataAttempt = attempts.find((attempt) => attempt.reason === 'no_meaningful_data');
   const invalidJsonAttempt = attempts.find((attempt) => attempt.reason === 'invalid_json');
   const shapeAttempt = attempts.find((attempt) => attempt.reason === 'unexpected_response_shape');
   const timeoutAttempt = attempts.find((attempt) => attempt.reason === 'timeout');
@@ -889,14 +911,16 @@ async function handleLeetifyProfile(request, env) {
       ? 'Leetify Public API rejected this request. A site-wide API key may be required, or the profile may not be available to third-party apps.'
       : status === 429
         ? 'Leetify Public API rate limit reached. Try again later.'
-        : invalidJsonAttempt
-          ? 'Leetify endpoint returned invalid JSON'
-          : shapeAttempt
-            ? 'Leetify response shape changed or profile data is unavailable'
-            : timeoutAttempt
-              ? 'Leetify endpoint timed out'
-              : 'Leetify data unavailable';
-  const reasonCode = status === 404 ? 'not_found' : (status === 401 || status === 403) ? 'api_rejected' : status === 429 ? 'rate_limited' : timeoutAttempt ? 'api_unavailable' : 'unknown';
+        : noDataAttempt
+          ? 'Leetify Public API did not return usable data for this profile. The profile page can still be public on Leetify.com, but grev.dad only uses the official Public API and does not scrape Leetify pages.'
+          : invalidJsonAttempt
+            ? 'Leetify endpoint returned invalid JSON'
+            : shapeAttempt
+              ? 'Leetify response shape changed or profile data is unavailable'
+              : timeoutAttempt
+                ? 'Leetify endpoint timed out'
+                : 'Leetify data unavailable';
+  const reasonCode = status === 404 ? 'not_found' : (status === 401 || status === 403) ? 'api_rejected' : status === 429 ? 'rate_limited' : noDataAttempt ? 'no_api_profile_data' : timeoutAttempt ? 'api_unavailable' : 'unknown';
   return json(writeLeetifyCache(cacheKey, unavailable(reason, statusAttempt?.status || null, reasonCode), reasonCode === 'unknown' ? 120000 : 60000));
 }
 
@@ -909,54 +933,92 @@ function pickDeep(obj, paths) {
 }
 
 function normalizeLeetifyProfile(profile, profileUrl, steam64IdFromUrl) {
-  const numberOrNull = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
+  function numberOrNull(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'string' && !v.trim()) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
   const pick = (...vals) => vals.find((v) => v !== undefined && v !== null && v !== '') ?? null;
-  const steam64Id = pickDeep(profile, ['steam64_id','steam64Id','steamID64','steamId64','steamid64','steamId','data.steam64_id','data.steam64Id','profile.steam64_id','profile.steam64Id','user.steam64_id','user.steam64Id']) || steam64IdFromUrl || null;
-  const ranks = pickDeep(profile, ['ranks','profile.ranks','data.ranks','rank.ranks','cs2.ranks','cs2Profile.ranks','competitive.ranks','competitiveMapRanks','mapRanks','profile.mapRanks']);
-  let csRank = null, csRankType = null, csPremierRating = null, csCompetitiveRanks = null;
-  const premier = numberOrNull(pickDeep(profile, ['ranks.premier','ranks.premier_rating','ranks.premierRating','premierRating','premier_rating','cs2PremierRating','rank.premierRating','cs2.premierRating','cs2Profile.premierRating','premier.rating','currentRank.premierRating','competitive.premierRating','data.ranks.premier','data.ranks.premier_rating','data.ranks.premierRating','data.premierRating','profile.ranks.premier','profile.ranks.premier_rating','profile.ranks.premierRating','profile.premierRating']));
-  if (premier != null) { csPremierRating = premier; csRank = `Premier ${premier.toLocaleString('en-US')}`; csRankType='premier'; }
-  if (!csRank) {
-    const named = pickDeep(profile, ['premierRank','matchmakingRank','competitiveRank','rank.name','rank.label','rank.rank','rank','ranks.current','ranks.competitive','cs2.rank','cs2.currentRank','cs2Profile.rank','cs2Profile.currentRank','premier.rank','currentRank.name','currentRank.label','currentRank','competitive.rank','competitive.currentRank','profile.rank','profile.currentRank','data.rank','data.currentRank']);
-    if (typeof named === 'string') { csRank = named; csRankType='competitive'; }
-    else if (named && typeof named === 'object') {
-      const label = pick(named.name, named.label, named.rank, named.rankName);
-      if (typeof label === 'string') { csRank = label; csRankType='competitive'; }
+  const steam64Id = pickDeep(profile, ['steam64_id','steam64Id','steamId64','steam_id','steamId','steamID64','steamid64','data.steam64_id','data.steam64Id','data.steamId64','data.steam_id','data.steamId','profile.steam64_id','profile.steam64Id','profile.steamId64','profile.steam_id','profile.steamId','user.steam64_id','user.steam64Id','user.steamId64','user.steam_id','user.steamId']) || steam64IdFromUrl || null;
+  const csPremierRating = numberOrNull(pickDeep(profile, ['csPremierRating','premierRating','ranks.premier','ranks.premier_rating','ranks.premierRating','rank.premier','cs2.premierRating','cs2.premier_rating','data.csPremierRating','data.premierRating','data.ranks.premier','data.ranks.premier_rating','data.ranks.premierRating','data.rank.premier','data.cs2.premierRating','data.cs2.premier_rating','profile.csPremierRating','profile.premierRating','profile.ranks.premier','profile.ranks.premier_rating','profile.ranks.premierRating','profile.rank.premier','profile.cs2.premierRating','profile.cs2.premier_rating']));
+  const rankValue = pickDeep(profile, ['csRank','rank','rank.name','rank.label','ranks.current','ranks.competitive','cs2.rank','competitive.rank','currentRank','data.csRank','data.rank','data.rank.name','data.rank.label','data.ranks.current','data.ranks.competitive','data.cs2.rank','data.competitive.rank','data.currentRank','profile.csRank','profile.rank','profile.rank.name','profile.rank.label','profile.ranks.current','profile.ranks.competitive','profile.cs2.rank','profile.competitive.rank','profile.currentRank']);
+  let csRank = null, csRankType = null;
+  if (typeof rankValue === 'string' && rankValue.trim()) { csRank = rankValue.trim(); csRankType = 'competitive'; }
+  else if (rankValue && typeof rankValue === 'object') {
+    const label = pick(rankValue.name, rankValue.label, rankValue.rank, rankValue.rankName, rankValue.value);
+    if (typeof label === 'string' && label.trim()) { csRank = label.trim(); csRankType = 'competitive'; }
+  }
+  if (!csRank && csPremierRating !== null) { csRank = `Premier ${csPremierRating.toLocaleString('en-US')}`; csRankType = 'premier'; }
+  const mapRanksRaw = pickDeep(profile, ['csCompetitiveRanks','competitiveRanks','ranks.maps','ranks.mapRanks','mapRanks','competitive.mapRanks','data.csCompetitiveRanks','data.competitiveRanks','data.ranks.maps','data.ranks.mapRanks','data.mapRanks','data.competitive.mapRanks','profile.csCompetitiveRanks','profile.competitiveRanks','profile.ranks.maps','profile.ranks.mapRanks','profile.mapRanks','profile.competitive.mapRanks']);
+  let csCompetitiveRanks = null;
+  if (Array.isArray(mapRanksRaw) && mapRanksRaw.length) {
+    csCompetitiveRanks = mapRanksRaw;
+    if (!csRank) {
+      const first = mapRanksRaw.find(Boolean);
+      if (typeof first === 'string') { csRank = first; csRankType = 'map'; }
+      else if (first && typeof first === 'object') { const label = pick(first.rank, first.csRank, first.value, first.name, first.label); if (label) { csRank = String(label); csRankType = 'map'; } }
+    }
+  } else if (mapRanksRaw && typeof mapRanksRaw === 'object') {
+    const mapped = {};
+    for (const [k,v] of Object.entries(mapRanksRaw)) {
+      if (typeof v === 'string' && v.trim()) mapped[k]=v.trim();
+      else if (v && typeof v==='object') { const label=pick(v.name,v.label,v.rank,v.rankName,v.csRank,v.value); if (typeof label==='string' && label.trim()) mapped[k]=label.trim(); }
+    }
+    if (Object.keys(mapped).length) {
+      csCompetitiveRanks = mapped;
+      if (!csRank) { csRank = Object.values(mapped)[0] || null; csRankType = csRank ? 'map' : null; }
     }
   }
-  if (!csRank && ranks && typeof ranks === 'object') {
-    const mapped = {};
-    for (const [k,v] of Object.entries(ranks)) { if (typeof v === 'string' && v.trim()) mapped[k]=v.trim(); else if (v && typeof v==='object') { const label=pick(v.name,v.label,v.rank,v.rankName); if (typeof label==='string' && label.trim()) mapped[k]=label.trim(); } }
-    const first = Object.values(mapped)[0] || null;
-    if (first) { csCompetitiveRanks = mapped; csRank = first; csRankType='map'; }
-  }
-  const leetifyRating = numberOrNull(pickDeep(profile, ['rating.leetify','rating.overall','leetifyRating','ratings.leetify','stats.leetifyRating','data.rating.leetify','data.rating.overall','data.leetifyRating','profile.rating.leetify','profile.rating.overall','profile.leetifyRating']));
-  const aimRating = numberOrNull(pickDeep(profile, ['rating.aim','stats.aim','stats.preaim','aimRating','aim.rating','ratings.aim','stats.aimRating','data.rating.aim','data.stats.aim','data.stats.preaim','data.aimRating','profile.rating.aim','profile.stats.aim','profile.stats.preaim','profile.aimRating']));
-  const positioningRating = numberOrNull(pickDeep(profile, ['rating.positioning','positioningRating','positioning.rating','ratings.positioning','stats.positioningRating','data.rating.positioning','data.positioningRating','profile.rating.positioning','profile.positioningRating']));
-  const utilityRating = numberOrNull(pickDeep(profile, ['rating.utility','utilityRating','utility.rating','ratings.utility','stats.utilityRating','data.rating.utility','data.utilityRating','profile.rating.utility','profile.utilityRating']));
-  const clutchRating = numberOrNull(pickDeep(profile, ['rating.clutch','clutchRating','clutch.rating','ratings.clutch','stats.clutchRating','data.rating.clutch','data.clutchRating','profile.rating.clutch','profile.clutchRating']));
-  const openingDuelRating = numberOrNull(pickDeep(profile, ['rating.opening_duel','rating.openingDuel','openingDuelRating','openingDuels.rating','openingDuel.rating','ratings.openingDuel','stats.openingDuelRating','data.rating.opening_duel','data.rating.openingDuel','data.openingDuelRating','profile.rating.opening_duel','profile.rating.openingDuel','profile.openingDuelRating']));
-  const recentMatchesRaw = pickDeep(profile, ['recent_matches','recentMatches','matches','profile.recent_matches','profile.recentMatches','data.recent_matches','data.recentMatches']);
-  const recentMatches = Array.isArray(recentMatchesRaw) ? recentMatchesRaw.slice(0, 10).map((m)=>({ id: m.id || m.matchId || m.match_id || null, mapName: m.mapName || m.map_name || m.map || null, finishedAt: m.finishedAt || m.finished_at || m.date || m.createdAt || m.created_at || null, result: m.result || null })) : [];
-  const totalMatches = numberOrNull(pickDeep(profile, ['total_matches','totalMatches','stats.total_matches','stats.totalMatches','data.total_matches','data.totalMatches','profile.total_matches','profile.totalMatches']));
-  const leetifyUserId = pickDeep(profile, ['id','leetifyUserId','leetify_user_id','data.id','profile.id']) || null;
-  const privacyMode = pickDeep(profile, ['privacy_mode','privacyMode','data.privacy_mode','data.privacyMode','profile.privacy_mode','profile.privacyMode']) || null;
-  const bans = pickDeep(profile, ['bans','data.bans','profile.bans']) || null;
-  const recentTeammatesRaw = pickDeep(profile, ['recent_teammates','recentTeammates','data.recent_teammates','data.recentTeammates','profile.recent_teammates','profile.recentTeammates']);
-  const recentTeammates = Array.isArray(recentTeammatesRaw) ? recentTeammatesRaw.slice(0, 10) : [];
-  const firstMatchDate = pickDeep(profile, ['first_match_date','firstMatchDate','data.first_match_date','data.firstMatchDate','profile.first_match_date','profile.firstMatchDate']) || null;
-  const explicitRecentCount = numberOrNull(pickDeep(profile, ['recentMatchesCount','recent_matches_count','stats.recentMatchesCount','stats.recent_matches_count','data.recentMatchesCount','data.recent_matches_count','profile.recentMatchesCount','profile.recent_matches_count']));
+  const recentMatchesRaw = pickDeep(profile, ['recentMatches','recent_matches','matches.recent','data.recentMatches','data.recent_matches','data.matches.recent','profile.recentMatches','profile.recent_matches','profile.matches.recent']);
+  const recentMatches = Array.isArray(recentMatchesRaw) ? recentMatchesRaw.slice(0, 10).map((m)=>({ id: m?.id || m?.matchId || m?.match_id || null, mapName: m?.mapName || m?.map_name || m?.map || null, finishedAt: m?.finishedAt || m?.finished_at || m?.date || m?.createdAt || m?.created_at || null, result: m?.result || null, score: m?.score || null })) : [];
+  const explicitRecentCount = numberOrNull(pickDeep(profile, ['recentMatchesCount','recent_matches_count','recentMatches.length','recent_matches.length','totalMatches','total_matches','data.recentMatchesCount','data.recent_matches_count','data.recentMatches.length','data.recent_matches.length','data.totalMatches','data.total_matches','profile.recentMatchesCount','profile.recent_matches_count','profile.recentMatches.length','profile.recent_matches.length','profile.totalMatches','profile.total_matches']));
+  const totalMatches = numberOrNull(pickDeep(profile, ['totalMatches','total_matches','data.totalMatches','data.total_matches','profile.totalMatches','profile.total_matches']));
+  const rawUpdatedAt = pickDeep(profile, ['rawUpdatedAt','updatedAt','updated_at','lastUpdatedAt','last_updated_at','data.rawUpdatedAt','data.updatedAt','data.updated_at','data.lastUpdatedAt','data.last_updated_at','profile.rawUpdatedAt','profile.updatedAt','profile.updated_at','profile.lastUpdatedAt','profile.last_updated_at']) || null;
   return {
-    ok:true, available:true, source:'leetify', attribution: LEETIFY_ATTRIBUTION, profileUrl, viewUrl: profileUrl, steamId64: steam64Id, leetifyUserId, privacyMode, bans,
-    name: pickDeep(profile, ['name','displayName','display_name','profile.name','data.name','user.name']) || null,
-    nickname: pickDeep(profile, ['nickname','alias','username','profile.nickname','data.nickname','user.nickname']) || null,
-    leetifyRating, aimRating, positioningRating, utilityRating, clutchRating, openingDuelRating,
-    recentMatchesCount: recentMatches.length || explicitRecentCount,
+    ok:true, available:true, source:'leetify', attribution: LEETIFY_ATTRIBUTION, profileUrl, viewUrl: profileUrl, steamId64: steam64Id,
+    leetifyUserId: pickDeep(profile, ['id','leetifyUserId','leetify_user_id','data.id','data.leetifyUserId','data.leetify_user_id','profile.id','profile.leetifyUserId','profile.leetify_user_id']) || null,
+    privacyMode: pickDeep(profile, ['privacy_mode','privacyMode','data.privacy_mode','data.privacyMode','profile.privacy_mode','profile.privacyMode']) || null,
+    bans: pickDeep(profile, ['bans','data.bans','profile.bans']) || null,
+    name: pickDeep(profile, ['name','nickname','profile.name','user.name','data.name','data.nickname','data.profile.name','data.user.name']) || null,
+    nickname: pickDeep(profile, ['nickname','name','profile.nickname','user.nickname','data.nickname','data.name','data.profile.nickname','data.user.nickname']) || null,
+    avatarUrl: pickDeep(profile, ['avatar_url','avatarUrl','avatar','profile.avatar_url','data.avatar_url','data.avatarUrl','data.avatar','data.profile.avatar_url','user.avatar_url','user.avatarUrl']) || null,
+    leetifyRating: numberOrNull(pickDeep(profile, ['leetifyRating','rating.leetify','rating.overall','ratings.leetify','ratings.overall','data.leetifyRating','data.rating.leetify','data.rating.overall','data.ratings.leetify','data.ratings.overall','profile.leetifyRating','profile.rating.leetify','profile.rating.overall','profile.ratings.leetify','profile.ratings.overall'])),
+    aimRating: numberOrNull(pickDeep(profile, ['aimRating','rating.aim','ratings.aim','stats.aim','data.aimRating','data.rating.aim','data.ratings.aim','data.stats.aim','profile.aimRating','profile.rating.aim','profile.ratings.aim','profile.stats.aim'])),
+    positioningRating: numberOrNull(pickDeep(profile, ['positioningRating','rating.positioning','ratings.positioning','stats.positioning','data.positioningRating','data.rating.positioning','data.ratings.positioning','data.stats.positioning','profile.positioningRating','profile.rating.positioning','profile.ratings.positioning','profile.stats.positioning'])),
+    utilityRating: numberOrNull(pickDeep(profile, ['utilityRating','rating.utility','ratings.utility','stats.utility','data.utilityRating','data.rating.utility','data.ratings.utility','data.stats.utility','profile.utilityRating','profile.rating.utility','profile.ratings.utility','profile.stats.utility'])),
+    clutchRating: numberOrNull(pickDeep(profile, ['clutchRating','rating.clutch','ratings.clutch','stats.clutch','data.clutchRating','data.rating.clutch','data.ratings.clutch','data.stats.clutch','profile.clutchRating','profile.rating.clutch','profile.ratings.clutch','profile.stats.clutch'])),
+    openingDuelRating: numberOrNull(pickDeep(profile, ['openingDuelRating','rating.openingDuel','rating.opening_duel','ratings.openingDuel','ratings.opening_duel','stats.openingDuel','stats.opening_duel','data.openingDuelRating','data.rating.openingDuel','data.rating.opening_duel','data.ratings.openingDuel','data.ratings.opening_duel','data.stats.openingDuel','data.stats.opening_duel','profile.openingDuelRating','profile.rating.openingDuel','profile.rating.opening_duel','profile.ratings.openingDuel','profile.ratings.opening_duel','profile.stats.openingDuel','profile.stats.opening_duel'])),
+    recentMatchesCount: explicitRecentCount !== null ? explicitRecentCount : (recentMatches.length ? recentMatches.length : null),
     totalMatches,
     csRank, csRankType: csRankType || null, csPremierRating, csCompetitiveRanks,
-    rank: csRank, avatarUrl: pickDeep(profile, ['avatarUrl','avatar_url','avatar','profile.avatarUrl','profile.avatar_url','user.avatarUrl','user.avatar_url']) || null, recentMatches, recentTeammates, firstMatchDate, fetchedAt: new Date().toISOString(), rawUpdatedAt: pickDeep(profile, ['updatedAt','updated_at','lastUpdatedAt','profile.updatedAt','profile.updated_at','data.updatedAt','data.updated_at']) || null
+    rank: csRank, recentMatches,
+    recentTeammates: Array.isArray(pickDeep(profile, ['recent_teammates','recentTeammates','data.recent_teammates','data.recentTeammates','profile.recent_teammates','profile.recentTeammates'])) ? pickDeep(profile, ['recent_teammates','recentTeammates','data.recent_teammates','data.recentTeammates','profile.recent_teammates','profile.recentTeammates']).slice(0, 10) : [],
+    firstMatchDate: pickDeep(profile, ['first_match_date','firstMatchDate','data.first_match_date','data.firstMatchDate','profile.first_match_date','profile.firstMatchDate']) || null,
+    rawUpdatedAt
   };
 }
+
+function hasMeaningfulLeetifyData(data) {
+  return Boolean(
+    data.name ||
+    data.nickname ||
+    data.avatarUrl ||
+    data.steamId64 ||
+    data.csRank ||
+    data.csPremierRating !== null ||
+    data.leetifyRating !== null ||
+    data.aimRating !== null ||
+    data.positioningRating !== null ||
+    data.utilityRating !== null ||
+    data.clutchRating !== null ||
+    data.openingDuelRating !== null ||
+    data.recentMatchesCount !== null ||
+    (Array.isArray(data.recentMatches) && data.recentMatches.length) ||
+    (data.csCompetitiveRanks && Object.keys(data.csCompetitiveRanks).length)
+  );
+}
+
 
 function readSteamCache(cacheKey) { const cached = steamProfileCache.get(cacheKey); if (!cached) return null; if (cached.expiresAt < Date.now()) { steamProfileCache.delete(cacheKey); return null; } return cached.data; }
 function writeSteamCache(cacheKey, data) { steamProfileCache.set(cacheKey, { expiresAt: Date.now() + STEAM_PROFILE_CACHE_TTL_MS, data }); return data; }
