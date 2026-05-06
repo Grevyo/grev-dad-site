@@ -17,7 +17,7 @@ const PUBLIC_API_PATHS = new Set(['/api/auth/login', '/api/auth/register', '/api
 const TILE_MINIMUM_SIZES = { 'profile-snapshot': { minW: 2, minH: 1 }, 'quick-actions': { minW: 2, minH: 1 }, 'profile-completion': { minW: 2, minH: 1 }, 'members-preview': { minW: 2, minH: 1 }, chat: { minW: 4, minH: 4 }, 'coming-later': { minW: 2, minH: 1 }, status: { minW: 2, minH: 1 }, 'profile-status': { minW: 4, minH: 1 }, 'showcase-preview': { minW: 4, minH: 1 }, 'leaderboard-preview': { minW: 4, minH: 1 }, 'member-spotlight': { minW: 3, minH: 2 }, 'site-notices': { minW: 4, minH: 1 }, 'admin-quick-tools': { minW: 4, minH: 1 }, blank: { minW: 1, minH: 1 } };
 const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
 const LEETIFY_CARD_TOGGLE_FIELDS = ['card_show_leetify_rank','card_show_leetify_rating','card_show_leetify_steam_id','card_show_leetify_avatar','card_show_leetify_name','card_show_leetify_aim','card_show_leetify_positioning','card_show_leetify_utility','card_show_leetify_clutch','card_show_leetify_opening','card_show_leetify_recent_matches','card_show_leetify_premier','card_show_leetify_map_ranks','card_show_leetify_updated'];
-const LEETIFY_CARD_TILE_KEYS = ['leetify','leetify_name','leetify_avatar','leetify_steam_id','leetify_rank','leetify_premier','leetify_rating','leetify_aim','leetify_positioning','leetify_utility','leetify_clutch','leetify_opening','leetify_recent_matches','leetify_map_ranks','leetify_updated','leetify_attribution'];
+const LEETIFY_CARD_TILE_KEYS = ['leetify','leetify_status','leetify_name','leetify_avatar','leetify_steam_id','leetify_rank','leetify_premier','leetify_rating','leetify_aim','leetify_positioning','leetify_utility','leetify_clutch','leetify_opening','leetify_recent_matches','leetify_map_ranks','leetify_updated','leetify_attribution'];
 const CARD_TILE_KEYS = new Set(['name','username','role','level','rank','xp','status','steam','refrag',...LEETIFY_CARD_TILE_KEYS]);
 const PROFILE_WIDGET_KEYS = new Set(['profile-card','bio','status','steam','leetify','refrag','showcase','links','progress','achievements']);
 const PROFILE_PAGE_SIZE_OPTIONS = new Set(['2x1','2x2','4x1','4x2','4x3','4x4','6x2','6x4']);
@@ -197,6 +197,10 @@ function parseLeetifyProfileIdentifier(value) {
   const u = new URL(profileUrl);
   const host = u.hostname.toLowerCase();
   const parts = u.pathname.split('/').filter(Boolean);
+  const isSteamId64 = (part) => {
+    const text = String(part || '').trim();
+    return text.length === 17 && text.startsWith('7656119') && [...text].every((ch) => ch >= '0' && ch <= '9');
+  };
   let identifier = '';
   let sourcePath = '';
   if (host === 'steamcommunity.gg' || host === 'www.steamcommunity.gg') {
@@ -206,10 +210,10 @@ function parseLeetifyProfileIdentifier(value) {
     }
   } else {
     const profileIndex = parts.indexOf('profile');
-    identifier = parts[profileIndex + 1] || '';
-    sourcePath = parts.slice(Math.max(0, profileIndex - 1), profileIndex + 1).join('/');
+    identifier = profileIndex >= 0 ? (parts[profileIndex + 1] || '') : '';
+    sourcePath = profileIndex > 0 ? `${parts[profileIndex - 1]}/profile` : (profileIndex === 0 ? 'profile' : '');
   }
-  const steamCandidate = [identifier, u.searchParams.get('steamid'), u.searchParams.get('steam64'), ...parts].find((part) => /^7656119\d{10}$/.test(String(part || '')));
+  const steamCandidate = [identifier, u.searchParams.get('steamid'), u.searchParams.get('steam64'), ...parts].find(isSteamId64);
   return { profileUrl, steamId64: steamCandidate || '', identifier, slugOrIdentifier: identifier, sourcePath };
 }
 function parseRefragProfileUrl(value) {
@@ -812,39 +816,43 @@ async function handleLeetifyProfile(request, env) {
   if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
   const row=await db.prepare('SELECT leetify_url, leetify_profile_url, leetify_steam_id FROM user_profiles WHERE user_id = ?').bind(userId).first();
   const savedUrl=String(row?.leetify_profile_url || row?.leetify_url || '').trim();
+  const debugRequested = request.headers.get('x-grev-debug-integrations') === '1' || url.searchParams.get('debug') === '1';
+  const debug = debugRequested && (Number(user.id) === userId || isUserAdmin(user));
   if(!savedUrl) return json({ ok:true, available:false, source:'leetify', reasonCode:'no_profile_link', reason:'No Leetify profile link set', attribution: LEETIFY_ATTRIBUTION });
   let parsedSaved;
   try { parsedSaved = parseLeetifyProfileIdentifier(savedUrl); } catch { return json({ ok:true, available:false, source:'leetify', profileUrl:savedUrl, viewUrl:savedUrl, reasonCode:'invalid_url', reason:'Saved Leetify profile URL is invalid.', attribution: LEETIFY_ATTRIBUTION }); }
   const profileUrl = parsedSaved.profileUrl;
   const parsed=parseLeetifyFromUrl(profileUrl);
-  const legacyParsed = row?.leetify_url && row.leetify_url !== savedUrl ? parseLeetifyFromUrl(row.leetify_url) : { identifier:'' };
-  const debugRequested = request.headers.get('x-grev-debug-integrations') === '1' || url.searchParams.get('debug') === '1';
-  const debug = debugRequested && (Number(user.id) === userId || isUserAdmin(user));
+  const legacyParsed = row?.leetify_url && row.leetify_url !== savedUrl ? parseLeetifyFromUrl(row.leetify_url) : { identifier:'', sourcePath:'' };
+  const parsedDebug = { profileUrl, steamId64: parsed.steamId64 || row?.leetify_steam_id || '', identifier: parsed.identifier || '', sourcePath: parsed.sourcePath || '' };
   const cacheKey=`${userId}|${profileUrl}|${row?.leetify_steam_id||''}|debug:${debug ? 1 : 0}`;
   const cached=readLeetifyCache(cacheKey);
   if(cached) return json(cached);
   const attempts = [];
-  const unavailable = (reason='Leetify data unavailable or profile hidden', status=null, reasonCode='unknown') => ({ ok:true, available:false, source:'leetify', profileUrl, viewUrl:profileUrl, steamId64:parsed.steamId64||row?.leetify_steam_id||null, identifier:parsed.identifier||null, sourcePath:parsed.sourcePath||null, reasonCode, reason, attribution: LEETIFY_ATTRIBUTION, ...(status?{status}:{}), ...(debug?{attempts}: {}) });
+  const debugFields = () => debug ? { attempts, parsed: parsedDebug } : {};
+  const apiNoPublicDataReason = 'This Leetify profile page may be public in a browser, but the Leetify Public API did not return profile data for it. grev.dad only uses the official Public API and does not scrape Leetify pages.';
+  const unavailable = (reason='Leetify data unavailable', status=null, reasonCode='unknown') => ({ ok:true, available:false, source:'leetify', profileUrl, viewUrl:profileUrl, steamId64:parsed.steamId64||row?.leetify_steam_id||null, identifier:parsed.identifier||null, sourcePath:parsed.sourcePath||null, reasonCode, reason, attribution: LEETIFY_ATTRIBUTION, ...(status?{status}:{}), ...debugFields() });
   const candidateValues = [];
-  const addCandidate = (candidate) => {
+  const addCandidate = (candidate, sourcePath) => {
     const value = String(candidate || '').trim();
-    if (value && !candidateValues.includes(value)) candidateValues.push(value);
+    if (value && !candidateValues.some((entry) => entry.candidate === value)) candidateValues.push({ candidate:value, sourcePath:sourcePath || '' });
   };
-  addCandidate(row?.leetify_steam_id);
-  addCandidate(parsed.steamId64);
-  addCandidate(parsed.identifier);
-  addCandidate(legacyParsed.identifier);
+  addCandidate(row?.leetify_steam_id, 'saved_steam_id');
+  addCandidate(parsed.steamId64, parsed.sourcePath);
+  addCandidate(parsed.identifier, parsed.sourcePath);
+  addCandidate(legacyParsed.identifier, legacyParsed.sourcePath || 'legacy_url');
   if (!candidateValues.length) return json(writeLeetifyCache(cacheKey, unavailable('Leetify profile URL could not be parsed', null, 'invalid_url'), 120000));
-  for (const candidate of candidateValues) {
+  for (const entry of candidateValues) {
+    const candidate = entry.candidate;
     const endpoint = `https://api-public.cs-prod.leetify.com/v1/profile/${encodeURIComponent(candidate)}`;
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctrl ? setTimeout(()=>ctrl.abort('timeout'), 5000) : null;
-    const attempt = { candidate, endpoint, status: null, ok: false, reason: 'pending' };
+    const attempt = { candidate, endpoint, status: null, ok: false, reason: 'pending', sourcePath: entry.sourcePath || parsed.sourcePath || '' };
     attempts.push(attempt);
     try {
       const resp = await fetch(endpoint, { headers:{'Accept':'application/json'}, ...(ctrl?{signal:ctrl.signal}:{}) });
       attempt.status = resp.status;
-      if (debug) console.debug('[leetify] endpoint', { userId, endpoint, status: resp.status, ok: resp.ok });
+      if (debug) console.debug('[leetify] endpoint', { userId, candidate, endpoint, status: resp.status, ok: resp.ok, sourcePath: attempt.sourcePath });
       const text = await resp.text();
       if (!resp.ok) {
         attempt.reason = [403,404,429].includes(resp.status) ? `status_${resp.status}` : 'http_error';
@@ -865,31 +873,31 @@ async function handleLeetifyProfile(request, env) {
       const normalized = normalizeLeetifyProfile(profile, profileUrl, parsed.steamId64);
       attempt.ok = true;
       attempt.reason = 'ok';
-      return json(writeLeetifyCache(cacheKey, { ...normalized, ...(debug?{attempts}: {}) }));
+      return json(writeLeetifyCache(cacheKey, { ...normalized, ...debugFields() }));
     } catch (error) {
       attempt.reason = error?.name === 'AbortError' || String(error?.message||error).includes('timeout') ? 'timeout' : 'fetch_failed';
-      if (debug) console.debug('[leetify] fetch failed', { endpoint, error: String(error&&error.message||error) });
+      if (debug) console.debug('[leetify] fetch failed', { candidate, endpoint, sourcePath: attempt.sourcePath, error: String(error&&error.message||error) });
     } finally {
       if (timer) clearTimeout(timer);
     }
   }
   if (attempts.length && attempts.every((attempt) => Number(attempt.status) === 404)) {
-    return json(writeLeetifyCache(cacheKey, unavailable('Leetify Public API did not return data for this profile. The Leetify page may still be public in a browser, but the Public API may only return data for registered/non-hidden Leetify users.', 404, 'not_registered'), 120000));
+    return json(writeLeetifyCache(cacheKey, unavailable(apiNoPublicDataReason, 404, 'api_no_public_data'), 120000));
   }
   const statusAttempt = attempts.find((attempt) => [403, 404, 429].includes(Number(attempt.status)));
   const invalidJsonAttempt = attempts.find((attempt) => attempt.reason === 'invalid_json');
   const shapeAttempt = attempts.find((attempt) => attempt.reason === 'unexpected_response_shape');
   const timeoutAttempt = attempts.find((attempt) => attempt.reason === 'timeout');
   const reason = statusAttempt
-    ? `Leetify endpoint returned ${statusAttempt.status}`
+    ? (Number(statusAttempt.status) === 404 ? apiNoPublicDataReason : `Leetify endpoint returned ${statusAttempt.status}`)
     : invalidJsonAttempt
       ? 'Leetify endpoint returned invalid JSON'
       : shapeAttempt
         ? 'Leetify response shape changed or profile data is hidden'
         : timeoutAttempt
           ? 'Leetify endpoint timed out'
-          : 'Leetify data unavailable or profile hidden';
-  const reasonCode = Number(statusAttempt?.status) === 403 ? 'hidden' : Number(statusAttempt?.status) === 429 ? 'rate_limited' : timeoutAttempt ? 'api_unavailable' : 'unknown';
+          : 'Leetify data unavailable';
+  const reasonCode = Number(statusAttempt?.status) === 404 ? 'api_no_public_data' : Number(statusAttempt?.status) === 403 ? 'hidden' : Number(statusAttempt?.status) === 429 ? 'rate_limited' : timeoutAttempt ? 'api_unavailable' : 'unknown';
   return json(writeLeetifyCache(cacheKey, unavailable(reason, statusAttempt?.status || null, reasonCode), reasonCode === 'unknown' ? 120000 : 60000));
 }
 
