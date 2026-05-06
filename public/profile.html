@@ -111,13 +111,19 @@ function renderLeetifyMatches(matches){
   if(!Array.isArray(matches)||!matches.length)return '';
   return matches.map((m)=>{const label=m.mapName||m.map||m.id||m.matchId||'Match';const bits=[m.result,m.score,m.finishedAt||m.date||m.createdAt].filter(Boolean);return `<li><strong>${esc(label)}</strong>${bits.length?` <span>${esc(bits.join(' · '))}</span>`:''}</li>`;}).join('');
 }
+function renderLeetifyDebugAttempts(attempts){
+  if(localStorage.getItem('grev_debug_integrations')!=='1'||!Array.isArray(attempts))return '';
+  const rows=attempts.map((a)=>`<li><strong>${esc(a.candidate||'')}</strong><br><code>${esc(a.endpoint||'')}</code><br><span>Status: ${esc(a.status??'n/a')} · ${esc(a.ok?'ok':'not ok')}${a.reason?` · ${esc(a.reason)}`:''}</span></li>`).join('');
+  return `<details class="integration-debug" open><summary>Leetify API attempts</summary><ul>${rows||'<li>No attempts returned.</li>'}</ul></details>`;
+}
 async function loadLeetifyWidget(userId){
   const body=document.getElementById('leetify-widget-body');
   if(!body)return;
   const savedUrl=currentProfile?.leetify_profile_url||currentProfile?.leetify_url||'';
-  const savedLink=savedUrl?`<a href="${escAttr(savedUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:'';
+  const savedLink=savedUrl?`<p class="leetify-saved-link">Saved Leetify link: <a href="${escAttr(savedUrl)}" target="_blank" rel="noopener noreferrer">${esc(savedUrl)}</a></p>`:'';
+  const savedViewLink=savedUrl?`<a href="${escAttr(savedUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:'';
   try{
-    body.innerHTML=`${savedLink}<div class="leetify-widget-loading">Loading Leetify stats...</div>`;
+    body.innerHTML=`${savedLink}${savedViewLink}<div class="leetify-widget-loading">Loading Leetify stats...</div>`;
     const debug=localStorage.getItem('grev_debug_integrations')==='1';
     const url=`/api/integrations/leetify/profile?user_id=${encodeURIComponent(userId)}${debug?'&debug=1':''}`;
     const fetchOptions=debug?{headers:{'x-grev-debug-integrations':'1'}}:{};
@@ -126,15 +132,17 @@ async function loadLeetifyWidget(userId){
       : {data:await fetch(url,fetchOptions).then((r)=>r.json())};
     const data=res.data||{};
     const viewUrl=data.viewUrl||data.profileUrl||savedUrl;
-    const viewLink=viewUrl?`<a href="${escAttr(viewUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:'';
+    const viewLink=viewUrl?`<a href="${escAttr(viewUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:savedViewLink;
+    const debugDetails=renderLeetifyDebugAttempts(data.attempts);
     if(!data.available){
-      const debugDetails=localStorage.getItem('grev_debug_integrations')==='1'&&Array.isArray(data.attempts)
-        ? `<details class="integration-debug"><summary>Leetify debug</summary><pre>${esc(JSON.stringify(data.attempts,null,2))}</pre></details>`
-        : '';
+      const message=data.reasonCode==='not_registered'||Number(data.status)===404
+        ? 'Leetify Public API did not return data for this profile. The Leetify page may still be public in a browser, but the Public API may only return data for registered/non-hidden Leetify users.'
+        : (data.reason||'Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.');
       body.innerHTML=`
-        ${viewLink||savedLink}
-        <p>Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p>
-        ${data.reason?`<p>${esc(data.reason)}</p>`:''}
+        ${savedLink}
+        ${viewLink}
+        <p>${esc(message)}</p>
+        ${data.reason&&data.reason!==message?`<p>${esc(data.reason)}</p>`:''}
         ${debugDetails}
       `;
       return;
@@ -146,11 +154,13 @@ async function loadLeetifyWidget(userId){
       <div class="integration-profile integration-leetify-profile leetify-integration-panel">
         ${data.avatarUrl?`<img class="integration-avatar leetify-avatar" src="${escAttr(data.avatarUrl)}" alt="Leetify avatar" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}
         <div>
+          ${savedLink}
           <strong>${esc(data.nickname||data.name||'Leetify Profile')}</strong>
           <div class="leetify-stat-grid">${stats.map(([k,v])=>`<div class="leetify-stat"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</div>
           ${matches?`<h4>Recent Matches</h4><ul class="leetify-match-list">${matches}</ul>`:''}
           ${mapRanks?`<h4>Competitive Map Ranks</h4><ul class="leetify-map-rank-list">${mapRanks}</ul>`:''}
           <div class="leetify-attribution"><small>${esc(data.attribution||'Data Provided by Leetify')}</small>${viewLink}</div>
+          ${debugDetails}
         </div>
       </div>
     `;
@@ -158,7 +168,7 @@ async function loadLeetifyWidget(userId){
     updateProfileCardWidgetWithLeetifyData();
   }catch(error){
     console.error('[profile] Leetify widget failed',error);
-    body.innerHTML=`${savedLink}<p>Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p>`;
+    body.innerHTML=`${savedLink}${savedViewLink}<p>Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p>`;
   }
 }
 function updateProfileCardWidgetWithLeetifyData(){
