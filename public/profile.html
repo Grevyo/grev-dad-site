@@ -102,10 +102,22 @@ async function loadSteamWidget(userId){
     body.textContent='Steam data unavailable.';
   }
 }
+function renderLeetifyMapRanks(value){
+  if(!value)return '';
+  const items=Array.isArray(value)?value.map((x)=>typeof x==='string'?x:`${x.mapName||x.map||x.name||'Map'}: ${x.rank||x.csRank||x.value||''}`):typeof value==='object'?Object.entries(value).map(([k,v])=>`${k}: ${typeof v==='object'?(v.rank||v.csRank||v.value||''):v}`):[String(value)];
+  return items.filter(Boolean).map((x)=>`<li>${esc(x)}</li>`).join('');
+}
+function renderLeetifyMatches(matches){
+  if(!Array.isArray(matches)||!matches.length)return '';
+  return matches.map((m)=>{const label=m.mapName||m.map||m.id||m.matchId||'Match';const bits=[m.result,m.score,m.finishedAt||m.date||m.createdAt].filter(Boolean);return `<li><strong>${esc(label)}</strong>${bits.length?` <span>${esc(bits.join(' · '))}</span>`:''}</li>`;}).join('');
+}
 async function loadLeetifyWidget(userId){
   const body=document.getElementById('leetify-widget-body');
   if(!body)return;
+  const savedUrl=currentProfile?.leetify_profile_url||currentProfile?.leetify_url||'';
+  const savedLink=savedUrl?`<a href="${escAttr(savedUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:'';
   try{
+    body.innerHTML=`${savedLink}<div class="leetify-widget-loading">Loading Leetify stats...</div>`;
     const debug=localStorage.getItem('grev_debug_integrations')==='1';
     const url=`/api/integrations/leetify/profile?user_id=${encodeURIComponent(userId)}${debug?'&debug=1':''}`;
     const fetchOptions=debug?{headers:{'x-grev-debug-integrations':'1'}}:{};
@@ -113,32 +125,32 @@ async function loadLeetifyWidget(userId){
       ? await window.GREVApi.fetchJsonCached(url,{ttlMs:10*60*1000,cacheKey:`grev_api_cache:${url}`,...fetchOptions})
       : {data:await fetch(url,fetchOptions).then((r)=>r.json())};
     const data=res.data||{};
+    const viewUrl=data.viewUrl||data.profileUrl||savedUrl;
+    const viewLink=viewUrl?`<a href="${escAttr(viewUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:'';
     if(!data.available){
       const debugDetails=localStorage.getItem('grev_debug_integrations')==='1'&&Array.isArray(data.attempts)
         ? `<details class="integration-debug"><summary>Leetify debug</summary><pre>${esc(JSON.stringify(data.attempts,null,2))}</pre></details>`
         : '';
       body.innerHTML=`
-        ${(data.viewUrl||data.profileUrl)?`<a href="${escAttr(data.viewUrl||data.profileUrl)}" target="_blank" rel="noopener">View on Leetify</a>`:''}
-        <p>Leetify data is unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p><p>${esc(data.reason||'Leetify data unavailable.')}</p><small>${esc(data.attribution||'Data Provided by Leetify')}</small>
+        ${viewLink||savedLink}
+        <p>Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p>
+        ${data.reason?`<p>${esc(data.reason)}</p>`:''}
         ${debugDetails}
       `;
       return;
     }
+    const stats=[['Steam ID',data.steamId64],['CS Rank',data.csRank||data.rank],['CS Rank Type',data.csRankType],['CS Premier Rating',data.csPremierRating],['Leetify Rating',data.leetifyRating],['Aim Rating',data.aimRating],['Positioning Rating',data.positioningRating],['Utility Rating',data.utilityRating],['Clutch Rating',data.clutchRating],['Opening Duel Rating',data.openingDuelRating],['Recent Matches Count',data.recentMatchesCount],['Last fetched/updated time',data.fetchedAt||data.rawUpdatedAt],['Cache',data.cache?`${data.cache.hit?'hit':'miss'}${data.cache.ttlSeconds!=null?` · ${data.cache.ttlSeconds}s`:''}`:'']].filter(([,v])=>v!==undefined&&v!==null&&String(v).trim()!=='');
+    const mapRanks=renderLeetifyMapRanks(data.csCompetitiveRanks);
+    const matches=renderLeetifyMatches(data.recentMatches);
     body.innerHTML=`
-      <div class="integration-profile integration-leetify-profile">
+      <div class="integration-profile integration-leetify-profile leetify-integration-panel">
+        ${data.avatarUrl?`<img class="integration-avatar leetify-avatar" src="${escAttr(data.avatarUrl)}" alt="Leetify avatar" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}
         <div>
           <strong>${esc(data.nickname||data.name||'Leetify Profile')}</strong>
-          ${data.avatarUrl?`<img class="integration-avatar leetify-avatar" src="${escAttr(data.avatarUrl)}" alt="Leetify avatar" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}${data.steamId64?`<div>Steam ID: ${esc(data.steamId64)}</div>`:''}${data.csRank?`<div>CS Rank: ${esc(data.csRank)}</div>`:'<div>CS Rank: unavailable</div>'}${data.csPremierRating!=null?`<div>CS Premier Rating: ${esc(data.csPremierRating)}</div>`:''}
-          ${data.leetifyRating!=null?`<div>Leetify rating: ${esc(data.leetifyRating)}</div>`:''}
-          ${data.aimRating!=null?`<div>Aim: ${esc(data.aimRating)}</div>`:''}
-          ${data.positioningRating!=null?`<div>Positioning: ${esc(data.positioningRating)}</div>`:''}
-          ${data.utilityRating!=null?`<div>Utility: ${esc(data.utilityRating)}</div>`:''}
-          ${data.clutchRating!=null?`<div>Clutch: ${esc(data.clutchRating)}</div>`:''}
-          ${data.openingDuelRating!=null?`<div>Opening Duel: ${esc(data.openingDuelRating)}</div>`:''}
-          ${data.recentMatchesCount!=null?`<div>Recent matches: ${esc(data.recentMatchesCount)}</div>`:''}
-          ${Array.isArray(data.recentMatches)&&data.recentMatches.length?`<ul>${data.recentMatches.map((m)=>`<li>${esc(m.mapName||m.id||'Match')} ${m.result?`· ${esc(m.result)}`:''}</li>`).join('')}</ul>`:''}
-          ${(data.viewUrl||data.profileUrl)?`<a href="${escAttr(data.viewUrl||data.profileUrl)}" target="_blank" rel="noopener">View on Leetify</a>`:''}
-          <small>${esc(data.attribution||'Data Provided by Leetify')}</small>
+          <div class="leetify-stat-grid">${stats.map(([k,v])=>`<div class="leetify-stat"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</div>
+          ${matches?`<h4>Recent Matches</h4><ul class="leetify-match-list">${matches}</ul>`:''}
+          ${mapRanks?`<h4>Competitive Map Ranks</h4><ul class="leetify-map-rank-list">${mapRanks}</ul>`:''}
+          <div class="leetify-attribution"><small>${esc(data.attribution||'Data Provided by Leetify')}</small>${viewLink}</div>
         </div>
       </div>
     `;
@@ -146,7 +158,7 @@ async function loadLeetifyWidget(userId){
     updateProfileCardWidgetWithLeetifyData();
   }catch(error){
     console.error('[profile] Leetify widget failed',error);
-    body.textContent='Leetify data unavailable.';
+    body.innerHTML=`${savedLink}<p>Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p>`;
   }
 }
 function updateProfileCardWidgetWithLeetifyData(){

@@ -229,6 +229,18 @@
         card_show_leetify: Number(data.card_show_leetify ?? 0),
         card_show_leetify_rank: Number(data.card_show_leetify_rank ?? 0),
         card_show_leetify_rating: Number(data.card_show_leetify_rating ?? 0),
+        card_show_leetify_steam_id: Number(data.card_show_leetify_steam_id ?? 0),
+        card_show_leetify_avatar: Number(data.card_show_leetify_avatar ?? 0),
+        card_show_leetify_name: Number(data.card_show_leetify_name ?? 0),
+        card_show_leetify_aim: Number(data.card_show_leetify_aim ?? 0),
+        card_show_leetify_positioning: Number(data.card_show_leetify_positioning ?? 0),
+        card_show_leetify_utility: Number(data.card_show_leetify_utility ?? 0),
+        card_show_leetify_clutch: Number(data.card_show_leetify_clutch ?? 0),
+        card_show_leetify_opening: Number(data.card_show_leetify_opening ?? 0),
+        card_show_leetify_recent_matches: Number(data.card_show_leetify_recent_matches ?? 0),
+        card_show_leetify_premier: Number(data.card_show_leetify_premier ?? 0),
+        card_show_leetify_map_ranks: Number(data.card_show_leetify_map_ranks ?? 0),
+        card_show_leetify_updated: Number(data.card_show_leetify_updated ?? 0),
         timestamp: Date.now()
       }));
     } catch {}
