@@ -119,10 +119,11 @@ function renderLeetifyMatches(matches){
   if(!Array.isArray(matches)||!matches.length)return '';
   return matches.map((m)=>{const label=m.mapName||m.map||m.id||m.matchId||'Match';const bits=[m.result,m.score,m.finishedAt||m.date||m.createdAt].filter(Boolean);return `<li><strong>${esc(label)}</strong>${bits.length?` <span>${esc(bits.join(' · '))}</span>`:''}</li>`;}).join('');
 }
-function renderLeetifyDebugAttempts(attempts){
+function renderLeetifyDebugAttempts(attempts,parsed){
   if(localStorage.getItem('grev_debug_integrations')!=='1'||!Array.isArray(attempts))return '';
-  const rows=attempts.map((a)=>`<li><strong>${esc(a.candidate||'')}</strong><br><code>${esc(a.endpoint||'')}</code><br><span>Status: ${esc(a.status??'n/a')} · ${esc(a.ok?'ok':'not ok')}${a.reason?` · ${esc(a.reason)}`:''}</span></li>`).join('');
-  return `<details class="integration-debug" open><summary>Leetify API attempts</summary><ul>${rows||'<li>No attempts returned.</li>'}</ul></details>`;
+  const parsedBlock=parsed?`<pre>${esc(JSON.stringify(parsed,null,2))}</pre>`:'';
+  const rows=attempts.map((a)=>`<li><strong>${esc(a.kind||'candidate')}: ${esc(a.candidate||'')}</strong><br><code>${esc(a.endpoint||'')}</code><br><span>Status: ${esc(a.status??'n/a')} · ${esc(a.ok?'ok':'not ok')}${a.reason?` · ${esc(a.reason)}`:''}</span>${a.responseKeys?`<br><small>Keys: ${esc(a.responseKeys.join(', '))}</small>`:''}${a.topLevelPreview?`<pre>${esc(JSON.stringify(a.topLevelPreview,null,2))}</pre>`:''}</li>`).join('');
+  return `<details class="integration-debug" open><summary>Leetify API attempts</summary>${parsedBlock}<ul>${rows||'<li>No attempts returned.</li>'}</ul></details>`;
 }
 async function loadLeetifyWidget(userId){
   const body=document.getElementById('leetify-widget-body');
@@ -141,11 +142,9 @@ async function loadLeetifyWidget(userId){
     const data=res.data||{};
     const viewUrl=data.viewUrl||data.profileUrl||savedUrl;
     const viewLink=viewUrl?`<a href="${escAttr(viewUrl)}" target="_blank" rel="noopener noreferrer">View on Leetify</a>`:savedViewLink;
-    const debugDetails=renderLeetifyDebugAttempts(data.attempts);
+    const debugDetails=renderLeetifyDebugAttempts(data.attempts,data.parsed);
     if(!data.available){
-      const message=data.reasonCode==='not_registered'||Number(data.status)===404
-        ? 'Leetify Public API did not return data for this profile. The Leetify page may still be public in a browser, but the Public API may only return data for registered/non-hidden Leetify users.'
-        : (data.reason||'Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.');
+      const message=data.reason||'Leetify Public API did not return usable data for this profile. The profile page can still be public on Leetify.com, but grev.dad only uses the official Public API and does not scrape Leetify pages.';
       body.innerHTML=`
         ${savedLink}
         ${viewLink}
@@ -153,9 +152,11 @@ async function loadLeetifyWidget(userId){
         ${data.reason&&data.reason!==message?`<p>${esc(data.reason)}</p>`:''}
         ${debugDetails}
       `;
+      currentProfile.leetifyData=data;
+      updateProfileCardWidgetWithLeetifyData();
       return;
     }
-    const stats=[['Steam ID',data.steamId64],['CS Rank',data.csRank||data.rank],['CS Rank Type',data.csRankType],['CS Premier Rating',data.csPremierRating],['Leetify Rating',data.leetifyRating],['Aim Rating',data.aimRating],['Positioning Rating',data.positioningRating],['Utility Rating',data.utilityRating],['Clutch Rating',data.clutchRating],['Opening Duel Rating',data.openingDuelRating],['Recent Matches Count',data.recentMatchesCount],['Last fetched/updated time',data.fetchedAt||data.rawUpdatedAt],['Cache',data.cache?`${data.cache.hit?'hit':'miss'}${data.cache.ttlSeconds!=null?` · ${data.cache.ttlSeconds}s`:''}`:'']].filter(([,v])=>v!==undefined&&v!==null&&String(v).trim()!=='');
+    const stats=[['Steam ID',data.steamId64],['CS Rank',data.csRank||data.rank],['CS Rank Type',data.csRankType],['CS Premier Rating',data.csPremierRating],['Leetify Rating',data.leetifyRating],['Aim Rating',data.aimRating],['Positioning Rating',data.positioningRating],['Utility Rating',data.utilityRating],['Clutch Rating',data.clutchRating],['Opening Duel Rating',data.openingDuelRating],['Recent Matches Count',data.recentMatchesCount],['Updated',data.rawUpdatedAt||data.updatedAt],['Cache',data.cache?`${data.cache.hit?'hit':'miss'}${data.cache.ttlSeconds!=null?` · ${data.cache.ttlSeconds}s`:''}`:'']].filter(([,v])=>v!==undefined&&v!==null&&String(v).trim()!=='');
     const mapRanks=renderLeetifyMapRanks(data.csCompetitiveRanks);
     const matches=renderLeetifyMatches(data.recentMatches);
     body.innerHTML=`
@@ -176,7 +177,7 @@ async function loadLeetifyWidget(userId){
     updateProfileCardWidgetWithLeetifyData();
   }catch(error){
     console.error('[profile] Leetify widget failed',error);
-    body.innerHTML=`${savedLink}${savedViewLink}<p>Leetify data unavailable. Public API data may only be available for registered/non-hidden Leetify users.</p>`;
+    body.innerHTML=`${savedLink}${savedViewLink}<p>Leetify API data unavailable.</p>`;
   }
 }
 function updateProfileCardWidgetWithLeetifyData(){
