@@ -15,10 +15,12 @@
     <main class="page-shell dashboard-page dashboard-custom-shell" id="dashboard-custom-shell">
       <div class="dashboard-header-row">
         <h1>Your Dashboard</h1>
-        <div class="dashboard-edit-controls page-quick-tabs" aria-label="Dashboard actions">
-          <button id="dashboard-quick-actions-toggle" type="button" class="page-quick-tab">Quick Actions</button>
-          <button id="dashboard-customise-toggle" type="button" class="page-quick-tab">Customise Dashboard</button>
-          <button id="toggle-dashboard-edit" type="button" class="page-quick-tab">Edit Dashboard</button>
+      </div>
+      <div class="page-quick-tabs-wrap dashboard-top-tabs-wrap">
+        <div class="page-quick-tabs dashboard-top-tabs dashboard-edit-controls" aria-label="Dashboard actions">
+          <button type="button" class="page-quick-tab" id="edit-dashboard-btn">Edit Dashboard</button>
+          <button type="button" class="page-quick-tab" id="customise-dashboard-btn">Customise Dashboard</button>
+          <button type="button" class="page-quick-tab" id="quick-actions-open-btn">Quick Actions</button>
           <button id="reset-dashboard-layout" type="button" class="page-quick-tab" hidden>Reset layout</button>
         </div>
       </div>
@@ -36,13 +38,13 @@
       </section>
       </div>
       <div id="quick-actions-overlay" class="quick-actions-overlay" hidden>
-        <div class="quick-actions-backdrop" data-close-quick-actions></div>
-        <section class="quick-actions-panel" role="dialog" aria-modal="true" aria-labelledby="quick-actions-title">
+        <div class="quick-actions-backdrop"></div>
+        <section class="quick-actions-panel" role="dialog" aria-modal="true" aria-labelledby="quick-actions-title" tabindex="-1">
           <header class="quick-actions-panel-header">
             <h2 id="quick-actions-title">Quick Actions</h2>
-            <button type="button" class="page-quick-tab" data-close-quick-actions>Close</button>
+            <button type="button" id="quick-actions-close-btn" class="page-quick-tab">Close</button>
           </header>
-          <div id="quick-actions-overlay-body"></div>
+          <div id="quick-actions-overlay-body" class="quick-actions-grid"></div>
         </section>
       </div>
       <div id="dashboard-customise-overlay" class="dashboard-customise-overlay" hidden></div>
@@ -102,11 +104,11 @@
         const grid = document.getElementById('dashboard-grid');
         const dashboardBoard = document.querySelector('.dashboard-board');
         const resetButton = document.getElementById('reset-dashboard-layout');
-        const editButton = document.getElementById('toggle-dashboard-edit');
+        const editButton = document.getElementById('edit-dashboard-btn');
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const DEFAULT_HIDDEN_TILE_IDS = ['quick-actions'];
         const addBlankButton = document.createElement('button');
-        addBlankButton.type = 'button'; addBlankButton.className = 'nav-button'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
+        addBlankButton.type = 'button'; addBlankButton.className = 'page-quick-tab'; addBlankButton.id = 'add-blank-tile'; addBlankButton.textContent = 'Add blank tile'; addBlankButton.hidden = true;
         document.querySelector('.dashboard-edit-controls').append(addBlankButton);
         let isEditing = false;
         let dashboardDragState = { tileId: null, preview: null };
@@ -779,43 +781,101 @@
           else wrap.textContent = `${snapshotProfile.display_name} (@${snapshotProfile.username})`;
         }
 
-        function getQuickActionItems(isAdmin = false) {
-          const items = [
+        let quickActionsEventsBound = false;
+        const quickActionHandlers = {
+          'edit-dashboard': () => { closeQuickActionsOverlay(); setEditMode(true); },
+          'customise-dashboard': () => { closeQuickActionsOverlay(); setCustomisePanel(true); },
+          'dashboard-background': () => { closeQuickActionsOverlay(); setCustomisePanel(true); setTimeout(() => document.getElementById('dashboard-background-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); },
+          chat: () => { closeQuickActionsOverlay(); document.querySelector('[data-tile-id="chat"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+          tutorial: () => { closeQuickActionsOverlay(); document.querySelector('[data-tile-id="grev-dad-tutorial"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+          logout: async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); location.href = '/login.html'; }
+        };
+        function getQuickActions(isAdmin = false) {
+          const actions = [
             { title: 'View My Profile', description: 'Open your public Profile Page.', href: '/profile.html', group: 'Profile' },
-            { title: 'Edit Profile', description: 'Customise profile info, links, images, and integrations.', href: '/profile-edit.html', group: 'Profile' },
-            { title: 'Edit Profile Card', description: 'Customise your mini Profile Card shown around the site.', href: '/profile-card-edit.html', group: 'Profile' },
-            { title: 'Customise Profile Page', description: 'Open your Profile Page widgets and layout.', href: '/profile.html', group: 'Profile' },
-            { title: 'Edit Dashboard', description: 'Move and resize dashboard tiles.', action: () => { setEditMode(true); closeQuickActionsOverlay(); }, group: 'Dashboard' },
-            { title: 'Customise Dashboard', description: 'Show/hide tiles and add Member Profile Cards.', action: () => { setCustomisePanel(true); closeQuickActionsOverlay(); }, group: 'Dashboard' },
-            { title: 'Add Member Profile Card', description: 'Open Member Profile Cards in Customise Dashboard.', action: () => { setCustomisePanel(true); closeQuickActionsOverlay(); setTimeout(() => document.querySelector('#dashboard-tile-library .dashboard-tile-category:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }, group: 'Dashboard' },
-            { title: 'Change Dashboard Background', description: 'Open background colour, image/GIF, fit, and overlay controls.', action: () => { setCustomisePanel(true); closeQuickActionsOverlay(); setTimeout(() => document.getElementById('dashboard-background-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }, group: 'Dashboard' },
+            { title: 'Edit Profile', description: 'Customise public info, links, images, and integrations.', href: '/profile-edit.html', group: 'Profile' },
+            { title: 'Edit Profile Card', description: 'Design the mini Profile Card shown around the site.', href: '/profile-card-edit.html', group: 'Profile' },
+            { title: 'Edit Dashboard', description: 'Move and resize your dashboard tiles.', actionId: 'edit-dashboard', group: 'Dashboard' },
+            { title: 'Customise Dashboard', description: 'Show/hide tiles and add Member Profile Cards.', actionId: 'customise-dashboard', group: 'Dashboard' },
+            { title: 'Change Dashboard Background', description: 'Open colour, image/GIF, fit, and overlay controls.', actionId: 'dashboard-background', group: 'Dashboard' },
+            { title: 'grev.dad Tutorial', description: 'Focus the dashboard tutorial tile.', actionId: 'tutorial', group: 'Dashboard' },
             { title: 'Members', description: 'Browse other users’ Profile Cards.', href: '/members.html', group: 'Community' },
-            { title: 'Leaderboard', description: 'See grev.dad levels and XP.', href: '/leaderboard.html', group: 'Community' },
-            { title: 'Forum', description: 'Open community discussion when available.', href: '/#forum', group: 'Community' },
-            { title: 'Chat', description: 'Jump to the dashboard Global Chat tile.', action: () => { closeQuickActionsOverlay(); document.querySelector('[data-tile-id="chat"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, group: 'Community' },
-            { title: 'Achievements / XP', description: 'Review your XP and achievements.', href: '/account.html#xp', group: 'Account' },
-            { title: 'Account Settings', description: 'Manage your account options.', href: '/account.html', group: 'Account' },
-            { title: 'Logout', description: 'Sign out of grev.dad.', action: async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); location.href = '/login.html'; }, group: 'Account' }
+            { title: 'Leaderboard', description: 'Compare grev.dad level and XP.', href: '/leaderboard.html', group: 'Community' },
+            { title: 'Chat', description: 'Jump to the Global Chat tile.', actionId: 'chat', group: 'Community' },
+            { title: 'Account Settings', description: 'Manage your account options and XP.', href: '/account.html', group: 'Account' },
+            { title: 'Logout', description: 'Sign out of grev.dad.', actionId: 'logout', group: 'Account' }
           ];
-          if (isAdmin) items.push({ title: 'Admin Panel', description: 'Open admin controls.', href: '/admin.html', group: 'Admin' });
-          return items;
+          if (isAdmin) actions.push({ title: 'Admin Panel', description: 'Open admin controls.', href: '/admin.html', group: 'Admin' });
+          return actions;
         }
-        function renderQuickActions(isAdmin) {
+        function renderQuickAction(item) {
+          const group = `<small>${item.group}</small>`;
+          if (item.href) return `<a class="quick-action-card" href="${item.href}"><strong>${item.title}</strong><span>${item.description}</span>${group}</a>`;
+          return `<button type="button" class="quick-action-card" data-quick-action="${item.actionId}"><strong>${item.title}</strong><span>${item.description}</span>${group}</button>`;
+        }
+        async function getQuickActionsForCurrentUser() {
+          const authUser = (await getAuthForHome())?.user || {};
+          const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
+          return getQuickActions(isAdmin);
+        }
+        async function renderQuickActions(isAdmin) {
           const container = document.getElementById('quick-actions');
           if (!container) return;
           container.textContent = '';
-          getQuickActionItems(isAdmin).slice(0, 8).forEach((item) => {
-            const a = document.createElement(item.href ? 'a' : 'button'); a.className = 'nav-button'; a.textContent = item.title; if (item.href) a.href = item.href; else { a.type = 'button'; a.addEventListener('click', item.action); } container.append(a);
+          getQuickActions(isAdmin).slice(0, 8).forEach((item) => {
+            const el = document.createElement(item.href ? 'a' : 'button');
+            el.className = 'nav-button';
+            el.textContent = item.title;
+            if (item.href) el.href = item.href; else { el.type = 'button'; el.dataset.quickAction = item.actionId; el.addEventListener('click', handleQuickActionClick); }
+            container.append(el);
           });
         }
-        async function renderQuickActionsOverlay() {
-          const body = document.getElementById('quick-actions-overlay-body'); if (!body) return;
-          const authUser = (await getAuthForHome())?.user || {}; const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
-          body.innerHTML = '<div class="quick-actions-grid"></div>'; const gridEl = body.querySelector('.quick-actions-grid');
-          getQuickActionItems(isAdmin).forEach((item) => { const el = document.createElement(item.href ? 'a' : 'button'); el.className = 'quick-action-card'; if (item.href) el.href = item.href; else { el.type = 'button'; el.addEventListener('click', item.action); } el.innerHTML = `<strong>${item.title}</strong><span>${item.description}</span><small>${item.group}</small>`; gridEl.append(el); });
+        function handleQuickActionClick(event) {
+          const actionId = event.currentTarget?.dataset?.quickAction;
+          const handler = quickActionHandlers[actionId];
+          if (handler) handler(event);
         }
-        function openQuickActionsOverlay() { const overlay = document.getElementById('quick-actions-overlay'); if (!overlay) return; renderQuickActionsOverlay(); overlay.hidden = false; document.body.classList.add('quick-actions-open'); overlay.querySelector('.quick-actions-panel')?.focus?.(); }
-        function closeQuickActionsOverlay() { const overlay = document.getElementById('quick-actions-overlay'); if (!overlay) return; overlay.hidden = true; document.body.classList.remove('quick-actions-open'); }
+        async function renderQuickActionsOverlayBody() {
+          const body = document.getElementById('quick-actions-overlay-body');
+          if (!body) return;
+          const actions = await getQuickActionsForCurrentUser();
+          body.innerHTML = actions.map(renderQuickAction).join('');
+          body.querySelectorAll('[data-quick-action]').forEach((button) => {
+            button.addEventListener('click', handleQuickActionClick);
+          });
+        }
+        function openQuickActionsOverlay() {
+          const overlay = document.getElementById('quick-actions-overlay');
+          if (!overlay) return;
+          renderQuickActionsOverlayBody();
+          overlay.hidden = false;
+          overlay.classList.add('is-open');
+          document.body.classList.add('quick-actions-open');
+          overlay.querySelector('.quick-actions-panel')?.focus?.();
+        }
+        function closeQuickActionsOverlay() {
+          const overlay = document.getElementById('quick-actions-overlay');
+          if (!overlay) return;
+          overlay.hidden = true;
+          overlay.classList.remove('is-open');
+          document.body.classList.remove('quick-actions-open');
+        }
+        function bindQuickActionsOverlay() {
+          if (quickActionsEventsBound) return;
+          quickActionsEventsBound = true;
+          const openBtn = document.getElementById('quick-actions-open-btn');
+          const closeBtn = document.getElementById('quick-actions-close-btn');
+          const overlay = document.getElementById('quick-actions-overlay');
+          const backdrop = document.querySelector('#quick-actions-overlay .quick-actions-backdrop');
+          openBtn?.addEventListener('click', openQuickActionsOverlay);
+          closeBtn?.addEventListener('click', closeQuickActionsOverlay);
+          backdrop?.addEventListener('click', closeQuickActionsOverlay);
+          document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && overlay && !overlay.hidden) {
+              closeQuickActionsOverlay();
+            }
+          });
+        }
         function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> move, resize, show, and hide tiles.</p><p><strong>Customise Dashboard:</strong> add/remove tiles and Member Profile Cards.</p><p><strong>Members & Leaderboard:</strong> browse Profile Cards and grev.dad levels/XP.</p><p><strong>Profile Page:</strong> customise widgets, layout, XP, and achievements.</p></div>`; }
 
         function renderCompletion(profile) {
@@ -1013,7 +1073,7 @@
           const syncPreview = () => { const next = collect(); applyDashboardBackground(next); section.querySelector('#dashboard-bg-overlay-value').textContent = `${next.dashboard_background_overlay_strength}%`; const preview = section.querySelector('#dashboard-bg-preview'); preview.style.backgroundColor = next.dashboard_background_colour || 'transparent'; preview.style.backgroundImage = next.dashboard_background_url ? `url("${next.dashboard_background_url.replace(/"/g, '%22')}")` : 'none'; preview.style.backgroundSize = next.dashboard_background_size === 'stretch' ? '100% 100%' : next.dashboard_background_size === 'repeat' || next.dashboard_background_size === 'center' ? 'auto' : next.dashboard_background_size; preview.style.backgroundRepeat = next.dashboard_background_size === 'repeat' ? 'repeat' : 'no-repeat'; };
           section.querySelector('#dashboard-bg-colour-picker').addEventListener('input', (event) => { section.querySelector('#dashboard-bg-colour').value = event.target.value; syncPreview(); });
           section.querySelectorAll('input, select').forEach((el) => el.addEventListener('input', syncPreview));
-          section.querySelector('#dashboard-bg-clear').addEventListener('click', () => { dashboardBackgroundState = { ...DASHBOARD_BACKGROUND_DEFAULTS }; renderDashboardTileLibrary(); applyDashboardBackground(dashboardBackgroundState); });
+          section.querySelector('#dashboard-bg-clear').addEventListener('click', async () => { const status = section.querySelector('#dashboard-bg-status'); const cleared = { ...DASHBOARD_BACKGROUND_DEFAULTS }; try { const res = await fetchJsonSafe('/api/dashboard/background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cleared) }); dashboardBackgroundState = normalizeDashboardBackground(res.profile || cleared); applyDashboardBackground(dashboardBackgroundState); renderDashboardTileLibrary(); status.textContent = 'Dashboard background cleared.'; } catch (error) { status.textContent = error.message || 'Clear failed.'; } });
           section.querySelector('#dashboard-bg-save').addEventListener('click', async () => { const status = section.querySelector('#dashboard-bg-status'); const next = collect(); if (next.dashboard_background_url && !isSafeDashboardUrl(next.dashboard_background_url)) { status.textContent = 'Use an http:// or https:// URL.'; return; } try { const res = await fetchJsonSafe('/api/dashboard/background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) }); dashboardBackgroundState = normalizeDashboardBackground(res.profile || next); applyDashboardBackground(dashboardBackgroundState); status.textContent = 'Dashboard background saved.'; } catch (error) { status.textContent = error.message || 'Save failed.'; } });
           syncPreview();
         }
@@ -1125,13 +1185,11 @@
             setEditMode(true);
           }
         });
-        const customiseToggle = document.getElementById('dashboard-customise-toggle');
+        const customiseToggle = document.getElementById('customise-dashboard-btn');
         const customisePanel = document.getElementById('dashboard-customise-panel');
         const customiseOverlay = document.getElementById('dashboard-customise-overlay');
         const customiseClose = document.getElementById('dashboard-customise-close');
-        document.getElementById('dashboard-quick-actions-toggle')?.addEventListener('click', openQuickActionsOverlay);
-        document.getElementById('quick-actions-overlay')?.addEventListener('click', (event) => { if (event.target?.hasAttribute?.('data-close-quick-actions')) closeQuickActionsOverlay(); });
-        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeQuickActionsOverlay(); });
+        bindQuickActionsOverlay();
         function setCustomisePanel(open) {
           customisePanel.classList.toggle('is-open', !!open);
           customisePanel.setAttribute('aria-hidden', open ? 'false' : 'true');

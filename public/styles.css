@@ -1897,7 +1897,8 @@ input[type="color"]::-moz-color-swatch {
 .page-quick-tabs-wrap {
   width: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: center;
   margin: 10px 0 16px;
   padding: 0 12px;
   box-sizing: border-box;
@@ -1905,13 +1906,26 @@ input[type="color"]::-moz-color-swatch {
 .page-quick-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  max-width: 1200px;
+  gap: 8px;
   width: 100%;
+  max-width: none;
 }
-.page-quick-tab,
+.page-quick-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
 .editor-tab-button {
   display: inline-flex;
   align-items: center;
@@ -1926,11 +1940,17 @@ input[type="color"]::-moz-color-swatch {
   cursor: pointer;
 }
 .page-quick-tab:hover,
-.page-quick-tab:focus-visible,
+.page-quick-tab:focus-visible {
+  border-color: var(--accent);
+}
 .editor-tab-button:hover,
 .editor-tab-button:focus-visible { border-color: var(--accent); }
 .page-quick-tab.active,
-.page-quick-tab[aria-selected="true"],
+.page-quick-tab[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
 .editor-tab-button.active,
 .editor-tab-button[aria-selected="true"] {
   background: var(--accent);
