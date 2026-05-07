@@ -2043,7 +2043,7 @@ input[type="color"]::-moz-color-swatch {
 .page-quick-tabs-wrap {
   width: 100%;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
   margin: 10px 0 16px;
   padding: 0 12px;
@@ -2052,11 +2052,11 @@ input[type="color"]::-moz-color-swatch {
 .page-quick-tabs {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: none;
+  max-width: 1200px;
 }
 .page-quick-tab {
   display: inline-flex;
