@@ -877,22 +877,25 @@ async function handleLeetifyProfile(request, env) {
   const headers = { 'Accept':'application/json', ...(env?.LEETIFY_API_KEY ? { 'Authorization': `Bearer ${env.LEETIFY_API_KEY}` } : {}) };
   const previewResponse = (json) => json && typeof json === 'object' ? ({
     hasId: Boolean(json.id),
-    hasName: Boolean(json.name),
-    hasRanks: Boolean(json.ranks),
-    hasRating: Boolean(json.rating),
-    hasRecentMatches: Boolean(json.recent_matches || json.recentMatches)
+    hasName: Boolean(json.name || json.nickname || json.profile?.name || json.user?.name),
+    hasSteamId: Boolean(json.steam64_id || json.steam64Id || json.steamId64 || json.steam_id || json.steamId),
+    hasRanks: Boolean(json.ranks || json.rank || json.cs2?.rank || json.competitive?.rank),
+    hasRating: Boolean(json.leetifyRating || json.rating || json.ratings),
+    hasStats: Boolean(json.stats || json.aimRating || json.positioningRating || json.utilityRating || json.clutchRating || json.openingDuelRating),
+    hasRecentMatches: Boolean(json.recent_matches || json.recentMatches || json.matches?.recent)
   }) : null;
   for (const attemptToTry of attemptsToTry) {
     const { kind, candidate, endpoint } = attemptToTry;
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctrl ? setTimeout(()=>ctrl.abort('timeout'), 5000) : null;
-    const attempt = { kind, candidate, endpoint, status: null, ok: false, reason: 'pending', responseKeys: [], topLevelPreview: null };
+    const attempt = { kind, candidate, endpoint, status: null, ok: false, reason: 'pending', responseKeys: [], topLevelPreview: null, bodyPreview: null };
     attempts.push(attempt);
     try {
       const resp = await fetch(endpoint, { headers, ...(ctrl?{signal:ctrl.signal}:{}) });
       attempt.status = resp.status;
       if (debug) console.debug('[leetify] endpoint', { userId, kind, candidate, endpoint, status: resp.status, ok: resp.ok });
       const text = await resp.text();
+      if (debug) attempt.bodyPreview = text.slice(0, 500);
       let payload = null;
       if (text) {
         try { payload = JSON.parse(text); }
