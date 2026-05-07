@@ -122,7 +122,7 @@ function renderLeetifyMatches(matches){
 function renderLeetifyDebugAttempts(attempts,parsed){
   if(localStorage.getItem('grev_debug_integrations')!=='1'||!Array.isArray(attempts))return '';
   const parsedBlock=parsed?`<pre>${esc(JSON.stringify(parsed,null,2))}</pre>`:'';
-  const rows=attempts.map((a)=>`<li><strong>${esc(a.kind||'candidate')}: ${esc(a.candidate||'')}</strong><br><code>${esc(a.endpoint||'')}</code><br><span>Status: ${esc(a.status??'n/a')} · ${esc(a.ok?'ok':'not ok')}${a.reason?` · ${esc(a.reason)}`:''}</span>${a.responseKeys?`<br><small>Keys: ${esc(a.responseKeys.join(', '))}</small>`:''}${a.topLevelPreview?`<pre>${esc(JSON.stringify(a.topLevelPreview,null,2))}</pre>`:''}</li>`).join('');
+  const rows=attempts.map((a)=>`<li><strong>${esc(a.kind||'candidate')}: ${esc(a.candidate||'')}</strong><br><code>${esc(a.endpoint||'')}</code><br><span>Status: ${esc(a.status??'n/a')} · ${esc(a.ok?'ok':'not ok')}${a.reason?` · ${esc(a.reason)}`:''}</span>${a.responseKeys?`<br><small>Keys: ${esc(a.responseKeys.join(', '))}</small>`:''}${a.topLevelPreview?`<pre>${esc(JSON.stringify(a.topLevelPreview,null,2))}</pre>`:''}${a.bodyPreview?`<details><summary>Body preview</summary><pre>${esc(a.bodyPreview)}</pre></details>`:''}</li>`).join('');
   return `<details class="integration-debug" open><summary>Leetify API attempts</summary>${parsedBlock}<ul>${rows||'<li>No attempts returned.</li>'}</ul></details>`;
 }
 async function loadLeetifyWidget(userId){
