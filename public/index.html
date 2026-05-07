@@ -28,7 +28,7 @@
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
         <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
-        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Snapshot</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
+        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Spotlight</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
         <article class="dashboard-tile tile-4x2" data-tile-id="grev-dad-tutorial" data-tile-size="4x2"><h2>grev.dad Tutorial</h2><div id="grev-dad-tutorial-content" class="dashboard-tutorial-content"></div></article>
         <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
@@ -111,7 +111,7 @@
         let dashboardDragState = { tileId: null, preview: null };
         let homeChatTimer = null;
         let homeChatRoomId = null;
-        let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {} };
+        let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {}, tileStyles: {} };
         let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
         let wasMobileDashboard = isMobileDashboard();
         const tileLoadPromises = new Map();
@@ -153,6 +153,114 @@
         function isSafeDashboardUrl(value) { const text = String(value || '').trim(); if (!text) return true; if (/^(javascript|data|file|vbscript):/i.test(text)) return false; try { const u = new URL(text); return u.protocol === 'http:' || u.protocol === 'https:'; } catch { return false; } }
         function normalizeDashboardBackground(input = {}) { const size = ['cover','contain','repeat','stretch','center'].includes(String(input.dashboard_background_size || '')) ? String(input.dashboard_background_size) : 'cover'; const colour = /^#[0-9a-f]{6}$/i.test(String(input.dashboard_background_colour || '').trim()) ? String(input.dashboard_background_colour).trim() : ''; const url = isSafeDashboardUrl(input.dashboard_background_url) ? String(input.dashboard_background_url || '').trim() : ''; const overlay = Math.max(0, Math.min(80, Math.round(Number(input.dashboard_background_overlay_strength) || 0))); return { dashboard_background_colour: colour, dashboard_background_url: url, dashboard_background_size: size, dashboard_background_overlay_strength: overlay }; }
         function applyDashboardBackground(settings = dashboardBackgroundState) { const shell = document.getElementById('dashboard-custom-shell'); if (!shell) return; dashboardBackgroundState = normalizeDashboardBackground(settings); const s = dashboardBackgroundState; shell.style.setProperty('--dashboard-bg-colour', s.dashboard_background_colour || 'transparent'); shell.style.setProperty('--dashboard-bg-image', s.dashboard_background_url ? `url("${s.dashboard_background_url.replace(/"/g, '%22')}")` : 'none'); shell.style.setProperty('--dashboard-bg-overlay', String(s.dashboard_background_overlay_strength / 100)); if (s.dashboard_background_size === 'repeat') { shell.style.setProperty('--dashboard-bg-size', 'auto'); shell.style.setProperty('--dashboard-bg-repeat', 'repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } else if (s.dashboard_background_size === 'stretch') { shell.style.setProperty('--dashboard-bg-size', '100% 100%'); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } else if (s.dashboard_background_size === 'center') { shell.style.setProperty('--dashboard-bg-size', 'auto'); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center center'); } else { shell.style.setProperty('--dashboard-bg-size', s.dashboard_background_size); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } }
+        const DASHBOARD_TILE_STYLE_DEFAULTS = {
+          colour: '',
+          opacity: 0,
+          blur: 0
+        };
+
+        function normaliseDashboardTileStyle(input = {}) {
+          const colour = /^#[0-9a-f]{6}$/i.test(String(input.colour || '').trim())
+            ? String(input.colour).trim()
+            : '';
+          const opacity = Math.max(0, Math.min(100, Math.round(Number(input.opacity) || 0)));
+          const blur = Math.max(0, Math.min(20, Math.round(Number(input.blur) || 0)));
+          return { colour, opacity, blur };
+        }
+
+        function hexToRgba(hex, opacity) {
+          const match = String(hex || '').match(/^#([0-9a-f]{6})$/i);
+          if (!match || Number(opacity) <= 0) return 'transparent';
+          const raw = match[1];
+          const r = parseInt(raw.slice(0, 2), 16);
+          const g = parseInt(raw.slice(2, 4), 16);
+          const b = parseInt(raw.slice(4, 6), 16);
+          const a = Math.max(0, Math.min(1, Number(opacity) / 100));
+          return `rgba(${r}, ${g}, ${b}, ${a})`;
+        }
+
+        function getDashboardTileStyle(tileId) {
+          return normaliseDashboardTileStyle(dashboardLayout.tileStyles?.[tileId] || DASHBOARD_TILE_STYLE_DEFAULTS);
+        }
+
+        function setDashboardTileStyle(tileId, nextStyle) {
+          if (!tileId) return;
+          dashboardLayout.tileStyles = dashboardLayout.tileStyles || {};
+          dashboardLayout.tileStyles[tileId] = normaliseDashboardTileStyle(nextStyle);
+          applyDashboardTileStyles();
+          saveDesktopLayout();
+        }
+
+        function applyDashboardTileStyles() {
+          grid.querySelectorAll('.dashboard-tile[data-tile-id]').forEach((tile) => {
+            const tileId = tile.dataset.tileId;
+            const style = getDashboardTileStyle(tileId);
+
+            tile.style.setProperty('--dashboard-tile-bg', hexToRgba(style.colour, style.opacity));
+            tile.style.setProperty('--dashboard-tile-blur', `${style.blur}px`);
+
+            if (style.colour && style.opacity > 0) {
+              tile.classList.add('dashboard-tile-custom-style');
+            } else {
+              tile.classList.remove('dashboard-tile-custom-style');
+            }
+          });
+        }
+
+        function renderDashboardTileStyleControls(tileId) {
+          const style = getDashboardTileStyle(tileId);
+          return `
+            <div class="dashboard-tile-style-controls" data-style-tile-id="${tileId}">
+              <label class="colour-field">
+                Colour
+                <input type="color" class="dashboard-tile-colour-picker" value="${style.colour || '#000000'}">
+              </label>
+              <div class="range-field">
+                <label>
+                  <span class="range-label-row"><span>Transparency</span><span class="range-value dashboard-tile-opacity-value">${style.opacity}%</span></span>
+                  <input type="range" min="0" max="100" value="${style.opacity}" class="dashboard-tile-opacity">
+                </label>
+                <label>
+                  <span class="range-label-row"><span>Blur</span><span class="range-value dashboard-tile-blur-value">${style.blur}px</span></span>
+                  <input type="range" min="0" max="20" value="${style.blur}" class="dashboard-tile-blur">
+                </label>
+              </div>
+            </div>
+          `;
+        }
+
+        function bindDashboardTileStyleControls(row, tileId) {
+          const style = getDashboardTileStyle(tileId);
+          const colourInput = row.querySelector('.dashboard-tile-colour-picker');
+          const opacityInput = row.querySelector('.dashboard-tile-opacity');
+          const blurInput = row.querySelector('.dashboard-tile-blur');
+          const opacityValue = row.querySelector('.dashboard-tile-opacity-value');
+          const blurValue = row.querySelector('.dashboard-tile-blur-value');
+
+          if (colourInput) colourInput.value = style.colour || '#000000';
+          if (opacityInput) opacityInput.value = style.opacity;
+          if (blurInput) blurInput.value = style.blur;
+
+          function update() {
+            const next = {
+              colour: colourInput?.value || style.colour,
+              opacity: opacityInput?.value || 0,
+              blur: blurInput?.value || 0
+            };
+            const normalised = normaliseDashboardTileStyle(next);
+            if (opacityValue) opacityValue.textContent = `${normalised.opacity}%`;
+            if (blurValue) blurValue.textContent = `${normalised.blur}px`;
+            window.GREVTheme?.updateRangeProgress?.(opacityInput);
+            window.GREVTheme?.updateRangeProgress?.(blurInput);
+            setDashboardTileStyle(tileId, next);
+          }
+
+          colourInput?.addEventListener('input', update);
+          opacityInput?.addEventListener('input', update);
+          blurInput?.addEventListener('input', update);
+          window.GREVTheme?.updateRangeProgress?.(opacityInput);
+          window.GREVTheme?.updateRangeProgress?.(blurInput);
+        }
         async function recordDashboardAchievement(achievement_key) { try { const r = await fetch('/api/achievements/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ achievement_key }) }); const d = await r.json(); if (r.ok && d?.achievementsAwarded?.length) showDashboardAchievementToast(d.achievementsAwarded); } catch {} }
         function showDashboardAchievementToast(items) { try { const panel=document.createElement('div'); panel.className='achievement-toast'; panel.innerHTML=`<strong>Achievement unlocked</strong><ul class='achievement-unlocked-list'>${items.map((a)=>`<li>${String(a.title||a.achievement_key).replace(/[&<>]/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))} +${Number(a.xp_awarded||a.xp?.amount||0)} XP</li>`).join('')}</ul>`; document.body.append(panel); setTimeout(()=>panel.remove(),7000); } catch {} }
 
@@ -252,6 +360,7 @@
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
             grid.append(...order.map((id) => grid.querySelector(`[data-tile-id="${id}"]`)));
           }
+          applyDashboardTileStyles();
         }
         function debugTilePlacement(tileId) {
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
@@ -324,11 +433,12 @@
               if (index > 0) tile.remove();
             });
           }
+          applyDashboardTileStyles();
         }
         function hydrateLayout() {
           const saved = getDesktopLayout();
           const savedMobile = getMobileLayout();
-          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles) ? saved.hiddenTiles : [...DEFAULT_HIDDEN_TILE_IDS], blankTiles: {} };
+          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles) ? saved.hiddenTiles : [...DEFAULT_HIDDEN_TILE_IDS], blankTiles: {}, tileStyles: saved?.tileStyles && typeof saved.tileStyles === 'object' ? saved.tileStyles : {} };
           const enabledIds = defaultIds.filter((id)=>tileRuleFor(id).isEnabled!==0);
           defaultIds.forEach((id) => {
             if (!enabledIds.includes(id)) return; if (dashboardLayout.hiddenTiles.includes(id)) return; const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
@@ -1100,7 +1210,7 @@
           const authUser = (await getAuthForHome())?.user || {};
           const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
           const tileMeta = {
-            'profile-snapshot': { label: 'Profile Spotlight / Snapshot', description: 'Your Profile Card snapshot tile.' },
+            'profile-snapshot': { label: 'Profile Spotlight', description: 'Your Profile Card dashboard tile.' },
             'grev-dad-tutorial': { label: 'grev.dad Tutorial', description: 'A concise guide to using grev.dad.' },
             'profile-completion': { label: 'Account Progress', description: 'Shows profile completion progress.' },
             'profile-status': { label: 'Profile Status', description: 'Status message and profile links.' },
@@ -1131,11 +1241,11 @@
               const enabled = tileRuleFor(tileId).isEnabled !== 0;
               const visible = !!dashboardLayout.tiles[tileId];
               const meta = tileMeta[tileId] || { label: tileId, description: '' };
-              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${meta.label}</strong><p>${enabled ? meta.description : 'Disabled by admin.'}</p></div>`;
+              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${meta.label}</strong><p>${enabled ? meta.description : 'Disabled by admin.'}</p></div>${renderDashboardTileStyleControls(tileId)}`;
               const a = document.createElement('div'); a.className='dashboard-tile-library-actions';
               const b = document.createElement('button'); b.type='button'; b.className='nav-button'; b.textContent = visible ? 'Hide' : 'Show'; b.disabled = !enabled;
               b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary(); };
-              a.append(b); row.append(a); section.append(row);
+              a.append(b); row.append(a); bindDashboardTileStyleControls(row, tileId); section.append(row);
             });
             root.append(section);
           });
@@ -1151,7 +1261,7 @@
               const tileId = `member-card-${memberId}`;
               const row = document.createElement('div'); row.className='dashboard-tile-library-row';
               const name = member.display_name || member.username || `Member ${memberId}`;
-              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${name}</strong><p>${authUser?.id===memberId?'You':''}</p></div>`;
+              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${name}</strong><p>${authUser?.id===memberId?'You':''}</p></div>${renderDashboardTileStyleControls(tileId)}`;
               const b = document.createElement('button'); b.type='button'; b.className='nav-button';
               const exists = !!dashboardLayout.customTiles[tileId];
               b.textContent = exists ? 'Remove' : 'Add';
@@ -1160,7 +1270,7 @@
                 else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); recordDashboardAchievement('dashboard.add_member_profile_card'); }
                 ensureTilesExist(); renderTilePositions(); loadCustomMemberCardTiles(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
               };
-              row.append(b); community.append(row);
+              const a = document.createElement('div'); a.className='dashboard-tile-library-actions'; a.append(b); row.append(a); bindDashboardTileStyleControls(row, tileId); community.append(row);
             });
           } catch { community.insertAdjacentHTML('beforeend','<p>Members unavailable.</p>'); }
           root.append(community);
