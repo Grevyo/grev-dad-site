@@ -19,7 +19,7 @@
       <div class="page-quick-tabs-wrap dashboard-top-tabs-wrap">
         <div class="page-quick-tabs dashboard-top-tabs dashboard-edit-controls" aria-label="Dashboard actions">
           <button type="button" class="page-quick-tab" id="customise-dashboard-btn">Customise Dashboard</button>
-          <button type="button" class="page-quick-tab" id="edit-dashboard-btn">Move Tiles</button>
+          <button type="button" class="page-quick-tab" id="edit-dashboard-btn">Edit Tiles</button>
           <button type="button" class="page-quick-tab" id="quick-actions-open-btn">Quick Actions</button>
           <button id="reset-dashboard-layout" type="button" class="page-quick-tab" hidden>Reset layout</button>
         </div>
@@ -55,6 +55,19 @@
         </div>
         <div id="dashboard-tile-library"></div>
       </aside>
+      <div id="tile-settings-modal" class="tile-settings-modal" hidden>
+        <div class="tile-settings-backdrop" data-close-tile-settings></div>
+        <section class="tile-settings-panel" role="dialog" aria-modal="true" aria-labelledby="tile-settings-title" tabindex="-1">
+          <header class="tile-settings-header">
+            <div>
+              <h2 id="tile-settings-title">Tile Settings</h2>
+              <p id="tile-settings-subtitle"></p>
+            </div>
+            <button type="button" class="nav-button" data-close-tile-settings>Close</button>
+          </header>
+          <div id="tile-settings-body"></div>
+        </section>
+      </div>
     </main>
 
     <script src="/scripts/theme.js"></script>
@@ -107,6 +120,21 @@
         const editButton = document.getElementById('edit-dashboard-btn');
         const defaultIds = Array.from(grid.querySelectorAll('[data-tile-id]')).map((n) => n.dataset.tileId);
         const DEFAULT_HIDDEN_TILE_IDS = ['quick-actions'];
+        const DASHBOARD_TILE_META = {
+          'profile-snapshot': { label: 'Profile Spotlight', description: 'Your Profile Card dashboard tile.' },
+          'grev-dad-tutorial': { label: 'grev.dad Tutorial', description: 'A concise guide to using grev.dad.' },
+          'profile-completion': { label: 'Account Progress', description: 'Shows profile completion progress.' },
+          'profile-status': { label: 'Profile Status', description: 'Status message and profile links.' },
+          'showcase-preview': { label: 'Showcase Preview', description: 'Recent showcase unlock highlights.' },
+          'members-preview': { label: 'Members Preview', description: 'Quick list of community members.' },
+          'member-spotlight': { label: 'Member Spotlight', description: 'Featured member Profile Card.' },
+          chat: { label: 'Global Chat', description: 'Dashboard chat preview and quick send.' },
+          'leaderboard-preview': { label: 'Leaderboard Preview', description: 'Top players preview tile.' },
+          'site-notices': { label: 'Site Notices', description: 'Announcements and site status.' },
+          'admin-quick-tools': { label: 'Admin Quick Tools', description: 'Admin shortcuts and moderation links.' },
+          'quick-actions': { label: 'Quick Actions', description: 'Common account shortcuts.' },
+          'coming-later': { label: 'Site Status / Coming Later', description: 'Upcoming grev.dad features and site activity.' }
+        };
         let isEditing = false;
         let dashboardDragState = { tileId: null, preview: null };
         let homeChatTimer = null;
@@ -114,6 +142,8 @@
         let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {}, tileStyles: {} };
         let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
         let wasMobileDashboard = isMobileDashboard();
+        let lastTileSettingsTrigger = null;
+        let activeTileSettingsId = '';
         const tileLoadPromises = new Map();
         const DEBUG_PERF = localStorage.getItem('grev_debug_perf') === '1';
         const DEBUG_PROFILE_CARD = localStorage.getItem('grev_debug_profile_card') === '1';
@@ -741,8 +771,168 @@
             height: tile.getBoundingClientRect().height
           });
         }
+
+        function escapeDashboardHtml(value) {
+          return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        }
+        function getDashboardTileMeta(tileId) {
+          if (tileId?.startsWith('member-card-')) {
+            const memberId = Number(dashboardLayout.customTiles?.[tileId]?.memberId || tileId.replace('member-card-', ''));
+            const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
+            const name = tile?.querySelector('.player-card-name, .profile-card-name, [data-profile-name], strong')?.textContent?.trim() || `Member ${memberId}`;
+            return { label: `${name} Profile Card`, description: 'Member Profile Card tile.', memberId };
+          }
+          if (tileId?.startsWith('blank-')) return { label: 'Blank tile', description: 'Blank dashboard spacing tile.' };
+          return DASHBOARD_TILE_META[tileId] || { label: tileId || 'Tile', description: '' };
+        }
+        function getTileSettingsActions(tileId) {
+          const actions = [];
+          const entry = getLayoutEntry(dashboardLayout, tileId);
+          const allowedSizes = safeAllowedSizes(tileId);
+          if (entry && allowedSizes.length > 1) actions.push('size');
+          if (dashboardLayout.tiles?.[tileId]) actions.push('visibility');
+          if (tileId?.startsWith('member-card-') || tileId?.startsWith('blank-')) actions.push('remove');
+          if (tileId === 'profile-snapshot') actions.push('view-profile', 'edit-profile-card');
+          if (tileId?.startsWith('member-card-')) actions.push('view-profile');
+          if (tileId === 'quick-actions') actions.push('open-quick-actions');
+          return actions;
+        }
+        async function updateDashboardTileSize(tileId, requestedSize, select = null) {
+          const entry = getLayoutEntry(dashboardLayout, tileId);
+          if (!entry) return false;
+          const previous = entry.size;
+          const next = normalizeTileSize(tileId, requestedSize);
+          const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
+          entry.size = next;
+          if (parseTileSize(next).w > getDashboardColumnCount()) {
+            dashboardLayout = snapshot;
+            if (select) select.value = previous;
+            showTileMessage('Size change blocked: selected width is larger than the board.');
+            return false;
+          }
+          const previousSize = parseTileSize(previous);
+          const nextSize = parseTileSize(next);
+          const wasShrink = (nextSize.w * nextSize.h) < (previousSize.w * previousSize.h);
+          const pushed = pushBlockingTiles(tileId, dashboardLayout);
+          if (!pushed) {
+            dashboardLayout = snapshot;
+            if (select) select.value = previous;
+            showTileMessage('Could not place tile there.');
+            return false;
+          }
+          const finalEntry = getLayoutEntry(dashboardLayout, tileId);
+          if (finalEntry) finalEntry.size = next;
+          mobileLayout.sizes[tileId] = next;
+          saveDesktopLayout(); saveMobileLayout(); renderTilePositions();
+          if (tileId === 'profile-snapshot' && wasShrink) {
+            compactDashboardLayout(dashboardLayout, { preserveTileId: tileId });
+            saveDesktopLayout(); renderTilePositions();
+          }
+          if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
+          debugTilePlacement('profile-snapshot'); debugTilePlacement('quick-actions'); createEditControls();
+          return true;
+        }
+        function setBuiltInTileVisibility(tileId, visible) {
+          if (!tileId || tileId.startsWith('blank-') || tileId.startsWith('member-card-')) return;
+          if (visible) {
+            dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles || []).filter((id) => id !== tileId);
+            if (!dashboardLayout.tiles[tileId]) {
+              const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize);
+              const pos = findNearestFreePosition(tileId, size);
+              dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size };
+            }
+            if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId);
+          } else {
+            dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles || []), tileId]));
+            delete dashboardLayout.tiles[tileId];
+            mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId);
+          }
+          ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
+        }
+        function removeDashboardTile(tileId) {
+          if (tileId?.startsWith('blank-')) delete dashboardLayout.blankTiles[tileId];
+          if (tileId?.startsWith('member-card-')) delete dashboardLayout.customTiles[tileId];
+          mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId);
+          const el = grid.querySelector(`[data-tile-id="${tileId}"]`); if (el) el.remove();
+          saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderDashboardTileLibrary();
+        }
+        function renderTileSettingsContent(tileId, tileMeta) {
+          const entry = getLayoutEntry(dashboardLayout, tileId);
+          const actions = getTileSettingsActions(tileId);
+          const allowedSizes = safeAllowedSizes(tileId);
+          const currentSize = entry?.size || normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize);
+          const visible = !!dashboardLayout.tiles?.[tileId] || !!dashboardLayout.customTiles?.[tileId] || !!dashboardLayout.blankTiles?.[tileId];
+          const rows = [];
+          rows.push(`<section class="tile-settings-row"><strong>${escapeDashboardHtml(tileMeta.label || 'Tile')}</strong><p>${escapeDashboardHtml(tileMeta.description || '')}</p><small>Tile ID: ${escapeDashboardHtml(tileId)}</small></section>`);
+          if (actions.includes('size')) {
+            rows.push(`<section class="tile-settings-row"><label>Tile size <select data-tile-settings-size>${allowedSizes.map((size) => `<option value="${escapeDashboardHtml(size)}"${size === currentSize ? ' selected' : ''}>${escapeDashboardHtml(size)}</option>`).join('')}</select></label><small>Changes update the selected tile immediately and are saved with the dashboard layout.</small></section>`);
+          }
+          if (actions.includes('visibility')) {
+            rows.push(`<section class="tile-settings-row"><strong>Visibility</strong><p>${visible ? 'This built-in tile is visible on Your Dashboard.' : 'This built-in tile is hidden.'}</p><button type="button" class="nav-button" data-tile-settings-toggle-visibility="${visible ? 'hide' : 'show'}">${visible ? 'Hide' : 'Show'}</button></section>`);
+          }
+          if (actions.includes('remove')) {
+            rows.push(`<section class="tile-settings-row"><strong>${tileId.startsWith('member-card-') ? 'Member Profile Card' : 'Custom tile'}</strong><button type="button" class="nav-button" data-tile-settings-remove>${tileId.startsWith('member-card-') ? 'Remove from Dashboard' : 'Remove tile'}</button></section>`);
+          }
+          const links = [];
+          if (actions.includes('view-profile')) {
+            const memberId = tileMeta.memberId || '';
+            links.push(`<a class="nav-button" href="/profile.html${memberId ? `?id=${encodeURIComponent(memberId)}` : ''}">View Profile</a>`);
+          }
+          if (actions.includes('edit-profile-card')) links.push('<a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>');
+          if (actions.includes('open-quick-actions')) links.push('<button type="button" class="nav-button" data-tile-settings-open-quick-actions>Open Quick Actions overlay</button>');
+          if (links.length) rows.push(`<section class="tile-settings-row"><strong>Actions</strong><div class="tile-settings-actions">${links.join('')}</div></section>`);
+          return rows.join('');
+        }
+        function bindTileSettingsControls(tileId) {
+          const body = document.getElementById('tile-settings-body');
+          body?.querySelector('[data-tile-settings-size]')?.addEventListener('change', async (event) => {
+            const updated = await updateDashboardTileSize(tileId, event.target.value, event.target);
+            if (updated && activeTileSettingsId === tileId) openTileSettings(tileId, lastTileSettingsTrigger);
+          });
+          body?.querySelector('[data-tile-settings-toggle-visibility]')?.addEventListener('click', (event) => {
+            const shouldShow = event.currentTarget.dataset.tileSettingsToggleVisibility === 'show';
+            setBuiltInTileVisibility(tileId, shouldShow);
+            if (!shouldShow) closeTileSettings(); else openTileSettings(tileId, lastTileSettingsTrigger);
+          });
+          body?.querySelector('[data-tile-settings-remove]')?.addEventListener('click', () => { removeDashboardTile(tileId); closeTileSettings(); });
+          body?.querySelector('[data-tile-settings-open-quick-actions]')?.addEventListener('click', () => { closeTileSettings(); openQuickActionsOverlay(); });
+        }
+        function openTileSettings(tileId, triggerButton = null) {
+          const modal = document.getElementById('tile-settings-modal');
+          const title = document.getElementById('tile-settings-title');
+          const subtitle = document.getElementById('tile-settings-subtitle');
+          const body = document.getElementById('tile-settings-body');
+          if (!modal || !title || !subtitle || !body) return;
+          const tileMeta = getDashboardTileMeta(tileId);
+          lastTileSettingsTrigger = triggerButton || lastTileSettingsTrigger;
+          activeTileSettingsId = tileId;
+          modal.hidden = false;
+          title.textContent = `${tileMeta.label || 'Tile'} Settings`;
+          subtitle.textContent = tileMeta.description || '';
+          body.innerHTML = renderTileSettingsContent(tileId, tileMeta);
+          bindTileSettingsControls(tileId);
+          modal.querySelector('.tile-settings-panel')?.focus?.();
+        }
+        function closeTileSettings() {
+          const modal = document.getElementById('tile-settings-modal');
+          if (!modal || modal.hidden) return;
+          modal.hidden = true;
+          activeTileSettingsId = '';
+          const trigger = lastTileSettingsTrigger;
+          lastTileSettingsTrigger = null;
+          if (trigger && document.contains(trigger)) trigger.focus?.();
+        }
+        function bindTileSettingsModal() {
+          const modal = document.getElementById('tile-settings-modal');
+          if (!modal || modal.dataset.bound === '1') return;
+          modal.dataset.bound = '1';
+          modal.querySelectorAll('[data-close-tile-settings]').forEach((el) => el.addEventListener('click', closeTileSettings));
+          document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.hidden) closeTileSettings();
+          });
+        }
         function createEditControls() {
-          grid.querySelectorAll('.tile-edit-overlay, .tile-edit-controls, .tile-size-control, .tile-hide-button, .tile-remove-button, .blank-remove-button').forEach((el) => el.remove());
+          grid.querySelectorAll('.tile-edit-overlay, .tile-edit-controls, .tile-size-control, .tile-settings-button, .tile-hide-button, .tile-remove-button, .blank-remove-button').forEach((el) => el.remove());
           if (!isEditing) return;
           grid.querySelectorAll('.dashboard-tile').forEach((tile) => {
             const tileId = tile.dataset.tileId;
@@ -782,38 +972,7 @@
             const select = document.createElement('select');
             safeAllowedSizes(tileId).forEach((size) => { const opt = document.createElement('option'); opt.value=size; opt.textContent=size; select.append(opt); });
             select.addEventListener('change', async () => {
-              const entry = getLayoutEntry(dashboardLayout, tileId);
-              if (!entry) return;
-              const previous = entry.size;
-              const next = normalizeTileSize(tileId, select.value);
-              const snapshot = JSON.parse(JSON.stringify(dashboardLayout));
-              entry.size = next;
-              if (parseTileSize(next).w > getDashboardColumnCount()) {
-                dashboardLayout = snapshot;
-                select.value = previous;
-                showTileMessage('Size change blocked: selected width is larger than the board.');
-                return;
-              }
-              const previousSize = parseTileSize(previous);
-              const nextSize = parseTileSize(next);
-              const wasShrink = (nextSize.w * nextSize.h) < (previousSize.w * previousSize.h);
-              const pushed = pushBlockingTiles(tileId, dashboardLayout);
-              if (!pushed) {
-                dashboardLayout = snapshot;
-                select.value = previous;
-                showTileMessage('Could not place tile there.');
-                return;
-              }
-              const finalEntry = getLayoutEntry(dashboardLayout, tileId);
-              if (finalEntry) finalEntry.size = next;
-              mobileLayout.sizes[tileId] = next;
-              saveDesktopLayout(); saveMobileLayout(); renderTilePositions();
-              if (tileId === 'profile-snapshot' && wasShrink) {
-                compactDashboardLayout(dashboardLayout, { preserveTileId: tileId });
-                saveDesktopLayout(); renderTilePositions();
-              }
-              if (tileId === 'profile-snapshot') await loadAccountSnapshotTile();
-              debugTilePlacement('profile-snapshot'); debugTilePlacement('quick-actions'); createEditControls();
+              await updateDashboardTileSize(tileId, select.value, select);
             });
             const entry = getLayoutEntry(dashboardLayout, tileId);
             if (entry) select.value = entry.size;
@@ -821,15 +980,23 @@
             sizeControl.hidden = safeAllowedSizes(tileId).length <= 1;
             overlay.append(sizeControl);
 
+            const settingsButton = document.createElement('button');
+            settingsButton.type = 'button';
+            settingsButton.className = 'tile-settings-button';
+            settingsButton.dataset.tileSettings = tileId;
+            settingsButton.textContent = 'Settings';
+            settingsButton.addEventListener('click', (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openTileSettings(tileId, settingsButton);
+            });
+            overlay.append(settingsButton);
+
             if (tileId.startsWith('blank-') || tileId.startsWith('member-card-')) {
               const removeBtn = document.createElement('button'); removeBtn.type='button'; removeBtn.className='tile-remove-button';
               removeBtn.textContent = tileId.startsWith('blank-') ? 'Remove blank tile' : 'Remove';
               removeBtn.addEventListener('click', ()=>{
-                if (tileId.startsWith('blank-')) delete dashboardLayout.blankTiles[tileId];
-                if (tileId.startsWith('member-card-')) delete dashboardLayout.customTiles[tileId];
-                mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId);
-                const el = grid.querySelector(`[data-tile-id="${tileId}"]`); if (el) el.remove();
-                saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderDashboardTileLibrary();
+                removeDashboardTile(tileId);
               });
               overlay.append(removeBtn);
             }
@@ -842,7 +1009,7 @@
           document.body.classList.toggle('dashboard-editing', isEditing);
           dashboardBoard?.classList.toggle('dashboard-editing', isEditing);
           grid.classList.toggle('dashboard-editing', isEditing);
-          editButton.textContent = isEditing ? 'Save Dashboard' : 'Move Tiles';
+          editButton.textContent = isEditing ? 'Save Tiles' : 'Edit Tiles';
           resetButton.hidden = !isEditing;
           if (isEditing) {
             createEditControls();
@@ -850,6 +1017,7 @@
           } else {
             saveDesktopLayout();
             saveMobileLayout();
+            closeTileSettings();
             createEditControls();
             clearDashboardMovePreview();
             renderTilePositions();
@@ -860,7 +1028,7 @@
           document.body.classList.remove('dashboard-editing');
           dashboardBoard?.classList.remove('dashboard-editing');
           grid.classList.remove('dashboard-editing');
-          editButton.textContent = 'Move Tiles';
+          editButton.textContent = 'Edit Tiles';
           resetButton.hidden = true;
           createEditControls();
           clearDashboardMovePreview();
@@ -978,7 +1146,7 @@
             { title: 'View My Profile', description: 'Open your public Profile Page.', href: '/profile.html', group: 'Profile' },
             { title: 'Edit Profile', description: 'Customise public info, links, images, and integrations.', href: '/profile-edit.html', group: 'Profile' },
             { title: 'Edit Profile Card', description: 'Design the mini Profile Card shown around the site.', href: '/profile-card-edit.html', group: 'Profile' },
-            { title: 'Move Tiles', description: 'Move and resize your dashboard tiles.', actionId: 'edit-dashboard', group: 'Dashboard' },
+            { title: 'Edit Tiles', description: 'Move, resize, and configure your dashboard tiles.', actionId: 'edit-dashboard', group: 'Dashboard' },
             { title: 'Customise Dashboard', description: 'Show/hide tiles in the dashboard sidebar.', actionId: 'customise-dashboard', group: 'Dashboard' },
             { title: 'Add Member Profile Card', description: 'Open Member Profile Cards in Customise Dashboard.', actionId: 'add-member-profile-card', group: 'Dashboard' },
             { title: 'Change Dashboard Background', description: 'Open colour, image/GIF, fit, and overlay controls.', actionId: 'dashboard-background', group: 'Dashboard' },
@@ -1069,7 +1237,7 @@
             }
           });
         }
-        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> use Move Tiles to rearrange and resize tiles.</p><p><strong>Customise Dashboard:</strong> show/hide tiles and add Member Profile Cards.</p><p><strong>Members:</strong> browse other users’ Profile Cards.</p><p><strong>Leaderboard:</strong> compare grev.dad levels and XP.</p><p><strong>Profile Page:</strong> customise widgets and public layout.</p><p><strong>XP/Achievements:</strong> earn XP by completing profile sections and using site features.</p></div>`; }
+        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> use Edit Tiles to rearrange and resize tiles.</p><p><strong>Customise Dashboard:</strong> show/hide tiles and add Member Profile Cards.</p><p><strong>Members:</strong> browse other users’ Profile Cards.</p><p><strong>Leaderboard:</strong> compare grev.dad levels and XP.</p><p><strong>Profile Page:</strong> customise widgets and public layout.</p><p><strong>XP/Achievements:</strong> earn XP by completing profile sections and using site features.</p></div>`; }
 
         function renderCompletion(profile) {
           const wrap = document.getElementById('profile-completion-content');
@@ -1275,20 +1443,7 @@
           if (!root) return;
           const authUser = (await getAuthForHome())?.user || {};
           const isAdmin = authUser?.is_admin === 1 || authUser?.is_admin === true || authUser?.role === 'admin';
-          const tileMeta = {
-            'profile-snapshot': { label: 'Profile Spotlight', description: 'Your Profile Card dashboard tile.' },
-            'grev-dad-tutorial': { label: 'grev.dad Tutorial', description: 'A concise guide to using grev.dad.' },
-            'profile-completion': { label: 'Account Progress', description: 'Shows profile completion progress.' },
-            'profile-status': { label: 'Profile Status', description: 'Status message and profile links.' },
-            'showcase-preview': { label: 'Showcase Preview', description: 'Recent showcase unlock highlights.' },
-            'members-preview': { label: 'Members Preview', description: 'Quick list of community members.' },
-            'member-spotlight': { label: 'Member Spotlight', description: 'Featured member Profile Card.' },
-            chat: { label: 'Global Chat', description: 'Dashboard chat preview and quick send.' },
-            'leaderboard-preview': { label: 'Leaderboard Preview', description: 'Top players preview tile.' },
-            'site-notices': { label: 'Site Notices', description: 'Announcements and site status.' },
-            'admin-quick-tools': { label: 'Admin Quick Tools', description: 'Admin shortcuts and moderation links.' },
-            'quick-actions': { label: 'Quick Actions', description: 'Common account shortcuts.' }
-          };
+          const tileMeta = DASHBOARD_TILE_META;
           const categories = [
             { name:'Account', ids:['profile-snapshot','profile-completion','profile-status','showcase-preview'] },
             { name:'Community', ids:['members-preview','member-spotlight'] },
@@ -1445,6 +1600,7 @@
           customiseOverlay?.addEventListener('click', closeDashboardTileSidebar);
         }
         bindQuickActionsOverlay();
+        bindTileSettingsModal();
         bindDashboardSidebarEvents();
         resetButton.addEventListener('click', async function () {
           if (isMobileDashboard()) localStorage.removeItem(LAYOUT_KEY_MOBILE); else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
