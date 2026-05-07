@@ -308,7 +308,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .account-settings-link{text-decoration:none}
 
 
-.dashboard-panel{margin:0;padding:var(--space-3);border:1px solid var(--border);background:var(--surface);border-radius:0}
+.dashboard-panel{margin:0;padding:var(--space-3);border:1px solid color-mix(in srgb,var(--border) 65%,transparent);background:transparent;background-color:transparent;border-radius:0;box-shadow:none}
 .stat-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:baseline;margin:0 0 .45rem}
 .quick-actions{display:flex;flex-wrap:wrap;gap:.6rem}
 .member-preview, .member-preview-list{list-style:none;padding:0;margin:0;display:grid;gap:.35rem}
@@ -372,7 +372,32 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
  .dashboard-board{--dashboard-cols:12;--dashboard-cell:calc(100vw / var(--dashboard-cols));position:relative;width:100vw;max-width:none;margin:0;padding:0;overflow-x:hidden}
 .dashboard-board::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(to right,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px);background-size:var(--dashboard-cell) var(--dashboard-cell);opacity:.55}
 .dashboard-grid{display:grid;grid-template-columns:repeat(var(--dashboard-cols),var(--dashboard-cell));grid-auto-rows:var(--dashboard-cell);gap:0;width:100vw;max-width:none;margin:0;padding:0;align-items:start;justify-content:start;grid-auto-flow:row;position:relative;z-index:1}
-.dashboard-tile{box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--border);background:var(--surface);padding:14px;border-radius:0;margin:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.dashboard-tile{--dashboard-tile-bg:transparent;--dashboard-tile-border:color-mix(in srgb,var(--border) 65%,transparent);box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--dashboard-tile-border);background:var(--dashboard-tile-bg);background-color:var(--dashboard-tile-bg);padding:14px;border-radius:0;margin:0;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:none;backdrop-filter:blur(var(--dashboard-tile-blur,0px))}
+.dashboard-widget,
+.dashboard-panel,
+.dashboard-card{--dashboard-tile-bg:transparent;--dashboard-tile-border:color-mix(in srgb,var(--border) 65%,transparent);background:var(--dashboard-tile-bg);background-color:var(--dashboard-tile-bg);border:1px solid var(--dashboard-tile-border);box-shadow:none}
+.dashboard-readable-tint,
+.dashboard-tile.dashboard-readable-tint{background:color-mix(in srgb,var(--bg) 12%,transparent);background-color:color-mix(in srgb,var(--bg) 12%,transparent)}
+.dashboard-tile > div:not(.player-card):not(.player-card-custom):not(.player-card-snapshot-variant):not(.profile-card),
+.dashboard-tile .tile-content,
+.dashboard-tile .tile-body,
+.dashboard-tile .widget-body,
+.dashboard-tile .card:not(.player-card):not(.player-card-custom):not(.player-card-snapshot-variant):not(.profile-card),
+.dashboard-tile .panel,
+.dashboard-tile .surface,
+.dashboard-tile .account-snapshot,
+.dashboard-tile .quick-actions-tile,
+.dashboard-tile .members-preview-tile,
+.dashboard-tile .member-preview-list,
+.dashboard-tile .leaderboard-preview-tile,
+.dashboard-tile .chat-tile,
+.dashboard-tile .chat-dashboard-tile,
+.dashboard-tile .chat-message-list,
+.dashboard-tile .tutorial-tile,
+.dashboard-tile .dashboard-tutorial-content{background:transparent;background-color:transparent;box-shadow:none}
+.dashboard-tile .player-card-custom{background-color:var(--player-card-bg-colour,var(--surface));background-size:cover;background-position:center;background-repeat:no-repeat}
+.dashboard-tile .player-card,
+.dashboard-tile .player-card-snapshot-variant{background-color:var(--player-card-bg-colour,var(--surface))}
 .tile-1x1{}.tile-1x2{}.tile-2x1{}.tile-2x2{}.tile-2x3{}.tile-2x4{}.tile-3x2{}.tile-3x3{}.tile-3x4{}.tile-3x5{}.tile-4x2{}.tile-4x3{}.tile-4x4{}.tile-4x5{}.tile-4x6{}.tile-4x8{}.tile-5x3{}.tile-5x4{}.tile-5x5{}.tile-5x6{}.tile-6x4{}.tile-6x5{}.tile-6x6{}.tile-6x8{}.tile-6x10{}.tile-8x4{}.tile-8x6{}.tile-8x8{}.tile-8x10{}.tile-10x6{}.tile-10x8{}.tile-12x6{}.tile-12x8{}.tile-12x12{}
 .tile-edit-overlay,
 .tile-edit-controls,
@@ -437,11 +462,11 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .profile-snapshot-tile .profile-snapshot-content,
 .profile-snapshot-tile #account-summary-content,
 .profile-snapshot-tile .player-card-snapshot-variant{height:100%;min-height:0 !important;max-height:100%;overflow:hidden}
-.blank-dashboard-tile{background:var(--bg)}
+.blank-dashboard-tile{background:var(--dashboard-tile-bg,transparent);background-color:var(--dashboard-tile-bg,transparent)}
 .blank-dashboard-tile .blank-tile-label{display:none;color:var(--text-muted)}
 .dashboard-editing .blank-dashboard-tile .blank-tile-label{display:block}
 .chat-dashboard-tile{display:flex;flex-direction:column;overflow:hidden}
-.chat-dashboard-tile .chat-message-list{flex:1;min-height:0;overflow-y:auto}
+.chat-dashboard-tile .chat-message-list{flex:1;min-height:0;overflow-y:auto;background:transparent;background-color:transparent;box-shadow:none}
 .chat-launcher{position:fixed;right:16px;bottom:16px;z-index:1000;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:0}
 .chat-popup{position:fixed;right:16px;bottom:64px;width:min(420px,calc(100vw - 24px));max-height:70vh;display:none;z-index:1001;background:var(--surface);border:1px solid var(--border);padding:10px}
 .chat-popup-open{display:grid;gap:8px}
@@ -2113,7 +2138,7 @@ input[type="color"]::-moz-color-swatch {
 }
 .dashboard-tutorial-content { font-size: .95rem; overflow: auto; }
 .dashboard-tutorial-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
-.dashboard-tutorial-grid p { margin: 0; border: 1px solid var(--border); padding: 8px; background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.dashboard-tutorial-grid p { margin: 0; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); padding: 8px; background: transparent; background-color: transparent; box-shadow: none; }
 .dashboard-background-controls { display: grid; gap: 10px; }
 .dashboard-background-controls label { display: grid; gap: 4px; }
 .dashboard-background-preview { min-height: 90px; border: 1px solid var(--border); display: grid; place-items: center; background-position: center; color: var(--text-muted); }
