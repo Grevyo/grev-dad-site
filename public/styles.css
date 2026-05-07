@@ -395,6 +395,38 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-tile .chat-message-list,
 .dashboard-tile .tutorial-tile,
 .dashboard-tile .dashboard-tutorial-content{background:transparent;background-color:transparent;box-shadow:none}
+.profile-snapshot-tile {
+  padding: 0 !important;
+  overflow: hidden;
+  min-height: 0 !important;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+.profile-snapshot-tile .profile-snapshot-card-fill,
+.profile-snapshot-tile .profile-snapshot-content,
+.profile-snapshot-tile #account-summary-content {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.profile-snapshot-tile .profile-snapshot-content > .player-card,
+.profile-snapshot-tile #account-summary-content > .player-card,
+.profile-snapshot-tile .player-card-snapshot-variant {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
 .dashboard-tile .player-card-custom{background-color:var(--player-card-bg-colour,var(--surface));background-size:cover;background-position:center;background-repeat:no-repeat}
 .dashboard-tile .player-card,
 .dashboard-tile .player-card-snapshot-variant{background-color:var(--player-card-bg-colour,var(--surface))}
@@ -1009,42 +1041,6 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 }
 
 
-/* Profile Snapshot tile shell reset: keep grid item, let inner player card be visible surface */
-.profile-snapshot-tile{
-  padding:0 !important;
-  border:0 !important;
-  background:transparent !important;
-  overflow:hidden;
-  min-height:0;
-}
-
-.profile-snapshot-tile .profile-snapshot-card-fill,
-.profile-snapshot-tile .profile-snapshot-content,
-.profile-snapshot-tile #account-summary-content{
-  width:100%;
-  height:100%;
-  min-width:0;
-  min-height:0;
-  padding:0;
-  margin:0;
-  overflow:hidden;
-}
-
-.profile-snapshot-tile .player-card-snapshot-variant{
-  width:100%;
-  height:100%;
-  min-width:0;
-  min-height:0;
-  margin:0;
-  box-sizing:border-box;
-  border:1px solid var(--border);
-}
-
-.dashboard-editing .profile-snapshot-tile{
-  outline:2px solid var(--accent);
-  outline-offset:-2px;
-}
-
 
 .custom-member-card-tile{
   padding:0 !important;
@@ -1144,8 +1140,43 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   background: transparent;
   padding: 10px;
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   margin: 0 0 8px;
+}
+.dashboard-tile-style-controls {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  padding-top: 8px;
+}
+.dashboard-tile-style-controls label {
+  display: grid;
+  gap: 4px;
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+.dashboard-tile-style-controls input[type="color"] {
+  width: 42px;
+  height: 34px;
+  padding: 0;
+  border-radius: 0;
+}
+.dashboard-tile-style-controls .range-field {
+  display: grid;
+  gap: 4px;
+}
+.dashboard-tile-style-controls .range-label-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dashboard-tile-custom-style {
+  background: var(--dashboard-tile-bg, transparent);
+  background-color: var(--dashboard-tile-bg, transparent);
+  backdrop-filter: blur(var(--dashboard-tile-blur, 0px));
 }
 .dashboard-tile-library-meta p{
   margin: 2px 0 0;
