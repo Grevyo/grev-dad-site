@@ -22,7 +22,7 @@
 let all=[];
 let drawToken=0;
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-function profileHref(user){return `/profile.html?id=${encodeURIComponent(Number(user?.id)||0)}`;}
+function profileHref(user){return `/profile.html?id=${encodeURIComponent(user.id)}`;}
 function loadScriptOnce(src){return new Promise((resolve,reject)=>{if(document.querySelector(`script[src="${src}"]`)){resolve();return;}const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
 async function ensureProfileCardRenderer(){if(window.renderPlayerCard)return true;try{await loadScriptOnce('/scripts/player-card.js');}catch(error){console.error('[members] Profile Card renderer load failed',error);}return !!window.renderPlayerCard;}
 function fallbackMemberCard(member){const name=escapeHtml(member.display_name||member.username||'Member');const username=escapeHtml(member.username||'');const avatar=member.avatar_url?`<img src="${escapeHtml(member.avatar_url)}" alt="" loading="lazy" />`:'';const rank=escapeHtml(member.rank||member.displayedRank||'');return `<article class="profile-card-fallback"><div class="profile-card-fallback-avatar">${avatar}</div><div><strong>${name}</strong><div>@${username}</div><div>Level ${Number(member.accountLevel)||1}${rank?` · ${rank}`:''}</div><span>View Profile</span></div></article>`;}
