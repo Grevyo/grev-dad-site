@@ -782,10 +782,23 @@
         }
 
         let quickActionsEventsBound = false;
+        function quickActionEditDashboard() {
+          closeQuickActionsOverlay();
+          setEditMode(true);
+        }
+        function quickActionCustomiseDashboard() {
+          closeQuickActionsOverlay();
+          openCustomiseDashboardSidebar();
+        }
+        function quickActionDashboardBackground() {
+          closeQuickActionsOverlay();
+          openCustomiseDashboardSidebar();
+          setTimeout(() => document.getElementById('dashboard-background-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+        }
         const quickActionHandlers = {
-          'edit-dashboard': () => { closeQuickActionsOverlay(); setEditMode(true); },
-          'customise-dashboard': () => { closeQuickActionsOverlay(); setCustomisePanel(true); },
-          'dashboard-background': () => { closeQuickActionsOverlay(); setCustomisePanel(true); setTimeout(() => document.getElementById('dashboard-background-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); },
+          'edit-dashboard': quickActionEditDashboard,
+          'customise-dashboard': quickActionCustomiseDashboard,
+          'dashboard-background': quickActionDashboardBackground,
           chat: () => { closeQuickActionsOverlay(); document.querySelector('[data-tile-id="chat"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
           tutorial: () => { closeQuickActionsOverlay(); document.querySelector('[data-tile-id="grev-dad-tutorial"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
           logout: async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); location.href = '/login.html'; }
@@ -830,24 +843,27 @@
             container.append(el);
           });
         }
-        function handleQuickActionClick(event) {
-          const actionId = event.currentTarget?.dataset?.quickAction;
+        function runQuickAction(actionId, event) {
           const handler = quickActionHandlers[actionId];
           if (handler) handler(event);
+        }
+        function handleQuickActionClick(event) {
+          runQuickAction(event.currentTarget?.dataset?.quickAction, event);
         }
         async function renderQuickActionsOverlayBody() {
           const body = document.getElementById('quick-actions-overlay-body');
           if (!body) return;
           const actions = await getQuickActionsForCurrentUser();
           body.innerHTML = actions.map(renderQuickAction).join('');
-          body.querySelectorAll('[data-quick-action]').forEach((button) => {
-            button.addEventListener('click', handleQuickActionClick);
-          });
         }
         function openQuickActionsOverlay() {
           const overlay = document.getElementById('quick-actions-overlay');
           if (!overlay) return;
-          renderQuickActionsOverlayBody();
+          renderQuickActionsOverlayBody().catch((error) => {
+            console.error('[home] quick actions overlay failed', error);
+            const body = document.getElementById('quick-actions-overlay-body');
+            if (body) body.textContent = 'Quick Actions unavailable.';
+          });
           overlay.hidden = false;
           overlay.classList.add('is-open');
           document.body.classList.add('quick-actions-open');
@@ -864,12 +880,18 @@
           if (quickActionsEventsBound) return;
           quickActionsEventsBound = true;
           const openBtn = document.getElementById('quick-actions-open-btn');
-          const closeBtn = document.getElementById('quick-actions-close-btn');
           const overlay = document.getElementById('quick-actions-overlay');
+          const closeBtn = document.getElementById('quick-actions-close-btn');
           const backdrop = document.querySelector('#quick-actions-overlay .quick-actions-backdrop');
+          const body = document.getElementById('quick-actions-overlay-body');
           openBtn?.addEventListener('click', openQuickActionsOverlay);
           closeBtn?.addEventListener('click', closeQuickActionsOverlay);
           backdrop?.addEventListener('click', closeQuickActionsOverlay);
+          body?.addEventListener('click', (event) => {
+            const action = event.target.closest('[data-quick-action]');
+            if (!action || !body.contains(action)) return;
+            runQuickAction(action.dataset.quickAction, event);
+          });
           document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && overlay && !overlay.hidden) {
               closeQuickActionsOverlay();
@@ -1196,9 +1218,15 @@
           customiseOverlay.hidden = !open;
           if (open) renderDashboardTileLibrary();
         }
-        customiseToggle.addEventListener('click', () => setCustomisePanel(true));
-        customiseClose.addEventListener('click', () => setCustomisePanel(false));
-        customiseOverlay.addEventListener('click', () => setCustomisePanel(false));
+        function openCustomiseDashboardSidebar() {
+          setCustomisePanel(true);
+        }
+        function closeCustomiseDashboardSidebar() {
+          setCustomisePanel(false);
+        }
+        customiseToggle.addEventListener('click', openCustomiseDashboardSidebar);
+        customiseClose.addEventListener('click', closeCustomiseDashboardSidebar);
+        customiseOverlay.addEventListener('click', closeCustomiseDashboardSidebar);
         resetButton.addEventListener('click', async function () {
           if (isMobileDashboard()) localStorage.removeItem(LAYOUT_KEY_MOBILE); else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
           await loadTileConfig();
