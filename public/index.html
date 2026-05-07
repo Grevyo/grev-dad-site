@@ -179,22 +179,47 @@
           return `rgba(${r}, ${g}, ${b}, ${a})`;
         }
 
-        function getDashboardTileStyle(tileId) {
-          return normaliseDashboardTileStyle(dashboardLayout.tileStyles?.[tileId] || DASHBOARD_TILE_STYLE_DEFAULTS);
+        let pendingDashboardTileStyles = null;
+        let dashboardTileStylesDirty = false;
+        let lastPendingDashboardTileStyleId = '';
+
+        function cloneDashboardTileStyles(styles = {}) {
+          try {
+            return JSON.parse(JSON.stringify(styles || {}));
+          } catch {
+            return {};
+          }
+        }
+
+        function getDashboardTileStyle(tileId, options = {}) {
+          const source =
+            options.saved === true
+              ? dashboardLayout.tileStyles
+              : (pendingDashboardTileStyles || dashboardLayout.tileStyles);
+
+          return normaliseDashboardTileStyle(source?.[tileId] || DASHBOARD_TILE_STYLE_DEFAULTS);
         }
 
         function setDashboardTileStyle(tileId, nextStyle) {
           if (!tileId) return;
-          dashboardLayout.tileStyles = dashboardLayout.tileStyles || {};
-          dashboardLayout.tileStyles[tileId] = normaliseDashboardTileStyle(nextStyle);
-          applyDashboardTileStyles();
-          saveDesktopLayout();
+
+          if (!pendingDashboardTileStyles) {
+            pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
+          }
+
+          pendingDashboardTileStyles[tileId] = normaliseDashboardTileStyle(nextStyle);
+          dashboardTileStylesDirty = true;
+          lastPendingDashboardTileStyleId = tileId;
+
+          applyDashboardTileStyles({ usePending: true });
+          updateTileStylesSaveState();
         }
 
-        function applyDashboardTileStyles() {
+        function applyDashboardTileStyles(options = {}) {
+          const usePending = options.usePending !== false;
           grid.querySelectorAll('.dashboard-tile[data-tile-id]').forEach((tile) => {
             const tileId = tile.dataset.tileId;
-            const style = getDashboardTileStyle(tileId);
+            const style = getDashboardTileStyle(tileId, { saved: !usePending });
 
             tile.style.setProperty('--dashboard-tile-bg', hexToRgba(style.colour, style.opacity));
             tile.style.setProperty('--dashboard-tile-blur', `${style.blur}px`);
@@ -207,6 +232,39 @@
           });
         }
 
+        function saveDashboardTileStyles() {
+          dashboardLayout.tileStyles = cloneDashboardTileStyles(pendingDashboardTileStyles || dashboardLayout.tileStyles || {});
+          dashboardTileStylesDirty = false;
+          pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
+          saveDesktopLayout();
+          applyDashboardTileStyles({ usePending: false });
+          const styledTileVisible = lastPendingDashboardTileStyleId
+            ? !!grid.querySelector(`.dashboard-tile[data-tile-id="${CSS.escape(lastPendingDashboardTileStyleId)}"]`)
+            : true;
+          updateTileStylesSaveState(styledTileVisible ? 'Tile styles saved.' : 'Style saved. Show this tile to see it.');
+        }
+
+        async function resetPendingDashboardTileStyles() {
+          pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
+          dashboardTileStylesDirty = false;
+          lastPendingDashboardTileStyleId = '';
+          applyDashboardTileStyles({ usePending: true });
+          await renderDashboardTileLibrary();
+          updateTileStylesSaveState('Unsaved style changes reset.');
+        }
+
+        function updateTileStylesSaveState(message = '') {
+          const saveBtn = document.getElementById('dashboard-tile-styles-save');
+          const resetBtn = document.getElementById('dashboard-tile-styles-reset');
+          const status = document.getElementById('dashboard-tile-styles-status');
+
+          if (saveBtn) saveBtn.disabled = !dashboardTileStylesDirty;
+          if (resetBtn) resetBtn.disabled = !dashboardTileStylesDirty;
+          if (status) {
+            status.textContent = message || (dashboardTileStylesDirty ? 'Unsaved tile style changes.' : 'Tile styles saved.');
+          }
+        }
+
         function renderDashboardTileStyleControls(tileId) {
           const style = getDashboardTileStyle(tileId);
           return `
@@ -217,7 +275,8 @@
               </label>
               <div class="range-field">
                 <label>
-                  <span class="range-label-row"><span>Transparency</span><span class="range-value dashboard-tile-opacity-value">${style.opacity}%</span></span>
+                  <span class="range-label-row"><span>Background strength</span><span class="range-value dashboard-tile-opacity-value">${style.opacity}%</span></span>
+                  <small class="dashboard-tile-style-help">0% transparent, 100% solid</small>
                   <input type="range" min="0" max="100" value="${style.opacity}" class="dashboard-tile-opacity">
                 </label>
                 <label>
@@ -360,7 +419,7 @@
             const order = mobileLayout.order.filter((id) => grid.querySelector(`[data-tile-id="${id}"]`));
             grid.append(...order.map((id) => grid.querySelector(`[data-tile-id="${id}"]`)));
           }
-          applyDashboardTileStyles();
+          applyDashboardTileStyles({ usePending: pendingDashboardTileStyles !== null });
         }
         function debugTilePlacement(tileId) {
           const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
@@ -433,7 +492,7 @@
               if (index > 0) tile.remove();
             });
           }
-          applyDashboardTileStyles();
+          applyDashboardTileStyles({ usePending: pendingDashboardTileStyles !== null });
         }
         function hydrateLayout() {
           const saved = getDesktopLayout();
@@ -1232,6 +1291,17 @@
           ];
           root.innerHTML = '';
           renderDashboardBackgroundControls(root);
+          const savebar = document.createElement('div');
+          savebar.className = 'dashboard-tile-style-savebar';
+          savebar.innerHTML = `
+            <button type="button" class="nav-button" id="dashboard-tile-styles-save">Save Tile Styles</button>
+            <button type="button" class="nav-button" id="dashboard-tile-styles-reset">Reset Unsaved Style Changes</button>
+            <p id="dashboard-tile-styles-status" class="muted"></p>
+          `;
+          root.append(savebar);
+          document.getElementById('dashboard-tile-styles-save')?.addEventListener('click', saveDashboardTileStyles);
+          document.getElementById('dashboard-tile-styles-reset')?.addEventListener('click', resetPendingDashboardTileStyles);
+          updateTileStylesSaveState();
           categories.forEach((cat) => {
             if (cat.adminOnly && !isAdmin) return;
             const section = document.createElement('section'); section.className='dashboard-tile-category';
@@ -1319,12 +1389,28 @@
             console.error('[dashboard] Add Tiles sidebar not found');
             return;
           }
+          if (open) {
+            pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
+            dashboardTileStylesDirty = false;
+            lastPendingDashboardTileStyleId = '';
+          } else {
+            if (dashboardTileStylesDirty) {
+              pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
+              dashboardTileStylesDirty = false;
+              lastPendingDashboardTileStyleId = '';
+              applyDashboardTileStyles({ usePending: false });
+            }
+            pendingDashboardTileStyles = null;
+          }
           customisePanel.hidden = !open;
           customisePanel.classList.toggle('is-open', !!open);
           customisePanel.setAttribute('aria-hidden', open ? 'false' : 'true');
           if (customiseOverlay) customiseOverlay.hidden = !open;
           document.body.classList.toggle('dashboard-sidebar-open', !!open);
-          if (open) renderDashboardTileLibrary?.();
+          if (open) {
+            renderDashboardTileLibrary?.();
+            applyDashboardTileStyles({ usePending: true });
+          }
         }
         function openDashboardTileSidebar() {
           setCustomisePanel(true);
