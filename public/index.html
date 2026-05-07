@@ -51,23 +51,10 @@
       <aside id="dashboard-customise-panel" class="dashboard-customise-panel" hidden aria-hidden="true">
         <div class="dashboard-customise-header">
           <h2>Customise Dashboard</h2>
-          <button id="dashboard-customise-close" type="button" class="nav-button" aria-label="Close Customise Dashboard panel">×</button>
+          <button id="dashboard-customise-close" type="button" class="nav-button" aria-label="Close Customise Dashboard">×</button>
         </div>
         <div id="dashboard-tile-library"></div>
       </aside>
-      <div id="tile-settings-modal" class="tile-settings-modal" hidden>
-        <div class="tile-settings-backdrop" data-close-tile-settings></div>
-        <section class="tile-settings-panel" role="dialog" aria-modal="true" aria-labelledby="tile-settings-title" tabindex="-1">
-          <header class="tile-settings-header">
-            <div>
-              <h2 id="tile-settings-title">Tile Settings</h2>
-              <p id="tile-settings-subtitle"></p>
-            </div>
-            <button type="button" class="nav-button" data-close-tile-settings>Close</button>
-          </header>
-          <div id="tile-settings-body"></div>
-        </section>
-      </div>
     </main>
 
     <script src="/scripts/theme.js"></script>
@@ -142,8 +129,6 @@
         let dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: [], blankTiles: {}, tileStyles: {} };
         let mobileLayout = { order: [], sizes: {}, blankTiles: [] };
         let wasMobileDashboard = isMobileDashboard();
-        let lastTileSettingsTrigger = null;
-        let activeTileSettingsId = '';
         const tileLoadPromises = new Map();
         const DEBUG_PERF = localStorage.getItem('grev_debug_perf') === '1';
         const DEBUG_PROFILE_CARD = localStorage.getItem('grev_debug_profile_card') === '1';
@@ -772,31 +757,6 @@
           });
         }
 
-        function escapeDashboardHtml(value) {
-          return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-        }
-        function getDashboardTileMeta(tileId) {
-          if (tileId?.startsWith('member-card-')) {
-            const memberId = Number(dashboardLayout.customTiles?.[tileId]?.memberId || tileId.replace('member-card-', ''));
-            const tile = grid.querySelector(`[data-tile-id="${tileId}"]`);
-            const name = tile?.querySelector('.player-card-name, .profile-card-name, [data-profile-name], strong')?.textContent?.trim() || `Member ${memberId}`;
-            return { label: `${name} Profile Card`, description: 'Member Profile Card tile.', memberId };
-          }
-          if (tileId?.startsWith('blank-')) return { label: 'Blank tile', description: 'Blank dashboard spacing tile.' };
-          return DASHBOARD_TILE_META[tileId] || { label: tileId || 'Tile', description: '' };
-        }
-        function getTileSettingsActions(tileId) {
-          const actions = [];
-          const entry = getLayoutEntry(dashboardLayout, tileId);
-          const allowedSizes = safeAllowedSizes(tileId);
-          if (entry && allowedSizes.length > 1) actions.push('size');
-          if (dashboardLayout.tiles?.[tileId]) actions.push('visibility');
-          if (tileId?.startsWith('member-card-') || tileId?.startsWith('blank-')) actions.push('remove');
-          if (tileId === 'profile-snapshot') actions.push('view-profile', 'edit-profile-card');
-          if (tileId?.startsWith('member-card-')) actions.push('view-profile');
-          if (tileId === 'quick-actions') actions.push('open-quick-actions');
-          return actions;
-        }
         async function updateDashboardTileSize(tileId, requestedSize, select = null) {
           const entry = getLayoutEntry(dashboardLayout, tileId);
           if (!entry) return false;
@@ -856,81 +816,6 @@
           const el = grid.querySelector(`[data-tile-id="${tileId}"]`); if (el) el.remove();
           saveDesktopLayout(); saveMobileLayout(); ensureTilesExist(); renderTilePositions(); createEditControls(); renderDashboardTileLibrary();
         }
-        function renderTileSettingsContent(tileId, tileMeta) {
-          const entry = getLayoutEntry(dashboardLayout, tileId);
-          const actions = getTileSettingsActions(tileId);
-          const allowedSizes = safeAllowedSizes(tileId);
-          const currentSize = entry?.size || normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize);
-          const visible = !!dashboardLayout.tiles?.[tileId] || !!dashboardLayout.customTiles?.[tileId] || !!dashboardLayout.blankTiles?.[tileId];
-          const rows = [];
-          rows.push(`<section class="tile-settings-row"><strong>${escapeDashboardHtml(tileMeta.label || 'Tile')}</strong><p>${escapeDashboardHtml(tileMeta.description || '')}</p><small>Tile ID: ${escapeDashboardHtml(tileId)}</small></section>`);
-          if (actions.includes('size')) {
-            rows.push(`<section class="tile-settings-row"><label>Tile size <select data-tile-settings-size>${allowedSizes.map((size) => `<option value="${escapeDashboardHtml(size)}"${size === currentSize ? ' selected' : ''}>${escapeDashboardHtml(size)}</option>`).join('')}</select></label><small>Changes update the selected tile immediately and are saved with the dashboard layout.</small></section>`);
-          }
-          if (actions.includes('visibility')) {
-            rows.push(`<section class="tile-settings-row"><strong>Visibility</strong><p>${visible ? 'This built-in tile is visible on Your Dashboard.' : 'This built-in tile is hidden.'}</p><button type="button" class="nav-button" data-tile-settings-toggle-visibility="${visible ? 'hide' : 'show'}">${visible ? 'Hide' : 'Show'}</button></section>`);
-          }
-          if (actions.includes('remove')) {
-            rows.push(`<section class="tile-settings-row"><strong>${tileId.startsWith('member-card-') ? 'Member Profile Card' : 'Custom tile'}</strong><button type="button" class="nav-button" data-tile-settings-remove>${tileId.startsWith('member-card-') ? 'Remove from Dashboard' : 'Remove tile'}</button></section>`);
-          }
-          const links = [];
-          if (actions.includes('view-profile')) {
-            const memberId = tileMeta.memberId || '';
-            links.push(`<a class="nav-button" href="/profile.html${memberId ? `?id=${encodeURIComponent(memberId)}` : ''}">View Profile</a>`);
-          }
-          if (actions.includes('edit-profile-card')) links.push('<a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>');
-          if (actions.includes('open-quick-actions')) links.push('<button type="button" class="nav-button" data-tile-settings-open-quick-actions>Open Quick Actions overlay</button>');
-          if (links.length) rows.push(`<section class="tile-settings-row"><strong>Actions</strong><div class="tile-settings-actions">${links.join('')}</div></section>`);
-          return rows.join('');
-        }
-        function bindTileSettingsControls(tileId) {
-          const body = document.getElementById('tile-settings-body');
-          body?.querySelector('[data-tile-settings-size]')?.addEventListener('change', async (event) => {
-            const updated = await updateDashboardTileSize(tileId, event.target.value, event.target);
-            if (updated && activeTileSettingsId === tileId) openTileSettings(tileId, lastTileSettingsTrigger);
-          });
-          body?.querySelector('[data-tile-settings-toggle-visibility]')?.addEventListener('click', (event) => {
-            const shouldShow = event.currentTarget.dataset.tileSettingsToggleVisibility === 'show';
-            setBuiltInTileVisibility(tileId, shouldShow);
-            if (!shouldShow) closeTileSettings(); else openTileSettings(tileId, lastTileSettingsTrigger);
-          });
-          body?.querySelector('[data-tile-settings-remove]')?.addEventListener('click', () => { removeDashboardTile(tileId); closeTileSettings(); });
-          body?.querySelector('[data-tile-settings-open-quick-actions]')?.addEventListener('click', () => { closeTileSettings(); openQuickActionsOverlay(); });
-        }
-        function openTileSettings(tileId, triggerButton = null) {
-          const modal = document.getElementById('tile-settings-modal');
-          const title = document.getElementById('tile-settings-title');
-          const subtitle = document.getElementById('tile-settings-subtitle');
-          const body = document.getElementById('tile-settings-body');
-          if (!modal || !title || !subtitle || !body) return;
-          const tileMeta = getDashboardTileMeta(tileId);
-          lastTileSettingsTrigger = triggerButton || lastTileSettingsTrigger;
-          activeTileSettingsId = tileId;
-          modal.hidden = false;
-          title.textContent = `${tileMeta.label || 'Tile'} Settings`;
-          subtitle.textContent = tileMeta.description || '';
-          body.innerHTML = renderTileSettingsContent(tileId, tileMeta);
-          bindTileSettingsControls(tileId);
-          modal.querySelector('.tile-settings-panel')?.focus?.();
-        }
-        function closeTileSettings() {
-          const modal = document.getElementById('tile-settings-modal');
-          if (!modal || modal.hidden) return;
-          modal.hidden = true;
-          activeTileSettingsId = '';
-          const trigger = lastTileSettingsTrigger;
-          lastTileSettingsTrigger = null;
-          if (trigger && document.contains(trigger)) trigger.focus?.();
-        }
-        function bindTileSettingsModal() {
-          const modal = document.getElementById('tile-settings-modal');
-          if (!modal || modal.dataset.bound === '1') return;
-          modal.dataset.bound = '1';
-          modal.querySelectorAll('[data-close-tile-settings]').forEach((el) => el.addEventListener('click', closeTileSettings));
-          document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && !modal.hidden) closeTileSettings();
-          });
-        }
         function createEditControls() {
           grid.querySelectorAll('.tile-edit-overlay, .tile-edit-controls, .tile-size-control, .tile-settings-button, .tile-hide-button, .tile-remove-button, .blank-remove-button').forEach((el) => el.remove());
           if (!isEditing) return;
@@ -988,7 +873,7 @@
             settingsButton.addEventListener('click', (event) => {
               event.preventDefault();
               event.stopPropagation();
-              openTileSettings(tileId, settingsButton);
+              openDashboardTileSidebar({ focusTileId: tileId });
             });
             overlay.append(settingsButton);
 
@@ -1017,7 +902,6 @@
           } else {
             saveDesktopLayout();
             saveMobileLayout();
-            closeTileSettings();
             createEditControls();
             clearDashboardMovePreview();
             renderTilePositions();
@@ -1469,7 +1353,7 @@
             const section = document.createElement('section'); section.className='dashboard-tile-category';
             section.innerHTML = `<h3 class="dashboard-tile-category-title">${cat.name}</h3>`;
             cat.ids.forEach((tileId) => {
-              const row = document.createElement('div'); row.className='dashboard-tile-library-row';
+              const row = document.createElement('div'); row.className='dashboard-tile-library-row'; row.dataset.dashboardLibraryTileId = tileId;
               const enabled = tileRuleFor(tileId).isEnabled !== 0;
               const visible = !!dashboardLayout.tiles[tileId];
               const meta = tileMeta[tileId] || { label: tileId, description: '' };
@@ -1492,7 +1376,7 @@
               const memberId = Number(member.id);
               if (!memberId) return;
               const tileId = `member-card-${memberId}`;
-              const row = document.createElement('div'); row.className='dashboard-tile-library-row';
+              const row = document.createElement('div'); row.className='dashboard-tile-library-row'; row.dataset.dashboardLibraryTileId = tileId;
               const name = member.display_name || member.username || `Member ${memberId}`;
               row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${name}</strong><p>${authUser?.id===memberId?'You':''}</p></div>${renderDashboardTileStyleControls(tileId)}`;
               const b = document.createElement('button'); b.type='button'; b.className='nav-button';
@@ -1507,6 +1391,33 @@
             });
           } catch { community.insertAdjacentHTML('beforeend','<p>Members unavailable.</p>'); }
           root.append(community);
+
+          const blanks = document.createElement('section');
+          blanks.id = 'dashboard-blank-tiles-section';
+          blanks.className = 'dashboard-tile-category';
+          blanks.innerHTML = '<h3 class="dashboard-tile-category-title">Blank Tiles</h3>';
+          const addBlank = document.createElement('button');
+          addBlank.type = 'button';
+          addBlank.className = 'nav-button';
+          addBlank.textContent = 'Add Blank Tile';
+          addBlank.addEventListener('click', () => {
+            const tileId = `blank-${Date.now()}`;
+            const size = normalizeTileSize(tileId, tileRuleFor('blank').defaultSize);
+            const pos = findNearestFreePosition(tileId, size);
+            dashboardLayout.blankTiles[tileId] = { col: pos.col, row: pos.row, size };
+            if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId);
+            ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
+          });
+          blanks.append(addBlank);
+          Object.keys(dashboardLayout.blankTiles || {}).forEach((tileId) => {
+            const row = document.createElement('div'); row.className='dashboard-tile-library-row'; row.dataset.dashboardLibraryTileId = tileId;
+            row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>Blank tile</strong><p>${tileId}</p></div>${renderDashboardTileStyleControls(tileId)}`;
+            const remove = document.createElement('button'); remove.type='button'; remove.className='nav-button'; remove.textContent='Remove';
+            remove.addEventListener('click', () => { removeDashboardTile(tileId); });
+            const actions = document.createElement('div'); actions.className='dashboard-tile-library-actions'; actions.append(remove);
+            row.append(actions); bindDashboardTileStyleControls(row, tileId); blanks.append(row);
+          });
+          root.append(blanks);
         }
         async function loadDashboard() {
           loadCustomMemberCardTiles();
@@ -1545,7 +1456,7 @@
             document.querySelector('.dashboard-customise-sidebar') ||
             document.querySelector('.dashboard-customise-panel');
         }
-        function setCustomisePanel(open) {
+        function setCustomisePanel(open, options = {}) {
           const customisePanel = getDashboardTileSidebar();
           const customiseOverlay = document.getElementById('dashboard-customise-overlay');
           if (!customisePanel) {
@@ -1571,18 +1482,33 @@
           if (customiseOverlay) customiseOverlay.hidden = !open;
           document.body.classList.toggle('dashboard-sidebar-open', !!open);
           if (open) {
-            renderDashboardTileLibrary?.();
-            applyDashboardTileStyles({ usePending: true });
+            const renderResult = renderDashboardTileLibrary?.();
+            Promise.resolve(renderResult).then(() => {
+              applyDashboardTileStyles({ usePending: true });
+              if (options.focusTileId) focusDashboardTileLibraryItem(options.focusTileId);
+            });
           }
         }
-        function openDashboardTileSidebar() {
-          setCustomisePanel(true);
+        function focusDashboardTileLibraryItem(tileId) {
+          if (!tileId) return;
+          requestAnimationFrame(() => {
+            const panel = getDashboardTileSidebar();
+            const rows = panel?.querySelectorAll('[data-dashboard-library-tile-id]') || [];
+            const row = Array.from(rows).find((item) => item.dataset.dashboardLibraryTileId === tileId);
+            if (!row) return;
+            row.classList.add('is-focused-from-tile');
+            row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            setTimeout(() => row.classList.remove('is-focused-from-tile'), 2200);
+          });
+        }
+        function openDashboardTileSidebar(options = {}) {
+          setCustomisePanel(true, options);
         }
         function closeDashboardTileSidebar() {
           setCustomisePanel(false);
         }
-        function openCustomiseDashboardSidebar() {
-          openDashboardTileSidebar();
+        function openCustomiseDashboardSidebar(options = {}) {
+          openDashboardTileSidebar(options);
         }
         function closeCustomiseDashboardSidebar() {
           closeDashboardTileSidebar();
@@ -1598,9 +1524,15 @@
           addTileBtn?.addEventListener('click', openDashboardTileSidebar);
           closeBtn?.addEventListener('click', closeDashboardTileSidebar);
           customiseOverlay?.addEventListener('click', closeDashboardTileSidebar);
+          document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && customisePanelIsOpen()) closeDashboardTileSidebar();
+          });
+        }
+        function customisePanelIsOpen() {
+          const panel = getDashboardTileSidebar();
+          return !!panel && !panel.hidden && panel.classList.contains('is-open');
         }
         bindQuickActionsOverlay();
-        bindTileSettingsModal();
         bindDashboardSidebarEvents();
         resetButton.addEventListener('click', async function () {
           if (isMobileDashboard()) localStorage.removeItem(LAYOUT_KEY_MOBILE); else localStorage.removeItem(LAYOUT_KEY_DESKTOP);
