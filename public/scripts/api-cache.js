@@ -26,9 +26,9 @@
         const contentType = response.headers.get('content-type') || '';
         const looksHtml = contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text);
         const detail = looksHtml
-          ? `server returned HTML ${response.status}. Check Worker logs.`
-          : `invalid JSON (${response.status}). Check console for response preview.`;
-        throw new Error(`Load failed from ${url}: ${detail}`);
+          ? `Server error from ${url} (${response.status}). Check Worker logs.`
+          : `Server error from ${url} (${response.status}). Check console for response preview.`;
+        throw new Error(detail);
       }
     }
     if (!response.ok || !data || data.ok === false) throw new Error(data?.error || `Request failed: ${response.status}`);
