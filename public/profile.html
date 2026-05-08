@@ -25,6 +25,16 @@ const escAttr=esc;
 function safeImageUrl(value){const text=String(value||'').trim();return /^https?:\/\//i.test(text)?text:'';}
 const safeBackgroundSize=v=>['cover','contain','repeat','stretch','center'].includes(String(v))?v:'cover';
 
+
+function cloneDefaultProfileLayout(){return JSON.parse(JSON.stringify(DEFAULT_PROFILE_PAGE_LAYOUT));}
+function parseProfileWidgetSize(size){const match=String(size||'').trim().match(/^(\d+)x(\d+)$/);if(!match)return{w:2,h:2};const w=Number(match[1]);const h=Number(match[2]);if(!Number.isInteger(w)||!Number.isInteger(h)||w<=0||h<=0)return{w:2,h:2};return{w,h};}
+function parseProfileLayout(raw){const fallback=cloneDefaultProfileLayout();if(!raw)return fallback;let parsed;try{parsed=typeof raw==='string'?JSON.parse(raw):raw;}catch{return fallback;}if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!parsed.widgets||typeof parsed.widgets!=='object'||Array.isArray(parsed.widgets))return fallback;const layout=cloneDefaultProfileLayout();for(const [id,entry] of Object.entries(parsed.widgets)){if(!Object.prototype.hasOwnProperty.call(DEFAULT_PROFILE_PAGE_LAYOUT.widgets,id)||!entry||typeof entry!=='object'||Array.isArray(entry))continue;const defaults=DEFAULT_PROFILE_PAGE_LAYOUT.widgets[id];const col=Number(entry.col);const row=Number(entry.row);const size=String(entry.size||defaults.size);layout.widgets[id]={...layout.widgets[id],col:Number.isInteger(col)&&col>0?col:defaults.col,row:Number.isInteger(row)&&row>0?row:defaults.row,size:ALLOWED_SIZES.has(size)?size:defaults.size};if(typeof entry.enabled==='boolean')layout.widgets[id].enabled=entry.enabled;}return layout;}
+function ensureProfileWidgetEntry(widgetId){if(!currentProfile)currentProfile={};if(!currentProfile.profileLayout)currentProfile.profileLayout=cloneDefaultProfileLayout();if(!currentProfile.profileLayout.widgets||typeof currentProfile.profileLayout.widgets!=='object')currentProfile.profileLayout.widgets={};if(!Object.prototype.hasOwnProperty.call(DEFAULT_PROFILE_PAGE_LAYOUT.widgets,widgetId))return null;if(!currentProfile.profileLayout.widgets[widgetId])currentProfile.profileLayout.widgets[widgetId]={...DEFAULT_PROFILE_PAGE_LAYOUT.widgets[widgetId]};return currentProfile.profileLayout.widgets[widgetId];}
+function isProfileOwner(p=currentProfile){return Boolean(profileIsOwner&&meId&&p?.id&&String(meId)===String(p.id));}
+function normalizeWidgetStyles(raw){if(!raw)return{};let parsed;try{parsed=typeof raw==='string'?JSON.parse(raw):raw;}catch{return{};}if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return{};const out={};for(const id of WIDGET_STYLE_KEYS){const style=parsed[id];if(!style||typeof style!=='object'||Array.isArray(style))continue;const clean={};for(const key of ['backgroundColour','textColour','borderColour','accentColour']){const value=String(style[key]||'').trim();if(value&&HEX.test(value))clean[key]=value;}if(style.opacity!==undefined){const opacity=Number(style.opacity);clean.opacity=Math.max(0,Math.min(100,Number.isFinite(opacity)?opacity:0));}if(style.blur!==undefined){const blur=Number(style.blur);clean.blur=Math.max(0,Math.min(20,Number.isFinite(blur)?blur:0));}out[id]=clean;}return out;}
+function hexToRgba(hex,opacity){const value=String(hex||'').trim();if(!HEX.test(value))return'transparent';const n=value.slice(1);const r=parseInt(n.slice(0,2),16);const g=parseInt(n.slice(2,4),16);const b=parseInt(n.slice(4,6),16);const a=Math.max(0,Math.min(100,Number.isFinite(Number(opacity))?Number(opacity):0))/100;return`rgba(${r}, ${g}, ${b}, ${a})`;}
+function getWidgetStyle(id){const style=currentProfile?.widgetStyleMap?.[id]||{};const bg=style.backgroundColour?hexToRgba(style.backgroundColour,style.opacity):'transparent';const text=style.textColour||'var(--text)';const border=style.borderColour||'color-mix(in srgb,var(--border) 55%, transparent)';const accent=style.accentColour||'currentColor';const blur=Math.max(0,Math.min(20,Number(style.blur)||0));return`--profile-widget-bg:${bg};--profile-widget-text:${text};--profile-widget-border:${border};--profile-widget-accent:${accent};--profile-widget-blur:${blur}px;`;}
+
 function safeHttpProfileUrl(value){const text=String(value||'').trim();if(!text||/[\u0000-\u001F\u007F]/.test(text)||/^(javascript|data|file|vbscript):/i.test(text))return '';try{const u=new URL(text);return (u.protocol==='http:'||u.protocol==='https:')?u.toString():'';}catch{return '';}}
 function parseProfileLinkVisibility(raw){try{const parsed=typeof raw==='string'?JSON.parse(raw||'{}'):(raw||{});return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:{};}catch{return{};}}
 const PROFILE_LINK_SERVICES={website:{label:'Website',field:'website_url',icon:'',fallback:'🌐'},steam:{label:'Steam',field:'steam_url',icon:'/assets/link-icons/Steam_logo.png',fallback:'S'},leetify:{label:'Leetify',field:'leetify_profile_url',legacyField:'leetify_url',icon:'/assets/link-icons/leetify_logo.png',fallback:'L'},refrag:{label:'Refrag',field:'refrag_profile_url',legacyField:'refrag_url',icon:'/assets/link-icons/refrag_logo.png',fallback:'R'},spotify:{label:'Spotify',field:'spotify_url',icon:'/assets/link-icons/Spotify_icon.png',fallback:'♪'},soundcloud:{label:'SoundCloud',field:'soundcloud_url',icon:'/assets/link-icons/Soundcloud_icon.png',fallback:'SC'},youtube_music:{label:'YouTube Music',field:'youtube_music_url',icon:'/assets/link-icons/Youtube_Music_icon.png',fallback:'▶'},youtube:{label:'YouTube',field:'youtube_url',icon:'/assets/link-icons/Youtube_icon.png',fallback:'▶'}};
@@ -130,7 +140,13 @@ async function load(){
       const profile=boot.data.profile||{};
       meId=authUser?.id||null;
       profileIsOwner=Object.prototype.hasOwnProperty.call(boot.data,'isOwner')?Boolean(boot.data.isOwner):Boolean(authUser&&profile&&String(authUser.id)===String(profile.id));
-      render(profile);
+      try{
+        render(profile);
+      }catch(error){
+        console.error('[profile] render failed',error);
+        statusEl.textContent=`Profile render failed: ${error?.message||'Unknown error'}`;
+        return;
+      }
       statusEl.textContent='Loaded.';
       if(DEBUG_PROFILE_NAV)console.debug('[profile nav]',{viewedUserId,endpointUsed,loadedProfileId:profile?.id,viewerId:authUser?.id,isOwner:profileIsOwner});
       return;
@@ -156,7 +172,13 @@ async function load(){
   const profile=profileResult.value.profile||{};
   meId=authUser?.id||null;
   profileIsOwner=Object.prototype.hasOwnProperty.call(profileResult.value,'isOwner')?Boolean(profileResult.value.isOwner):Boolean(authUser&&profile&&String(authUser.id)===String(profile.id));
-  render(profile);
+  try{
+    render(profile);
+  }catch(error){
+    console.error('[profile] render failed',error);
+    statusEl.textContent=`Profile render failed: ${error?.message||'Unknown error'}`;
+    return;
+  }
   statusEl.textContent='Loaded.';
   if(DEBUG_PROFILE_NAV)console.debug('[profile nav]',{viewedUserId,endpointUsed,loadedProfileId:profile?.id,viewerId:authUser?.id,isOwner:profileIsOwner});
 }
