@@ -888,23 +888,6 @@ async function ensureSchemaOnce(db, { force = false } = {}) {
   return schemaReadyPromise;
 }
 
-async function ensureCoreSchema(db) {
-  await db.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
-  for (const sql of [
-    "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
-    "ALTER TABLE users ADD COLUMN account_xp INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE users ADD COLUMN account_level INTEGER NOT NULL DEFAULT 1"
-  ]) { try { await db.prepare(sql).run(); } catch {} }
-  await db.prepare("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
-  await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, banner_display_size TEXT NOT NULL DEFAULT 'wide', profile_background_url TEXT, profile_background_size TEXT NOT NULL DEFAULT 'cover', selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
-  await ensureUserProfileColumns(db);
-  await db.prepare("CREATE TABLE IF NOT EXISTS homepage_tile_config (tile_id TEXT PRIMARY KEY, label TEXT NOT NULL, default_size TEXT NOT NULL, allowed_sizes_json TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
-  await ensureSettingsTables(db);
-  await ensureHomepageTileConfigLite(db);
-  try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)").run(); } catch {}
-  try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)").run(); } catch {}
-  return true;
-}
 async function ensureCoreSchemaOnce(db, { force = false } = {}) {
   const now = Date.now();
   if (!force && coreSchemaReadyPromise && now - coreSchemaReadyAt < SCHEMA_READY_TTL_MS) return coreSchemaReadyPromise;
