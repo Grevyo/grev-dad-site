@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS cs2_public_stats (
   last_match_score TEXT,
   recent_form TEXT,
   matches_tracked INTEGER,
+  kd TEXT,
+  win_rate TEXT,
   last_synced_at TEXT,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -48,6 +50,7 @@ CREATE TABLE IF NOT EXISTS faceit_public_stats (
   last_match_score TEXT,
   recent_form TEXT,
   matches_tracked INTEGER,
+  kd TEXT,
   win_rate TEXT,
   last_synced_at TEXT,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
