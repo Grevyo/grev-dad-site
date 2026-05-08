@@ -17,7 +17,20 @@
     const response = await fetch(url, { credentials: 'same-origin', ...options });
     const text = await response.text();
     let data = null;
-    if (text) { try { data = JSON.parse(text); } catch { throw new Error(`Invalid JSON from ${url} (${response.status}): ${text.slice(0,180)}`); } }
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        const preview = text.slice(0, 500);
+        console.error('Invalid JSON response', { url, status: response.status, preview });
+        const contentType = response.headers.get('content-type') || '';
+        const looksHtml = contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text);
+        const detail = looksHtml
+          ? `server returned HTML ${response.status}. Check Worker logs.`
+          : `invalid JSON (${response.status}). Check console for response preview.`;
+        throw new Error(`Load failed from ${url}: ${detail}`);
+      }
+    }
     if (!response.ok || !data || data.ok === false) throw new Error(data?.error || `Request failed: ${response.status}`);
     if (canCache) writeSessionCache(cacheKey, data);
     return { data, fromCache: false };
