@@ -47,6 +47,9 @@ export default { async fetch(request, env) { try { const url = new URL(request.u
   if (url.pathname === '/api/achievements/me' && request.method === 'GET') return handleAchievementsMe(request, env);
   if (url.pathname === '/api/profile/me' && request.method === 'GET') return safeJsonRoute('profile/me', () => handleProfileMe(request, env));
   if (url.pathname === '/api/profile/me' && request.method === 'POST') return handleProfileMeUpdate(request, env);
+  if (url.pathname === '/api/profile/private/steam-key/status' && request.method === 'GET') return handleSteamKeyStatus(request, env);
+  if (url.pathname === '/api/profile/private/steam-key' && request.method === 'POST') return handleSteamKeySave(request, env);
+  if (url.pathname === '/api/profile/private/steam-key' && request.method === 'DELETE') return handleSteamKeyClear(request, env);
   if (url.pathname === '/api/profile/me/card' && request.method === 'POST') return handleProfileCardMeUpdate(request, env);
   if (url.pathname === '/api/profile/me/rank' && request.method === 'POST') return handleProfileRankUpdate(request, env);
   if (url.pathname === '/api/profile/me/showcase-unlocks' && request.method === 'GET') return handleProfileMyShowcaseUnlocks(request, env);
@@ -249,6 +252,59 @@ const DASHBOARD_SETTING_FIELDS = ['dashboard_background_colour','dashboard_backg
 function safeJsonParse(value, fallback = {}) {
   if (value == null || value === '') return fallback;
   try { return JSON.parse(value); } catch { return fallback; }
+}
+
+function arrayBufferToBase64(buffer) {
+  return toBase64(new Uint8Array(buffer));
+}
+
+function base64ToUint8Array(value) {
+  return fromBase64(value);
+}
+
+function base64ToArrayBuffer(value) {
+  return base64ToUint8Array(value).buffer;
+}
+
+async function getSecretCryptoKey(env) {
+  const secret = env.APP_SECRET_KEY || env.PROFILE_SECRET_KEY;
+  if (!secret) throw new Error('Secret storage is not configured');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+  return crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function encryptPrivateSecret(env, plaintext) {
+  const key = await getSecretCryptoKey(env);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(String(plaintext || ''));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  return JSON.stringify({
+    v: 1,
+    alg: 'AES-GCM',
+    iv: arrayBufferToBase64(iv),
+    data: arrayBufferToBase64(encrypted)
+  });
+}
+
+async function decryptPrivateSecret(env, payload) {
+  const parsed = safeJsonParse(payload, null);
+  if (!parsed || parsed.v !== 1 || !parsed.iv || !parsed.data) return '';
+  const key = await getSecretCryptoKey(env);
+  const iv = base64ToUint8Array(parsed.iv);
+  const encrypted = base64ToArrayBuffer(parsed.data);
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
+  return new TextDecoder().decode(decrypted);
+}
+
+async function hasPrivateSecret(db, userId, secretKey) {
+  const row = await db.prepare('SELECT 1 FROM user_private_secrets WHERE user_id = ? AND secret_key = ? LIMIT 1').bind(userId, secretKey).first();
+  return !!row;
+}
+
+async function readPrivateSecret(db, env, userId, secretKey) {
+  const row = await db.prepare('SELECT secret_value_encrypted FROM user_private_secrets WHERE user_id = ? AND secret_key = ? LIMIT 1').bind(userId, secretKey).first();
+  if (!row?.secret_value_encrypted) return '';
+  return decryptPrivateSecret(env, row.secret_value_encrypted);
 }
 
 function pickFields(source, names) {
@@ -553,6 +609,59 @@ async function handleProfileRankUpdate(request, env) {
     await mergeSettingsJson(db, 'user_profile_settings', user.id, { selected_rank_id: selectedRankId });
     return handleProfileMe(request, env);
   } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
+}
+
+async function handleSteamKeyStatus(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    return json({ ok: true, has_steam_api_key: await hasPrivateSecret(db, user.id, 'steam_api_key') });
+  } catch (error) {
+    return json({ ok: false, error: friendlyError(error) }, 500);
+  }
+}
+
+async function handleSteamKeySave(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const body = await readJsonBody(request);
+    const value = String(body?.steam_api_key || '').trim();
+    if (value.length < 16 || value.length > 128) return json({ ok: false, error: 'Steam API key must be 16–128 characters.' }, 400);
+    if (!/^[A-Za-z0-9_-]+$/.test(value)) return json({ ok: false, error: 'Steam API key contains unsupported characters.' }, 400);
+    if (!env.APP_SECRET_KEY && !env.PROFILE_SECRET_KEY) return json({ ok: false, error: 'Steam API key storage is not configured. Add APP_SECRET_KEY as a Worker secret first.' }, 500);
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    const encrypted = await encryptPrivateSecret(env, value);
+    await db.prepare(`
+      INSERT INTO user_private_secrets (user_id, secret_key, secret_value_encrypted, created_at, updated_at)
+      VALUES (?, 'steam_api_key', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, secret_key) DO UPDATE SET
+        secret_value_encrypted = excluded.secret_value_encrypted,
+        updated_at = CURRENT_TIMESTAMP
+    `).bind(user.id, encrypted).run();
+    return json({ ok: true, has_steam_api_key: true });
+  } catch (error) {
+    const message = error?.message === 'Secret storage is not configured'
+      ? 'Steam API key storage is not configured. Add APP_SECRET_KEY as a Worker secret first.'
+      : friendlyError(error);
+    return json({ ok: false, error: message }, 500);
+  }
+}
+
+async function handleSteamKeyClear(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    await db.prepare("DELETE FROM user_private_secrets WHERE user_id = ? AND secret_key = 'steam_api_key'").bind(user.id).run();
+    return json({ ok: true, has_steam_api_key: false });
+  } catch (error) {
+    return json({ ok: false, error: friendlyError(error) }, 500);
+  }
 }
 
 async function handleAccount(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchemaOnce(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); return json({ ok: true, user: { ...serializeUser(row), created_at: row.created_at || null } }); }
@@ -914,6 +1023,7 @@ async function ensureCoreSchema(db) {
   ]) { try { await db.prepare(sql).run(); } catch {} }
   await db.prepare("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, banner_display_size TEXT NOT NULL DEFAULT 'wide', profile_background_url TEXT, profile_background_size TEXT NOT NULL DEFAULT 'cover', selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_private_secrets (user_id INTEGER NOT NULL, secret_key TEXT NOT NULL, secret_value_encrypted TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, secret_key))").run();
   await ensureProfileColumnsLite(db);
   await db.prepare("CREATE TABLE IF NOT EXISTS homepage_tile_config (tile_id TEXT PRIMARY KEY, label TEXT NOT NULL, default_size TEXT NOT NULL, allowed_sizes_json TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
   await ensureHomepageTileConfigLite(db);
@@ -1060,6 +1170,7 @@ async function createSchemaTables(db) { await db.prepare("CREATE TABLE IF NOT EX
   try { await db.prepare("ALTER TABLE users ADD COLUMN account_xp INTEGER NOT NULL DEFAULT 0").run(); } catch {}
   try { await db.prepare("ALTER TABLE users ADD COLUMN account_level INTEGER NOT NULL DEFAULT 1").run(); } catch {}
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, banner_display_size TEXT NOT NULL DEFAULT 'wide', profile_background_url TEXT, profile_background_size TEXT NOT NULL DEFAULT 'cover', selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_private_secrets (user_id INTEGER NOT NULL, secret_key TEXT NOT NULL, secret_value_encrypted TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, secret_key))").run();
   // user_profiles is at/near column limit; new settings must go into JSON/settings tables.
   await ensureUserProfileColumns(db);
   await db.prepare("CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL)").run();
@@ -1749,7 +1860,11 @@ async function handleSteamProfile(request, env) {
       steamLevel: null
     };
 
-    const apiKey=env.STEAM_API_KEY;
+    let apiKey=env.STEAM_API_KEY;
+    if (!apiKey && Number(user.id) === Number(userId)) {
+      try { apiKey = await readPrivateSecret(db, env, user.id, 'steam_api_key'); }
+      catch { apiKey = ''; }
+    }
     if (apiKey) {
       try {
         const levelParams = new URLSearchParams({ key: apiKey, steamid: xmlSteamId64 });

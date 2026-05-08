@@ -2345,8 +2345,12 @@ input[type="color"]::-moz-color-swatch {
 /* Combined Profile Editor */
 .page-shell.combined-profile-editor-page,
 .combined-profile-editor-page {
-  width: min(1180px, calc(100vw - 24px));
+  width: min(1680px, calc(100vw - 20px));
+  max-width: none;
   margin: 0 auto;
+  padding-left: 6px;
+  padding-right: 6px;
+  box-sizing: border-box;
 }
 
 .profile-editor-live-preview {
@@ -2355,7 +2359,7 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .profile-editor-live-preview #profile-editor-card-preview-body {
-  max-width: 860px;
+  max-width: 980px;
   margin: 0 auto;
 }
 
@@ -2363,8 +2367,9 @@ input[type="color"]::-moz-color-swatch {
   position: sticky;
   top: 0;
   z-index: 30;
-  max-width: 1180px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -2377,7 +2382,7 @@ input[type="color"]::-moz-color-swatch {
 
 .profile-editor-section-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -2389,10 +2394,26 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .profile-editor-field-card {
+  min-width: 0;
   border: 1px solid var(--border);
   background: transparent;
   padding: 12px;
   display: grid;
+  gap: 8px;
+}
+
+.private-secret-card {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--surface) 45%, transparent);
+}
+
+.private-secret-card input[type="password"] {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.editor-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -2465,8 +2486,9 @@ input[type="color"]::-moz-color-swatch {
 }
 
 .combined-profile-editor-page .editor-tab-panel {
-  max-width: 980px;
-  margin: 14px auto 0;
+  width: 100%;
+  max-width: none;
+  margin: 12px 0 0;
 }
 
 
@@ -2533,6 +2555,12 @@ input[type="color"]::-moz-color-swatch {
   .profile-card-preview-hide-tile {
     opacity: 1;
     transform: none;
+  }
+}
+
+@media (min-width: 1300px) {
+  .profile-editor-section-grid.profile-editor-section-grid-compact {
+    grid-template-columns: repeat(3, minmax(300px, 1fr));
   }
 }
 
