@@ -1230,7 +1230,7 @@
           const actions = [
             { title: 'View My Profile', description: 'Open your public Profile Page.', href: '/profile.html', group: 'Profile' },
             { title: 'Edit Profile', description: 'Customise public info, links, images, and integrations.', href: '/profile-edit.html', group: 'Profile' },
-            { title: 'Edit Profile Card', description: 'Design the mini Profile Card shown around the site.', href: '/profile-card-edit.html', group: 'Profile' },
+            { title: 'Edit Profile Card', description: 'Design the mini Profile Card shown around the site.', href: '/profile-edit.html#profile-tab-card', group: 'Profile' },
             { title: 'Edit Tiles', description: 'Move, resize, and configure your dashboard tiles.', actionId: 'edit-dashboard', group: 'Dashboard' },
             { title: 'Customise Dashboard', description: 'Show/hide tiles in the dashboard sidebar.', actionId: 'customise-dashboard', group: 'Dashboard' },
             { title: 'Add Member Profile Card', description: 'Open Member Profile Cards in Customise Dashboard.', actionId: 'add-member-profile-card', group: 'Dashboard' },
@@ -1322,7 +1322,7 @@
             }
           });
         }
-        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> use Edit Tiles to rearrange and resize tiles.</p><p><strong>Customise Dashboard:</strong> show/hide tiles and add Member Profile Cards.</p><p><strong>Members:</strong> browse other users’ Profile Cards.</p><p><strong>Leaderboard:</strong> compare grev.dad levels and XP.</p><p><strong>Profile Page:</strong> customise widgets and public layout.</p><p><strong>XP/Achievements:</strong> earn XP by completing profile sections and using site features.</p></div><button type="button" class="nav-button tutorial-hide-tile-button" data-hide-dashboard-tile="grev-dad-tutorial">Hide Tile</button>`; }
+        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, integrations, and your Profile Card.</p><p><strong>Your Dashboard:</strong> use Edit Tiles to rearrange and resize tiles.</p><p><strong>Customise Dashboard:</strong> show/hide tiles and add Member Profile Cards.</p><p><strong>Members:</strong> browse other users’ Profile Cards.</p><p><strong>Leaderboard:</strong> compare grev.dad levels and XP.</p><p><strong>Profile Page:</strong> customise widgets and public layout.</p><p><strong>XP/Achievements:</strong> earn XP by completing profile sections and using site features.</p></div><button type="button" class="nav-button tutorial-hide-tile-button" data-hide-dashboard-tile="grev-dad-tutorial">Hide Tile</button>`; }
 
         function renderCompletion(profile) {
           const wrap = document.getElementById('profile-completion-content');

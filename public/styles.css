@@ -2341,3 +2341,124 @@ input[type="color"]::-moz-color-swatch {
   width: auto;
   margin-top: 3px;
 }
+
+/* Combined Profile Editor */
+.combined-profile-editor-page {
+  width: min(1500px, calc(100vw - 24px));
+  margin: 0 auto;
+}
+
+.profile-editor-live-preview {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.profile-editor-live-preview #profile-editor-card-preview-body {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.profile-editor-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+.editor-tab-panel[hidden] {
+  display: none !important;
+}
+
+.profile-editor-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.profile-editor-field-card {
+  border: 1px solid var(--border);
+  background: transparent;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.profile-card-tile-editor-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-card-tile-editor-row {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.profile-card-tile-editor-row.is-hidden {
+  opacity: .65;
+}
+
+.profile-card-tile-editor-row > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-card-tile-editor-row > header label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.tile-editor-status {
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.tile-editor-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.tile-editor-controls.is-hidden {
+  display: none;
+}
+
+.profile-card-tile-editor-group {
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.profile-card-tile-editor-group h3 {
+  margin: 0;
+}
+
+.profile-editor-save-summary {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  padding: 12px 12px 12px 28px;
+}
+
+.combined-profile-editor-page .editor-tab-panel {
+  margin-top: 14px;
+}
+
+.page-shell.combined-profile-editor-page {
+  width: min(1500px, calc(100vw - 24px));
+  margin: 0 auto;
+}
