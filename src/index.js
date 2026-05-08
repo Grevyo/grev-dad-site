@@ -904,7 +904,8 @@ async function ensureCoreSchema(db) {
   try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)").run(); } catch {}
   try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)").run(); } catch {}
   return true;
-} = {}) {
+}
+async function ensureCoreSchemaOnce(db, { force = false } = {}) {
   const now = Date.now();
   if (!force && coreSchemaReadyPromise && now - coreSchemaReadyAt < SCHEMA_READY_TTL_MS) return coreSchemaReadyPromise;
   coreSchemaReadyPromise = ensureCoreSchema(db)
