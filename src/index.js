@@ -617,7 +617,7 @@ async function handleAdminUserUnlockUpsert(request, env, path) { try { const aut
 
 async function handleLeaderboardLevels(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' },401); const db=getDatabase(env); await ensureSchema(db); const rows=await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, u.status, ${PUBLIC_PROFILE_CARD_COLUMNS}, p.selected_rank_id FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id ORDER BY u.username ASC`).all(); const ranks=await loadAccountRanks(request, env); const rankList=ranks.ranks||[]; const list=[]; for (const r of (rows.results||[])) { const pr=await getUserAccountProgress(db,r.id); list.push({ ...serializeUser(r), created_at:r.created_at||null, ...publicProfileCardFields(r), ...pr, rank:getDisplayedRank(pr.accountLevel,r.selected_rank_id,rankList), displayedRank:getDisplayedRank(pr.accountLevel,r.selected_rank_id,rankList) }); } list.sort((a,b)=>b.accountXp-a.accountXp||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.username||'').localeCompare(String(b.username||''))); return json({ok:true,leaderboard:list.slice(0,100).map((x,i)=>({rankPosition:i+1,...x}))}, 200, {'Cache-Control':'private, max-age=60'}); }
 function getHomepageTileSeedConfigs() { return [
-  { tile_id: 'profile-snapshot', label: 'Profile Snapshot', default_size: '4x2', allowed_sizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 10 },
+  { tile_id: 'profile-snapshot', label: 'Profile Spotlight', default_size: '4x1', allowed_sizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 10 },
   { tile_id: 'quick-actions', label: 'Quick Actions', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 20 },
   { tile_id: 'grev-dad-tutorial', label: 'grev.dad Tutorial', default_size: '4x2', allowed_sizes: ['4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 25 },
   { tile_id: 'profile-completion', label: 'Profile Completion', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 30 },
@@ -635,7 +635,7 @@ function getHomepageTileSeedConfigs() { return [
 function parseAllowedSizes(value) { try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
 
 async function migrateHomepageTileConfigs(db) {
-  const add4x1Tiles = new Set(['quick-actions','grev-dad-tutorial','profile-completion','members-preview','coming-later','status','profile-status','showcase-preview','leaderboard-preview','site-notices','admin-quick-tools']);
+  const add4x1Tiles = new Set(['profile-snapshot','quick-actions','grev-dad-tutorial','profile-completion','members-preview','coming-later','status','profile-status','showcase-preview','leaderboard-preview','site-notices','admin-quick-tools']);
   const rows = await db.prepare('SELECT tile_id, allowed_sizes_json, default_size FROM homepage_tile_config').all();
   for (const row of (rows.results || [])) {
     const allowed = parseAllowedSizes(row.allowed_sizes_json);
@@ -643,8 +643,9 @@ async function migrateHomepageTileConfigs(db) {
     let changed = false;
     if (nextAllowed.includes('2x2') && !nextAllowed.includes('2x1')) { nextAllowed.push('2x1'); changed = true; }
     if (add4x1Tiles.has(row.tile_id) && !nextAllowed.includes('4x1')) { nextAllowed.push('4x1'); changed = true; }
-    if (!changed) continue;
-    const nextDefault = nextAllowed.includes(row.default_size) ? row.default_size : (nextAllowed[0] || '1x1');
+    const shouldDefaultProfileSpotlightTo4x1 = row.tile_id === 'profile-snapshot' && row.default_size !== '4x1' && nextAllowed.includes('4x1');
+    if (!changed && !shouldDefaultProfileSpotlightTo4x1) continue;
+    const nextDefault = shouldDefaultProfileSpotlightTo4x1 ? '4x1' : (nextAllowed.includes(row.default_size) ? row.default_size : (nextAllowed[0] || '1x1'));
     await db.prepare("UPDATE homepage_tile_config SET allowed_sizes_json = ?, default_size = ?, updated_at = datetime('now') WHERE tile_id = ?")
       .bind(JSON.stringify(nextAllowed), nextDefault, row.tile_id).run();
   }

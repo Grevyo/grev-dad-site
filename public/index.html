@@ -28,13 +28,13 @@
       <div class="dashboard-board">
       <section class="dashboard-grid" id="dashboard-grid">
         <div id="dashboard-drop-preview" class="dashboard-drop-preview" hidden></div>
-        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><h2 class="tile-title-visually-hidden">Profile Spotlight</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
-        <article class="dashboard-tile tile-4x2" data-tile-id="grev-dad-tutorial" data-tile-size="4x2"><h2>grev.dad Tutorial</h2><div id="grev-dad-tutorial-content" class="dashboard-tutorial-content"></div></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><h2>Profile Completion</h2><div id="profile-completion-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></article>
-        <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><h2>Members Preview</h2><div id="members-preview-content"><div class="tile-loading"><span class="skeleton-line"></span></div></div></article>
-        <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></article>
-        <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></article>
+        <article class="dashboard-tile profile-snapshot-tile" data-tile-id="profile-snapshot"><div class="dashboard-tile-content"><h2 class="tile-title-visually-hidden">Profile Spotlight</h2><div class="profile-snapshot-card-fill"><div id="account-summary-content" class="profile-snapshot-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="quick-actions" data-tile-size="1x1"><div class="dashboard-tile-content"><h2>Quick Actions</h2><div class="quick-actions" id="quick-actions"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
+        <article class="dashboard-tile tile-4x2" data-tile-id="grev-dad-tutorial" data-tile-size="4x2"><div class="dashboard-tile-content"><h2>grev.dad Tutorial</h2><div id="grev-dad-tutorial-content" class="dashboard-tutorial-content"></div></div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="profile-completion" data-tile-size="1x1"><div class="dashboard-tile-content"><h2>Profile Completion</h2><div id="profile-completion-content"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div></div></article>
+        <article class="dashboard-tile tile-2x1" data-tile-id="members-preview" data-tile-size="2x1"><div class="dashboard-tile-content"><h2>Members Preview</h2><div id="members-preview-content"><div class="tile-loading"><span class="skeleton-line"></span></div></div></div></article>
+        <article class="dashboard-tile chat-dashboard-tile tile-2x2" data-tile-id="chat" data-tile-size="2x2"><div class="dashboard-tile-content"><h2>Global Chat</h2><div id="home-chat-list" class="chat-message-list"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div><div class="chat-input-row"><input id="home-chat-input" maxlength="1000" placeholder="Message global chat"/><button id="home-chat-send" type="button">Send</button></div><p id="home-chat-error" hidden>Chat unavailable.</p></div></article>
+        <article class="dashboard-tile tile-1x1" data-tile-id="coming-later" data-tile-size="1x1"><div class="dashboard-tile-content"><h2>Site Status / Coming Later</h2><ul><li>Profile customisation</li><li>Achievements</li><li>Account unlocks</li><li>Site activity</li></ul></div></article>
       </section>
       </div>
       <div id="quick-actions-overlay" class="quick-actions-overlay" hidden>
@@ -91,10 +91,10 @@
         const LAYOUT_KEY_MOBILE = 'grev_dashboard_layout_v4_mobile';
                 const BASE_TILE_SIZES = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
         const TILE_MINIMUM_SIZES = {'profile-snapshot': { minW: 2, minH: 1 },'quick-actions': { minW: 2, minH: 1 },'grev-dad-tutorial': { minW: 4, minH: 2 },'profile-completion': { minW: 2, minH: 1 },'members-preview': { minW: 2, minH: 1 },chat: { minW: 4, minH: 4 },'coming-later': { minW: 2, minH: 1 },status: { minW: 2, minH: 1 },'profile-status': { minW: 4, minH: 1 },'showcase-preview': { minW: 4, minH: 1 },'leaderboard-preview': { minW: 4, minH: 1 },'member-spotlight': { minW: 3, minH: 2 },'site-notices': { minW: 4, minH: 1 },'admin-quick-tools': { minW: 4, minH: 1 }};
-        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x2', allowedSizes: ['2x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'grev-dad-tutorial': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 25 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },'member-card': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1, sortOrder: 130 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
+        const TILE_SIZE_RULES_FALLBACK = {'profile-snapshot': { defaultSize: '4x1', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 10 },'quick-actions': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 20 },'grev-dad-tutorial': { defaultSize: '4x2', allowedSizes: ['4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 25 },'profile-completion': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 30 },'members-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 1, sortOrder: 40 },chat: { defaultSize: '4x4', allowedSizes: ['2x1','2x2','4x2','2x4','4x4','6x4','4x6','6x6','8x4','8x6','8x8','10x6','10x8','12x6','12x8','12x12'], isEnabled: 1, sortOrder: 50 },'coming-later': { defaultSize: '2x2', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], isEnabled: 1, sortOrder: 60 },'profile-status': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 70 },'showcase-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], isEnabled: 0, sortOrder: 80 },'leaderboard-preview': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4','6x4'], isEnabled: 0, sortOrder: 90 },'member-spotlight': { defaultSize: '3x2', allowedSizes: ['3x2','4x2','4x3'], isEnabled: 0, sortOrder: 100 },'site-notices': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 110 },'admin-quick-tools': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','6x4'], isEnabled: 0, sortOrder: 120 },'member-card': { defaultSize: '4x2', allowedSizes: ['2x1','4x1','4x2','4x3','4x4'], isEnabled: 1, sortOrder: 130 },blank: { defaultSize: '1x1', allowedSizes: ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6'], isEnabled: 1, sortOrder: 999 }};
         let TILE_SIZE_RULES = JSON.parse(JSON.stringify(TILE_SIZE_RULES_FALLBACK));
         const DEFAULT_TILE_LAYOUT = {
-          'profile-snapshot': { col: 1, row: 1, size: '4x2' },
+          'profile-snapshot': { col: 1, row: 1, size: '4x1' },
           'grev-dad-tutorial': { col: 5, row: 1, size: '4x2' },
           'profile-completion': { col: 9, row: 1, size: '2x2' },
           'members-preview': { col: 1, row: 3, size: '4x2' },
@@ -867,12 +867,12 @@
           grid.addEventListener('pointerdown', handleDashboardTileDragStart);
         }
         function tileBodyIdFor(id){const map={'profile-snapshot':'account-summary-content','quick-actions':'quick-actions','profile-completion':'profile-completion-content','members-preview':'members-preview-content','chat':'home-chat-list','grev-dad-tutorial':'grev-dad-tutorial-content','coming-later':'coming-later-content','status':'site-notices-content','site-notices':'site-notices-content','profile-status':'profile-status-content','showcase-preview':'showcase-preview-content','leaderboard-preview':'leaderboard-preview-content','member-spotlight':'member-spotlight-content','admin-quick-tools':'admin-quick-tools-content'};return map[id]||`${id}-content`;}
-        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const h2=document.createElement('h2');h2.textContent=id==='grev-dad-tutorial'?'grev.dad Tutorial':id;tile.append(h2);if(id==='chat'){const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);tile.append(list,composer,err);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';tile.append(body);return tile;}
+        function makeDynamicTile(id){const tile=document.createElement('article');tile.className='dashboard-tile';tile.dataset.tileId=id;const content=document.createElement('div');content.className='dashboard-tile-content';const h2=document.createElement('h2');h2.textContent=id==='grev-dad-tutorial'?'grev.dad Tutorial':id;content.append(h2);if(id==='chat'){tile.classList.add('chat-dashboard-tile');const list=document.createElement('div');list.className='chat-message-list';list.id='home-chat-list';list.textContent='Loading…';const composer=document.createElement('div');composer.className='chat-composer';const input=document.createElement('input');input.id='home-chat-input';input.type='text';input.placeholder='Message global chat';const send=document.createElement('button');send.type='button';send.id='home-chat-send';send.textContent='Send';const err=document.createElement('p');err.id='home-chat-error';err.hidden=true;err.textContent='Unable to send message right now.';composer.append(input,send);content.append(list,composer,err);tile.append(content);return tile;}const body=document.createElement('div');body.className=`homepage-tile-${id.replace(/[^a-z0-9]+/g,'-')}`;body.id=tileBodyIdFor(id);body.textContent='Loading…';content.append(body);tile.append(content);return tile;}
         function makeBlankTile(id, size = '1x1') {
           const tile = document.createElement('article');
           tile.className = 'dashboard-tile blank-dashboard-tile';
           tile.dataset.tileId = id;
-          tile.innerHTML = '<h2>Blank</h2><div class="blank-tile-label">Blank space</div>';
+          tile.innerHTML = '<div class="dashboard-tile-content"><h2>Blank</h2><div class="blank-tile-label">Blank space</div></div>';
           return tile;
         }
         function makeMemberCardTile(id, memberId) {
@@ -881,9 +881,11 @@
           tile.dataset.tileId = id;
           tile.dataset.customTileType = 'member-card';
           tile.innerHTML = `
-            <h2 class="tile-title-visually-hidden">Member Profile Card</h2>
-            <div class="member-card-tile-fill">
-              <div class="custom-member-card-content" data-member-id="${memberId}"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div>
+            <div class="dashboard-tile-content">
+              <h2 class="tile-title-visually-hidden">Member Profile Card</h2>
+              <div class="member-card-tile-fill">
+                <div class="custom-member-card-content" data-member-id="${memberId}"><div class="tile-loading"><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div>
+              </div>
             </div>
           `;
           return tile;
@@ -987,6 +989,18 @@
           }
           ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
         }
+        function hideDashboardTile(tileId, options = {}) {
+          if (!tileId || tileId.startsWith('blank-') || tileId.startsWith('member-card-')) return;
+          setBuiltInTileVisibility(tileId, false);
+        }
+        document.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-hide-dashboard-tile]');
+          if (!button) return;
+          const tileId = button.dataset.hideDashboardTile;
+          if (!tileId) return;
+          event.preventDefault();
+          hideDashboardTile(tileId, { save: true });
+        });
         function removeDashboardTile(tileId) {
           if (tileId?.startsWith('blank-')) delete dashboardLayout.blankTiles[tileId];
           if (tileId?.startsWith('member-card-')) delete dashboardLayout.customTiles[tileId];
@@ -1151,7 +1165,7 @@
             accountXpPercent: Number(fullProfile?.accountXpPercent || fullProfile?.account_xp_percent || 0) || 0,
             rank: fullProfile?.rank || { name: 'Unranked' }
           };
-          const snapshotTileSize = getDashboardTileSize('profile-snapshot', '4x2');
+          const snapshotTileSize = getDashboardTileSize('profile-snapshot', '4x1');
           if (DEBUG_PROFILE_CARD) {
             console.debug('[dashboard] Profile Spotlight Profile Card config', {
               tileSize: snapshotTileSize,
@@ -1299,7 +1313,7 @@
             }
           });
         }
-        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> use Edit Tiles to rearrange and resize tiles.</p><p><strong>Customise Dashboard:</strong> show/hide tiles and add Member Profile Cards.</p><p><strong>Members:</strong> browse other users’ Profile Cards.</p><p><strong>Leaderboard:</strong> compare grev.dad levels and XP.</p><p><strong>Profile Page:</strong> customise widgets and public layout.</p><p><strong>XP/Achievements:</strong> earn XP by completing profile sections and using site features.</p></div>`; }
+        function renderTutorialTile() { const wrap = document.getElementById('grev-dad-tutorial-content'); if (!wrap) return; wrap.innerHTML = `<div class="dashboard-tutorial-grid"><p><strong>Edit Profile:</strong> customise public info, links, images, and integrations.</p><p><strong>Edit Profile Card:</strong> customise your mini Profile Card.</p><p><strong>Your Dashboard:</strong> use Edit Tiles to rearrange and resize tiles.</p><p><strong>Customise Dashboard:</strong> show/hide tiles and add Member Profile Cards.</p><p><strong>Members:</strong> browse other users’ Profile Cards.</p><p><strong>Leaderboard:</strong> compare grev.dad levels and XP.</p><p><strong>Profile Page:</strong> customise widgets and public layout.</p><p><strong>XP/Achievements:</strong> earn XP by completing profile sections and using site features.</p></div><button type="button" class="nav-button tutorial-hide-tile-button" data-hide-dashboard-tile="grev-dad-tutorial">Hide Tile</button>`; }
 
         function renderCompletion(profile) {
           const wrap = document.getElementById('profile-completion-content');
@@ -1534,11 +1548,12 @@
               const row = document.createElement('div'); row.className='dashboard-tile-library-row'; row.dataset.dashboardLibraryTileId = tileId;
               const enabled = tileRuleFor(tileId).isEnabled !== 0;
               const visible = !!dashboardLayout.tiles[tileId];
+              const hidden = (dashboardLayout.hiddenTiles || []).includes(tileId) || !visible;
               const meta = tileMeta[tileId] || { label: tileId, description: '' };
-              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${meta.label}</strong><p>${enabled ? meta.description : 'Disabled by admin.'}</p></div>${renderDashboardTileStyleControls(tileId)}`;
+              row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>${meta.label}</strong><p>${enabled ? meta.description : 'Disabled by admin.'}</p><p class="muted">Status: ${hidden ? 'Hidden' : 'Visible'}</p></div>${renderDashboardTileStyleControls(tileId)}`;
               const a = document.createElement('div'); a.className='dashboard-tile-library-actions';
               const b = document.createElement('button'); b.type='button'; b.className='nav-button'; b.textContent = visible ? 'Hide' : 'Show'; b.disabled = !enabled;
-              b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary(); };
+              b.onclick = () => setBuiltInTileVisibility(tileId, !visible);
               a.append(b); addDashboardTileStyleToggle(a, row); row.append(a); bindDashboardTileStyleControls(row, tileId); section.append(row);
             });
             root.append(section);
