@@ -8,219 +8,148 @@
 </head>
 <body>
 <header class="site-header"><a class="site-brand" href="/"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev" /></a><nav id="authStatus" class="site-nav">Checking login...</nav></header>
-<main class="page-shell profile-edit-page editor-page">
-  <div class="editor-header profile-edit-hero">
-    <div class="editor-header-main">
+<main class="page-shell editor-page combined-profile-editor-page profile-edit-page">
+  <header class="editor-header profile-edit-hero">
+    <div>
       <p class="eyebrow">Profile Settings</p>
       <h1>Edit Profile</h1>
+      <p>Customise your profile, Profile Card, links, and page layout.</p>
       <p id="profile-edit-message" class="editor-message" aria-live="polite">Loading profile…</p>
     </div>
-    <div class="editor-header-actions profile-edit-action-bar" aria-label="Profile actions">
-      <button type="submit" form="profile-edit-form" class="nav-button primary-action">Save Profile</button>
-      <a class="nav-button" href="/profile.html">View Profile</a>
-      <a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>
+    <div class="editor-header-actions">
+      <a class="nav-button" href="/profile.html">Back to Profile</a>
+      <button id="save-profile-editor" type="submit" form="profile-edit-form" class="primary-button nav-button">Save Changes</button>
     </div>
-  </div>
+  </header>
 
-  <nav class="page-quick-tabs editor-tabs profile-edit-tabs" aria-label="Edit profile sections">
-    <button type="button" class="page-quick-tab editor-tab-button active" data-tab="basic-info">Basic Info</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="images">Images</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="external-links">Links</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="cs2-integrations">CS2 Integrations</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="profile-background">Page Background</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="banner-footer">Banner &amp; Footer</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="widget-styling">Widget Styling</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="layout-visibility">Layout</button>
-    <button type="button" class="page-quick-tab editor-tab-button" data-tab="save-profile">Save</button>
+  <section class="editor-tile profile-card-live-preview profile-editor-live-preview">
+    <div class="section-heading-row">
+      <div>
+        <h2>Profile Card Live Preview</h2>
+        <p>This is how your Profile Card appears around grev.dad.</p>
+      </div>
+    </div>
+    <div id="profile-editor-card-preview-body" class="profile-card-preview-frame"></div>
+  </section>
+
+  <nav class="editor-tabs profile-editor-tabs page-quick-tabs" aria-label="Profile editor sections" role="tablist">
+    <button type="button" class="page-quick-tab editor-tab-button active" data-editor-tab="profile-tab-basic" role="tab" aria-controls="profile-tab-basic">Profile Basics</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-images" role="tab" aria-controls="profile-tab-images">Images</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-links" role="tab" aria-controls="profile-tab-links">Links</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-card" role="tab" aria-controls="profile-tab-card">Profile Card</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-display-tiles" role="tab" aria-controls="profile-tab-display-tiles">Display Tiles</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-page" role="tab" aria-controls="profile-tab-page">Profile Page</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-styling" role="tab" aria-controls="profile-tab-styling">Styling</button>
+    <button type="button" class="page-quick-tab editor-tab-button" data-editor-tab="profile-tab-save" role="tab" aria-controls="profile-tab-save">Save</button>
   </nav>
 
   <form id="profile-edit-form">
-    <div class="editor-tile-grid profile-edit-grid">
-      <section id="basic-info" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>1. Basic Info</h2>
-        <div class="editor-grid">
-          <label class="editor-field">Display Name <input name="display_name" maxlength="40" /></label>
-          <label class="editor-field">Profile Title <input name="profile_title" maxlength="80" /></label>
-          <label class="editor-field">Location <input name="location" maxlength="80" /></label>
-          <label class="editor-field">Status Message <input name="status_message" maxlength="140" /></label>
-          <label class="editor-field editor-field-wide">Bio <textarea name="bio" maxlength="500"></textarea></label>
-        </div>
-      </section>
+    <section id="profile-tab-basic" class="editor-tile editor-tab-panel active" role="tabpanel">
+      <h2>Profile Basics</h2>
+      <div class="profile-editor-section-grid">
+        <label class="profile-editor-field-card">Display Name <input name="display_name" maxlength="40" /></label>
+        <label class="profile-editor-field-card">Profile Title <input name="profile_title" maxlength="80" /></label>
+        <label class="profile-editor-field-card">Location <input name="location" maxlength="80" /></label>
+        <label class="profile-editor-field-card">Status Message <input name="status_message" maxlength="140" /></label>
+        <label class="profile-editor-field-card editor-field-wide">Bio <textarea name="bio" maxlength="500"></textarea></label>
+      </div>
+    </section>
 
-      <section id="images" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>2. Images</h2>
-        <div class="editor-grid">
-          <div class="image-field-grid editor-field-wide"><label class="editor-field">Avatar URL <input name="avatar_url" placeholder="https://..." /></label><div class="image-url-preview preview-avatar" data-preview-for="avatar_url"><span>No preview</span></div></div>
-        </div>
-      </section>
+    <section id="profile-tab-images" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Images &amp; Page Background</h2>
+      <div class="profile-editor-section-grid">
+        <div class="profile-editor-field-card image-field-grid"><label>Avatar URL <input name="avatar_url" placeholder="https://..." /></label><div class="image-url-preview preview-avatar" data-preview-for="avatar_url"><span>No preview</span></div></div>
+        <div class="profile-editor-field-card image-field-grid"><label>Banner image/GIF URL <input name="banner_url" placeholder="https://..." /></label><div class="image-url-preview preview-banner" data-preview-for="banner_url"><span>No preview</span></div></div>
+        <label class="profile-editor-field-card">Banner display size <select name="banner_display_size"><option>compact</option><option selected>wide</option><option>tall</option><option>full</option></select></label>
+        <div class="profile-editor-field-card image-field-grid"><label>Profile page background image/GIF URL <input name="profile_page_background_url" placeholder="https://..." /><small id="profile-bg-url-status">No background URL loaded.</small></label><div class="image-url-preview preview-background" data-preview-for="profile_page_background_url"><span>No preview</span></div></div>
+        <label class="profile-editor-field-card">Profile page background colour <span class="colour-field"><input type="color" id="profile_page_background_colour_picker" data-colour-target="profile_page_background_colour" value="#000000"><input id="profile_page_background_colour" name="profile_page_background_colour" placeholder="#112233" /></span></label>
+        <label class="profile-editor-field-card">Profile page background size <select name="profile_page_background_size"><option>cover</option><option>contain</option><option>repeat</option><option>stretch</option><option>center</option></select></label>
+        <div class="range-field profile-editor-field-card"><div class="range-label-row"><span>Profile page overlay strength</span><span id="overlay-strength-value" class="range-value">20%</span></div><input name="profile_page_overlay_strength" type="range" min="0" max="80" step="1" /></div>
+        <div class="profile-editor-field-card image-field-grid"><label>Footer image/GIF URL <input name="profile_footer_url" placeholder="https://..." /></label><div class="image-url-preview preview-footer" data-preview-for="profile_footer_url"><span>No preview</span></div></div>
+        <label class="profile-editor-field-card">Footer display size <select name="profile_footer_display_size"><option>compact</option><option selected>wide</option><option>tall</option><option>full</option></select></label>
+      </div>
+    </section>
 
-      <section id="external-links" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>3. External Links</h2>
-        <p class="form-help">These links can appear as icon-only buttons on your Profile Page and Profile Card.</p>
-        <div class="editor-grid">
-          <label class="editor-field">Website URL <input name="website_url" type="url" maxlength="500" placeholder="https://..." /></label>
-          <label class="editor-field editor-field-wide">Steam URL <input name="steam_url" type="url" maxlength="500" placeholder="https://steamcommunity.com/..." /><small>Add your Steam profile link to show public Steam profile data where available.</small></label>
-        </div>
-        <h3>My Music</h3>
-        <div class="editor-grid">
-          <label class="editor-field editor-field-wide">Spotify URL <input name="spotify_url" type="url" maxlength="500" placeholder="https://open.spotify.com/..." /><small>Link your Spotify artist/profile/playlist.</small></label>
-          <label class="editor-field editor-field-wide">SoundCloud URL <input name="soundcloud_url" type="url" maxlength="500" placeholder="https://soundcloud.com/..." /><small>Link your SoundCloud profile.</small></label>
-          <label class="editor-field editor-field-wide">YouTube Music URL <input name="youtube_music_url" type="url" maxlength="500" placeholder="https://music.youtube.com/..." /><small>Link your YouTube Music or music channel page.</small></label>
-        </div>
-        <h3>Links Tile</h3>
-        <p class="form-help">Choose which saved links appear inside your Profile Page and Your Dashboard Links tile.</p>
-        <div id="links-tile-visibility" class="links-visibility-grid editor-grid"></div>
-      </section>
+    <section id="profile-tab-links" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Links &amp; Integrations</h2>
+      <p class="form-help">Saved links can appear on your Profile Page and in Profile Card link icon tiles.</p>
+      <div class="profile-editor-section-grid">
+        <label class="profile-editor-field-card">Website URL <input name="website_url" type="url" maxlength="500" placeholder="https://..." /></label>
+        <label class="profile-editor-field-card">Steam URL <input name="steam_url" type="url" maxlength="500" placeholder="https://steamcommunity.com/..." /><small>Add your Steam profile link to show public Steam profile data where available.</small></label>
+        <label class="profile-editor-field-card">Leetify Profile URL <input name="leetify_profile_url" maxlength="500" placeholder="https://leetify.com/app/profile/..." /><small>Leetify data is provided by Leetify’s Public API and may only be available for registered/non-hidden users.</small></label>
+        <div class="profile-editor-field-card"><button type="button" class="nav-button" id="check-leetify">Check Leetify</button><small id="leetify-check-status">Save your profile first if this link has unsaved changes.</small></div>
+        <label class="profile-editor-field-card">Refrag Profile URL <input name="refrag_profile_url" maxlength="500" placeholder="https://refrag.gg/..." /><small>Refrag is stored as a link/manual badge only. grev.dad does not scrape Refrag.</small></label>
+        <label class="profile-editor-field-card">Spotify URL <input name="spotify_url" type="url" maxlength="500" placeholder="https://open.spotify.com/..." /></label>
+        <label class="profile-editor-field-card">SoundCloud URL <input name="soundcloud_url" type="url" maxlength="500" placeholder="https://soundcloud.com/..." /></label>
+        <label class="profile-editor-field-card">YouTube Music URL <input name="youtube_music_url" type="url" maxlength="500" placeholder="https://music.youtube.com/..." /></label>
+        <label class="profile-editor-field-card">Manual Refrag Rating <input name="manual_refrag_rating" maxlength="50" /></label>
+        <label class="profile-editor-field-card">Manual Refrag Counter-strafe % <input name="manual_refrag_counter_strafe_pct" maxlength="50" /></label>
+        <label class="profile-editor-field-card">Manual Refrag Reaction Time <input name="manual_refrag_reaction_time" maxlength="50" /></label>
+        <label class="profile-editor-field-card">Manual Refrag TTD <input name="manual_refrag_ttd" maxlength="50" /></label>
+        <label class="profile-editor-field-card">Manual Refrag Crosshair Drift <input name="manual_refrag_crosshair_drift" maxlength="50" /></label>
+        <label class="profile-editor-field-card">Manual Refrag Last Updated At <input name="manual_refrag_last_updated_at" maxlength="40" placeholder="2026-05-06" /></label>
+      </div>
+      <h3>Links Tile Visibility</h3>
+      <p class="form-help">Choose which saved links appear inside your Profile Page and Your Dashboard Links tile.</p>
+      <div id="links-tile-visibility" class="links-visibility-grid profile-editor-section-grid"></div>
+    </section>
 
-      <section id="cs2-integrations" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>CS2 Integrations</h2>
-        <div class="editor-grid">
-          <label class="editor-field editor-field-wide">Leetify Profile URL <input name="leetify_profile_url" maxlength="500" placeholder="https://leetify.com/app/profile/..." /><small>Leetify data is provided by Leetify’s Public API and may only be available for registered/non-hidden Leetify users.</small></label>
-          <div class="editor-field editor-field-wide"><button type="button" class="nav-button" id="check-leetify">Check Leetify</button><small id="leetify-check-status">Save your profile first if this link has unsaved changes.</small></div>
-          <label class="editor-field editor-field-wide">Refrag Profile URL <input name="refrag_profile_url" maxlength="500" placeholder="https://refrag.gg/..." /><small>Refrag is stored as a link/manual badge only. grev.dad does not scrape Refrag.</small></label>
-          <label class="editor-field">Manual Refrag Rating <input name="manual_refrag_rating" maxlength="50" /></label>
-          <label class="editor-field">Manual Refrag Counter-strafe % <input name="manual_refrag_counter_strafe_pct" maxlength="50" /></label>
-          <label class="editor-field">Manual Refrag Reaction Time <input name="manual_refrag_reaction_time" maxlength="50" /></label>
-          <label class="editor-field">Manual Refrag TTD <input name="manual_refrag_ttd" maxlength="50" /></label>
-          <label class="editor-field">Manual Refrag Crosshair Drift <input name="manual_refrag_crosshair_drift" maxlength="50" /></label>
-          <label class="editor-field">Manual Refrag Last Updated At <input name="manual_refrag_last_updated_at" maxlength="40" placeholder="2026-05-06" /></label>
-          <p class="form-help editor-field-wide"><strong>Manual Refrag stats</strong> — Not automatically fetched.</p>
-        </div>
-      </section>
+    <section id="profile-tab-card" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Profile Card Appearance</h2>
+      <div class="profile-editor-section-grid">
+        <label class="profile-editor-field-card">Card background image/GIF URL<input id="card_background_url" type="url" placeholder="https://example.com/background.gif" maxlength="500"><small>Card background supports image and GIF links.</small><button type="button" class="button-secondary clear-field-button" data-clear="card_background_url">Clear</button></label>
+        <label class="profile-editor-field-card">Card background colour<span class="colour-field"><input id="card_background_colour_picker" type="color" data-colour-target="card_background_colour" value="#000000"><input id="card_background_colour" placeholder="#000000"></span><button type="button" class="button-secondary clear-field-button" data-clear="card_background_colour">Clear</button></label>
+        <label class="profile-editor-field-card">Accent colour<span class="colour-field"><input id="card_accent_colour_picker" type="color" data-colour-target="card_accent_colour" value="#000000"><input id="card_accent_colour" placeholder="#000000"></span><button type="button" class="button-secondary clear-field-button" data-clear="card_accent_colour">Clear</button></label>
+        <label class="profile-editor-field-card">Border colour<span class="colour-field"><input id="card_border_colour_picker" type="color" data-colour-target="card_border_colour" value="#000000"><input id="card_border_colour" placeholder="#000000"></span><button type="button" class="button-secondary clear-field-button" data-clear="card_border_colour">Clear</button></label>
+        <label class="profile-editor-field-card">Text colour<span class="colour-field"><input id="card_text_colour_picker" type="color" data-colour-target="card_text_colour" value="#000000"><input id="card_text_colour" placeholder="#ffffff"></span><button type="button" class="button-secondary clear-field-button" data-clear="card_text_colour">Clear</button></label>
+        <label class="profile-editor-field-card">Body text colour<span class="colour-field"><input id="card_body_text_colour_picker" type="color" data-colour-target="card_body_text_colour" value="#000000"><input id="card_body_text_colour" placeholder="#dbeafe"></span><button type="button" class="button-secondary clear-field-button" data-clear="card_body_text_colour">Clear</button></label>
+        <label class="profile-editor-field-card">Card layout<select id="card_layout"><option value="standard">standard</option><option value="compact">compact</option><option value="showcase">showcase</option></select></label>
+        <label class="profile-editor-field-card">Profile Card columns<select id="card_grid_columns"><option value="2">2 columns</option><option value="3">3 columns</option><option value="4">4 columns</option></select><small>Mobile may still stack.</small></label>
+      </div>
+    </section>
 
-      <section id="profile-background" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>4. Profile Page Background</h2>
-        <div class="editor-grid">
-          <div class="image-field-grid editor-field-wide"><label class="editor-field">Profile page background image/GIF URL <input name="profile_page_background_url" placeholder="https://..." /><small id="profile-bg-url-status">No background URL loaded.</small></label><div class="image-url-preview preview-background" data-preview-for="profile_page_background_url"><span>No preview</span></div></div>
-          <label class="editor-field">Profile page background colour <span class="colour-field"><input type="color" id="profile_page_background_colour_picker" data-colour-target="profile_page_background_colour" value="#000000"><input id="profile_page_background_colour" name="profile_page_background_colour" placeholder="#112233" /></span></label>
-          <label class="editor-field">Profile page background size <select name="profile_page_background_size"><option>cover</option><option>contain</option><option>repeat</option><option>stretch</option><option>center</option></select></label>
-          <div class="range-field editor-field editor-field-wide"><div class="range-label-row"><span>Profile page overlay strength</span><span id="overlay-strength-value" class="range-value">20%</span></div><input name="profile_page_overlay_strength" type="range" min="0" max="80" step="1" /></div>
-        </div>
-      </section>
+    <section id="profile-tab-display-tiles" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Profile Card Display Tiles</h2>
+      <p class="form-help">Untick “Show this tile” to hide a Profile Card tile immediately. Style and order settings stay saved unless you clear them.</p>
+      <div id="tile-settings" class="profile-card-tile-editor-grid"></div>
+    </section>
 
-      <section id="banner-footer" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>5. Banner &amp; Footer</h2>
-        <div class="editor-grid">
-          <div class="image-field-grid editor-field-wide"><label class="editor-field">Banner image/GIF URL <input name="banner_url" placeholder="https://..." /></label><div class="image-url-preview preview-banner" data-preview-for="banner_url"><span>No preview</span></div></div>
-          <label class="editor-field">Banner display size <select name="banner_display_size"><option>compact</option><option selected>wide</option><option>tall</option><option>full</option></select></label>
-          <div class="image-field-grid editor-field-wide"><label class="editor-field">Footer image/GIF URL <input name="profile_footer_url" placeholder="https://..." /></label><div class="image-url-preview preview-footer" data-preview-for="profile_footer_url"><span>No preview</span></div></div>
-          <label class="editor-field">Footer display size <select name="profile_footer_display_size"><option>compact</option><option selected>wide</option><option>tall</option><option>full</option></select></label>
-        </div>
-      </section>
+    <section id="profile-tab-page" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Profile Page Widgets</h2>
+      <p class="editor-help-text">Use Add Tiles on your Profile Page to show and hide widgets. Use Move Tiles on your Profile Page only to move and resize widgets. Resetting clears saved widget positions on your next save without changing widget styles.</p>
+      <div class="editor-actions">
+        <button id="reset-profile-page-layout" class="nav-button" type="button">Reset Profile Page Layout</button>
+        <a class="nav-button" href="/profile.html">Customise Profile</a>
+        <a class="nav-button" href="/profile.html#move-tiles">Move Tiles on Profile Page</a>
+      </div>
+    </section>
 
-      <section id="widget-styling" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>6. Profile Widget Styling</h2>
-        <p class="editor-help-text">Default widgets are transparent: opacity 0 and blur 0. Expand a widget to style only that tile.</p>
-        <div id="widget-style-editor" class="widget-style-list"></div>
-      </section>
+    <section id="profile-tab-styling" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Styling</h2>
+      <p class="editor-help-text">Default widgets are transparent: opacity 0 and blur 0. Expand a widget to style only that tile.</p>
+      <div id="widget-style-editor" class="widget-style-list"></div>
+    </section>
 
-      <section id="layout-visibility" class="editor-tile editor-tab-panel editor-tile-6">
-        <h2>7. Layout / Visibility</h2>
-        <p class="editor-help-text">Use Add Tiles on your Profile Page to show and hide widgets. Use Move Tiles on your Profile Page only to move and resize widgets. Resetting clears saved widget positions on your next save without changing widget styles.</p>
-        <div class="editor-actions">
-          <button id="reset-profile-page-layout" class="nav-button" type="button">Reset Profile Page Layout</button>
-          <a class="nav-button" href="/profile.html">View Profile</a>
-        </div>
-      </section>
-
-      <section id="save-profile" class="editor-tile editor-tab-panel editor-tile-6 save-profile-tile">
-        <h2>8. Save</h2>
-        <p class="editor-help-text">Save keeps your profile page tile layout, widget styling, background, banner, footer, links, and Profile Card settings together.</p>
-        <div class="editor-save-bar">
-          <button type="submit" class="nav-button primary-action">Save Profile</button>
-          <a class="nav-button" href="/profile.html">View Profile</a>
-          <a class="nav-button" href="/profile-card-edit.html">Edit Profile Card</a>
-        </div>
-      </section>
-    </div>
+    <section id="profile-tab-save" class="editor-tile editor-tab-panel" role="tabpanel" hidden>
+      <h2>Save / Review</h2>
+      <p class="editor-help-text">Save keeps profile basics, images, links, page widget styling, Profile Card appearance, display tiles, and Profile Card layout together.</p>
+      <ul class="profile-editor-save-summary">
+        <li>Profile basics/images/links save to your profile settings.</li>
+        <li>Profile Card appearance and display tiles save to Profile Card settings and JSON tile settings.</li>
+        <li>Hidden fields in inactive tabs are preserved and still included when saving.</li>
+      </ul>
+      <div class="editor-save-bar">
+        <button type="submit" class="nav-button primary-action primary-button">Save Changes</button>
+        <a class="nav-button" href="/profile.html">View Profile</a>
+        <a class="nav-button" href="/">View Dashboard</a>
+      </div>
+    </section>
   </form>
 </main>
 <script src="/scripts/theme.js"></script>
 <script src="/scripts/api-cache.js"></script>
-<script>
-function setupEditorTabs(rootSelector, buttonSelector, panelSelector) {
-  const root = document.querySelector(rootSelector) || document;
-  const buttons = root.querySelectorAll(buttonSelector);
-  const panels = root.querySelectorAll(panelSelector);
-
-  function activate(tabId) {
-    const fallbackTab = buttons[0]?.dataset.tab;
-    const nextTabId = Array.from(panels).some((panel) => panel.id === tabId) ? tabId : fallbackTab;
-    if (!nextTabId) return;
-
-    buttons.forEach((button) => {
-      const active = button.dataset.tab === nextTabId;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-
-    panels.forEach((panel) => {
-      const active = panel.id === nextTabId;
-      panel.hidden = !active;
-      panel.classList.toggle('active', active);
-    });
-
-    try {
-      history.replaceState(null, '', `#${nextTabId}`);
-    } catch {}
-  }
-
-  buttons.forEach((button) => {
-    button.addEventListener('click', () => activate(button.dataset.tab));
-  });
-
-  const initial = location.hash?.replace('#', '') || buttons[0]?.dataset.tab;
-  activate(initial);
-}
-const textFields=['display_name','profile_title','bio','location','website_url','steam_url','spotify_url','soundcloud_url','youtube_music_url','leetify_profile_url','refrag_profile_url','manual_refrag_rating','manual_refrag_counter_strafe_pct','manual_refrag_reaction_time','manual_refrag_ttd','manual_refrag_crosshair_drift','manual_refrag_last_updated_at','avatar_url','banner_url','status_message','profile_page_background_url','profile_page_background_colour','profile_footer_url'];
-const selectFields=['banner_display_size','profile_page_background_size','profile_footer_display_size'];
-const rangeFields=['profile_page_overlay_strength'];
-const hiddenState={profile_page_tile_layout_json:'',profile_page_widget_settings_json:'',profile_links_visibility_json:'{}'};
-let formDirty=false,profileLoaded=false;
-const HEX=/^#[0-9a-fA-F]{6}$/;
-const WIDGETS=[['profile-card','Profile Card'],['bio','Bio'],['status','Status'],['steam','Steam Profile'],['leetify','Leetify Profile'],['refrag','Refrag'],['links','Links'],['progress','Progress'],['showcase','Showcase'],['achievements','Achievements']];
-const DEFAULT_WIDGET_STYLE={backgroundColour:'',textColour:'',borderColour:'',accentColour:'',opacity:0,blur:0};
-const widgetStyleMap={};
-
-
-const LINK_VISIBILITY_FIELDS=[['website','Website','website_url'],['steam','Steam','steam_url'],['leetify','Leetify','leetify_profile_url'],['refrag','Refrag','refrag_profile_url'],['spotify','Spotify','spotify_url'],['soundcloud','SoundCloud','soundcloud_url'],['youtube_music','YouTube Music','youtube_music_url']];
-function parseLinkVisibility(raw){try{const parsed=typeof raw==='string'?JSON.parse(raw||'{}'):(raw||{});return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:{};}catch{return{};}}
-function renderLinksVisibilityControls(profile={}){const host=document.getElementById('links-tile-visibility');if(!host)return;const visibility=parseLinkVisibility(hiddenState.profile_links_visibility_json);host.innerHTML='';LINK_VISIBILITY_FIELDS.forEach(([key,label,field])=>{const hasLink=String(profile[field]||'').trim();const id=`links-visible-${key}`;const wrap=document.createElement('label');wrap.className='editor-field links-visibility-option';const input=document.createElement('input');input.type='checkbox';input.name=`profile_link_visible_${key}`;input.id=id;input.dataset.linkVisibilityKey=key;input.checked=visibility[key]!==false;input.disabled=!hasLink;const text=document.createElement('span');text.textContent=label;const help=document.createElement('small');help.textContent=hasLink?'Show in Links tile.':'Add this link first.';wrap.append(input,text,help);host.append(wrap);});}
-function collectLinkVisibility(){const out=parseLinkVisibility(hiddenState.profile_links_visibility_json);document.querySelectorAll('[data-link-visibility-key]').forEach((input)=>{out[input.dataset.linkVisibilityKey]=!!input.checked;});hiddenState.profile_links_visibility_json=JSON.stringify(out);return hiddenState.profile_links_visibility_json;}
-function currentLinkFormProfile(){const f=document.getElementById('profile-edit-form');const p={};LINK_VISIBILITY_FIELDS.forEach(([,fieldKey,field])=>{p[field]=f?.elements[field]?.value||'';});p.leetify_profile_url=f?.elements.leetify_profile_url?.value||'';p.refrag_profile_url=f?.elements.refrag_profile_url?.value||'';return p;}
-
-function escAttr(value){return String(value??'').replace(/[&<>"]/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
-function normaliseHexColour(value){const text=String(value||'').trim();if(!text)return'';const short=text.match(/^#([0-9a-f]{3})$/i);if(short)return`#${short[1].split('').map((c)=>c+c).join('')}`.toLowerCase();return /^#[0-9a-f]{6}$/i.test(text)?text.toLowerCase():'';}
-function bindColourPickers(root=document){root.querySelectorAll('input[type="color"][data-colour-target]').forEach((picker)=>{if(picker.dataset.colourBound==='1')return;picker.dataset.colourBound='1';const target=root.getElementById?.(picker.dataset.colourTarget)||document.getElementById(picker.dataset.colourTarget);if(!target)return;const syncFromText=()=>{const value=normaliseHexColour(target.value);if(value)picker.value=value;};const syncFromPicker=()=>{target.value=picker.value;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));};picker.addEventListener('input',syncFromPicker);picker.addEventListener('change',syncFromPicker);target.addEventListener('input',syncFromText);target.addEventListener('change',syncFromText);syncFromText();});}
-function updateImagePreview(input){const preview=document.querySelector(`[data-preview-for="${input.name}"]`);const value=String(input.value||'').trim();if(!preview)return;if(!value){preview.innerHTML='<span>No preview</span>';return;}if(!/^https?:\/\//i.test(value)){preview.innerHTML='<span>Invalid URL</span>';return;}preview.innerHTML=`<img src="${escAttr(value)}" alt="" loading="lazy">`;preview.querySelector('img').addEventListener('error',()=>{preview.innerHTML='<span>Preview failed</span>';},{once:true});}
-function bindImagePreviews(root=document){root.querySelectorAll('[data-preview-for]').forEach((preview)=>{const input=document.querySelector(`[name="${preview.dataset.previewFor}"]`);if(!input)return;input.addEventListener('input',()=>updateImagePreview(input));input.addEventListener('change',()=>updateImagePreview(input));updateImagePreview(input);});}
-function hexToRgba(hex,opacity){const value=normaliseHexColour(hex);if(!value)return'transparent';const n=value.slice(1);const r=parseInt(n.slice(0,2),16),g=parseInt(n.slice(2,4),16),b=parseInt(n.slice(4,6),16);return`rgba(${r}, ${g}, ${b}, ${Math.max(0,Math.min(100,Number(opacity)||0))/100})`;}
-function updateWidgetStylePreview(id){const preview=document.querySelector(`[data-widget-preview="${id}"]`);if(!preview)return;const s=widgetStyleMap[id]||defaultWidgetStyle();preview.style.setProperty('--profile-widget-preview-bg',s.backgroundColour?hexToRgba(s.backgroundColour,s.opacity):'transparent');preview.style.setProperty('--profile-widget-preview-text',s.textColour||'var(--text)');preview.style.setProperty('--profile-widget-preview-border',s.borderColour||'var(--border)');preview.style.setProperty('--profile-widget-preview-accent',s.accentColour||'currentColor');preview.style.backdropFilter=`blur(${Math.max(0,Number(s.blur)||0)}px)`;}
-function editStatusElement(){return document.getElementById('profile-edit-message');}
-function showAchievementToast(items){try{const panel=document.createElement('div');panel.className='achievement-toast';panel.innerHTML=`<strong>Achievement unlocked</strong><ul class='achievement-unlocked-list'>${items.map((a)=>`<li>${escAttr(a.title||a.achievement_key)} +${Number(a.xp_awarded||a.xp?.amount||0)} XP</li>`).join('')}</ul>`;document.body.append(panel);setTimeout(()=>panel.remove(),7000);}catch{}}
-function defaultWidgetStyle(){return {...DEFAULT_WIDGET_STYLE};}
-function updateOverlayLabel(){const el=document.querySelector('[name="profile_page_overlay_strength"]');document.getElementById('overlay-strength-value').textContent=`${el.value}%`;window.GREVTheme?.updateRangeProgress?.(el);}
-function normalizeWidgetStyles(raw){if(!raw)return{};let parsed;try{parsed=typeof raw==='string'?JSON.parse(raw):raw;}catch{return{}}if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return{};const out={};for(const [id] of WIDGETS){const s=parsed[id]||{};out[id]={backgroundColour:HEX.test(String(s.backgroundColour||'').trim())?String(s.backgroundColour).trim():'',textColour:HEX.test(String(s.textColour||'').trim())?String(s.textColour).trim():'',borderColour:HEX.test(String(s.borderColour||'').trim())?String(s.borderColour).trim():'',accentColour:HEX.test(String(s.accentColour||'').trim())?String(s.accentColour).trim():'',opacity:Math.max(0,Math.min(100,Number.isInteger(Number(s.opacity))?Number(s.opacity):0)),blur:Math.max(0,Math.min(20,Number.isInteger(Number(s.blur))?Number(s.blur):0))};}return out;}
-function widgetStyleSummary(id){const s=widgetStyleMap[id]||defaultWidgetStyle();if(!s.backgroundColour||Number(s.opacity||0)===0)return 'Transparent';return `Background ${s.backgroundColour} at ${Number(s.opacity||0)}%`;}
-function colourFieldHtml(id,key,label,placeholder,value){const textId=`widget_${id}_${key}`.replace(/[^a-zA-Z0-9_-]/g,'_');const normal=normaliseHexColour(value)||'#000000';return `<label class="editor-field">${label}<span class="colour-field"><input type="color" data-colour-target="${textId}" value="${normal}"><input id="${textId}" data-widget="${id}" data-key="${key}" placeholder="${placeholder}" value="${value||''}" /></span></label>`;}
-function renderWidgetStyleEditor(){const host=document.getElementById('widget-style-editor');host.innerHTML=WIDGETS.map(([id,label])=>{const s=widgetStyleMap[id]||defaultWidgetStyle();return `<details class="widget-style-row"><summary><span><strong>${label}</strong><small>${widgetStyleSummary(id)}</small></span><span class="nav-button widget-style-button">Style</span></summary><div class="widget-style-row-body"><div class="widget-style-controls editor-grid">${colourFieldHtml(id,'backgroundColour','Background colour','#111827',s.backgroundColour)}${colourFieldHtml(id,'textColour','Text colour','#ffffff',s.textColour)}${colourFieldHtml(id,'borderColour','Border colour','#334155',s.borderColour)}${colourFieldHtml(id,'accentColour','Accent colour','#4ade80',s.accentColour)}<div class="range-field editor-field editor-field-wide"><div class="range-label-row"><span>Tile background opacity</span><span class="range-value" data-widget="${id}" data-range="opacity">${Number(s.opacity||0)}%</span></div><input type="range" min="0" max="100" step="1" data-widget="${id}" data-key="opacity" value="${Number(s.opacity||0)}" /><small>0 = transparent, 100 = solid</small></div><div class="range-field editor-field editor-field-wide"><div class="range-label-row"><span>Blur</span><span class="range-value" data-widget="${id}" data-range="blur">${Number(s.blur||0)}px</span></div><input type="range" min="0" max="20" step="1" data-widget="${id}" data-key="blur" value="${Number(s.blur||0)}" /></div><button type="button" class="nav-button" data-clear-widget="${id}">Clear style</button></div><div class="widget-style-preview" data-widget-preview="${id}"><strong>${label}</strong><span>${id==='profile-card'?'Profile Card widget':'Example widget text'}</span></div></div></details>`;}).join('');bindColourPickers(host);host.querySelectorAll('input[data-widget]').forEach((el)=>el.addEventListener('input',()=>updateWidgetStyle(el.dataset.widget)));host.querySelectorAll('[data-clear-widget]').forEach((btn)=>btn.addEventListener('click',()=>{widgetStyleMap[btn.dataset.clearWidget]=defaultWidgetStyle();renderWidgetStyleEditor();syncWidgetSettingsJson();formDirty=true;}));window.GREVTheme?.initRangeSliders?.(host);for(const [id] of WIDGETS)updateWidgetStylePreview(id);}
-function updateWidgetStyle(id){const fields=document.querySelectorAll(`[data-widget="${id}"][data-key]`);const next=defaultWidgetStyle();fields.forEach((f)=>{const key=f.dataset.key;if(key==='opacity')next.opacity=Math.max(0,Math.min(100,Number(f.value)||0));else if(key==='blur')next.blur=Math.max(0,Math.min(20,Number(f.value)||0));else next[key]=normaliseHexColour(f.value);});widgetStyleMap[id]=next;const opacityEl=document.querySelector(`[data-widget="${id}"][data-range="opacity"]`);if(opacityEl)opacityEl.textContent=`${next.opacity}%`;const blurEl=document.querySelector(`[data-widget="${id}"][data-range="blur"]`);if(blurEl)blurEl.textContent=`${next.blur}px`;const row=document.querySelector(`[data-clear-widget="${id}"]`)?.closest('details')?.querySelector('summary small');if(row)row.textContent=widgetStyleSummary(id);fields.forEach((f)=>window.GREVTheme?.updateRangeProgress?.(f));updateWidgetStylePreview(id);syncWidgetSettingsJson();}
-function syncWidgetSettingsJson(){hiddenState.profile_page_widget_settings_json=JSON.stringify(widgetStyleMap);}
-function applyProfileToForm(p){p={...p,leetify_profile_url:p.leetify_profile_url||p.leetify_url||'',refrag_profile_url:p.refrag_profile_url||p.refrag_url||''};hiddenState.profile_links_visibility_json=p.profile_links_visibility_json||'{}';const f=document.getElementById('profile-edit-form');const bgStatus=document.getElementById('profile-bg-url-status');if(bgStatus)bgStatus.textContent=String(p.profile_page_background_url||'').trim()?'Loaded background URL.':'No profile page background URL set.';for(const k of textFields)if(f.elements[k])f.elements[k].value=p[k]||'';for(const k of selectFields)if(f.elements[k])f.elements[k].value=p[k]||f.elements[k].value;for(const k of rangeFields)if(f.elements[k])f.elements[k].value=Number.isInteger(Number(p[k]))?Number(p[k]):20;hiddenState.profile_page_tile_layout_json=p.profile_page_tile_layout_json||'';const normalized=normalizeWidgetStyles(p.profilePageWidgetSettings||p.profile_page_widget_settings_json);for(const [id] of WIDGETS)widgetStyleMap[id]=normalized[id]||defaultWidgetStyle();syncWidgetSettingsJson();renderWidgetStyleEditor();bindColourPickers();bindImagePreviews();updateOverlayLabel();renderLinksVisibilityControls(p);}
-async function load(){const s=editStatusElement();try{const cached=window.GREVApi?.readSessionCache?.('grev_api_cache:/api/profile/me');if(cached?.data?.profile&&!formDirty){applyProfileToForm(cached.data.profile);s.textContent='Loaded cached profile.';}let r=await fetch('/api/bootstrap/edit-profile');if(r.status===401){location.href='/unregistered.html';return;}let d=await r.json();if(!r.ok||!d?.ok){r=await fetch('/api/profile/me');if(r.status===401){location.href='/unregistered.html';return;}d=await r.json();}if(!r.ok){s.textContent=d.error||'Load failed';document.querySelector('#profile-edit-form button[type="submit"]').disabled=true;return;}const p=d.profile||{};if(!formDirty)applyProfileToForm(p);profileLoaded=true;document.querySelectorAll('#profile-edit-form button[type="submit"],button[form="profile-edit-form"]').forEach((btn)=>{btn.disabled=false;});s.textContent='Loaded.';}catch(e){s.textContent=`Load failed: ${e?.message||'Unknown error'}`;document.querySelectorAll('#profile-edit-form button[type="submit"],button[form="profile-edit-form"]').forEach((btn)=>{btn.disabled=true;});}}
-document.getElementById('reset-profile-page-layout').addEventListener('click',()=>{hiddenState.profile_page_tile_layout_json='';editStatusElement().textContent='Profile layout will reset on save. Widget styles are unchanged.';formDirty=true;});
-document.querySelector('[name="profile_page_overlay_strength"]').addEventListener('input',updateOverlayLabel);
-document.getElementById('profile-edit-form').addEventListener('input',(e)=>{formDirty=true;if(e.target?.name)updateImagePreview(e.target);if(['website_url','steam_url','leetify_profile_url','refrag_profile_url','spotify_url','soundcloud_url','youtube_music_url'].includes(e.target?.name)){collectLinkVisibility();renderLinksVisibilityControls(currentLinkFormProfile());}});
-document.getElementById('profile-edit-form').addEventListener('change',()=>{formDirty=true;});
-
-document.getElementById('check-leetify')?.addEventListener('click',async()=>{const status=document.getElementById('leetify-check-status');const form=document.getElementById('profile-edit-form');try{status.textContent='Saving profile before checking Leetify...';const body={};for(const k of textFields)body[k]=form.elements[k]?.value||'';for(const k of selectFields)body[k]=form.elements[k]?.value||'';for(const k of rangeFields)body[k]=Number(form.elements[k]?.value||20);body.profile_page_tile_layout_json=hiddenState.profile_page_tile_layout_json;body.profile_page_widget_settings_json=hiddenState.profile_page_widget_settings_json;body.profile_links_visibility_json=collectLinkVisibility();let r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let d=await r.json();if(!r.ok){status.textContent=`Save failed: ${d.error||'Unknown error'}`;return;}formDirty=false;if(d?.profile)applyProfileToForm(d.profile);status.textContent='Checking Leetify Public API...';r=await fetch('/api/integrations/leetify/profile?user_id='+encodeURIComponent(d.profile?.id||''));d=await r.json();if(d.available){status.textContent=`Leetify data available. ${d.nickname||d.name||'Profile found'} · Data Provided by Leetify`;return;}status.textContent=d.reason||'Leetify Public API data unavailable for this profile.';}catch(error){status.textContent=`Leetify check failed: ${error?.message||'Unknown error'}`;}});
-
-document.getElementById('profile-edit-form').addEventListener('submit',async(e)=>{e.preventDefault();const status=editStatusElement();if(!profileLoaded){status.textContent='Profile has not loaded yet. Please wait before saving.';return;}status.textContent='Saving...';const f=e.target,body={};for(const k of textFields)body[k]=f.elements[k]?.value||'';for(const k of selectFields)body[k]=f.elements[k]?.value||'';for(const k of rangeFields)body[k]=Number(f.elements[k]?.value||20);body.profile_page_tile_layout_json=hiddenState.profile_page_tile_layout_json;body.profile_page_widget_settings_json=hiddenState.profile_page_widget_settings_json;body.profile_links_visibility_json=collectLinkVisibility();const r=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();status.textContent=r.ok?'Profile saved.':`Save failed: ${d.error||'Unknown error'}`;if(r.ok){formDirty=false;if(d?.profile)applyProfileToForm(d.profile);if(d?.achievementsAwarded?.length)showAchievementToast(d.achievementsAwarded);}});
-setupEditorTabs('.profile-edit-page', '.profile-edit-tabs .editor-tab-button', '#profile-edit-form .editor-tab-panel');
-bindColourPickers();
-bindImagePreviews();
-load();
-</script>
+<script src="/scripts/player-card.js"></script>
+<script src="/scripts/profile-editor.js"></script>
 <script src="/scripts/auth-status.js"></script>
 </body>
 </html>
