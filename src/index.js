@@ -48,6 +48,15 @@ export default { async fetch(request, env) { try { const url = new URL(request.u
   if (url.pathname === '/api/profile/me' && request.method === 'GET') return safeJsonRoute('profile/me', () => handleProfileMe(request, env));
   if (url.pathname === '/api/profile/me' && request.method === 'POST') return handleProfileMeUpdate(request, env);
   if (url.pathname === '/api/profile/me/card' && request.method === 'POST') return handleProfileCardMeUpdate(request, env);
+  if (url.pathname === '/api/profile/cs2-connection' && request.method === 'GET') return safeJsonRoute('profile/cs2-connection', () => handleCs2ConnectionGet(request, env));
+  if (url.pathname === '/api/profile/cs2-connection' && request.method === 'POST') return handleCs2ConnectionPost(request, env);
+  if (url.pathname === '/api/profile/cs2-connection' && request.method === 'DELETE') return handleCs2ConnectionDelete(request, env);
+  if (url.pathname === '/api/profile/faceit-connection' && request.method === 'GET') return safeJsonRoute('profile/faceit-connection', () => handleFaceitConnectionGet(request, env));
+  if (url.pathname === '/api/profile/faceit-connection' && request.method === 'POST') return handleFaceitConnectionPost(request, env);
+  if (url.pathname === '/api/profile/faceit-connection' && request.method === 'DELETE') return handleFaceitConnectionDelete(request, env);
+  if (url.pathname === '/api/profile/cs2-sync' && request.method === 'POST') return handleCs2Sync(request, env);
+  if (url.pathname === '/api/profile/faceit-sync' && request.method === 'POST') return handleFaceitSync(request, env);
+  if (url.pathname === '/api/profile/external-stats' && request.method === 'GET') return safeJsonRoute('profile/external-stats', () => handleExternalStatsLookup(request, env));
   if (url.pathname === '/api/profile/me/rank' && request.method === 'POST') return handleProfileRankUpdate(request, env);
   if (url.pathname === '/api/profile/me/showcase-unlocks' && request.method === 'GET') return handleProfileMyShowcaseUnlocks(request, env);
   if (url.pathname === '/api/profile/me/unlocks' && request.method === 'GET') return handleProfileMyUnlocks(request, env);
@@ -337,6 +346,16 @@ async function ensureSettingsTables(db) {
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profile_page_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
 }
 
+async function ensureExternalCsStatsTables(db) {
+  // TODO: add encryption-at-rest for cs2_auth_code and latest_known_share_code when the repo has a shared secret helper.
+  await db.prepare("CREATE TABLE IF NOT EXISTS cs2_match_connections (user_id TEXT PRIMARY KEY, steam_id64 TEXT, steam_profile_url TEXT, cs2_auth_code TEXT, latest_known_share_code TEXT, is_enabled INTEGER DEFAULT 1, public_stats_enabled INTEGER DEFAULT 1, last_checked_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS faceit_connections (user_id TEXT PRIMARY KEY, faceit_username TEXT, faceit_profile_url TEXT, faceit_player_id TEXT, is_enabled INTEGER DEFAULT 1, public_stats_enabled INTEGER DEFAULT 1, last_checked_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS cs2_public_stats (user_id TEXT PRIMARY KEY, premier_rating TEXT, premier_rank TEXT, last_match_map TEXT, last_match_result TEXT, last_match_score TEXT, recent_form TEXT, matches_tracked INTEGER, last_synced_at TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS faceit_public_stats (user_id TEXT PRIMARY KEY, faceit_username TEXT, faceit_player_id TEXT, faceit_level INTEGER, faceit_elo INTEGER, last_match_map TEXT, last_match_result TEXT, last_match_score TEXT, recent_form TEXT, matches_tracked INTEGER, win_rate TEXT, last_synced_at TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS external_cs_matches (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, source TEXT CHECK (source IN ('premier', 'faceit')), external_match_id TEXT, safe_match_ref TEXT, map TEXT, match_date TEXT, team_score INTEGER, enemy_score INTEGER, result TEXT, kills INTEGER, deaths INTEGER, assists INTEGER, kd TEXT, rank_at_time TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_external_cs_matches_user_source ON external_cs_matches(user_id, source, match_date)").run();
+}
+
 async function handleDebugHealth(env) {
   const db = getDatabase(env);
   const coreTables = {};
@@ -554,6 +573,69 @@ async function handleProfileRankUpdate(request, env) {
     return handleProfileMe(request, env);
   } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
 }
+
+function normalizeTextLimit(value, max, label) {
+  const text = String(value ?? '').trim();
+  if (text.length > max) return { error: `${label} must be ${max} characters or fewer` };
+  return { value: text };
+}
+function normalizeSteamIdentifier(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return { steam_id64:'', steam_profile_url:'' };
+  if (text.length > 500) return { error:'Steam profile URL or SteamID64 must be 500 characters or fewer' };
+  if (/^\d{17}$/.test(text)) return { steam_id64:text, steam_profile_url:'' };
+  try {
+    const url = new URL(text);
+    const host = url.hostname.toLowerCase();
+    if ((url.protocol === 'https:' || url.protocol === 'http:') && (host === 'steamcommunity.com' || host.endsWith('.steamcommunity.com'))) return { steam_id64:'', steam_profile_url:url.toString() };
+  } catch {}
+  return { error:'Enter a valid SteamID64 or Steam Community profile URL' };
+}
+function normalizeFaceitIdentifier(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return { error:'FACEIT profile URL or username is required' };
+  if (text.length > 300) return { error:'FACEIT profile URL or username must be 300 characters or fewer' };
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const url = new URL(text);
+      const host = url.hostname.toLowerCase();
+      if (host === 'faceit.com' || host.endsWith('.faceit.com')) {
+        const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+        const nick = parts[parts.length - 1] || '';
+        if (nick && /^[A-Za-z0-9_.-]{2,40}$/.test(nick)) return { faceit_username:nick, faceit_profile_url:url.toString() };
+      }
+    } catch {}
+    return { error:'Enter a valid FACEIT profile URL' };
+  }
+  if (!/^[A-Za-z0-9_.-]{2,40}$/.test(text)) return { error:'FACEIT username can use letters, numbers, dots, underscores, and hyphens only' };
+  return { faceit_username:text, faceit_profile_url:'' };
+}
+function safeExternalInt(value) { const n=Number(value); return Number.isFinite(n) ? Math.round(n) : null; }
+function publicCs2StatsFromRow(row) { if (!row) return null; return { premier_rating:row.premier_rating||'', premier_rank:row.premier_rank||'', last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
+function publicFaceitStatsFromRow(row) { if (!row) return null; return { faceit_username:row.faceit_username||'', faceit_player_id:row.faceit_player_id||'', faceit_level:row.faceit_level==null?null:Number(row.faceit_level), faceit_elo:row.faceit_elo==null?null:Number(row.faceit_elo), last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), win_rate:row.win_rate||'', last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
+async function getPublicExternalStats(db, userId) {
+  await ensureExternalCsStatsTables(db);
+  const [cs2, faceit] = await Promise.all([
+    db.prepare("SELECT s.* FROM cs2_public_stats s JOIN cs2_match_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1").bind(String(userId)).first().catch(()=>null),
+    db.prepare("SELECT s.* FROM faceit_public_stats s JOIN faceit_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1").bind(String(userId)).first().catch(()=>null)
+  ]);
+  const out={};
+  const cs2Stats=publicCs2StatsFromRow(cs2); if (cs2Stats) out.cs2=cs2Stats;
+  const faceitStats=publicFaceitStatsFromRow(faceit); if (faceitStats) out.faceit=faceitStats;
+  return out;
+}
+function serializeCs2Connection(row) { return { connected:!!row, steam_id64:row?.steam_id64||'', steam_profile_url:row?.steam_profile_url||'', public_stats_enabled:row?Number(row.public_stats_enabled)!==0:1, is_enabled:row?Number(row.is_enabled)!==0:1, last_checked_at:row?.last_checked_at||'', created_at:row?.created_at||'', updated_at:row?.updated_at||'', has_auth_code:!!row?.cs2_auth_code, has_latest_share_code:!!row?.latest_known_share_code, masked_auth_code_present:!!row?.cs2_auth_code, masked_latest_share_code_present:!!row?.latest_known_share_code }; }
+function serializeFaceitConnection(row) { return { connected:!!row, faceit_username:row?.faceit_username||'', faceit_profile_url:row?.faceit_profile_url||'', faceit_player_id:row?.faceit_player_id||'', public_stats_enabled:row?Number(row.public_stats_enabled)!==0:1, is_enabled:row?Number(row.is_enabled)!==0:1, last_checked_at:row?.last_checked_at||'', created_at:row?.created_at||'', updated_at:row?.updated_at||'' }; }
+async function getOwnerConnectionUser(request, env) { const user=await getCurrentUser(request, env); if(!user) return { error:json({ok:false,error:'Not logged in'},401) }; const db=getDatabase(env); await ensureCoreSchemaOnce(db); await ensureExternalCsStatsTables(db); return { user, db }; }
+async function handleCs2ConnectionGet(request, env) { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const row=await ctx.db.prepare('SELECT * FROM cs2_match_connections WHERE user_id=?').bind(String(ctx.user.id)).first(); return json({ ok:true, connection:serializeCs2Connection(row) }, 200, { 'Cache-Control':'no-store' }); }
+async function handleCs2ConnectionPost(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const body=await readJsonBody(request); const steam=normalizeSteamIdentifier(body?.steam_identifier || body?.steam_id64 || body?.steam_profile_url); if(steam.error) return json({ok:false,error:steam.error},400); const auth=normalizeTextLimit(body?.cs2_auth_code, 128, 'CS2 authentication code'); if(auth.error) return json({ok:false,error:auth.error},400); const share=normalizeTextLimit(body?.latest_known_share_code, 250, 'Latest match token / sharing code'); if(share.error) return json({ok:false,error:share.error},400); if(!steam.steam_id64&&!steam.steam_profile_url) return json({ok:false,error:'SteamID64 or Steam profile URL is required'},400); const userId=String(ctx.user.id); await ctx.db.prepare('INSERT INTO cs2_match_connections (user_id, created_at, updated_at) VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO NOTHING').bind(userId).run(); const existing=await ctx.db.prepare('SELECT cs2_auth_code, latest_known_share_code FROM cs2_match_connections WHERE user_id=?').bind(userId).first(); const authValue=auth.value || existing?.cs2_auth_code || ''; const shareValue=share.value || existing?.latest_known_share_code || ''; await ctx.db.prepare("UPDATE cs2_match_connections SET steam_id64=?, steam_profile_url=?, cs2_auth_code=?, latest_known_share_code=?, is_enabled=?, public_stats_enabled=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(steam.steam_id64, steam.steam_profile_url, authValue, shareValue, normalizeBool01(body?.is_enabled,1), normalizeBool01(body?.public_stats_enabled,1), userId).run(); const row=await ctx.db.prepare('SELECT * FROM cs2_match_connections WHERE user_id=?').bind(userId).first(); return json({ok:true,connection:serializeCs2Connection(row)},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
+async function handleCs2ConnectionDelete(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const userId=String(ctx.user.id); await ctx.db.prepare('DELETE FROM cs2_match_connections WHERE user_id=?').bind(userId).run(); await ctx.db.prepare('DELETE FROM cs2_public_stats WHERE user_id=?').bind(userId).run(); await ctx.db.prepare("DELETE FROM external_cs_matches WHERE user_id=? AND source='premier'").bind(userId).run(); return json({ok:true,connection:serializeCs2Connection(null)},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
+async function handleFaceitConnectionGet(request, env) { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const row=await ctx.db.prepare('SELECT * FROM faceit_connections WHERE user_id=?').bind(String(ctx.user.id)).first(); return json({ ok:true, connection:serializeFaceitConnection(row) }, 200, { 'Cache-Control':'no-store' }); }
+async function handleFaceitConnectionPost(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const body=await readJsonBody(request); const parsed=normalizeFaceitIdentifier(body?.faceit_identifier || body?.faceit_username || body?.faceit_profile_url); if(parsed.error) return json({ok:false,error:parsed.error},400); const userId=String(ctx.user.id); await ctx.db.prepare('INSERT INTO faceit_connections (user_id, created_at, updated_at) VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO NOTHING').bind(userId).run(); await ctx.db.prepare("UPDATE faceit_connections SET faceit_username=?, faceit_profile_url=?, is_enabled=?, public_stats_enabled=?, updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(parsed.faceit_username, parsed.faceit_profile_url, normalizeBool01(body?.is_enabled,1), normalizeBool01(body?.public_stats_enabled,1), userId).run(); const row=await ctx.db.prepare('SELECT * FROM faceit_connections WHERE user_id=?').bind(userId).first(); return json({ok:true,connection:serializeFaceitConnection(row)},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
+async function handleFaceitConnectionDelete(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const userId=String(ctx.user.id); await ctx.db.prepare('DELETE FROM faceit_connections WHERE user_id=?').bind(userId).run(); await ctx.db.prepare('DELETE FROM faceit_public_stats WHERE user_id=?').bind(userId).run(); await ctx.db.prepare("DELETE FROM external_cs_matches WHERE user_id=? AND source='faceit'").bind(userId).run(); return json({ok:true,connection:serializeFaceitConnection(null)},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
+async function handleCs2Sync(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const row=await ctx.db.prepare('SELECT user_id, steam_id64, steam_profile_url, cs2_auth_code, latest_known_share_code FROM cs2_match_connections WHERE user_id=? AND is_enabled=1').bind(String(ctx.user.id)).first(); if(!row) return json({ok:false,error:'CS2 Match History connection is not saved yet'},400); if(!row.cs2_auth_code || !row.latest_known_share_code) return json({ok:false,error:'CS2 authentication code and latest match token are required before sync'},400); await ctx.db.prepare("UPDATE cs2_match_connections SET last_checked_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(String(ctx.user.id)).run(); return json({ok:true,synced:false,message:'Valve Premier sync is scaffolded. Credentials are saved privately for the Phase 3 fetcher.'},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
+async function handleFaceitSync(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const key=String(env.FACEIT_API_KEY || env.FACEIT_API_TOKEN || '').trim(); if(!key) return json({ok:false,error:'FACEIT sync is configured but FACEIT_API_KEY is not set on the server'},503); const conn=await ctx.db.prepare('SELECT * FROM faceit_connections WHERE user_id=? AND is_enabled=1').bind(String(ctx.user.id)).first(); if(!conn?.faceit_username) return json({ok:false,error:'FACEIT connection is not saved yet'},400); await ctx.db.prepare("UPDATE faceit_connections SET last_checked_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(String(ctx.user.id)).run(); return json({ok:true,synced:false,message:'FACEIT API key is available; detailed stat sync remains scaffolded for Phase 2.'},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
+async function handleExternalStatsLookup(request, env) { const user=await getCurrentUser(request, env); if(!user) return json({ok:false,error:'Not logged in'},401); const db=getDatabase(env); await ensureCoreSchemaOnce(db); const url=new URL(request.url); let targetId=Number(url.searchParams.get('id') || user.id); const username=String(url.searchParams.get('user')||'').trim(); if(username){const row=await db.prepare('SELECT id FROM users WHERE username=?').bind(username).first(); if(!row) return json({ok:false,error:'User not found'},404); targetId=Number(row.id);} if(!Number.isInteger(targetId)||targetId<1) return json({ok:false,error:'Invalid user id'},400); return json({ok:true,externalStats:await getPublicExternalStats(db,targetId)},200,{'Cache-Control':'private, max-age=60'}); }
 
 async function handleAccount(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchemaOnce(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); return json({ ok: true, user: { ...serializeUser(row), created_at: row.created_at || null } }); }
 async function handleAccountPassword(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const currentPassword = body?.currentPassword ?? ''; const newPassword = body?.newPassword ?? ''; const confirmPassword = body?.confirmPassword ?? ''; if (!currentPassword) return json({ ok: false, error: 'Current password is required' }, 400); if (!newPassword) return json({ ok: false, error: 'New password is required' }, 400); if (!confirmPassword) return json({ ok: false, error: 'Confirm password is required' }, 400); if (newPassword !== confirmPassword) return json({ ok: false, error: 'New passwords do not match' }, 400); const db = getDatabase(env); await ensureSchemaOnce(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, password_hash FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); const valid = await verifyPassword(currentPassword, row.password_hash); if (!valid) return json({ ok: false, error: 'Current password is incorrect' }, 400); const passwordHash = await hashPassword(newPassword); await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, user.id).run(); await logAudit(db, user.id, user.id, 'password_changed', {}); return json({ ok: true }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
@@ -915,6 +997,7 @@ async function ensureCoreSchema(db) {
   await db.prepare("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, banner_display_size TEXT NOT NULL DEFAULT 'wide', profile_background_url TEXT, profile_background_size TEXT NOT NULL DEFAULT 'cover', selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
   await ensureProfileColumnsLite(db);
+  await ensureExternalCsStatsTables(db);
   await db.prepare("CREATE TABLE IF NOT EXISTS homepage_tile_config (tile_id TEXT PRIMARY KEY, label TEXT NOT NULL, default_size TEXT NOT NULL, allowed_sizes_json TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
   await ensureHomepageTileConfigLite(db);
   try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)").run(); } catch {}
@@ -1080,6 +1163,7 @@ async function createSchemaTables(db) { await db.prepare("CREATE TABLE IF NOT EX
   await db.prepare("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, details_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS homepage_tile_config (tile_id TEXT PRIMARY KEY, label TEXT NOT NULL, default_size TEXT NOT NULL, allowed_sizes_json TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
   await ensureSettingsTables(db);
+  await ensureExternalCsStatsTables(db);
 
   await db.prepare("CREATE TABLE IF NOT EXISTS chat_rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, room_key TEXT NOT NULL UNIQUE, room_type TEXT NOT NULL, name TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS chat_room_members (room_id INTEGER NOT NULL, user_id INTEGER NOT NULL, joined_at TEXT NOT NULL DEFAULT (datetime('now')), last_read_message_id INTEGER, PRIMARY KEY (room_id, user_id), FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
@@ -1127,7 +1211,8 @@ async function getUserProfileBundle(request, env, userId, { includeUnlockedRanks
     const unlockedRanks = includeUnlockedRanks ? getUnlockedRanks(progress.accountLevel, rankList) : undefined;
     const showcase = await getPublicShowcaseSlots(db, row.id).catch(() => []);
     const achievements = await getPublicAchievementSummary(db, row.id).catch(() => ({ count: 0, xpFromAchievements: 0, latest: [] }));
-    return { profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, ...(unlockedRanks ? { unlockedRanks } : {}) }, ranks };
+    const externalStats = await getPublicExternalStats(db, row.id).catch(() => ({}));
+    return { profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, externalStats, ...(unlockedRanks ? { unlockedRanks } : {}) }, ranks };
   } catch (error) { console.error('[profile/bundle] failed', { message: error?.message || String(error), stack: error?.stack || '' }); throw error; }
 }
 function normalizeDashboardBackgroundPayload(body = {}) {

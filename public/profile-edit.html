@@ -87,6 +87,45 @@
         <label class="profile-editor-field-card">Manual Refrag Crosshair Drift <input name="manual_refrag_crosshair_drift" maxlength="50" /></label>
         <label class="profile-editor-field-card">Manual Refrag Last Updated At <input name="manual_refrag_last_updated_at" maxlength="40" placeholder="2026-05-06" /></label>
       </div>
+      <section class="external-cs-editor" aria-labelledby="external-cs-editor-title">
+        <div class="section-heading-row">
+          <div>
+            <h3 id="external-cs-editor-title">External CS2 Stats</h3>
+            <p class="form-help">Connect Valve Premier match history and FACEIT separately. These saves do not change normal profile fields.</p>
+          </div>
+        </div>
+        <div class="external-cs-grid">
+          <div class="profile-editor-field-card external-cs-panel">
+            <h4>CS2 Premier Match History</h4>
+            <p id="cs2-connection-status" class="external-connection-status">CS2 Match History not connected.</p>
+            <label>Steam Profile URL or SteamID64 <input id="cs2-steam-identifier" maxlength="500" placeholder="https://steamcommunity.com/id/... or 7656..." /></label>
+            <label>CS2 Authentication Code <input id="cs2-auth-code" maxlength="128" autocomplete="off" placeholder="Enter your code" /></label>
+            <label>Most Recently Completed Match Token / Sharing Code <input id="cs2-share-code" maxlength="250" autocomplete="off" placeholder="Enter your latest match token" /></label>
+            <label class="checkbox-row"><input id="cs2-public-stats-enabled" type="checkbox" checked /> Show CS2 Premier stats publicly</label>
+            <a class="external-helper-link" href="https://help.steampowered.com/en/wizard/HelpWithGameIssue?appid=730&amp;issueid=128&amp;ref=leetify.com" target="_blank" rel="noopener noreferrer">Get your CS2 Match History Code from Steam</a>
+            <small>Your CS2 authentication code is private. It is only used server-side to fetch your CS2 match history. It is never shown publicly.</small>
+            <small>Treat this code like a private credential because it grants access to CS2 match history.</small>
+            <div class="external-cs-actions">
+              <button type="button" class="nav-button" id="save-cs2-connection">Save CS2 Connection</button>
+              <button type="button" class="nav-button button-secondary" id="sync-cs2-stats">Sync CS2 Stats</button>
+              <button type="button" class="nav-button danger-button" id="disconnect-cs2">Disconnect CS2</button>
+            </div>
+          </div>
+          <div class="profile-editor-field-card external-cs-panel">
+            <h4>FACEIT Profile</h4>
+            <p id="faceit-connection-status" class="external-connection-status">FACEIT not connected.</p>
+            <label>FACEIT Profile URL or Username <input id="faceit-identifier" maxlength="300" placeholder="FACEIT username or profile URL" /></label>
+            <label class="checkbox-row"><input id="faceit-public-stats-enabled" type="checkbox" checked /> Show FACEIT stats publicly</label>
+            <small>FACEIT stats are pulled using your public FACEIT profile details. The site’s FACEIT API key is kept server-side.</small>
+            <div class="external-cs-actions">
+              <button type="button" class="nav-button" id="save-faceit-connection">Save FACEIT Connection</button>
+              <button type="button" class="nav-button button-secondary" id="sync-faceit-stats">Sync FACEIT Stats</button>
+              <button type="button" class="nav-button danger-button" id="disconnect-faceit">Disconnect FACEIT</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <h3>Links Tile Visibility</h3>
       <p class="form-help">Choose which saved links appear inside your Profile Page and Your Dashboard Links tile.</p>
       <div id="links-tile-visibility" class="links-visibility-grid profile-editor-section-grid"></div>
