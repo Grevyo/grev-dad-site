@@ -2266,8 +2266,8 @@ input[type="color"]::-moz-color-swatch {
   display: inline-grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text);
   text-decoration: none;
   border-radius: 0;
@@ -2284,7 +2284,9 @@ input[type="color"]::-moz-color-swatch {
 .links-tile-icon-button:focus-visible,
 .links-tile-button:focus-visible,
 .profile-card-link-icon:focus-visible {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+  background: transparent;
 }
 
 .link-service-icon {
@@ -2656,7 +2658,53 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* External CS2 stats connections */
+/* External CS2/FACEIT owner-only connection panels */
+.external-connection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.external-connection-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+}
+.external-connection-panel h3,
+.external-connection-panel p {
+  margin: 0;
+}
+.external-connection-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.external-connection-status {
+  color: var(--text-muted);
+  font-size: .9rem;
+}
+.external-connection-fields {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.external-connection-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.external-connection-toggle input {
+  width: auto;
+}
+.external-connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.danger-button {
+  border-color: color-mix(in srgb, #f87171 60%, var(--border));
+  color: #fecaca;
+}
 /* Profile Card advanced tile settings refresh */
 .editor-advanced-section {
   margin-top: 16px;

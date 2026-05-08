@@ -81,6 +81,49 @@
         <label class="profile-editor-field-card">YouTube Music URL <input name="youtube_music_url" type="url" maxlength="500" placeholder="https://music.youtube.com/..." /></label>
         <label class="profile-editor-field-card">YouTube URL <input name="youtube_url" type="url" maxlength="500" placeholder="https://www.youtube.com/@handle" /><small>Use a YouTube channel, handle, user, custom, or video URL.</small></label>
       </div>
+      <div class="external-connection-grid" aria-label="Private CS2 and FACEIT connections">
+        <section class="external-connection-panel" aria-labelledby="cs2-connection-title">
+          <div class="external-connection-panel-header">
+            <div>
+              <h3 id="cs2-connection-title">CS2 Premier Match History</h3>
+              <p id="cs2-connection-status" class="external-connection-status" aria-live="polite">CS2 Match History not connected.</p>
+            </div>
+          </div>
+          <p class="form-help">Uses your existing Steam URL above as the public Steam profile link.</p>
+          <p class="form-help">Current Steam URL: <span id="cs2-steam-url-source">No Steam URL set in Links yet.</span></p>
+          <div class="profile-editor-section-grid external-connection-fields">
+            <label class="profile-editor-field-card">SteamID64, if needed <input id="cs2-steam-id64" maxlength="17" inputmode="numeric" autocomplete="off" placeholder="7656119..." /></label>
+            <label class="profile-editor-field-card">CS2 Authentication Code <input id="cs2-auth-code" maxlength="128" autocomplete="off" placeholder="Enter your code" /></label>
+            <label class="profile-editor-field-card">Most Recently Completed Match Token / Sharing Code <input id="cs2-share-code" maxlength="250" autocomplete="off" placeholder="Enter your latest match token" /></label>
+            <label class="profile-editor-field-card external-connection-toggle"><input id="cs2-public-stats-enabled" type="checkbox" checked /> <span>Show CS2 Premier stats publicly, for future use</span></label>
+          </div>
+          <p class="form-help"><a href="https://help.steampowered.com/en/wizard/HelpWithGameIssue?appid=730&amp;issueid=128&amp;ref=leetify.com" target="_blank" rel="noopener noreferrer">Get your CS2 Match History Code from Steam</a></p>
+          <p class="form-help">Your CS2 authentication code is private. It is only used server-side to fetch your CS2 match history. It is never shown publicly.</p>
+          <div class="external-connection-actions">
+            <button id="save-cs2-connection" type="button" class="button-secondary">Save CS2 Connection</button>
+            <button id="disconnect-cs2" type="button" class="button-secondary danger-button">Disconnect CS2</button>
+            <button id="sync-cs2-stats" type="button" class="button-secondary">Sync CS2</button>
+          </div>
+        </section>
+        <section class="external-connection-panel" aria-labelledby="faceit-connection-title">
+          <div class="external-connection-panel-header">
+            <div>
+              <h3 id="faceit-connection-title">FACEIT Profile</h3>
+              <p id="faceit-connection-status" class="external-connection-status" aria-live="polite">FACEIT not connected.</p>
+            </div>
+          </div>
+          <div class="profile-editor-section-grid external-connection-fields">
+            <label class="profile-editor-field-card">FACEIT Profile URL or Username <input id="faceit-identifier" maxlength="300" autocomplete="off" placeholder="https://www.faceit.com/en/players/... or username" /></label>
+            <label class="profile-editor-field-card external-connection-toggle"><input id="faceit-public-stats-enabled" type="checkbox" checked /> <span>Show FACEIT stats publicly, for future use</span></label>
+          </div>
+          <p class="form-help">FACEIT stats are pulled using your public FACEIT profile details. The site’s FACEIT API key is kept server-side.</p>
+          <div class="external-connection-actions">
+            <button id="save-faceit-connection" type="button" class="button-secondary">Save FACEIT Connection</button>
+            <button id="disconnect-faceit" type="button" class="button-secondary danger-button">Disconnect FACEIT</button>
+            <button id="sync-faceit-stats" type="button" class="button-secondary">Sync FACEIT</button>
+          </div>
+        </section>
+      </div>
       <h3>Links Tile Visibility</h3>
       <p class="form-help">Choose which saved links appear inside your Profile Page and Your Dashboard Links tile.</p>
       <div id="links-tile-visibility" class="links-visibility-grid profile-editor-section-grid"></div>
