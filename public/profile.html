@@ -205,6 +205,49 @@ function updateProfileCardWidgetWithLeetifyData(){
 }
 function showAchievementToast(items){try{const panel=document.createElement('div');panel.className='achievement-toast';panel.innerHTML=`<strong>Achievement unlocked</strong><ul class='achievement-unlocked-list'>${items.map((a)=>`<li>${esc(a.title||a.achievement_key)} +${Number(a.xp_awarded||a.xp?.amount||0)} XP</li>`).join('')}</ul>`;document.body.append(panel);setTimeout(()=>panel.remove(),7000);}catch{}}
 function render(p){p={...p,leetify_profile_url:p.leetify_profile_url||p.leetify_url||'',leetify_url:p.leetify_profile_url||p.leetify_url||'',refrag_profile_url:p.refrag_profile_url||p.refrag_url||'',refrag_url:p.refrag_profile_url||p.refrag_url||''};currentProfile=p;currentProfile.profileLayout=parseProfileLayout(p.profile_page_tile_layout_json);currentProfile.widgetStyleMap=normalizeWidgetStyles(p.profile_page_widget_settings_json);const bgMode=safeBackgroundSize(p.profile_page_background_size||'cover');const bgUrl=String(p.profile_page_background_url||'').trim();const bgColour=String(p.profile_page_background_colour||'').trim();const overlayRaw=Number(p.profile_page_overlay_strength??20);const overlay=Math.min(80,Math.max(0,Number.isFinite(overlayRaw)?overlayRaw:20));if(DEBUG_PROFILE_BG){console.debug('[profile:bg]',{profile_page_background_url:p.profile_page_background_url,profile_page_background_colour:p.profile_page_background_colour,profile_page_background_size:p.profile_page_background_size,profile_page_overlay_strength:p.profile_page_overlay_strength});}const shell=document.createElement('section');shell.className='profile-page-custom-shell';shell.style.setProperty('--profile-overlay',bgUrl?String(overlay/100):'0');shell.style.setProperty('--profile-page-bg-colour',bgColour||'transparent');if(bgUrl){shell.style.setProperty('--profile-page-bg-image',`url("${bgUrl.replace(/"/g,'%22')}")`);}else{shell.style.setProperty('--profile-page-bg-image','none');}if(bgMode==='stretch'){shell.style.setProperty('--profile-page-bg-size','100% 100%');shell.style.setProperty('--profile-page-bg-repeat','no-repeat');shell.style.setProperty('--profile-page-bg-position','center top');}else if(bgMode==='repeat'){shell.style.setProperty('--profile-page-bg-size','auto');shell.style.setProperty('--profile-page-bg-repeat','repeat');shell.style.setProperty('--profile-page-bg-position','center top');}else if(bgMode==='center'){shell.style.setProperty('--profile-page-bg-size','auto');shell.style.setProperty('--profile-page-bg-repeat','no-repeat');shell.style.setProperty('--profile-page-bg-position','center center');}else{shell.style.setProperty('--profile-page-bg-size',bgMode);shell.style.setProperty('--profile-page-bg-repeat','no-repeat');shell.style.setProperty('--profile-page-bg-position','center top');}shell.innerHTML=`${p.banner_url?`<section class='profile-page-banner profile-banner-size-${esc(p.banner_display_size||'wide')}' style='background-image:url("${esc(p.banner_url)}")'></section>`:''}<div class='profile-page-board-wrap'><section id='profile-page-board' class='profile-page-board'></section></div><aside id='profile-layout-panel' class='profile-layout-panel' hidden></aside><aside id='profile-customise-sidebar' class='profile-customise-sidebar' hidden><div class='profile-customise-header'><h2>Add Tiles</h2><button id='close-profile-customise' type='button'>Close</button></div><div id='profile-widget-library'></div><button id='save-profile-customisation' class='nav-button' type='button'>Save Profile Customisation</button></aside>${p.profile_footer_url?`<section class='profile-page-footer-media profile-footer-size-${esc(p.profile_footer_display_size||'wide')}' style='background-image:url("${esc(p.profile_footer_url)}")'></section>`:''}`;const v=document.getElementById('profile-view');v.innerHTML='';v.append(shell);renderProfileTilePositions(currentProfile.profileLayout,p);createProfileEditControls(p);buildPanel(p);}
-async function load(){const statusEl=document.getElementById('profile-status');const params=new URLSearchParams(location.search);const viewedUserId=params.get('id');const profileUrl=viewedUserId?`/api/bootstrap/profile?id=${encodeURIComponent(viewedUserId)}`:'/api/bootstrap/profile';let endpointUsed=profileUrl;try{const boot=window.GREVApi?.fetchJsonCached?await window.GREVApi.fetchJsonCached(profileUrl,{ttlMs:30000,cacheKey:`grev_api_cache:${profileUrl}`}):{data:await fetch(profileUrl).then(r=>r.json())};if(boot?.data?.ok){const authUser=boot.data?.viewer||boot.data?.user||null;const profile=boot.data.profile||{};meId=authUser?.id||null;profileIsOwner=Object.prototype.hasOwnProperty.call(boot.data,'isOwner')?Boolean(boot.data.isOwner):Boolean(authUser&&profile&&String(authUser.id)===String(profile.id));render(profile);statusEl.textContent='Loaded.';if(DEBUG_PROFILE_NAV)console.debug('[profile nav]',{viewedUserId,endpointUsed,loadedProfileId:profile?.id,viewerId:authUser?.id,isOwner:profileIsOwner});return;}}catch(e){console.warn('[profile] bootstrap failed, falling back',e);}const authPromise=(window.GREVApi?.fetchJsonCached?window.GREVApi.fetchJsonCached('/api/auth/me',{ttlMs:15000,cacheKey:'grev_api_cache:/api/auth/me'}).then(x=>x.data):fetch('/api/auth/me').then(r=>r.json())).catch(()=>null);const fallbackProfileUrl=viewedUserId?`/api/profile?id=${encodeURIComponent(viewedUserId)}`:'/api/profile/me';endpointUsed=fallbackProfileUrl;const profilePromise=(window.GREVApi?.fetchJsonCached?window.GREVApi.fetchJsonCached(fallbackProfileUrl,{ttlMs:60000,cacheKey:`grev_api_cache:${fallbackProfileUrl}`}).then(x=>x.data):fetch(fallbackProfileUrl).then(r=>r.json()));const [authResult, profileResult]=await Promise.allSettled([authPromise,profilePromise]);if(profileResult.status!=='fulfilled'||!profileResult.value?.ok){statusEl.textContent=profileResult.value?.error||'Load failed';return;}const authUser=authResult.status==='fulfilled'?(authResult.value?.user||authResult.value?.viewer||null):null;const profile=profileResult.value.profile||{};meId=authUser?.id||null;profileIsOwner=Object.prototype.hasOwnProperty.call(profileResult.value,'isOwner')?Boolean(profileResult.value.isOwner):Boolean(authUser&&profile&&String(authUser.id)===String(profile.id));render(profile);statusEl.textContent='Loaded.';if(DEBUG_PROFILE_NAV)console.debug('[profile nav]',{viewedUserId,endpointUsed,loadedProfileId:profile?.id,viewerId:authUser?.id,isOwner:profileIsOwner});}load();
+async function load(){
+  const statusEl=document.getElementById('profile-status');
+  const params=new URLSearchParams(location.search);
+  const viewedUserId=params.get('id');
+  const profileUrl=viewedUserId?`/api/bootstrap/profile?id=${encodeURIComponent(viewedUserId)}`:'/api/bootstrap/profile';
+  let endpointUsed=profileUrl;
+  try{
+    const boot=window.GREVApi?.fetchJsonCached?await window.GREVApi.fetchJsonCached(profileUrl,{ttlMs:30000,cacheKey:`grev_api_cache:${profileUrl}`}):{data:await fetch(profileUrl).then(r=>r.json())};
+    if(boot?.data?.ok){
+      const authUser=boot.data?.viewer||boot.data?.user||null;
+      const profile=boot.data.profile||{};
+      meId=authUser?.id||null;
+      profileIsOwner=Object.prototype.hasOwnProperty.call(boot.data,'isOwner')?Boolean(boot.data.isOwner):Boolean(authUser&&profile&&String(authUser.id)===String(profile.id));
+      render(profile);
+      statusEl.textContent='Loaded.';
+      if(DEBUG_PROFILE_NAV)console.debug('[profile nav]',{viewedUserId,endpointUsed,loadedProfileId:profile?.id,viewerId:authUser?.id,isOwner:profileIsOwner});
+      return;
+    }
+    console.warn('[profile] bootstrap returned ok:false, falling back',{endpointUsed,boot});
+  }catch(e){
+    console.warn('[profile] bootstrap failed, falling back',{endpointUsed,error:e});
+  }
+  const authPromise=(window.GREVApi?.fetchJsonCached?window.GREVApi.fetchJsonCached('/api/auth/me',{ttlMs:15000,cacheKey:'grev_api_cache:/api/auth/me'}).then(x=>x.data):fetch('/api/auth/me').then(r=>r.json())).catch(()=>null);
+  const fallbackProfileUrl=viewedUserId?`/api/profile?id=${encodeURIComponent(viewedUserId)}`:'/api/profile/me';
+  endpointUsed=fallbackProfileUrl;
+  const profilePromise=(window.GREVApi?.fetchJsonCached?window.GREVApi.fetchJsonCached(fallbackProfileUrl,{ttlMs:60000,cacheKey:`grev_api_cache:${fallbackProfileUrl}`}).then(x=>x.data):fetch(fallbackProfileUrl).then(r=>r.json()));
+  const [authResult,profileResult]=await Promise.allSettled([authPromise,profilePromise]);
+  if(profileResult.status!=='fulfilled'||!profileResult.value?.ok){
+    const errorText=profileResult.status==='fulfilled'
+      ?(profileResult.value?.error||'Profile API returned ok:false')
+      :String(profileResult.reason?.message||profileResult.reason||'Profile request failed');
+    statusEl.textContent=`Load failed from ${endpointUsed}: ${errorText}`;
+    console.error('[profile] load failed',{endpointUsed,profileResult});
+    return;
+  }
+  const authUser=authResult.status==='fulfilled'?(authResult.value?.user||authResult.value?.viewer||null):null;
+  const profile=profileResult.value.profile||{};
+  meId=authUser?.id||null;
+  profileIsOwner=Object.prototype.hasOwnProperty.call(profileResult.value,'isOwner')?Boolean(profileResult.value.isOwner):Boolean(authUser&&profile&&String(authUser.id)===String(profile.id));
+  render(profile);
+  statusEl.textContent='Loaded.';
+  if(DEBUG_PROFILE_NAV)console.debug('[profile nav]',{viewedUserId,endpointUsed,loadedProfileId:profile?.id,viewerId:authUser?.id,isOwner:profileIsOwner});
+}
+load();
 </script><style>.profile-page-custom-shell{background-position:var(--profile-page-bg-position, center top);}</style><script src="/scripts/theme.js"></script><script src="/scripts/auth-status.js"></script>
 </body></html>
