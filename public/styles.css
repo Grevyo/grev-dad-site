@@ -2257,3 +2257,71 @@ input[type="color"]::-moz-color-swatch {
 .dashboard-background-controls label { display: grid; gap: 4px; }
 .dashboard-background-preview { min-height: 90px; border: 1px solid var(--border); display: grid; place-items: center; background-position: center; color: var(--text-muted); }
 .dashboard-background-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.profile-link-button-grid,
+.links-tile-button-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.profile-link-button,
+.links-tile-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.profile-link-button:hover,
+.links-tile-button:hover,
+.profile-link-button:focus-visible,
+.links-tile-button:focus-visible {
+  border-color: var(--accent);
+}
+
+.link-service-icon {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  font-size: .72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.link-service-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.link-service-steam .link-service-icon { color: #66c0f4; }
+.link-service-spotify .link-service-icon { color: #1db954; }
+.link-service-soundcloud .link-service-icon { color: #ff7700; }
+.link-service-youtube-music .link-service-icon { color: #ff0033; }
+.link-service-leetify .link-service-icon { color: var(--accent); }
+.link-service-refrag .link-service-icon { color: #f6c453; }
+.link-service-website .link-service-icon { color: var(--muted); }
+
+.links-visibility-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.links-visibility-option input[type="checkbox"] {
+  width: auto;
+  margin-top: 3px;
+}
