@@ -74,58 +74,13 @@
       <div class="profile-editor-section-grid">
         <label class="profile-editor-field-card">Website URL <input name="website_url" type="url" maxlength="500" placeholder="https://..." /></label>
         <label class="profile-editor-field-card">Steam URL <input name="steam_url" type="url" maxlength="500" placeholder="https://steamcommunity.com/..." /><small>Add your Steam profile link to show public Steam profile data where available.</small></label>
-        <label class="profile-editor-field-card">Leetify Profile URL <input name="leetify_profile_url" maxlength="500" placeholder="https://leetify.com/app/profile/..." /><small>Leetify data is provided by Leetify’s Public API and may only be available for registered/non-hidden users.</small></label>
-        <div class="profile-editor-field-card"><button type="button" class="nav-button" id="check-leetify">Check Leetify</button><small id="leetify-check-status">Save your profile first if this link has unsaved changes.</small></div>
-        <label class="profile-editor-field-card">Refrag Profile URL <input name="refrag_profile_url" maxlength="500" placeholder="https://refrag.gg/..." /><small>Refrag is stored as a link/manual badge only. grev.dad does not scrape Refrag.</small></label>
+        <label class="profile-editor-field-card">Leetify Profile URL <input name="leetify_profile_url" maxlength="500" placeholder="https://leetify.com/app/profile/..." /><small>Stored as a simple profile link and Profile Card icon only.</small></label>
+        <label class="profile-editor-field-card">Refrag Profile URL <input name="refrag_profile_url" maxlength="500" placeholder="https://play.refrag.gg/user/..." /><small>Stored as a simple profile link and Profile Card icon only.</small></label>
         <label class="profile-editor-field-card">Spotify URL <input name="spotify_url" type="url" maxlength="500" placeholder="https://open.spotify.com/..." /></label>
         <label class="profile-editor-field-card">SoundCloud URL <input name="soundcloud_url" type="url" maxlength="500" placeholder="https://soundcloud.com/..." /></label>
         <label class="profile-editor-field-card">YouTube Music URL <input name="youtube_music_url" type="url" maxlength="500" placeholder="https://music.youtube.com/..." /></label>
-        <label class="profile-editor-field-card">Manual Refrag Rating <input name="manual_refrag_rating" maxlength="50" /></label>
-        <label class="profile-editor-field-card">Manual Refrag Counter-strafe % <input name="manual_refrag_counter_strafe_pct" maxlength="50" /></label>
-        <label class="profile-editor-field-card">Manual Refrag Reaction Time <input name="manual_refrag_reaction_time" maxlength="50" /></label>
-        <label class="profile-editor-field-card">Manual Refrag TTD <input name="manual_refrag_ttd" maxlength="50" /></label>
-        <label class="profile-editor-field-card">Manual Refrag Crosshair Drift <input name="manual_refrag_crosshair_drift" maxlength="50" /></label>
-        <label class="profile-editor-field-card">Manual Refrag Last Updated At <input name="manual_refrag_last_updated_at" maxlength="40" placeholder="2026-05-06" /></label>
+        <label class="profile-editor-field-card">YouTube URL <input name="youtube_url" type="url" maxlength="500" placeholder="https://www.youtube.com/@handle" /><small>Use a YouTube channel, handle, user, custom, or video URL.</small></label>
       </div>
-      <section class="external-cs-editor" aria-labelledby="external-cs-editor-title">
-        <div class="section-heading-row">
-          <div>
-            <h3 id="external-cs-editor-title">External CS2 Stats</h3>
-            <p class="form-help">Connect Valve Premier match history and FACEIT separately. These saves do not change normal profile fields.</p>
-          </div>
-        </div>
-        <div class="external-cs-grid">
-          <div class="profile-editor-field-card external-cs-panel">
-            <h4>CS2 Premier Match History</h4>
-            <p id="cs2-connection-status" class="external-connection-status">CS2 Match History not connected.</p>
-            <div class="external-cs-steam-source"><strong>Steam profile link</strong><span id="cs2-steam-url-source">Uses your Steam URL from Links.</span><small>Uses your Steam URL from Links. Add SteamID64 only if needed for CS2 match-history sync.</small></div><label>SteamID64 <input id="cs2-steam-id64" maxlength="17" inputmode="numeric" pattern="[0-9]{17}" placeholder="7656..." /></label>
-            <label>CS2 Authentication Code <input id="cs2-auth-code" maxlength="128" autocomplete="off" placeholder="Enter your code" /></label>
-            <label>Most Recently Completed Match Token / Sharing Code <input id="cs2-share-code" maxlength="250" autocomplete="off" placeholder="Enter your latest match token" /></label>
-            <label class="checkbox-row"><input id="cs2-public-stats-enabled" type="checkbox" checked /> Show CS2 Premier stats publicly</label>
-            <a class="external-helper-link" href="https://help.steampowered.com/en/wizard/HelpWithGameIssue?appid=730&amp;issueid=128&amp;ref=leetify.com" target="_blank" rel="noopener noreferrer">Get your CS2 Match History Code from Steam</a>
-            <small>Your CS2 authentication code is private. It is only used server-side to fetch your CS2 match history. It is never shown publicly.</small>
-            <small>Treat this code like a private credential because it grants access to CS2 match history.</small>
-            <div class="external-cs-actions">
-              <button type="button" class="nav-button" id="save-cs2-connection">Save CS2 Connection</button>
-              <button type="button" class="nav-button button-secondary" id="sync-cs2-stats">Sync CS2 Stats</button>
-              <button type="button" class="nav-button danger-button" id="disconnect-cs2">Disconnect CS2</button>
-            </div>
-          </div>
-          <div class="profile-editor-field-card external-cs-panel">
-            <h4>FACEIT Profile</h4>
-            <p id="faceit-connection-status" class="external-connection-status">FACEIT not connected.</p>
-            <label>FACEIT Profile URL or Username <input id="faceit-identifier" maxlength="300" placeholder="FACEIT username or profile URL" /></label>
-            <label class="checkbox-row"><input id="faceit-public-stats-enabled" type="checkbox" checked /> Show FACEIT stats publicly</label>
-            <small>FACEIT stats are pulled using your public FACEIT profile details. The site’s FACEIT API key is kept server-side.</small>
-            <div class="external-cs-actions">
-              <button type="button" class="nav-button" id="save-faceit-connection">Save FACEIT Connection</button>
-              <button type="button" class="nav-button button-secondary" id="sync-faceit-stats">Sync FACEIT Stats</button>
-              <button type="button" class="nav-button danger-button" id="disconnect-faceit">Disconnect FACEIT</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <h3>Links Tile Visibility</h3>
       <p class="form-help">Choose which saved links appear inside your Profile Page and Your Dashboard Links tile.</p>
       <div id="links-tile-visibility" class="links-visibility-grid profile-editor-section-grid"></div>
@@ -150,7 +105,7 @@
       <div id="link-tile-settings" class="profile-card-tile-editor-grid"></div>
       <details class="editor-advanced-section">
         <summary>Advanced Tile Settings</summary>
-        <p>The live preview above is the fastest way to move, resize, or hide boxes. Use this fallback for exact tile size, order, colour, and link-icon settings.</p>
+        <p class="form-help">Tip: you can also move, resize, and hide tiles directly from the Profile Card preview above.</p>
         <div id="tile-settings" class="profile-card-tile-editor-grid"></div>
       </details>
     </section>
