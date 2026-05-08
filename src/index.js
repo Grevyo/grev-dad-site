@@ -14,14 +14,13 @@ const SETTING_KEYS = new Set(['registration_enabled', 'default_new_user_role', '
 const ROLES = { admin: { label: 'Admin', level: 100 }, operator: { label: 'Operator', level: 80 }, og: { label: 'OG', level: 50 }, member: { label: 'Member', level: 10 } };
 const PUBLIC_HTML_PATHS = new Set(['/unregistered.html', '/login.html', '/register.html']);
 const PUBLIC_API_PATHS = new Set(['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/auth/me']);
-const TILE_MINIMUM_SIZES = { 'profile-snapshot': { minW: 2, minH: 1 }, 'quick-actions': { minW: 2, minH: 1 }, 'grev-dad-tutorial': { minW: 4, minH: 2 }, 'profile-completion': { minW: 2, minH: 1 }, 'members-preview': { minW: 2, minH: 1 }, chat: { minW: 4, minH: 4 }, 'coming-later': { minW: 2, minH: 1 }, status: { minW: 2, minH: 1 }, 'profile-status': { minW: 4, minH: 1 }, 'showcase-preview': { minW: 4, minH: 1 }, 'leaderboard-preview': { minW: 4, minH: 1 }, 'member-spotlight': { minW: 3, minH: 2 }, 'site-notices': { minW: 4, minH: 1 }, 'admin-quick-tools': { minW: 4, minH: 1 }, links: { minW: 2, minH: 1 }, 'cs-overview': { minW: 2, minH: 2 }, blank: { minW: 1, minH: 1 } };
+const TILE_MINIMUM_SIZES = { 'profile-snapshot': { minW: 2, minH: 1 }, 'quick-actions': { minW: 2, minH: 1 }, 'grev-dad-tutorial': { minW: 4, minH: 2 }, 'profile-completion': { minW: 2, minH: 1 }, 'members-preview': { minW: 2, minH: 1 }, chat: { minW: 4, minH: 4 }, 'coming-later': { minW: 2, minH: 1 }, status: { minW: 2, minH: 1 }, 'profile-status': { minW: 4, minH: 1 }, 'showcase-preview': { minW: 4, minH: 1 }, 'leaderboard-preview': { minW: 4, minH: 1 }, 'member-spotlight': { minW: 3, minH: 2 }, 'site-notices': { minW: 4, minH: 1 }, 'admin-quick-tools': { minW: 4, minH: 1 }, links: { minW: 2, minH: 1 }, blank: { minW: 1, minH: 1 } };
 const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3x3','4x2','2x4','4x3','3x4','4x4','5x3','3x5','5x4','4x5','5x5','6x4','4x6','6x5','5x6','6x6','8x4','4x8','8x6','6x8','8x8','10x6','6x10','10x8','8x10','12x6','12x8','12x12'];
 const LEETIFY_CARD_TOGGLE_FIELDS = ['card_show_leetify_rank','card_show_leetify_rating','card_show_leetify_steam_id','card_show_leetify_avatar','card_show_leetify_name','card_show_leetify_aim','card_show_leetify_positioning','card_show_leetify_utility','card_show_leetify_clutch','card_show_leetify_opening','card_show_leetify_recent_matches','card_show_leetify_premier','card_show_leetify_map_ranks','card_show_leetify_updated'];
 const LEETIFY_CARD_TILE_KEYS = ['leetify','leetify_name','leetify_avatar','leetify_steam_id','leetify_rank','leetify_premier','leetify_rating','leetify_aim','leetify_positioning','leetify_utility','leetify_clutch','leetify_opening','leetify_recent_matches','leetify_map_ranks','leetify_updated','leetify_attribution'];
 const PROFILE_LINK_CARD_TILE_KEYS = new Set(['links_1','links_2','links_3']);
-const CS_CARD_TILE_KEYS = ['cs_overview','cs_rank','cs_time_played','cs_kd','cs_recent_form','cs_last_match','cs_win_rate','cs_valve_premier','cs_faceit','cs_matches_tracked'];
-const CARD_TILE_KEYS = new Set(['name','username','role','level','rank','xp','status','steam','refrag',...LEETIFY_CARD_TILE_KEYS,...PROFILE_LINK_CARD_TILE_KEYS,...CS_CARD_TILE_KEYS]);
-const PROFILE_WIDGET_KEYS = new Set(['profile-card','bio','status','steam','leetify','refrag','showcase','links','progress','achievements','cs-stats']);
+const CARD_TILE_KEYS = new Set(['name','username','role','level','rank','xp','status','steam','refrag',...LEETIFY_CARD_TILE_KEYS,...PROFILE_LINK_CARD_TILE_KEYS]);
+const PROFILE_WIDGET_KEYS = new Set(['profile-card','bio','status','steam','leetify','refrag','showcase','links','progress','achievements']);
 const PROFILE_PAGE_SIZE_OPTIONS = new Set(['2x1','2x2','4x1','4x2','4x3','4x4','6x2','6x4']);
 const DASHBOARD_BACKGROUND_SIZES = new Set(['cover','contain','repeat','stretch','center']);
 const LEETIFY_ATTRIBUTION = 'Data Provided by Leetify';
@@ -58,7 +57,6 @@ export default { async fetch(request, env) { try { const url = new URL(request.u
   if (url.pathname === '/api/profile/cs2-sync' && request.method === 'POST') return handleCs2Sync(request, env);
   if (url.pathname === '/api/profile/faceit-sync' && request.method === 'POST') return handleFaceitSync(request, env);
   if (url.pathname === '/api/profile/external-stats' && request.method === 'GET') return safeJsonRoute('profile/external-stats', () => handleExternalStatsLookup(request, env));
-  if (url.pathname.match(/^\/api\/profile\/[^/]+\/cs-stats$/) && request.method === 'GET') return safeJsonRoute('profile/cs-stats', () => handlePublicCsStatsLookup(request, env, decodeURIComponent(url.pathname.split('/')[3] || '')));
   if (url.pathname === '/api/profile/me/rank' && request.method === 'POST') return handleProfileRankUpdate(request, env);
   if (url.pathname === '/api/profile/me/showcase-unlocks' && request.method === 'GET') return handleProfileMyShowcaseUnlocks(request, env);
   if (url.pathname === '/api/profile/me/unlocks' && request.method === 'GET') return handleProfileMyUnlocks(request, env);
@@ -348,23 +346,12 @@ async function ensureSettingsTables(db) {
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profile_page_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
 }
 
-async function addColumnIfMissing(db, table, column, definition) {
-  try { await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run(); } catch (error) {
-    const message = String(error?.message || error || '').toLowerCase();
-    if (!message.includes('duplicate column') && !message.includes('already exists')) console.warn('[schema] add column skipped', table, column, friendlyError(error));
-  }
-}
-
 async function ensureExternalCsStatsTables(db) {
   // TODO: add encryption-at-rest for cs2_auth_code and latest_known_share_code when the repo has a shared secret helper.
   await db.prepare("CREATE TABLE IF NOT EXISTS cs2_match_connections (user_id TEXT PRIMARY KEY, steam_id64 TEXT, steam_profile_url TEXT, cs2_auth_code TEXT, latest_known_share_code TEXT, is_enabled INTEGER DEFAULT 1, public_stats_enabled INTEGER DEFAULT 1, last_checked_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS faceit_connections (user_id TEXT PRIMARY KEY, faceit_username TEXT, faceit_profile_url TEXT, faceit_player_id TEXT, is_enabled INTEGER DEFAULT 1, public_stats_enabled INTEGER DEFAULT 1, last_checked_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
-  await db.prepare("CREATE TABLE IF NOT EXISTS cs2_public_stats (user_id TEXT PRIMARY KEY, premier_rating TEXT, premier_rank TEXT, last_match_map TEXT, last_match_result TEXT, last_match_score TEXT, recent_form TEXT, matches_tracked INTEGER, kd TEXT, win_rate TEXT, time_played_hours INTEGER, last_synced_at TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
-  await db.prepare("CREATE TABLE IF NOT EXISTS faceit_public_stats (user_id TEXT PRIMARY KEY, faceit_username TEXT, faceit_player_id TEXT, faceit_level INTEGER, faceit_elo INTEGER, last_match_map TEXT, last_match_result TEXT, last_match_score TEXT, recent_form TEXT, matches_tracked INTEGER, kd TEXT, win_rate TEXT, last_synced_at TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
-  await addColumnIfMissing(db, 'cs2_public_stats', 'kd', 'TEXT');
-  await addColumnIfMissing(db, 'cs2_public_stats', 'win_rate', 'TEXT');
-  await addColumnIfMissing(db, 'cs2_public_stats', 'time_played_hours', 'INTEGER');
-  await addColumnIfMissing(db, 'faceit_public_stats', 'kd', 'TEXT');
+  await db.prepare("CREATE TABLE IF NOT EXISTS cs2_public_stats (user_id TEXT PRIMARY KEY, premier_rating TEXT, premier_rank TEXT, last_match_map TEXT, last_match_result TEXT, last_match_score TEXT, recent_form TEXT, matches_tracked INTEGER, last_synced_at TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS faceit_public_stats (user_id TEXT PRIMARY KEY, faceit_username TEXT, faceit_player_id TEXT, faceit_level INTEGER, faceit_elo INTEGER, last_match_map TEXT, last_match_result TEXT, last_match_score TEXT, recent_form TEXT, matches_tracked INTEGER, win_rate TEXT, last_synced_at TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS external_cs_matches (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, source TEXT CHECK (source IN ('premier', 'faceit')), external_match_id TEXT, safe_match_ref TEXT, map TEXT, match_date TEXT, team_score INTEGER, enemy_score INTEGER, result TEXT, kills INTEGER, deaths INTEGER, assists INTEGER, kd TEXT, rank_at_time TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)").run();
   await db.prepare("CREATE INDEX IF NOT EXISTS idx_external_cs_matches_user_source ON external_cs_matches(user_id, source, match_date)").run();
 }
@@ -624,61 +611,8 @@ function normalizeFaceitIdentifier(value) {
   return { faceit_username:text, faceit_profile_url:'' };
 }
 function safeExternalInt(value) { const n=Number(value); return Number.isFinite(n) ? Math.round(n) : null; }
-function publicCs2StatsFromRow(row) { if (!row) return null; return { source:'valve', label:'Valve Premier', premier_rating:row.premier_rating||'', premier_rank:row.premier_rank||'', last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), kd:row.kd||'', win_rate:row.win_rate||'', time_played_hours:row.time_played_hours==null?null:Number(row.time_played_hours), last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
-function publicFaceitStatsFromRow(row) { if (!row) return null; return { source:'faceit', label:'FACEIT', faceit_username:row.faceit_username||'', faceit_player_id:row.faceit_player_id||'', faceit_level:row.faceit_level==null?null:Number(row.faceit_level), faceit_elo:row.faceit_elo==null?null:Number(row.faceit_elo), last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), kd:row.kd||'', win_rate:row.win_rate||'', last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
-
-function hasPublicCsValue(value) { return value !== undefined && value !== null && String(value).trim() !== ''; }
-function latestIso(...values) { return values.filter(hasPublicCsValue).sort().pop() || ''; }
-function buildCsStatsPayload({ cs2 = null, faceit = null } = {}) {
-  const hasValve = !!cs2;
-  const hasFaceit = !!faceit;
-  if (!hasValve && !hasFaceit) return { csOverview:null, valvePremier:null, faceit:null, tiles:{} };
-  const valveRankLabel = cs2 ? (cs2.premier_rating ? `Premier ${cs2.premier_rating}` : (cs2.premier_rank || '')) : '';
-  const faceitRankLabel = faceit ? (faceit.faceit_level ? `FACEIT Level ${faceit.faceit_level}` : '') : '';
-  const bestRankLabel = faceitRankLabel || valveRankLabel || '';
-  const lastSource = faceit?.last_match_map || faceit?.last_match_result || faceit?.last_match_score ? faceit : cs2;
-  const matches = Number(cs2?.matches_tracked || 0) + Number(faceit?.matches_tracked || 0);
-  const overview = {
-    available:true,
-    sources:[...(hasValve?['Valve Premier']:[]), ...(hasFaceit?['FACEIT']:[])],
-    best_rank_label:bestRankLabel,
-    best_rank_source:faceitRankLabel?'FACEIT':(valveRankLabel?'Valve Premier':''),
-    valve_rank_label:cs2?.premier_rank || '',
-    valve_rating:cs2?.premier_rating || '',
-    faceit_level:faceit?.faceit_level ?? null,
-    faceit_elo:faceit?.faceit_elo ?? null,
-    time_played_hours:cs2?.time_played_hours ?? null,
-    overall_kd:faceit?.kd || cs2?.kd || '',
-    overall_win_rate:faceit?.win_rate || cs2?.win_rate || '',
-    recent_form:faceit?.recent_form || cs2?.recent_form || '',
-    last_match_source:lastSource===faceit?'FACEIT':(lastSource===cs2?'Valve Premier':''),
-    last_match_map:lastSource?.last_match_map || '',
-    last_match_result:lastSource?.last_match_result || '',
-    last_match_score:lastSource?.last_match_score || '',
-    matches_tracked:matches || cs2?.matches_tracked || faceit?.matches_tracked || null,
-    last_synced_at:latestIso(cs2?.last_synced_at, faceit?.last_synced_at, cs2?.updated_at, faceit?.updated_at)
-  };
-  const tiles = {
-    cs_rank: { label:'CS Rank', value:bestRankLabel, source:overview.best_rank_source },
-    cs_time_played: { label:'CS Time Played', value:cs2?.time_played_hours == null ? '' : `${cs2.time_played_hours}h`, source:'Steam Playtime' },
-    cs_kd: { label:'CS KD', value:overview.overall_kd, source:faceit?.kd?'FACEIT':(cs2?.kd?'Valve Premier':'') },
-    cs_recent_form: { label:'CS Recent Form', value:overview.recent_form, source:faceit?.recent_form?'FACEIT':(cs2?.recent_form?'Valve Premier':'') },
-    cs_last_match: { label:'CS Last Match', value:[overview.last_match_map, overview.last_match_score, overview.last_match_result].filter(hasPublicCsValue).join(' · '), source:overview.last_match_source },
-    cs_win_rate: { label:'CS Win Rate', value:overview.overall_win_rate, source:faceit?.win_rate?'FACEIT':(cs2?.win_rate?'Valve Premier':'') },
-    cs_valve_premier: { label:'Valve Premier', value:[cs2?.premier_rank, cs2?.premier_rating].filter(hasPublicCsValue).join(' · '), source:'Valve Premier' },
-    cs_faceit: { label:'FACEIT', value:[faceit?.faceit_level ? `Level ${faceit.faceit_level}` : '', faceit?.faceit_elo ? `${faceit.faceit_elo} ELO` : ''].filter(hasPublicCsValue).join(' · '), source:'FACEIT' },
-    cs_matches_tracked: { label:'CS Matches Tracked', value:overview.matches_tracked == null ? '' : String(overview.matches_tracked), source:'Safe public stats' }
-  };
-  return { csOverview:overview, valvePremier:cs2, faceit, tiles };
-}
-async function getSafeCsStats(db, userId, { publicOnly = true } = {}) {
-  await ensureExternalCsStatsTables(db);
-  const cs2Sql = publicOnly ? "SELECT s.* FROM cs2_public_stats s JOIN cs2_match_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1" : "SELECT s.* FROM cs2_public_stats s LEFT JOIN cs2_match_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND COALESCE(c.is_enabled,1)=1";
-  const faceitSql = publicOnly ? "SELECT s.* FROM faceit_public_stats s JOIN faceit_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1" : "SELECT s.* FROM faceit_public_stats s LEFT JOIN faceit_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND COALESCE(c.is_enabled,1)=1";
-  const [cs2, faceit] = await Promise.all([db.prepare(cs2Sql).bind(String(userId)).first().catch(()=>null), db.prepare(faceitSql).bind(String(userId)).first().catch(()=>null)]);
-  return buildCsStatsPayload({ cs2: publicCs2StatsFromRow(cs2), faceit: publicFaceitStatsFromRow(faceit) });
-}
-
+function publicCs2StatsFromRow(row) { if (!row) return null; return { premier_rating:row.premier_rating||'', premier_rank:row.premier_rank||'', last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
+function publicFaceitStatsFromRow(row) { if (!row) return null; return { faceit_username:row.faceit_username||'', faceit_player_id:row.faceit_player_id||'', faceit_level:row.faceit_level==null?null:Number(row.faceit_level), faceit_elo:row.faceit_elo==null?null:Number(row.faceit_elo), last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), win_rate:row.win_rate||'', last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
 async function getPublicExternalStats(db, userId) {
   await ensureExternalCsStatsTables(db);
   const [cs2, faceit] = await Promise.all([
@@ -688,7 +622,6 @@ async function getPublicExternalStats(db, userId) {
   const out={};
   const cs2Stats=publicCs2StatsFromRow(cs2); if (cs2Stats) out.cs2=cs2Stats;
   const faceitStats=publicFaceitStatsFromRow(faceit); if (faceitStats) out.faceit=faceitStats;
-  out.csStats = buildCsStatsPayload({ cs2: cs2Stats, faceit: faceitStats });
   return out;
 }
 function serializeCs2Connection(row) { return { connected:!!row, steam_id64:row?.steam_id64||'', steam_profile_url:row?.steam_profile_url||'', public_stats_enabled:row?Number(row.public_stats_enabled)!==0:1, is_enabled:row?Number(row.is_enabled)!==0:1, last_checked_at:row?.last_checked_at||'', created_at:row?.created_at||'', updated_at:row?.updated_at||'', has_auth_code:!!row?.cs2_auth_code, has_latest_share_code:!!row?.latest_known_share_code, masked_auth_code_present:!!row?.cs2_auth_code, masked_latest_share_code_present:!!row?.latest_known_share_code }; }
@@ -702,7 +635,6 @@ async function handleFaceitConnectionPost(request, env) { try { const ctx=await 
 async function handleFaceitConnectionDelete(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const userId=String(ctx.user.id); await ctx.db.prepare('DELETE FROM faceit_connections WHERE user_id=?').bind(userId).run(); await ctx.db.prepare('DELETE FROM faceit_public_stats WHERE user_id=?').bind(userId).run(); await ctx.db.prepare("DELETE FROM external_cs_matches WHERE user_id=? AND source='faceit'").bind(userId).run(); return json({ok:true,connection:serializeFaceitConnection(null)},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
 async function handleCs2Sync(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const row=await ctx.db.prepare('SELECT user_id, steam_id64, steam_profile_url, cs2_auth_code, latest_known_share_code FROM cs2_match_connections WHERE user_id=? AND is_enabled=1').bind(String(ctx.user.id)).first(); if(!row) return json({ok:false,error:'CS2 Match History connection is not saved yet'},400); if(!row.cs2_auth_code || !row.latest_known_share_code) return json({ok:false,error:'CS2 authentication code and latest match token are required before sync'},400); await ctx.db.prepare("UPDATE cs2_match_connections SET last_checked_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(String(ctx.user.id)).run(); return json({ok:true,synced:false,message:'Valve Premier sync is scaffolded. Credentials are saved privately for the Phase 3 fetcher.'},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
 async function handleFaceitSync(request, env) { try { const ctx=await getOwnerConnectionUser(request, env); if(ctx.error) return ctx.error; const key=String(env.FACEIT_API_KEY || env.FACEIT_API_TOKEN || '').trim(); if(!key) return json({ok:false,error:'FACEIT sync is configured but FACEIT_API_KEY is not set on the server'},503); const conn=await ctx.db.prepare('SELECT * FROM faceit_connections WHERE user_id=? AND is_enabled=1').bind(String(ctx.user.id)).first(); if(!conn?.faceit_username) return json({ok:false,error:'FACEIT connection is not saved yet'},400); await ctx.db.prepare("UPDATE faceit_connections SET last_checked_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(String(ctx.user.id)).run(); return json({ok:true,synced:false,message:'FACEIT API key is available; detailed stat sync remains scaffolded for Phase 2.'},200,{'Cache-Control':'no-store'}); } catch(error){ return json({ok:false,error:friendlyError(error)},500); } }
-async function handlePublicCsStatsLookup(request, env, username) { const db=getDatabase(env); await ensureCoreSchemaOnce(db); const row=await db.prepare('SELECT id FROM users WHERE username=?').bind(String(username||'').trim()).first(); if(!row) return json({ok:false,error:'User not found'},404); const csStats=await getSafeCsStats(db,row.id,{publicOnly:true}); return json({ok:true,...csStats},200,{'Cache-Control':'public, max-age=60'}); }
 async function handleExternalStatsLookup(request, env) { const user=await getCurrentUser(request, env); if(!user) return json({ok:false,error:'Not logged in'},401); const db=getDatabase(env); await ensureCoreSchemaOnce(db); const url=new URL(request.url); let targetId=Number(url.searchParams.get('id') || user.id); const username=String(url.searchParams.get('user')||'').trim(); if(username){const row=await db.prepare('SELECT id FROM users WHERE username=?').bind(username).first(); if(!row) return json({ok:false,error:'User not found'},404); targetId=Number(row.id);} if(!Number.isInteger(targetId)||targetId<1) return json({ok:false,error:'Invalid user id'},400); return json({ok:true,externalStats:await getPublicExternalStats(db,targetId)},200,{'Cache-Control':'private, max-age=60'}); }
 
 async function handleAccount(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchemaOnce(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); return json({ ok: true, user: { ...serializeUser(row), created_at: row.created_at || null } }); }
@@ -891,9 +823,6 @@ function normalizeCardTileSettings(input) {
     if (Number.isInteger(order) && order >= 1 && order <= 999) item.order = order;
     const colour = String(value.colour ?? '').trim();
     if (!colour || /^#[0-9a-fA-F]{6}$/.test(colour)) item.colour = colour;
-    if (PROFILE_LINK_CARD_TILE_KEYS.has(key) || CS_CARD_TILE_KEYS.includes(key)) {
-      if (typeof value.enabled === 'boolean') item.enabled = value.enabled;
-    }
     if (PROFILE_LINK_CARD_TILE_KEYS.has(key)) {
       if (typeof value.enabled === 'boolean') item.enabled = value.enabled;
       const maxIcons = Number(value.maxIcons);
@@ -1283,8 +1212,7 @@ async function getUserProfileBundle(request, env, userId, { includeUnlockedRanks
     const showcase = await getPublicShowcaseSlots(db, row.id).catch(() => []);
     const achievements = await getPublicAchievementSummary(db, row.id).catch(() => ({ count: 0, xpFromAchievements: 0, latest: [] }));
     const externalStats = await getPublicExternalStats(db, row.id).catch(() => ({}));
-    const csStats = externalStats.csStats || buildCsStatsPayload({ cs2: externalStats.cs2, faceit: externalStats.faceit });
-    return { profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, externalStats, csStats, ...(unlockedRanks ? { unlockedRanks } : {}) }, ranks };
+    return { profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, externalStats, ...(unlockedRanks ? { unlockedRanks } : {}) }, ranks };
   } catch (error) { console.error('[profile/bundle] failed', { message: error?.message || String(error), stack: error?.stack || '' }); throw error; }
 }
 function normalizeDashboardBackgroundPayload(body = {}) {
@@ -1315,7 +1243,7 @@ async function handleDashboardBackgroundUpdate(request, env) {
     return json({ ok: true, profile: normalized });
   } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
 }
-async function handleBootstrapDashboard(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' }, 401); const db = getDatabase(env); await ensureCoreSchemaOnce(db); const bundlePromise = getUserProfileBundle(request, env, Number(user.id), { includeUnlockedRanks: true }); let tileRes; try { tileRes = await db.prepare('SELECT tile_id, label, default_size, allowed_sizes_json, is_enabled, sort_order FROM homepage_tile_config ORDER BY sort_order ASC, tile_id ASC').all(); } catch (error) { console.warn('[bootstrap/dashboard] tile config fallback', friendlyError(error)); tileRes = { results: defaultHomepageTileConfigs() }; } const bundle = await bundlePromise; if (!bundle) return json({ ok:false, error:'User not found' }, 404); const rankList = bundle.ranks?.ok ? bundle.ranks.ranks : []; const homepageTileConfig = (tileRes?.results || defaultHomepageTileConfigs()).map((row) => ({ tile_id: row.tile_id, label: row.label, default_size: row.default_size, allowed_sizes: Array.isArray(row.allowed_sizes) ? row.allowed_sizes : parseAllowedSizes(row.allowed_sizes_json), is_enabled: Number(row.is_enabled) === 1 ? 1 : 0, sort_order: Number(row.sort_order) || 0 })); const ownerCsStats = await getSafeCsStats(db, user.id, { publicOnly:false }).catch(() => bundle.profile.csStats || buildCsStatsPayload({})); return json({ ok:true, user: serializeUser(user), profile: { ...bundle.profile, csStats: ownerCsStats }, homepageTileConfig, ranks: rankList, serverTime: new Date().toISOString() }, 200, { 'Cache-Control':'private, max-age=15' }); } catch (error) { return json({ ok:false, error:friendlyError(error) }, 500); } }
+async function handleBootstrapDashboard(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' }, 401); const db = getDatabase(env); await ensureCoreSchemaOnce(db); const bundlePromise = getUserProfileBundle(request, env, Number(user.id), { includeUnlockedRanks: true }); let tileRes; try { tileRes = await db.prepare('SELECT tile_id, label, default_size, allowed_sizes_json, is_enabled, sort_order FROM homepage_tile_config ORDER BY sort_order ASC, tile_id ASC').all(); } catch (error) { console.warn('[bootstrap/dashboard] tile config fallback', friendlyError(error)); tileRes = { results: defaultHomepageTileConfigs() }; } const bundle = await bundlePromise; if (!bundle) return json({ ok:false, error:'User not found' }, 404); const rankList = bundle.ranks?.ok ? bundle.ranks.ranks : []; const homepageTileConfig = (tileRes?.results || defaultHomepageTileConfigs()).map((row) => ({ tile_id: row.tile_id, label: row.label, default_size: row.default_size, allowed_sizes: Array.isArray(row.allowed_sizes) ? row.allowed_sizes : parseAllowedSizes(row.allowed_sizes_json), is_enabled: Number(row.is_enabled) === 1 ? 1 : 0, sort_order: Number(row.sort_order) || 0 })); return json({ ok:true, user: serializeUser(user), profile: bundle.profile, homepageTileConfig, ranks: rankList, serverTime: new Date().toISOString() }, 200, { 'Cache-Control':'private, max-age=15' }); } catch (error) { return json({ ok:false, error:friendlyError(error) }, 500); } }
 
 async function handleBootstrapProfile(request, env) { try { const viewer = await getCurrentUser(request, env); if (!viewer) return json({ ok:false, error:'Not logged in' }, 401); const url = new URL(request.url); const idParam = url.searchParams.get('id'); const targetId = idParam ? Number(idParam) : Number(viewer.id); if (!Number.isInteger(targetId) || targetId < 1) return json({ ok:false, error:'Invalid user id' }, 400); const bundle = await getUserProfileBundle(request, env, targetId, { includeUnlockedRanks: Number(viewer.id) === targetId }); if (!bundle) return json({ ok:false, error:'User not found' }, 404); return json({ ok:true, viewer: serializeUser(viewer), profile: bundle.profile, isOwner: Number(viewer.id) === targetId }, 200, { 'Cache-Control':'private, max-age=15' }); } catch (error) { return json({ ok:false, error:friendlyError(error) }, 500); } }
 async function handleBootstrapEditProfile(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' }, 401); const bundle = await getUserProfileBundle(request, env, Number(user.id), { includeUnlockedRanks: true }); if (!bundle) return json({ ok:false, error:'User not found' }, 404); return json({ ok:true, user: serializeUser(user), profile: bundle.profile, ranks: bundle.ranks?.ok ? bundle.ranks.ranks : [] }, 200, { 'Cache-Control':'private, max-age=15' }); } catch (error) { return json({ ok:false, error:friendlyError(error) }, 500); } }
@@ -1383,13 +1311,12 @@ function getHomepageTileSeedConfigs() { return [
   { tile_id: 'member-spotlight', label: 'Member Spotlight', default_size: '3x2', allowed_sizes: ['3x2','4x2','4x3'], is_enabled: 0, sort_order: 100 },
   { tile_id: 'site-notices', label: 'Site Notices', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','6x4'], is_enabled: 0, sort_order: 110 },
   { tile_id: 'links', label: 'Links', default_size: '2x2', allowed_sizes: ['2x1','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 115 },
-  { tile_id: 'cs-overview', label: 'CS Overview', default_size: '4x2', allowed_sizes: ['2x2','3x2','4x2','4x3','6x4'], is_enabled: 1, sort_order: 116 },
   { tile_id: 'admin-quick-tools', label: 'Admin Quick Tools', default_size: '4x2', allowed_sizes: ['2x1','4x1','4x2','4x3','6x4'], is_enabled: 0, sort_order: 120 }
 ]; }
 function parseAllowedSizes(value) { try { const parsed = JSON.parse(value || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
 
 async function migrateHomepageTileConfigs(db) {
-  const add4x1Tiles = new Set(['profile-snapshot','quick-actions','grev-dad-tutorial','profile-completion','members-preview','coming-later','status','profile-status','showcase-preview','leaderboard-preview','site-notices','links','cs-overview','admin-quick-tools']);
+  const add4x1Tiles = new Set(['profile-snapshot','quick-actions','grev-dad-tutorial','profile-completion','members-preview','coming-later','status','profile-status','showcase-preview','leaderboard-preview','site-notices','links','admin-quick-tools']);
   const rows = await db.prepare('SELECT tile_id, allowed_sizes_json, default_size FROM homepage_tile_config').all();
   for (const row of (rows.results || [])) {
     const allowed = parseAllowedSizes(row.allowed_sizes_json);
