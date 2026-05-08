@@ -2658,7 +2658,7 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-/* External CS2/FACEIT owner-only connection panels */
+/* External CS2 owner-only connection panel */
 .external-connection-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -2823,7 +2823,6 @@ input[type="color"]::-moz-color-swatch {
   }
 }
 
-.profile-card-faceit-tile,
 .profile-card-cs2-tile {
   background: rgba(0, 0, 0, .28);
   border-color: rgba(255, 255, 255, .14);
@@ -2869,4 +2868,29 @@ input[type="color"]::-moz-color-swatch {
   color: var(--player-card-body-colour, var(--text));
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+
+.profile-card-cs2-mode-pill {
+  border-color: rgba(96, 165, 250, .34);
+  background: rgba(37, 99, 235, .14);
+}
+
+.profile-card-cs2-stat {
+  border-left: 2px solid rgba(96, 165, 250, .45);
+  padding-left: 6px;
+}
+
+.profile-card-cs2-label {
+  color: var(--text-muted);
+}
+
+.profile-card-cs2-value {
+  color: var(--player-card-body-colour, var(--text));
+}
+
+.profile-card-cs2-form-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
