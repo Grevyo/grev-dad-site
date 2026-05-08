@@ -17,7 +17,7 @@
     const response = await fetch(url, { credentials: 'same-origin', ...options });
     const text = await response.text();
     let data = null;
-    if (text) { try { data = JSON.parse(text); } catch { throw new Error(`Invalid JSON from ${url}`); } }
+    if (text) { try { data = JSON.parse(text); } catch { throw new Error(`Invalid JSON from ${url} (${response.status}): ${text.slice(0,180)}`); } }
     if (!response.ok || !data || data.ok === false) throw new Error(data?.error || `Request failed: ${response.status}`);
     if (canCache) writeSessionCache(cacheKey, data);
     return { data, fromCache: false };
