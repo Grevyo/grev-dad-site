@@ -98,7 +98,7 @@
           <div class="profile-editor-field-card external-cs-panel">
             <h4>CS2 Premier Match History</h4>
             <p id="cs2-connection-status" class="external-connection-status">CS2 Match History not connected.</p>
-            <label>Steam Profile URL or SteamID64 <input id="cs2-steam-identifier" maxlength="500" placeholder="https://steamcommunity.com/id/... or 7656..." /></label>
+            <div class="external-cs-steam-source"><strong>Steam profile link</strong><span id="cs2-steam-url-source">Uses your Steam URL from Links.</span><small>Uses your Steam URL from Links. Add SteamID64 only if needed for CS2 match-history sync.</small></div><label>SteamID64 <input id="cs2-steam-id64" maxlength="17" inputmode="numeric" pattern="[0-9]{17}" placeholder="7656..." /></label>
             <label>CS2 Authentication Code <input id="cs2-auth-code" maxlength="128" autocomplete="off" placeholder="Enter your code" /></label>
             <label>Most Recently Completed Match Token / Sharing Code <input id="cs2-share-code" maxlength="250" autocomplete="off" placeholder="Enter your latest match token" /></label>
             <label class="checkbox-row"><input id="cs2-public-stats-enabled" type="checkbox" checked /> Show CS2 Premier stats publicly</label>
@@ -144,13 +144,13 @@
         <label class="profile-editor-field-card">Card layout<select id="card_layout"><option value="standard">standard</option><option value="compact">compact</option><option value="showcase">showcase</option></select></label>
         <label class="profile-editor-field-card">Profile Card columns<select id="card_grid_columns"><option value="2">2 columns</option><option value="3">3 columns</option><option value="4">4 columns</option></select><small>Mobile may still stack.</small></label>
       </div>
-      <p class="form-help">Hide tiles directly from the Live Preview by hovering a tile and clicking ×.</p>
+      <p class="form-help">Tip: move, resize, or hide Profile Card boxes directly from the live preview above.</p>
       <h3>Link Icon Tiles</h3>
       <p class="form-help">Configure the Profile Card link icon tiles here. Most other tiles can be hidden directly from the Live Preview.</p>
       <div id="link-tile-settings" class="profile-card-tile-editor-grid"></div>
       <details class="editor-advanced-section">
         <summary>Advanced Tile Settings</summary>
-        <p>Most tiles can be hidden directly from the Live Preview. Use this section only for tile size, order, colour, and link-icon tile settings.</p>
+        <p>The live preview above is the fastest way to move, resize, or hide boxes. Use this fallback for exact tile size, order, colour, and link-icon settings.</p>
         <div id="tile-settings" class="profile-card-tile-editor-grid"></div>
       </details>
     </section>
