@@ -2822,3 +2822,51 @@ input[type="color"]::-moz-color-swatch {
     grid-template-columns: 1fr;
   }
 }
+
+.profile-card-faceit-tile,
+.profile-card-cs2-tile {
+  background: rgba(0, 0, 0, .28);
+  border-color: rgba(255, 255, 255, .14);
+}
+
+.profile-card-external-stat-list {
+  display: grid;
+  gap: 5px;
+}
+
+.profile-card-external-stat {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-card-source-pill {
+  display: inline-grid;
+  justify-self: start;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .06);
+  color: var(--player-card-body-colour, var(--text));
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.profile-card-form-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.profile-card-stat-label {
+  color: var(--text-muted);
+  font-size: .68rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.profile-card-stat-value {
+  color: var(--player-card-body-colour, var(--text));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
