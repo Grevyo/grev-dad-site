@@ -121,20 +121,243 @@ async function tableExists(db, tableName) {
   return Boolean(row?.name);
 }
 
+const SETTINGS_TABLE_NAMES = new Set(['user_profile_settings', 'user_profile_card_settings', 'user_dashboard_settings', 'user_profile_page_settings']);
+const BASE_PROFILE_DEFAULTS = {
+  user_id: null,
+  display_name: '',
+  profile_title: '',
+  bio: '',
+  location: '',
+  avatar_url: '',
+  banner_url: '',
+  banner_display_size: 'wide',
+  website_url: '',
+  steam_url: '',
+  spotify_url: '',
+  soundcloud_url: '',
+  youtube_music_url: '',
+  profile_links_visibility_json: '{}',
+  leetify_url: '',
+  leetify_profile_url: '',
+  leetify_steam_id: '',
+  refrag_url: '',
+  refrag_profile_url: '',
+  manual_refrag_rating: '',
+  manual_refrag_counter_strafe_pct: '',
+  manual_refrag_reaction_time: '',
+  manual_refrag_ttd: '',
+  manual_refrag_crosshair_drift: '',
+  manual_refrag_last_updated_at: '',
+  manual_leetify_name: '',
+  manual_leetify_steam_id: '',
+  manual_leetify_cs_rank: '',
+  manual_leetify_premier_rating: '',
+  manual_leetify_rating: '',
+  manual_leetify_aim_rating: '',
+  manual_leetify_positioning_rating: '',
+  manual_leetify_utility_rating: '',
+  manual_leetify_clutch_rating: '',
+  manual_leetify_opening_duel_rating: '',
+  manual_leetify_recent_matches_count: '',
+  manual_leetify_map_ranks: '',
+  manual_leetify_last_updated_at: '',
+  status_message: '',
+  favourite_colour: '',
+  profile_background_url: '',
+  profile_background_size: 'cover',
+  profile_accent_colour: '',
+  profile_background_colour: '',
+  profile_layout: 'standard',
+  profile_quote: '',
+  favourite_game: '',
+  profile_visibility: 'public',
+  show_level: 1,
+  show_rank: 1,
+  show_badges: 1,
+  show_last_active: 0,
+  show_member_card: 1,
+  show_profile_showcase: 1,
+  show_profile_xp: 1,
+  show_profile_user_id: 0,
+  show_joined_date: 1,
+  show_header_avatar: 1,
+  show_header_display_name: 1,
+  show_header_username: 1,
+  show_header_user_id: 0,
+  show_header_level: 1,
+  show_header_rank: 1,
+  show_header_xp_bar: 1,
+  profile_page_background_url: '',
+  profile_page_background_colour: '',
+  profile_page_background_size: 'cover',
+  profile_page_overlay_strength: 20,
+  profile_page_tile_layout_json: '',
+  profile_page_widget_settings_json: '',
+  profile_footer_url: '',
+  profile_footer_display_size: 'wide',
+  card_background_url: '',
+  card_background_colour: '',
+  card_accent_colour: '',
+  card_border_colour: '',
+  card_text_colour: '',
+  card_body_text_colour: '',
+  card_layout: 'standard',
+  card_grid_columns: 4,
+  card_tile_settings_json: '',
+  card_show_avatar: 1,
+  card_show_display_name: 1,
+  card_show_username: 1,
+  card_show_user_id: 0,
+  card_show_role: 1,
+  card_show_level: 1,
+  card_show_rank: 1,
+  card_show_xp: 1,
+  card_show_status: 0,
+  card_show_steam: 0,
+  card_show_refrag: 0,
+  card_show_leetify: 0,
+  card_show_leetify_rank: 0,
+  card_show_leetify_rating: 0,
+  card_show_leetify_steam_id: 0,
+  card_show_leetify_avatar: 0,
+  card_show_leetify_name: 0,
+  card_show_leetify_aim: 0,
+  card_show_leetify_positioning: 0,
+  card_show_leetify_utility: 0,
+  card_show_leetify_clutch: 0,
+  card_show_leetify_opening: 0,
+  card_show_leetify_recent_matches: 0,
+  card_show_leetify_premier: 0,
+  card_show_leetify_map_ranks: 0,
+  card_show_leetify_updated: 0,
+  dashboard_background_colour: '',
+  dashboard_background_url: '',
+  dashboard_background_size: 'cover',
+  dashboard_background_overlay_strength: 0,
+  selected_rank_id: null,
+  updated_at: '',
+  account_xp: 0
+};
+const LEGACY_PROFILE_FIELDS = ['display_name','profile_title','bio','location','avatar_url','banner_url','banner_display_size','website_url','steam_url','spotify_url','soundcloud_url','youtube_music_url','profile_links_visibility_json','leetify_url','refrag_url','status_message','favourite_colour','profile_background_url','profile_background_size','profile_accent_colour','profile_background_colour','profile_layout','show_level','show_rank','show_badges','show_last_active'];
+const EXTENSIBLE_PROFILE_FIELDS = ['leetify_profile_url','leetify_steam_id','refrag_profile_url','manual_refrag_rating','manual_refrag_counter_strafe_pct','manual_refrag_reaction_time','manual_refrag_ttd','manual_refrag_crosshair_drift','manual_refrag_last_updated_at','manual_leetify_name','manual_leetify_steam_id','manual_leetify_cs_rank','manual_leetify_premier_rating','manual_leetify_rating','manual_leetify_aim_rating','manual_leetify_positioning_rating','manual_leetify_utility_rating','manual_leetify_clutch_rating','manual_leetify_opening_duel_rating','manual_leetify_recent_matches_count','manual_leetify_map_ranks','manual_leetify_last_updated_at'];
+const PROFILE_PAGE_SETTING_FIELDS = ['profile_page_background_url','profile_page_background_colour','profile_page_background_size','profile_page_overlay_strength','profile_page_tile_layout_json','profile_page_widget_settings_json','profile_footer_url','profile_footer_display_size'];
+const PROFILE_CARD_SETTING_FIELDS = ['card_background_url','card_background_colour','card_accent_colour','card_border_colour','card_text_colour','card_body_text_colour','card_layout','card_grid_columns','card_tile_settings_json','card_show_avatar','card_show_display_name','card_show_username','card_show_user_id','card_show_role','card_show_level','card_show_rank','card_show_xp','card_show_status','card_show_steam','card_show_refrag','card_show_leetify',...LEETIFY_CARD_TOGGLE_FIELDS];
+const DASHBOARD_SETTING_FIELDS = ['dashboard_background_colour','dashboard_background_url','dashboard_background_size','dashboard_background_overlay_strength','tileStyles'];
+
+function safeJsonParse(value, fallback = {}) {
+  if (value == null || value === '') return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+function pickFields(source, names) {
+  const out = {};
+  for (const name of names) if (Object.prototype.hasOwnProperty.call(source || {}, name)) out[name] = source[name];
+  return out;
+}
+
+async function getUserProfileColumnSet(db) {
+  const rows = await db.prepare('PRAGMA table_info(user_profiles)').all();
+  return new Set((rows.results || []).map((r) => r.name));
+}
+
+async function readUserProfileBase(db, userId) {
+  await db.prepare(`
+    INSERT INTO user_profiles (user_id)
+    VALUES (?)
+    ON CONFLICT(user_id) DO NOTHING
+  `).bind(userId).run();
+
+  const existing = await getUserProfileColumnSet(db);
+  const wanted = Object.keys(BASE_PROFILE_DEFAULTS).filter((name) => existing.has(name));
+  const selectList = wanted.length ? wanted.map((name) => `"${name}"`).join(', ') : 'user_id';
+  const row = await db.prepare(`SELECT ${selectList} FROM user_profiles WHERE user_id = ?`).bind(userId).first();
+  return { ...BASE_PROFILE_DEFAULTS, ...(row || {}), user_id: userId };
+}
+
+async function readSettingsJson(db, tableName, userId) {
+  if (!SETTINGS_TABLE_NAMES.has(tableName)) throw new Error('Invalid settings table');
+  try {
+    const row = await db.prepare(`SELECT settings_json FROM ${tableName} WHERE user_id = ?`).bind(userId).first();
+    return safeJsonParse(row?.settings_json, {});
+  } catch (error) {
+    console.warn('[settings] failed reading settings table', tableName, error?.message || error);
+    return {};
+  }
+}
+
+async function writeSettingsJson(db, tableName, userId, settings) {
+  if (!SETTINGS_TABLE_NAMES.has(tableName)) throw new Error('Invalid settings table');
+  await db.prepare(`
+    INSERT INTO ${tableName} (user_id, settings_json, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(user_id) DO UPDATE SET
+      settings_json = excluded.settings_json,
+      updated_at = CURRENT_TIMESTAMP
+  `).bind(userId, JSON.stringify(settings || {})).run();
+}
+
+async function mergeSettingsJson(db, tableName, userId, patch) {
+  const existing = await readSettingsJson(db, tableName, userId);
+  const merged = { ...existing, ...(patch || {}) };
+  await writeSettingsJson(db, tableName, userId, merged);
+  return merged;
+}
+
+async function updateExistingProfileColumns(db, userId, values) {
+  const existing = await getUserProfileColumnSet(db);
+  const entries = Object.entries(values || {}).filter(([key]) => existing.has(key));
+  if (!entries.length) return;
+  const setSql = entries.map(([key]) => `"${key}" = ?`).join(', ');
+  const binds = entries.map(([, value]) => value);
+  await db.prepare(`UPDATE user_profiles SET ${setSql} WHERE user_id = ?`).bind(...binds, userId).run();
+}
+
+async function getSafeProfileSettings(db, userId) {
+  const base = await readUserProfileBase(db, userId);
+  const extraProfile = await readSettingsJson(db, 'user_profile_settings', userId);
+  const cardSettings = await readSettingsJson(db, 'user_profile_card_settings', userId);
+  const dashboardSettings = await readSettingsJson(db, 'user_dashboard_settings', userId);
+  const profilePageSettings = await readSettingsJson(db, 'user_profile_page_settings', userId);
+  const profile = { ...base, ...extraProfile, ...cardSettings, ...dashboardSettings, ...profilePageSettings };
+  profile.leetify_profile_url = profile.leetify_profile_url || profile.leetify_url || '';
+  profile.leetify_url = profile.leetify_url || profile.leetify_profile_url || '';
+  profile.refrag_profile_url = profile.refrag_profile_url || profile.refrag_url || '';
+  profile.refrag_url = profile.refrag_url || profile.refrag_profile_url || '';
+  profile.card_tile_settings_json = profile.card_tile_settings_json || (profile.cardTileSettings ? JSON.stringify(profile.cardTileSettings) : '');
+  profile.cardTileSettings = normalizeCardTileSettings(profile.card_tile_settings_json || profile.cardTileSettings || '');
+  return profile;
+}
+
+async function ensureSettingsTables(db) {
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_profile_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_profile_card_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_dashboard_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_profile_page_settings (user_id INTEGER PRIMARY KEY, settings_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+}
+
 async function handleDebugHealth(env) {
   const db = getDatabase(env);
   const coreTables = {};
   for (const table of ['users', 'sessions', 'user_profiles', 'homepage_tile_config']) {
     try { coreTables[table] = await tableExists(db, table); } catch { coreTables[table] = false; }
   }
-  let profileColumnCount = 0;
+  const settingsTables = {};
+  for (const table of SETTINGS_TABLE_NAMES) {
+    try { settingsTables[table] = await tableExists(db, table); } catch { settingsTables[table] = false; }
+  }
+  let userProfilesColumnCount = 0;
   try {
     if (coreTables.user_profiles) {
       const rows = await db.prepare('PRAGMA table_info(user_profiles)').all();
-      profileColumnCount = (rows.results || []).length;
+      userProfilesColumnCount = (rows.results || []).length;
     }
   } catch {}
-  return json({ ok: true, hasDb: true, coreTables, profileColumnCount, timestamp: new Date().toISOString() }, 200, { 'Cache-Control': 'no-store' });
+  return json({
+    ok: true,
+    userProfilesColumnCount,
+    warning: userProfilesColumnCount > 1800 ? 'user_profiles near/over practical column limit; using JSON settings tables' : '',
+    settingsTables
+  }, 200, { 'Cache-Control': 'no-store' });
 }
 
 async function handleRegister(request, env) { try { const body = await readJsonBody(request); const username = (body?.username ?? '').trim(); const password = body?.password ?? ''; if (!username || !password) return json({ ok: false, error: 'Username and password are required' }, 400); const db = getDatabase(env); await ensureSchemaOnce(db); if (!isTruthy(await getSetting(db, 'registration_enabled', 'true'))) return json({ ok: false, error: 'Registration is disabled' }, 403); const existing = await db.prepare('SELECT id FROM users WHERE username = ?').bind(username).first(); if (existing) return json({ ok: false, error: 'Username is already taken' }, 409); const defaultRole = normalizeRole(await getSetting(db, 'default_new_user_role', FALLBACK_DEFAULT_NEW_USER_ROLE)); const passwordHash = await hashPassword(password); const result = await db.prepare('INSERT INTO users (username, password_hash, role, is_admin, status) VALUES (?, ?, ?, ?, ?)').bind(username, passwordHash, defaultRole, defaultRole === 'admin' ? 1 : 0, 'active').run(); const userId = result.meta.last_row_id; await getOrCreateWallet(db, userId); await ensureStarterUnlocks(db, userId); await logAudit(db, userId, userId, 'user_registered', { username, role: defaultRole }); const user = await db.prepare('SELECT id, username, role, is_admin, status FROM users WHERE id = ?').bind(userId).first(); return json({ ok: true, user: serializeUser(user) }, 201); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
@@ -142,17 +365,193 @@ async function handleLogin(request, env) { try { const body = await readJsonBody
 async function handleLogout(request, env) { try { const token = getSessionToken(request); if (token) { const db = getDatabase(env); await ensureSchemaOnce(db); await db.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run(); } const response = json({ ok: true }); response.headers.append('Set-Cookie', clearSessionCookie()); return response; } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
 async function handleMe(request, env) { try { const u = await getCurrentUserFast(request, env); if (!u) return json({ ok: false, user: null, error: 'Not logged in' }, 401); return json({ ok: true, user: { id: u.id, username: u.username, role: u.role, roleLabel: getRoleLabel(u.role), roleLevel: getRoleLevel(u.role), is_admin: u.is_admin } }, 200, {'Cache-Control':'private, max-age=15'}); } catch (error) { console.warn('[auth/me] failed', friendlyError(error)); return json({ ok: false, user: null, error: 'Not logged in' }, 401); } }
 
-const PUBLIC_PROFILE_CARD_COLUMNS = 'p.display_name, p.profile_title, p.avatar_url, p.status_message, p.steam_url, p.leetify_url, p.leetify_profile_url, p.leetify_steam_id, p.refrag_url, p.refrag_profile_url, p.manual_refrag_rating, p.manual_refrag_counter_strafe_pct, p.manual_refrag_reaction_time, p.manual_refrag_ttd, p.manual_refrag_crosshair_drift, p.manual_refrag_last_updated_at, p.card_background_url, p.card_background_colour, p.card_accent_colour, p.card_border_colour, p.card_text_colour, p.card_body_text_colour, p.card_layout, p.card_grid_columns, p.card_show_avatar, p.card_show_display_name, p.card_show_username, p.card_show_user_id, p.card_show_role, p.card_show_level, p.card_show_rank, p.card_show_xp, p.card_show_status, p.card_show_steam, p.card_show_leetify, p.card_show_leetify_rank, p.card_show_leetify_rating, p.card_show_leetify_steam_id, p.card_show_leetify_avatar, p.card_show_leetify_name, p.card_show_leetify_aim, p.card_show_leetify_positioning, p.card_show_leetify_utility, p.card_show_leetify_clutch, p.card_show_leetify_opening, p.card_show_leetify_recent_matches, p.card_show_leetify_premier, p.card_show_leetify_map_ranks, p.card_show_leetify_updated, p.card_show_refrag, p.card_tile_settings_json';
 function publicProfileCardFields(row = {}) { const out = { display_name: row.display_name || null, profile_title: row.profile_title || null, avatar_url: row.avatar_url || null, status_message: row.status_message || '', steam_url: row.steam_url || '', leetify_url: row.leetify_url || row.leetify_profile_url || '', leetify_profile_url: row.leetify_profile_url || row.leetify_url || '', leetify_steam_id: row.leetify_steam_id || '', refrag_url: row.refrag_url || row.refrag_profile_url || '', refrag_profile_url: row.refrag_profile_url || row.refrag_url || '', manual_refrag_rating: row.manual_refrag_rating || '', manual_refrag_counter_strafe_pct: row.manual_refrag_counter_strafe_pct || '', manual_refrag_reaction_time: row.manual_refrag_reaction_time || '', manual_refrag_ttd: row.manual_refrag_ttd || '', manual_refrag_crosshair_drift: row.manual_refrag_crosshair_drift || '', manual_refrag_last_updated_at: row.manual_refrag_last_updated_at || '', card_background_url: row.card_background_url || '', card_background_colour: row.card_background_colour || '', card_accent_colour: row.card_accent_colour || '', card_border_colour: row.card_border_colour || '', card_text_colour: row.card_text_colour || '', card_body_text_colour: row.card_body_text_colour || '', card_layout: row.card_layout || 'standard', card_grid_columns: Number(row.card_grid_columns) || 4, card_show_avatar: row.card_show_avatar == null ? 1 : Number(row.card_show_avatar), card_show_display_name: row.card_show_display_name == null ? 1 : Number(row.card_show_display_name), card_show_username: row.card_show_username == null ? 1 : Number(row.card_show_username), card_show_user_id: row.card_show_user_id == null ? 0 : Number(row.card_show_user_id), card_show_role: row.card_show_role == null ? 1 : Number(row.card_show_role), card_show_level: row.card_show_level == null ? 1 : Number(row.card_show_level), card_show_rank: row.card_show_rank == null ? 1 : Number(row.card_show_rank), card_show_xp: row.card_show_xp == null ? 1 : Number(row.card_show_xp), card_show_status: row.card_show_status == null ? 0 : Number(row.card_show_status), card_show_steam: row.card_show_steam == null ? 0 : Number(row.card_show_steam), card_show_leetify: row.card_show_leetify == null ? 0 : Number(row.card_show_leetify), card_show_leetify_rank: row.card_show_leetify_rank == null ? 0 : Number(row.card_show_leetify_rank), card_show_leetify_rating: row.card_show_leetify_rating == null ? 0 : Number(row.card_show_leetify_rating), card_show_leetify_steam_id: row.card_show_leetify_steam_id == null ? 0 : Number(row.card_show_leetify_steam_id), card_show_leetify_avatar: row.card_show_leetify_avatar == null ? 0 : Number(row.card_show_leetify_avatar), card_show_leetify_name: row.card_show_leetify_name == null ? 0 : Number(row.card_show_leetify_name), card_show_leetify_aim: row.card_show_leetify_aim == null ? 0 : Number(row.card_show_leetify_aim), card_show_leetify_positioning: row.card_show_leetify_positioning == null ? 0 : Number(row.card_show_leetify_positioning), card_show_leetify_utility: row.card_show_leetify_utility == null ? 0 : Number(row.card_show_leetify_utility), card_show_leetify_clutch: row.card_show_leetify_clutch == null ? 0 : Number(row.card_show_leetify_clutch), card_show_leetify_opening: row.card_show_leetify_opening == null ? 0 : Number(row.card_show_leetify_opening), card_show_leetify_recent_matches: row.card_show_leetify_recent_matches == null ? 0 : Number(row.card_show_leetify_recent_matches), card_show_leetify_premier: row.card_show_leetify_premier == null ? 0 : Number(row.card_show_leetify_premier), card_show_leetify_map_ranks: row.card_show_leetify_map_ranks == null ? 0 : Number(row.card_show_leetify_map_ranks), card_show_leetify_updated: row.card_show_leetify_updated == null ? 0 : Number(row.card_show_leetify_updated), card_show_refrag: row.card_show_refrag == null ? 0 : Number(row.card_show_refrag), card_tile_settings_json: row.card_tile_settings_json || '' }; out.cardTileSettings = normalizeCardTileSettings(out.card_tile_settings_json); return out; }
-async function handleMembers(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureCoreSchemaOnce(db); const rows = await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, u.status, ${PUBLIC_PROFILE_CARD_COLUMNS}, p.selected_rank_id FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id ORDER BY u.created_at DESC, u.id DESC`).all(); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); const members=[]; for (const r of (rows.results||[])) { const progress=await getUserAccountProgress(db, r.id); const rank=getDisplayedRank(progress.accountLevel, r.selected_rank_id, ranks.ranks); members.push({ ...serializeUser(r), created_at:r.created_at||null, ...publicProfileCardFields(r), ...progress, rank }); } return json({ ok: true, siteName: SITE_NAME, members }, 200, {'Cache-Control':'private, max-age=60'}); }
-async function handleProfileMe(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureCoreSchemaOnce(db); const row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); await ensureProfileRowLite(db, row.id); let profileRow; const readProfileRow = () => db.prepare('SELECT display_name, profile_title, bio, location, website_url, steam_url, spotify_url, soundcloud_url, youtube_music_url, profile_links_visibility_json, leetify_url, leetify_profile_url, leetify_steam_id, refrag_url, refrag_profile_url, manual_refrag_rating, manual_refrag_counter_strafe_pct, manual_refrag_reaction_time, manual_refrag_ttd, manual_refrag_crosshair_drift, manual_refrag_last_updated_at, avatar_url, banner_url, banner_display_size, profile_background_url, profile_background_size, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active, status_message, profile_quote, favourite_game, profile_visibility, show_member_card, show_profile_showcase, show_profile_xp, show_profile_user_id, show_joined_date, show_header_avatar, show_header_display_name, show_header_username, show_header_user_id, show_header_level, show_header_rank, show_header_xp_bar, card_background_url, card_background_colour, card_accent_colour, card_text_colour, card_body_text_colour, card_border_colour, card_layout, card_show_avatar, card_show_display_name, card_show_username, card_show_user_id, card_show_role, card_show_level, card_show_rank, card_show_xp, card_show_status, card_show_steam, card_show_refrag, card_show_leetify, card_show_leetify_rank, card_show_leetify_rating, card_show_leetify_steam_id, card_show_leetify_avatar, card_show_leetify_name, card_show_leetify_aim, card_show_leetify_positioning, card_show_leetify_utility, card_show_leetify_clutch, card_show_leetify_opening, card_show_leetify_recent_matches, card_show_leetify_premier, card_show_leetify_map_ranks, card_show_leetify_updated, card_grid_columns, card_tile_settings_json, dashboard_background_colour, dashboard_background_url, dashboard_background_size, dashboard_background_overlay_strength, profile_page_background_url, profile_page_background_colour, profile_page_background_size, profile_page_overlay_strength, profile_page_tile_layout_json, profile_page_widget_settings_json, profile_footer_url, profile_footer_display_size, selected_rank_id, updated_at FROM user_profiles WHERE user_id = ?').bind(row.id).first(); try { profileRow = await readProfileRow(); } catch (error) { console.error('[profile] profile row read failed before repair', friendlyError(error)); await ensureCoreSchemaOnce(db, { force: true }); profileRow = await readProfileRow(); } const safeProfile = { display_name: row.username, bio: '', profile_title: '', avatar_url: '', banner_url: '', banner_display_size: 'wide', profile_background_url: '', profile_background_size: 'cover', spotify_url: '', soundcloud_url: '', youtube_music_url: '', profile_links_visibility_json: '{}', leetify_profile_url: '', leetify_steam_id: '', refrag_url: '', refrag_profile_url: '', manual_refrag_rating: '', manual_refrag_counter_strafe_pct: '', manual_refrag_reaction_time: '', manual_refrag_ttd: '', manual_refrag_crosshair_drift: '', manual_refrag_last_updated_at: '', profile_layout: 'standard', show_level: 1, show_rank: 1, show_badges: 1, show_last_active: 0, card_background_url: '', card_background_colour: '', card_accent_colour: '', card_text_colour: '', card_body_text_colour: '', card_border_colour: '', card_layout: 'standard', card_show_avatar: 1, card_show_display_name: 1, card_show_username: 1, card_show_user_id: 0, card_show_role: 1, card_show_level: 1, card_show_rank: 1, card_show_xp: 1, card_show_status: 0, card_show_steam: 0, card_show_refrag: 0, card_show_leetify: 0, card_show_leetify_rank: 0, card_show_leetify_rating: 0, card_show_leetify_steam_id: 0, card_show_leetify_avatar: 0, card_show_leetify_name: 0, card_show_leetify_aim: 0, card_show_leetify_positioning: 0, card_show_leetify_utility: 0, card_show_leetify_clutch: 0, card_show_leetify_opening: 0, card_show_leetify_recent_matches: 0, card_show_leetify_premier: 0, card_show_leetify_map_ranks: 0, card_show_leetify_updated: 0, card_grid_columns: 4, card_tile_settings_json: '', dashboard_background_colour: '', dashboard_background_url: '', dashboard_background_size: 'cover', dashboard_background_overlay_strength: 0, profile_page_background_url: '', profile_page_background_colour: '', profile_page_background_size: 'cover', profile_page_overlay_strength: 20, profile_page_tile_layout_json: '', profile_page_widget_settings_json: '', profile_footer_url:'', profile_footer_display_size:'wide', ...(profileRow || {}) }; safeProfile.leetify_profile_url = safeProfile.leetify_profile_url || safeProfile.leetify_url || ''; safeProfile.leetify_url = safeProfile.leetify_profile_url || safeProfile.leetify_url || ''; safeProfile.refrag_profile_url = safeProfile.refrag_profile_url || safeProfile.refrag_url || ''; safeProfile.refrag_url = safeProfile.refrag_profile_url || safeProfile.refrag_url || ''; safeProfile.cardTileSettings = normalizeCardTileSettings(safeProfile.card_tile_settings_json); const progress = await getUserAccountProgress(db, row.id); const ranks = await loadAccountRanks(request, env); const rankLoadError = !ranks.ok; const rankList = ranks.ok ? ranks.ranks : []; const unlockedRanks = getUnlockedRanks(progress.accountLevel, rankList); const defaultRank = getDefaultRankForLevel(progress.accountLevel, rankList); const rank = getDisplayedRank(progress.accountLevel, safeProfile?.selected_rank_id, rankList); const showcase = await getPublicShowcaseSlots(db, row.id).catch(() => []); const achievements = await getPublicAchievementSummary(db, row.id).catch(() => ({ count: 0, xpFromAchievements: 0, latest: [] })); return json({ ok: true, profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, unlockedRanks, showcase, achievements }, isOwner: true, ...(rankLoadError ? { rankLoadError: ranks.error } : {}) }, 200, {'Cache-Control':'private, max-age=15'});  } catch (error) { console.error('[profile/me] failed', { message: error?.message || String(error), stack: error?.stack || '' }); return json({ ok: false, error: friendlyError(error) }, 500); }}
-async function handleProfileLookup(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureCoreSchemaOnce(db); const url = new URL(request.url); const idParam = url.searchParams.get('id'); const usernameParam = (url.searchParams.get('user') || '').trim(); let row = null; if (idParam) { const id = Number(idParam); if (!Number.isInteger(id) || id < 1) return json({ ok: false, error: 'Invalid user id' }, 400); row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE id = ?').bind(id).first(); } else if (usernameParam) { row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE username = ?').bind(usernameParam).first(); } else { return handleProfileMe(request, env); } if (!row) return json({ ok: false, error: 'User not found' }, 404); await ensureProfileRowLite(db, row.id); let profileRow; const readProfileRow = () => db.prepare('SELECT display_name, profile_title, bio, location, website_url, steam_url, spotify_url, soundcloud_url, youtube_music_url, profile_links_visibility_json, leetify_url, leetify_profile_url, leetify_steam_id, refrag_url, refrag_profile_url, manual_refrag_rating, manual_refrag_counter_strafe_pct, manual_refrag_reaction_time, manual_refrag_ttd, manual_refrag_crosshair_drift, manual_refrag_last_updated_at, avatar_url, banner_url, banner_display_size, profile_background_url, profile_background_size, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active, status_message, profile_quote, favourite_game, profile_visibility, show_member_card, show_profile_showcase, show_profile_xp, show_profile_user_id, show_joined_date, show_header_avatar, show_header_display_name, show_header_username, show_header_user_id, show_header_level, show_header_rank, show_header_xp_bar, card_background_url, card_background_colour, card_accent_colour, card_text_colour, card_body_text_colour, card_border_colour, card_layout, card_show_avatar, card_show_display_name, card_show_username, card_show_user_id, card_show_role, card_show_level, card_show_rank, card_show_xp, card_show_status, card_show_steam, card_show_refrag, card_show_leetify, card_show_leetify_rank, card_show_leetify_rating, card_show_leetify_steam_id, card_show_leetify_avatar, card_show_leetify_name, card_show_leetify_aim, card_show_leetify_positioning, card_show_leetify_utility, card_show_leetify_clutch, card_show_leetify_opening, card_show_leetify_recent_matches, card_show_leetify_premier, card_show_leetify_map_ranks, card_show_leetify_updated, card_grid_columns, card_tile_settings_json, dashboard_background_colour, dashboard_background_url, dashboard_background_size, dashboard_background_overlay_strength, profile_page_background_url, profile_page_background_colour, profile_page_background_size, profile_page_overlay_strength, profile_page_tile_layout_json, profile_page_widget_settings_json, profile_footer_url, profile_footer_display_size, selected_rank_id, updated_at FROM user_profiles WHERE user_id = ?').bind(row.id).first(); try { profileRow = await readProfileRow(); } catch (error) { console.error('[profile] profile row read failed before repair', friendlyError(error)); await ensureCoreSchemaOnce(db, { force: true }); profileRow = await readProfileRow(); } const safeProfile = { display_name: row.username, bio: '', profile_title: '', avatar_url: '', banner_url: '', banner_display_size: 'wide', profile_background_url: '', profile_background_size: 'cover', spotify_url: '', soundcloud_url: '', youtube_music_url: '', profile_links_visibility_json: '{}', leetify_profile_url: '', leetify_steam_id: '', refrag_url: '', refrag_profile_url: '', manual_refrag_rating: '', manual_refrag_counter_strafe_pct: '', manual_refrag_reaction_time: '', manual_refrag_ttd: '', manual_refrag_crosshair_drift: '', manual_refrag_last_updated_at: '', profile_layout: 'standard', show_level: 1, show_rank: 1, show_badges: 1, show_last_active: 0, card_background_url: '', card_background_colour: '', card_accent_colour: '', card_text_colour: '', card_body_text_colour: '', card_border_colour: '', card_layout: 'standard', card_show_avatar: 1, card_show_display_name: 1, card_show_username: 1, card_show_user_id: 0, card_show_role: 1, card_show_level: 1, card_show_rank: 1, card_show_xp: 1, card_show_status: 0, card_show_steam: 0, card_show_refrag: 0, card_show_leetify: 0, card_show_leetify_rank: 0, card_show_leetify_rating: 0, card_show_leetify_steam_id: 0, card_show_leetify_avatar: 0, card_show_leetify_name: 0, card_show_leetify_aim: 0, card_show_leetify_positioning: 0, card_show_leetify_utility: 0, card_show_leetify_clutch: 0, card_show_leetify_opening: 0, card_show_leetify_recent_matches: 0, card_show_leetify_premier: 0, card_show_leetify_map_ranks: 0, card_show_leetify_updated: 0, card_grid_columns: 4, card_tile_settings_json: '', dashboard_background_colour: '', dashboard_background_url: '', dashboard_background_size: 'cover', dashboard_background_overlay_strength: 0, profile_page_background_url: '', profile_page_background_colour: '', profile_page_background_size: 'cover', profile_page_overlay_strength: 20, profile_page_tile_layout_json: '', profile_page_widget_settings_json: '', profile_footer_url:'', profile_footer_display_size:'wide', ...(profileRow || {}) }; safeProfile.leetify_profile_url = safeProfile.leetify_profile_url || safeProfile.leetify_url || ''; safeProfile.leetify_url = safeProfile.leetify_profile_url || safeProfile.leetify_url || ''; safeProfile.refrag_profile_url = safeProfile.refrag_profile_url || safeProfile.refrag_url || ''; safeProfile.refrag_url = safeProfile.refrag_profile_url || safeProfile.refrag_url || ''; safeProfile.cardTileSettings = normalizeCardTileSettings(safeProfile.card_tile_settings_json); const progress = await getUserAccountProgress(db, row.id); const ranks = await loadAccountRanks(request, env); const rankLoadError = !ranks.ok; const rankList = ranks.ok ? ranks.ranks : []; const defaultRank = getDefaultRankForLevel(progress.accountLevel, rankList); const rank = getDisplayedRank(progress.accountLevel, safeProfile?.selected_rank_id, rankList); const unlockedRanks = user.id === row.id ? getUnlockedRanks(progress.accountLevel, rankList) : undefined; const showcase = await getPublicShowcaseSlots(db, row.id).catch(() => []); const achievements = await getPublicAchievementSummary(db, row.id).catch(() => ({ count: 0, xpFromAchievements: 0, latest: [] })); return json({ ok: true, profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, ...(unlockedRanks ? { unlockedRanks } : {}) }, isOwner: String(user.id) === String(row.id), ...(rankLoadError ? { rankLoadError: ranks.error } : {}) });  } catch (error) { console.error('[profile/lookup] failed', { message: error?.message || String(error), stack: error?.stack || '' }); return json({ ok: false, error: friendlyError(error) }, 500); }}
-async function handleProfileMeUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const db = getDatabase(env); await ensureSchemaOnce(db); await db.prepare('INSERT INTO user_profiles (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING').bind(user.id).run(); const existingAppearance = await db.prepare('SELECT profile_page_background_url, profile_page_background_colour, profile_page_background_size, profile_page_overlay_strength, profile_footer_url, profile_footer_display_size, banner_url, banner_display_size, profile_links_visibility_json FROM user_profiles WHERE user_id = ?').bind(user.id).first() || {}; const profile = normalizeProfileInput(body, existingAppearance); if (profile.error) return json({ ok: false, error: profile.error }, 400); await db.prepare(`UPDATE user_profiles SET display_name=?, profile_title=?, bio=?, location=?, website_url=?, steam_url=?, spotify_url=?, soundcloud_url=?, youtube_music_url=?, profile_links_visibility_json=?, leetify_url=?, leetify_profile_url=?, leetify_steam_id=?, refrag_url=?, refrag_profile_url=?, manual_refrag_rating=?, manual_refrag_counter_strafe_pct=?, manual_refrag_reaction_time=?, manual_refrag_ttd=?, manual_refrag_crosshair_drift=?, manual_refrag_last_updated_at=?, avatar_url=?, banner_url=?, banner_display_size=?, profile_background_url=?, profile_background_size=?, status_message=?, favourite_colour=?, profile_accent_colour=?, profile_background_colour=?, profile_layout=?, show_level=?, show_rank=?, show_badges=?, show_last_active=?, profile_page_background_url=?, profile_page_background_colour=?, profile_page_background_size=?, profile_page_overlay_strength=?, profile_page_tile_layout_json=?, profile_page_widget_settings_json=?, profile_footer_url=?, profile_footer_display_size=?, updated_at=datetime('now') WHERE user_id=?`).bind(profile.display_name, profile.profile_title, profile.bio, profile.location, profile.website_url, profile.steam_url, profile.spotify_url, profile.soundcloud_url, profile.youtube_music_url, profile.profile_links_visibility_json, profile.leetify_url, profile.leetify_profile_url, profile.leetify_steam_id, profile.refrag_url, profile.refrag_profile_url, profile.manual_refrag_rating, profile.manual_refrag_counter_strafe_pct, profile.manual_refrag_reaction_time, profile.manual_refrag_ttd, profile.manual_refrag_crosshair_drift, profile.manual_refrag_last_updated_at, profile.avatar_url, profile.banner_url, profile.banner_display_size, profile.profile_background_url, profile.profile_background_size, normalizeNullableString(body?.status_message, 140), profile.favourite_colour, profile.profile_accent_colour, profile.profile_background_colour, profile.profile_layout, profile.show_level, profile.show_rank, profile.show_badges, profile.show_last_active, profile.profile_page_background_url, profile.profile_page_background_colour, profile.profile_page_background_size, profile.profile_page_overlay_strength, profile.profile_page_tile_layout_json, profile.profile_page_widget_settings_json, profile.profile_footer_url, profile.profile_footer_display_size, user.id).run(); const savedStatus = normalizeNullableString(body?.status_message, 140); const achievementsAwarded = await awardProfileSaveAchievements(db, user.id, { ...profile, status_message: savedStatus }); const profileLayoutAward = profile.profile_page_tile_layout_json ? await grantAchievement(db, user.id, 'profile_page.custom_layout', { source:'profile_save' }) : null; if (profileLayoutAward?.awarded) achievementsAwarded.push({ ...profileLayoutAward.achievement, xp: profileLayoutAward.xp }); if (hasMeaningfulWidgetStyle(profile.profile_page_widget_settings_json)) { const styleAward = await grantAchievement(db, user.id, 'profile_page.widget_style', { source:'profile_save' }); if (styleAward.awarded) achievementsAwarded.push({ ...styleAward.achievement, xp: styleAward.xp }); } const response = await handleProfileMe(request, env); const payload = await response.json(); payload.achievementsAwarded = achievementsAwarded; payload.xp = await readRecentXpSummary(db, user.id); return json(payload, response.status); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
-async function handleProfileCardMeUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const card_layout = ['compact', 'standard', 'showcase'].includes(String(body?.card_layout || 'standard')) ? String(body?.card_layout || 'standard') : null; if (!card_layout) return json({ ok: false, error: 'Invalid card_layout' }, 400); const cardTileSettings = normalizeCardTileSettings(body?.card_tile_settings ?? body?.cardTileSettings); const cardGridColumns = [2,3,4].includes(Number(body?.card_grid_columns)) ? Number(body?.card_grid_columns) : 4; const cardTileSettingsJson = JSON.stringify(cardTileSettings); if (cardTileSettingsJson.length > 8000) return json({ ok: false, error: 'cardTileSettings too large' }, 400); const db = getDatabase(env); await ensureSchemaOnce(db); await db.prepare('INSERT INTO user_profiles (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING').bind(user.id).run(); const existing = await db.prepare('SELECT card_background_url, card_background_colour, card_accent_colour, card_text_colour, card_body_text_colour, card_border_colour FROM user_profiles WHERE user_id = ?').bind(user.id).first() || {}; const hasField = (k) => Object.prototype.hasOwnProperty.call(body || {}, k); const mergeImageField = (k) => { if (!hasField(k)) return String(existing?.[k] || ''); const normalized = normalizeImageUrl(body?.[k]); if (normalized === null) throw new Error('Invalid card image URL'); return normalized || ''; }; const mergeColourField = (k) => { if (!hasField(k)) return String(existing?.[k] || ''); const incoming = String(body?.[k] ?? '').trim(); if (!incoming) return ''; const normalized = normalizeHexColour(incoming); if (!normalized) throw new Error(`Invalid ${k}`); return normalized; }; const card_background_url = mergeImageField('card_background_url'); const card_background_colour = mergeColourField('card_background_colour'); const card_accent_colour = mergeColourField('card_accent_colour'); const card_text_colour = mergeColourField('card_text_colour'); const card_body_text_colour = mergeColourField('card_body_text_colour'); const card_border_colour = mergeColourField('card_border_colour'); const cardState = { card_background_url, card_background_colour, card_accent_colour, card_text_colour, card_body_text_colour, card_border_colour, card_layout, card_show_avatar: normalizeBool01(body?.card_show_avatar, 1), card_show_display_name: normalizeBool01(body?.card_show_display_name, 1), card_show_username: normalizeBool01(body?.card_show_username, 1), card_show_user_id: normalizeBool01(body?.card_show_user_id, 0), card_show_role: normalizeBool01(body?.card_show_role, 1), card_show_level: normalizeBool01(body?.card_show_level, 1), card_show_rank: normalizeBool01(body?.card_show_rank, 1), card_show_xp: normalizeBool01(body?.card_show_xp, 1), card_show_status: normalizeBool01(body?.card_show_status, 0), card_show_steam: normalizeBool01(body?.card_show_steam, 0), card_show_leetify: normalizeBool01(body?.card_show_leetify, 0), card_show_leetify_rank: normalizeBool01(body?.card_show_leetify_rank, 0), card_show_leetify_rating: normalizeBool01(body?.card_show_leetify_rating, 0), card_show_leetify_steam_id: normalizeBool01(body?.card_show_leetify_steam_id, 0), card_show_leetify_avatar: normalizeBool01(body?.card_show_leetify_avatar, 0), card_show_leetify_name: normalizeBool01(body?.card_show_leetify_name, 0), card_show_leetify_aim: normalizeBool01(body?.card_show_leetify_aim, 0), card_show_leetify_positioning: normalizeBool01(body?.card_show_leetify_positioning, 0), card_show_leetify_utility: normalizeBool01(body?.card_show_leetify_utility, 0), card_show_leetify_clutch: normalizeBool01(body?.card_show_leetify_clutch, 0), card_show_leetify_opening: normalizeBool01(body?.card_show_leetify_opening, 0), card_show_leetify_recent_matches: normalizeBool01(body?.card_show_leetify_recent_matches, 0), card_show_leetify_premier: normalizeBool01(body?.card_show_leetify_premier, 0), card_show_leetify_map_ranks: normalizeBool01(body?.card_show_leetify_map_ranks, 0), card_show_leetify_updated: normalizeBool01(body?.card_show_leetify_updated, 0), card_show_refrag: normalizeBool01(body?.card_show_refrag, 0), card_grid_columns: cardGridColumns, cardTileSettings }; await db.prepare(`UPDATE user_profiles SET card_background_url=?, card_background_colour=?, card_accent_colour=?, card_text_colour=?, card_body_text_colour=?, card_border_colour=?, card_layout=?, card_show_avatar=?, card_show_display_name=?, card_show_username=?, card_show_user_id=?, card_show_role=?, card_show_level=?, card_show_rank=?, card_show_xp=?, card_show_status=?, card_show_steam=?, card_show_leetify=?, card_show_leetify_rank=?, card_show_leetify_rating=?, card_show_leetify_steam_id=?, card_show_leetify_avatar=?, card_show_leetify_name=?, card_show_leetify_aim=?, card_show_leetify_positioning=?, card_show_leetify_utility=?, card_show_leetify_clutch=?, card_show_leetify_opening=?, card_show_leetify_recent_matches=?, card_show_leetify_premier=?, card_show_leetify_map_ranks=?, card_show_leetify_updated=?, card_show_refrag=?, card_grid_columns=?, card_tile_settings_json=?, updated_at=datetime('now') WHERE user_id=?`).bind(card_background_url, card_background_colour, card_accent_colour, card_text_colour, card_body_text_colour, card_border_colour, card_layout, cardState.card_show_avatar, cardState.card_show_display_name, cardState.card_show_username, cardState.card_show_user_id, cardState.card_show_role, cardState.card_show_level, cardState.card_show_rank, cardState.card_show_xp, cardState.card_show_status, cardState.card_show_steam, cardState.card_show_leetify, cardState.card_show_leetify_rank, cardState.card_show_leetify_rating, cardState.card_show_leetify_steam_id, cardState.card_show_leetify_avatar, cardState.card_show_leetify_name, cardState.card_show_leetify_aim, cardState.card_show_leetify_positioning, cardState.card_show_leetify_utility, cardState.card_show_leetify_clutch, cardState.card_show_leetify_opening, cardState.card_show_leetify_recent_matches, cardState.card_show_leetify_premier, cardState.card_show_leetify_map_ranks, cardState.card_show_leetify_updated, cardState.card_show_refrag, cardGridColumns, cardTileSettingsJson, user.id).run(); const achievementsAwarded = await awardProfileCardAchievements(db, user.id, cardState); const response = await handleProfileMe(request, env); const payload = await response.json(); payload.achievementsAwarded = achievementsAwarded; payload.xp = await readRecentXpSummary(db, user.id); return json(payload, response.status); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleMembers(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+  const db = getDatabase(env);
+  await ensureCoreSchemaOnce(db);
+  const rows = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users ORDER BY created_at DESC, id DESC').all();
+  const ranks = await loadAccountRanks(request, env);
+  if (!ranks.ok) return json(ranks, 500);
+  const members=[];
+  for (const r of (rows.results||[])) {
+    const profile = await getSafeProfileSettings(db, r.id);
+    if (!profile.display_name) profile.display_name = r.username;
+    const progress=await getUserAccountProgress(db, r.id);
+    const rank=getDisplayedRank(progress.accountLevel, profile.selected_rank_id, ranks.ranks);
+    members.push({ ...serializeUser(r), created_at:r.created_at||null, ...publicProfileCardFields(profile), ...progress, rank });
+  }
+  return json({ ok: true, siteName: SITE_NAME, members }, 200, {'Cache-Control':'private, max-age=60'});
+}
+async function handleProfileMe(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const bundle = await getUserProfileBundle(request, env, Number(user.id), { includeUnlockedRanks: true });
+    if (!bundle) return json({ ok: false, error: 'User not found' }, 404);
+    return json({ ok: true, user: serializeUser(bundle.profile), profile: bundle.profile, ranks: bundle.ranks?.ok ? bundle.ranks.ranks : [], rankLoadError: !bundle.ranks?.ok }, 200, { 'Cache-Control': 'private, max-age=15' });
+  } catch (error) {
+    return json({ ok: false, error: friendlyError(error) }, 500);
+  }
+}
+async function handleProfileLookup(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const url = new URL(request.url);
+    const idParam = url.searchParams.get('id');
+    const usernameParam = (url.searchParams.get('user') || '').trim();
+    let targetId = Number(user.id);
+    if (idParam) {
+      targetId = Number(idParam);
+      if (!Number.isInteger(targetId) || targetId < 1) return json({ ok: false, error: 'Invalid user id' }, 400);
+    } else if (usernameParam) {
+      const db = getDatabase(env);
+      await ensureCoreSchemaOnce(db);
+      const row = await db.prepare('SELECT id FROM users WHERE username = ?').bind(usernameParam).first();
+      if (!row) return json({ ok: false, error: 'User not found' }, 404);
+      targetId = Number(row.id);
+    } else {
+      return handleProfileMe(request, env);
+    }
+    const bundle = await getUserProfileBundle(request, env, targetId, { includeUnlockedRanks: Number(user.id) === targetId });
+    if (!bundle) return json({ ok: false, error: 'User not found' }, 404);
+    return json({ ok: true, profile: bundle.profile, isOwner: String(user.id) === String(targetId), ...(bundle.ranks?.ok ? {} : { rankLoadError: bundle.ranks?.error || 'Unable to load ranks' }) });
+  } catch (error) {
+    console.error('[profile/lookup] failed', { message: error?.message || String(error), stack: error?.stack || '' });
+    return json({ ok: false, error: friendlyError(error) }, 500);
+  }
+}
+async function handleProfileMeUpdate(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const body = await readJsonBody(request);
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    const existingAppearance = await getSafeProfileSettings(db, user.id);
+    const profile = normalizeProfileInput(body, existingAppearance);
+    if (profile.error) return json({ ok: false, error: profile.error }, 400);
+    const savedStatus = normalizeNullableString(body?.status_message, 140);
+    const legacyValues = { ...pickFields(profile, LEGACY_PROFILE_FIELDS), status_message: savedStatus };
+    const extraProfile = pickFields(profile, EXTENSIBLE_PROFILE_FIELDS);
+    for (const field of EXTENSIBLE_PROFILE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(body || {}, field) && !Object.prototype.hasOwnProperty.call(extraProfile, field)) {
+        extraProfile[field] = normalizeShortTextField(body?.[field], field === 'manual_leetify_map_ranks' ? 2000 : 120, field);
+      }
+    }
+    const profilePageSettings = pickFields(profile, PROFILE_PAGE_SETTING_FIELDS);
+    await updateExistingProfileColumns(db, user.id, legacyValues);
+    await updateExistingProfileColumns(db, user.id, extraProfile);
+    await updateExistingProfileColumns(db, user.id, profilePageSettings);
+    await mergeSettingsJson(db, 'user_profile_settings', user.id, extraProfile);
+    await mergeSettingsJson(db, 'user_profile_page_settings', user.id, profilePageSettings);
+    const achievementsAwarded = await awardProfileSaveAchievements(db, user.id, { ...profile, status_message: savedStatus });
+    const profileLayoutAward = profile.profile_page_tile_layout_json ? await grantAchievement(db, user.id, 'profile_page.custom_layout', { source:'profile_save' }) : null;
+    if (profileLayoutAward?.awarded) achievementsAwarded.push({ ...profileLayoutAward.achievement, xp: profileLayoutAward.xp });
+    if (hasMeaningfulWidgetStyle(profile.profile_page_widget_settings_json)) {
+      const styleAward = await grantAchievement(db, user.id, 'profile_page.widget_style', { source:'profile_save' });
+      if (styleAward.awarded) achievementsAwarded.push({ ...styleAward.achievement, xp: styleAward.xp });
+    }
+    const response = await handleProfileMe(request, env);
+    const payload = await response.json();
+    payload.achievementsAwarded = achievementsAwarded;
+    payload.xp = await readRecentXpSummary(db, user.id);
+    return json(payload, response.status);
+  } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
+}
+async function handleProfileCardMeUpdate(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const body = await readJsonBody(request);
+    const card_layout = ['compact', 'standard', 'showcase'].includes(String(body?.card_layout || 'standard')) ? String(body?.card_layout || 'standard') : null;
+    if (!card_layout) return json({ ok: false, error: 'Invalid card_layout' }, 400);
+    const cardTileSettings = normalizeCardTileSettings(body?.card_tile_settings ?? body?.cardTileSettings);
+    const cardGridColumns = [2,3,4].includes(Number(body?.card_grid_columns)) ? Number(body?.card_grid_columns) : 4;
+    const cardTileSettingsJson = JSON.stringify(cardTileSettings);
+    if (cardTileSettingsJson.length > 8000) return json({ ok: false, error: 'cardTileSettings too large' }, 400);
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    const existing = await getSafeProfileSettings(db, user.id);
+    const hasField = (k) => Object.prototype.hasOwnProperty.call(body || {}, k);
+    const mergeImageField = (k) => { if (!hasField(k)) return String(existing?.[k] || ''); const normalized = normalizeImageUrl(body?.[k]); if (normalized === null) throw new Error('Invalid card image URL'); return normalized || ''; };
+    const mergeColourField = (k) => { if (!hasField(k)) return String(existing?.[k] || ''); const incoming = String(body?.[k] ?? '').trim(); if (!incoming) return ''; const normalized = normalizeHexColour(incoming); if (!normalized) throw new Error(`Invalid ${k}`); return normalized; };
+    const cardState = {
+      card_background_url: mergeImageField('card_background_url'),
+      card_background_colour: mergeColourField('card_background_colour'),
+      card_accent_colour: mergeColourField('card_accent_colour'),
+      card_text_colour: mergeColourField('card_text_colour'),
+      card_body_text_colour: mergeColourField('card_body_text_colour'),
+      card_border_colour: mergeColourField('card_border_colour'),
+      card_layout,
+      card_show_avatar: normalizeBool01(body?.card_show_avatar, 1),
+      card_show_display_name: normalizeBool01(body?.card_show_display_name, 1),
+      card_show_username: normalizeBool01(body?.card_show_username, 1),
+      card_show_user_id: normalizeBool01(body?.card_show_user_id, 0),
+      card_show_role: normalizeBool01(body?.card_show_role, 1),
+      card_show_level: normalizeBool01(body?.card_show_level, 1),
+      card_show_rank: normalizeBool01(body?.card_show_rank, 1),
+      card_show_xp: normalizeBool01(body?.card_show_xp, 1),
+      card_show_status: normalizeBool01(body?.card_show_status, 0),
+      card_show_steam: normalizeBool01(body?.card_show_steam, 0),
+      card_show_leetify: normalizeBool01(body?.card_show_leetify, 0),
+      card_show_leetify_rank: normalizeBool01(body?.card_show_leetify_rank, 0),
+      card_show_leetify_rating: normalizeBool01(body?.card_show_leetify_rating, 0),
+      card_show_leetify_steam_id: normalizeBool01(body?.card_show_leetify_steam_id, 0),
+      card_show_leetify_avatar: normalizeBool01(body?.card_show_leetify_avatar, 0),
+      card_show_leetify_name: normalizeBool01(body?.card_show_leetify_name, 0),
+      card_show_leetify_aim: normalizeBool01(body?.card_show_leetify_aim, 0),
+      card_show_leetify_positioning: normalizeBool01(body?.card_show_leetify_positioning, 0),
+      card_show_leetify_utility: normalizeBool01(body?.card_show_leetify_utility, 0),
+      card_show_leetify_clutch: normalizeBool01(body?.card_show_leetify_clutch, 0),
+      card_show_leetify_opening: normalizeBool01(body?.card_show_leetify_opening, 0),
+      card_show_leetify_recent_matches: normalizeBool01(body?.card_show_leetify_recent_matches, 0),
+      card_show_leetify_premier: normalizeBool01(body?.card_show_leetify_premier, 0),
+      card_show_leetify_map_ranks: normalizeBool01(body?.card_show_leetify_map_ranks, 0),
+      card_show_leetify_updated: normalizeBool01(body?.card_show_leetify_updated, 0),
+      card_show_refrag: normalizeBool01(body?.card_show_refrag, 0),
+      card_grid_columns: cardGridColumns,
+      card_tile_settings_json: cardTileSettingsJson,
+      cardTileSettings
+    };
+    await updateExistingProfileColumns(db, user.id, cardState);
+    await mergeSettingsJson(db, 'user_profile_card_settings', user.id, cardState);
+    const achievementsAwarded = await awardProfileCardAchievements(db, user.id, cardState);
+    const response = await handleProfileMe(request, env);
+    const payload = await response.json();
+    payload.achievementsAwarded = achievementsAwarded;
+    payload.xp = await readRecentXpSummary(db, user.id);
+    return json(payload, response.status);
+  } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
+}
 
 
-async function handleProfileRankUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const incoming = body?.selected_rank_id; const selected = incoming == null ? null : String(incoming).trim(); const db = getDatabase(env); await ensureSchemaOnce(db); const ranks = await loadAccountRanks(request, env); if (!ranks.ok) return json(ranks, 500); const progress = await getUserAccountProgress(db, user.id); let selectedRankId = null; if (selected && selected.toLowerCase() !== 'default') { const rank = getRankById(selected, ranks.ranks); if (!rank) return json({ ok: false, error: 'Unknown rank' }, 400); if (rank.level > progress.accountLevel) return json({ ok: false, error: 'You have not unlocked that rank yet' }, 400); selectedRankId = rank.id; }
-await db.prepare("INSERT INTO user_profiles (user_id, selected_rank_id, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(user_id) DO UPDATE SET selected_rank_id=excluded.selected_rank_id, updated_at=datetime('now')").bind(user.id, selectedRankId).run(); return handleProfileMe(request, env); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
+async function handleProfileRankUpdate(request, env) {
+  try {
+    const user = await getCurrentUser(request, env);
+    if (!user) return json({ ok: false, error: 'Not logged in' }, 401);
+    const body = await readJsonBody(request);
+    const incoming = body?.selected_rank_id;
+    const selected = incoming == null ? null : String(incoming).trim();
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    const ranks = await loadAccountRanks(request, env);
+    if (!ranks.ok) return json(ranks, 500);
+    const progress = await getUserAccountProgress(db, user.id);
+    let selectedRankId = null;
+    if (selected && selected.toLowerCase() !== 'default') {
+      const rank = getRankById(selected, ranks.ranks);
+      if (!rank) return json({ ok: false, error: 'Unknown rank' }, 400);
+      if (rank.level > progress.accountLevel) return json({ ok: false, error: 'You have not unlocked that rank yet' }, 400);
+      selectedRankId = rank.id;
+    }
+    await updateExistingProfileColumns(db, user.id, { selected_rank_id: selectedRankId, updated_at: new Date().toISOString() });
+    await mergeSettingsJson(db, 'user_profile_settings', user.id, { selected_rank_id: selectedRankId });
+    return handleProfileMe(request, env);
+  } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
+}
 
 async function handleAccount(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchemaOnce(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, username, role, is_admin, status, created_at FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); return json({ ok: true, user: { ...serializeUser(row), created_at: row.created_at || null } }); }
 async function handleAccountPassword(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const currentPassword = body?.currentPassword ?? ''; const newPassword = body?.newPassword ?? ''; const confirmPassword = body?.confirmPassword ?? ''; if (!currentPassword) return json({ ok: false, error: 'Current password is required' }, 400); if (!newPassword) return json({ ok: false, error: 'New password is required' }, 400); if (!confirmPassword) return json({ ok: false, error: 'Confirm password is required' }, 400); if (newPassword !== confirmPassword) return json({ ok: false, error: 'New passwords do not match' }, 400); const db = getDatabase(env); await ensureSchemaOnce(db); await ensureStarterUnlocks(db, user.id); const row = await db.prepare('SELECT id, password_hash FROM users WHERE id = ?').bind(user.id).first(); if (!row) return json({ ok: false, error: 'User not found' }, 404); const valid = await verifyPassword(currentPassword, row.password_hash); if (!valid) return json({ ok: false, error: 'Current password is incorrect' }, 400); const passwordHash = await hashPassword(newPassword); await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, user.id).run(); await logAudit(db, user.id, user.id, 'password_changed', {}); return json({ ok: true }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
@@ -489,7 +888,23 @@ async function ensureSchemaOnce(db, { force = false } = {}) {
   return schemaReadyPromise;
 }
 
-async function ensureCoreSchemaOnce(db, { force = false } = {}) {
+async function ensureCoreSchema(db) {
+  await db.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  for (const sql of [
+    "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
+    "ALTER TABLE users ADD COLUMN account_xp INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN account_level INTEGER NOT NULL DEFAULT 1"
+  ]) { try { await db.prepare(sql).run(); } catch {} }
+  await db.prepare("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, banner_display_size TEXT NOT NULL DEFAULT 'wide', profile_background_url TEXT, profile_background_size TEXT NOT NULL DEFAULT 'cover', selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
+  await ensureUserProfileColumns(db);
+  await db.prepare("CREATE TABLE IF NOT EXISTS homepage_tile_config (tile_id TEXT PRIMARY KEY, label TEXT NOT NULL, default_size TEXT NOT NULL, allowed_sizes_json TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  await ensureSettingsTables(db);
+  await ensureHomepageTileConfigLite(db);
+  try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)").run(); } catch {}
+  try { await db.prepare("CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id)").run(); } catch {}
+  return true;
+} = {}) {
   const now = Date.now();
   if (!force && coreSchemaReadyPromise && now - coreSchemaReadyAt < SCHEMA_READY_TTL_MS) return coreSchemaReadyPromise;
   coreSchemaReadyPromise = ensureCoreSchema(db)
@@ -528,14 +943,8 @@ const USER_PROFILE_CORE_COLUMN_DEFINITIONS = {
 };
 
 async function ensureProfileColumnsLite(db) {
-  const rows = await db.prepare('PRAGMA table_info(user_profiles)').all();
-  const names = new Set((rows.results || []).map((r) => r.name));
-  const definitions = { ...USER_PROFILE_CORE_COLUMN_DEFINITIONS, ...USER_PROFILE_COLUMN_DEFINITIONS };
-  for (const [name, definition] of Object.entries(definitions)) {
-    if (names.has(name)) continue;
-    await db.prepare(`ALTER TABLE user_profiles ADD COLUMN ${name} ${definition}`).run();
-    names.add(name);
-  }
+  // user_profiles is at/near column limit; new settings must go into JSON/settings tables.
+  return ensureUserProfileColumns(db);
 }
 
 async function ensureProfileRowLite(db, userId) {
@@ -648,120 +1057,18 @@ const USER_PROFILE_COLUMN_DEFINITIONS = {
   profile_footer_display_size: "TEXT DEFAULT 'wide'"
 };
 async function ensureUserProfileColumns(db) {
+  // user_profiles is at/near column limit; new settings must go into JSON/settings tables.
   const rows = await db.prepare('PRAGMA table_info(user_profiles)').all();
   const names = new Set((rows.results || []).map((r) => r.name));
-  for (const [name, definition] of Object.entries(USER_PROFILE_COLUMN_DEFINITIONS)) {
-    if (names.has(name)) continue;
-    console.warn('[schema] adding missing user_profiles column', name);
-    try {
-      await db.prepare(`ALTER TABLE user_profiles ADD COLUMN ${name} ${definition}`).run();
-      names.add(name);
-    } catch (error) {
-      console.error('[schema] failed adding user_profiles column', { name, message: error?.message || String(error) });
-      throw error;
-    }
-  }
+  console.warn('[schema] user_profiles column count', names.size);
+  return names;
 }
 
 async function createSchemaTables(db) { await db.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')))" ).run(); try { await db.prepare("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'").run(); } catch {}
   try { await db.prepare("ALTER TABLE users ADD COLUMN account_xp INTEGER NOT NULL DEFAULT 0").run(); } catch {}
   try { await db.prepare("ALTER TABLE users ADD COLUMN account_level INTEGER NOT NULL DEFAULT 1").run(); } catch {}
   await db.prepare("CREATE TABLE IF NOT EXISTS user_profiles (user_id INTEGER PRIMARY KEY, display_name TEXT, bio TEXT, location TEXT, favourite_colour TEXT, profile_title TEXT, avatar_url TEXT, banner_url TEXT, banner_display_size TEXT NOT NULL DEFAULT 'wide', profile_background_url TEXT, profile_background_size TEXT NOT NULL DEFAULT 'cover', selected_rank_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN selected_rank_id TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN website_url TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN steam_url TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN spotify_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN soundcloud_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN youtube_music_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_links_visibility_json TEXT DEFAULT '{}'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN leetify_url TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN refrag_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN leetify_profile_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN leetify_steam_id TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN refrag_profile_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN manual_refrag_rating TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN manual_refrag_counter_strafe_pct TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN manual_refrag_reaction_time TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN manual_refrag_ttd TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN manual_refrag_crosshair_drift TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN manual_refrag_last_updated_at TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("UPDATE user_profiles SET leetify_profile_url = leetify_url WHERE COALESCE(leetify_profile_url,'') = '' AND COALESCE(leetify_url,'') <> ''").run(); } catch {}
-  try { await db.prepare("UPDATE user_profiles SET refrag_profile_url = refrag_url WHERE COALESCE(refrag_profile_url,'') = '' AND COALESCE(refrag_url,'') <> ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_accent_colour TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_background_colour TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_background_url TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN banner_display_size TEXT NOT NULL DEFAULT 'wide'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_background_size TEXT NOT NULL DEFAULT 'cover'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_avatar_url TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_background_url TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_layout TEXT NOT NULL DEFAULT 'standard'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_level INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_rank INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_badges INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_last_active INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_steam INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_refrag INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_status INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_rank INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_rating INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_steam_id INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_avatar INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_name INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_aim INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_positioning INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_utility INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_clutch INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_opening INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_recent_matches INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_premier INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_map_ranks INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_leetify_updated INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_tile_settings_json TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_grid_columns INTEGER NOT NULL DEFAULT 4").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_xp INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_rank INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_level INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_role INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_user_id INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_username INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_display_name INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_show_avatar INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_layout TEXT NOT NULL DEFAULT 'standard'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_border_colour TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_text_colour TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_body_text_colour TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_accent_colour TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN card_background_colour TEXT").run(); } catch {}
-
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN status_message TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_quote TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN favourite_game TEXT").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_visibility TEXT NOT NULL DEFAULT 'public'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN dashboard_background_colour TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN dashboard_background_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN dashboard_background_size TEXT DEFAULT 'cover'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN dashboard_background_overlay_strength INTEGER DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_page_background_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_page_background_colour TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_page_background_size TEXT DEFAULT 'cover'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_page_overlay_strength INTEGER DEFAULT 20").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_page_tile_layout_json TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_page_widget_settings_json TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_footer_url TEXT DEFAULT ''").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN profile_footer_display_size TEXT DEFAULT 'wide'").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_member_card INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_profile_showcase INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_profile_xp INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_profile_user_id INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_joined_date INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_avatar INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_display_name INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_username INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_user_id INTEGER NOT NULL DEFAULT 0").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_level INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_rank INTEGER NOT NULL DEFAULT 1").run(); } catch {}
-  try { await db.prepare("ALTER TABLE user_profiles ADD COLUMN show_header_xp_bar INTEGER NOT NULL DEFAULT 1").run(); } catch {}
+  // user_profiles is at/near column limit; new settings must go into JSON/settings tables.
   await ensureUserProfileColumns(db);
   await db.prepare("CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS wallets (user_id INTEGER PRIMARY KEY, coins INTEGER NOT NULL DEFAULT 1000, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
@@ -780,6 +1087,7 @@ async function createSchemaTables(db) { await db.prepare("CREATE TABLE IF NOT EX
   await db.prepare("CREATE TABLE IF NOT EXISTS profile_showcase_slots (user_id INTEGER NOT NULL, slot INTEGER NOT NULL, unlock_id INTEGER, custom_label TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (user_id, slot), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (unlock_id) REFERENCES user_unlocks(id) ON DELETE SET NULL)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_user_id INTEGER, target_user_id INTEGER, action TEXT NOT NULL, details_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS homepage_tile_config (tile_id TEXT PRIMARY KEY, label TEXT NOT NULL, default_size TEXT NOT NULL, allowed_sizes_json TEXT NOT NULL, is_enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')))").run();
+  await ensureSettingsTables(db);
 
   await db.prepare("CREATE TABLE IF NOT EXISTS chat_rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, room_key TEXT NOT NULL UNIQUE, room_type TEXT NOT NULL, name TEXT NOT NULL, created_by INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL)").run();
   await db.prepare("CREATE TABLE IF NOT EXISTS chat_room_members (room_id INTEGER NOT NULL, user_id INTEGER NOT NULL, joined_at TEXT NOT NULL DEFAULT (datetime('now')), last_read_message_id INTEGER, PRIMARY KEY (room_id, user_id), FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)").run();
@@ -811,25 +1119,25 @@ async function handleProfileMyUnlocks(request, env) { const user = await getCurr
 async function handleProfileMyShowcase(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const db = getDatabase(env); await ensureSchemaOnce(db); return json({ ok: true, slots: await getPublicShowcaseSlots(db, user.id) }); }
 async function handleProfileMyShowcaseUpdate(request, env) { try { const user = await getCurrentUser(request, env); if (!user) return json({ ok: false, error: 'Not logged in' }, 401); const body = await readJsonBody(request); const slots = Array.isArray(body?.slots) ? body.slots : null; if (!slots) return json({ ok: false, error: 'slots array is required' }, 400); const db = getDatabase(env); await ensureSchemaOnce(db); for (const entry of slots) { const slot = Number(entry?.slot); if (!Number.isInteger(slot) || slot < SHOWCASE_SLOT_MIN || slot > SHOWCASE_SLOT_MAX) return json({ ok: false, error: 'slot must be 1 to 4' }, 400); const unlockId = entry?.unlock_id; if (unlockId !== null && unlockId !== undefined) { const unlock = await db.prepare('SELECT id FROM user_unlocks WHERE id = ? AND user_id = ?').bind(Number(unlockId), user.id).first(); if (!unlock) return json({ ok: false, error: `unlock_id ${unlockId} does not belong to your account` }, 400); } await db.prepare("INSERT INTO profile_showcase_slots (user_id, slot, unlock_id, updated_at) VALUES (?, ?, ?, datetime('now')) ON CONFLICT(user_id, slot) DO UPDATE SET unlock_id=excluded.unlock_id, updated_at=datetime('now')").bind(user.id, slot, unlockId == null ? null : Number(unlockId)).run(); } return json({ ok: true, slots: await getPublicShowcaseSlots(db, user.id) }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
 async function getPublicShowcaseSlots(db, userId) { const rows = await db.prepare(`SELECT s.slot, u.id as unlock_id, u.unlock_key, u.unlock_type, u.name, u.description, u.icon_url, u.source, u.rarity, u.unlocked_at FROM profile_showcase_slots s LEFT JOIN user_unlocks u ON u.id = s.unlock_id AND u.user_id = s.user_id WHERE s.user_id = ? AND s.slot BETWEEN ? AND ? ORDER BY s.slot ASC`).bind(userId, SHOWCASE_SLOT_MIN, SHOWCASE_SLOT_MAX).all(); const bySlot = new Map((rows.results || []).map((r) => [Number(r.slot), r])); const slots = []; for (let i = SHOWCASE_SLOT_MIN; i <= SHOWCASE_SLOT_MAX; i += 1) { const row = bySlot.get(i); slots.push({ slot: i, unlock: row && row.unlock_id ? { id: row.unlock_id, unlock_key: row.unlock_key, unlock_type: row.unlock_type, name: row.name, description: row.description || '', icon_url: row.icon_url || '', source: row.source || '', rarity: row.rarity, unlocked_at: row.unlocked_at } : null }); } return slots; }
-async function getUserProfileBundle(request, env, userId, { includeUnlockedRanks = false } = {}) { try {
-  const db = getDatabase(env);
-  await ensureCoreSchemaOnce(db);
-  const row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE id = ?').bind(userId).first();
-  if (!row) return null;
-  await ensureProfileRowLite(db, row.id);
-  const profileRow = await db.prepare('SELECT display_name, profile_title, bio, location, website_url, steam_url, spotify_url, soundcloud_url, youtube_music_url, profile_links_visibility_json, leetify_url, leetify_profile_url, leetify_steam_id, refrag_url, refrag_profile_url, manual_refrag_rating, manual_refrag_counter_strafe_pct, manual_refrag_reaction_time, manual_refrag_ttd, manual_refrag_crosshair_drift, manual_refrag_last_updated_at, avatar_url, banner_url, banner_display_size, profile_background_url, profile_background_size, favourite_colour, profile_accent_colour, profile_background_colour, profile_layout, show_level, show_rank, show_badges, show_last_active, status_message, profile_quote, favourite_game, profile_visibility, show_member_card, show_profile_showcase, show_profile_xp, show_profile_user_id, show_joined_date, show_header_avatar, show_header_display_name, show_header_username, show_header_user_id, show_header_level, show_header_rank, show_header_xp_bar, card_background_url, card_background_colour, card_accent_colour, card_text_colour, card_body_text_colour, card_border_colour, card_layout, card_show_avatar, card_show_display_name, card_show_username, card_show_user_id, card_show_role, card_show_level, card_show_rank, card_show_xp, card_show_status, card_show_steam, card_show_refrag, card_show_leetify, card_show_leetify_rank, card_show_leetify_rating, card_show_leetify_steam_id, card_show_leetify_avatar, card_show_leetify_name, card_show_leetify_aim, card_show_leetify_positioning, card_show_leetify_utility, card_show_leetify_clutch, card_show_leetify_opening, card_show_leetify_recent_matches, card_show_leetify_premier, card_show_leetify_map_ranks, card_show_leetify_updated, card_grid_columns, card_tile_settings_json, dashboard_background_colour, dashboard_background_url, dashboard_background_size, dashboard_background_overlay_strength, profile_page_background_url, profile_page_background_colour, profile_page_background_size, profile_page_overlay_strength, profile_page_tile_layout_json, profile_page_widget_settings_json, profile_footer_url, profile_footer_display_size, selected_rank_id, updated_at FROM user_profiles WHERE user_id = ?').bind(row.id).first();
-  const safeProfile = { display_name: row.username, bio: '', profile_title: '', avatar_url: '', banner_url: '', banner_display_size: 'wide', profile_background_url: '', profile_background_size: 'cover', spotify_url: '', soundcloud_url: '', youtube_music_url: '', profile_links_visibility_json: '{}', leetify_profile_url: '', leetify_steam_id: '', refrag_url: '', refrag_profile_url: '', manual_refrag_rating: '', manual_refrag_counter_strafe_pct: '', manual_refrag_reaction_time: '', manual_refrag_ttd: '', manual_refrag_crosshair_drift: '', manual_refrag_last_updated_at: '', profile_layout: 'standard', show_level: 1, show_rank: 1, show_badges: 1, show_last_active: 0, card_background_url: '', card_background_colour: '', card_accent_colour: '', card_text_colour: '', card_body_text_colour: '', card_border_colour: '', card_layout: 'standard', card_show_avatar: 1, card_show_display_name: 1, card_show_username: 1, card_show_user_id: 0, card_show_role: 1, card_show_level: 1, card_show_rank: 1, card_show_xp: 1, card_show_status: 0, card_show_steam: 0, card_show_refrag: 0, card_show_leetify: 0, card_show_leetify_rank: 0, card_show_leetify_rating: 0, card_show_leetify_steam_id: 0, card_show_leetify_avatar: 0, card_show_leetify_name: 0, card_show_leetify_aim: 0, card_show_leetify_positioning: 0, card_show_leetify_utility: 0, card_show_leetify_clutch: 0, card_show_leetify_opening: 0, card_show_leetify_recent_matches: 0, card_show_leetify_premier: 0, card_show_leetify_map_ranks: 0, card_show_leetify_updated: 0, card_grid_columns: 4, card_tile_settings_json: '', dashboard_background_colour: '', dashboard_background_url: '', dashboard_background_size: 'cover', dashboard_background_overlay_strength: 0, profile_page_background_url: '', profile_page_background_colour: '', profile_page_background_size: 'cover', profile_page_overlay_strength: 20, profile_page_tile_layout_json: '', profile_page_widget_settings_json: '', profile_footer_url:'', profile_footer_display_size:'wide', ...(profileRow || {}) };
-  safeProfile.leetify_profile_url = safeProfile.leetify_profile_url || safeProfile.leetify_url || ''; safeProfile.leetify_url = safeProfile.leetify_profile_url || safeProfile.leetify_url || ''; safeProfile.refrag_profile_url = safeProfile.refrag_profile_url || safeProfile.refrag_url || ''; safeProfile.refrag_url = safeProfile.refrag_profile_url || safeProfile.refrag_url || ''; safeProfile.cardTileSettings = normalizeCardTileSettings(safeProfile.card_tile_settings_json);
-  const progress = await getUserAccountProgress(db, row.id);
-  const ranks = await loadAccountRanks(request, env);
-  const rankList = ranks.ok ? ranks.ranks : [];
-  const defaultRank = getDefaultRankForLevel(progress.accountLevel, rankList);
-  const rank = getDisplayedRank(progress.accountLevel, safeProfile?.selected_rank_id, rankList);
-  const unlockedRanks = includeUnlockedRanks ? getUnlockedRanks(progress.accountLevel, rankList) : undefined;
-  const showcase = await getPublicShowcaseSlots(db, row.id).catch(() => []);
-  const achievements = await getPublicAchievementSummary(db, row.id).catch(() => ({ count: 0, xpFromAchievements: 0, latest: [] }));
-  return { profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, ...(unlockedRanks ? { unlockedRanks } : {}) }, ranks };
- } catch (error) { console.error('[profile/bundle] failed', { message: error?.message || String(error), stack: error?.stack || '' }); throw error; }}
+async function getUserProfileBundle(request, env, userId, { includeUnlockedRanks = false } = {}) {
+  try {
+    const db = getDatabase(env);
+    await ensureCoreSchemaOnce(db);
+    const row = await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users WHERE id = ?').bind(userId).first();
+    if (!row) return null;
+    const safeProfile = await getSafeProfileSettings(db, row.id);
+    if (!safeProfile.display_name) safeProfile.display_name = row.username;
+    const progress = await getUserAccountProgress(db, row.id);
+    const ranks = await loadAccountRanks(request, env);
+    const rankList = ranks.ok ? ranks.ranks : [];
+    const defaultRank = getDefaultRankForLevel(progress.accountLevel, rankList);
+    const rank = getDisplayedRank(progress.accountLevel, safeProfile?.selected_rank_id, rankList);
+    const unlockedRanks = includeUnlockedRanks ? getUnlockedRanks(progress.accountLevel, rankList) : undefined;
+    const showcase = await getPublicShowcaseSlots(db, row.id).catch(() => []);
+    const achievements = await getPublicAchievementSummary(db, row.id).catch(() => ({ count: 0, xpFromAchievements: 0, latest: [] }));
+    return { profile: { ...serializeUser(row), created_at: row.created_at || null, ...safeProfile, ...progress, selected_rank_id: safeProfile?.selected_rank_id || null, rank, defaultRank, showcase, achievements, ...(unlockedRanks ? { unlockedRanks } : {}) }, ranks };
+  } catch (error) { console.error('[profile/bundle] failed', { message: error?.message || String(error), stack: error?.stack || '' }); throw error; }
+}
 function normalizeDashboardBackgroundPayload(body = {}) {
   const colour = String(body.dashboard_background_colour || '').trim();
   if (colour && !/^#[0-9a-f]{6}$/i.test(colour)) return { error: 'Background colour must be blank or #RRGGBB' };
@@ -852,10 +1160,9 @@ async function handleDashboardBackgroundUpdate(request, env) {
     const normalized = normalizeDashboardBackgroundPayload(body);
     if (normalized.error) return json({ ok: false, error: normalized.error }, 400);
     const db = getDatabase(env);
-    await ensureSchemaOnce(db);
-    await db.prepare('INSERT INTO user_profiles (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING').bind(user.id).run();
-    await db.prepare("UPDATE user_profiles SET dashboard_background_colour = ?, dashboard_background_url = ?, dashboard_background_size = ?, dashboard_background_overlay_strength = ?, updated_at = datetime('now') WHERE user_id = ?")
-      .bind(normalized.dashboard_background_colour, normalized.dashboard_background_url, normalized.dashboard_background_size, normalized.dashboard_background_overlay_strength, user.id).run();
+    await ensureCoreSchemaOnce(db);
+    await updateExistingProfileColumns(db, user.id, normalized);
+    await mergeSettingsJson(db, 'user_dashboard_settings', user.id, pickFields({ ...normalized, tileStyles: body?.tileStyles }, DASHBOARD_SETTING_FIELDS));
     return json({ ok: true, profile: normalized });
   } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); }
 }
@@ -894,7 +1201,24 @@ function slugifySourceKey(value) { return String(value || 'manual').toLowerCase(
 async function handleAdminUserUnlockUpsert(request, env, path) { try { const auth = await requireAdmin(request, env); if (auth) return auth; const userId = Number(path.split('/')[4]); const body = await readJsonBody(request); const unlock_key = String(body?.unlock_key || '').trim(); const unlock_type = String(body?.unlock_type || '').trim(); const name = String(body?.name || '').trim(); const description = String(body?.description || '').trim() || null; const rarity = String(body?.rarity || 'common').trim(); const source = String(body?.source || 'admin').trim() || 'admin'; const icon_url = String(body?.icon_url || '').trim() || null; if (!unlock_key || !name) return json({ ok: false, error: 'unlock_key and name are required' }, 400); if (!UNLOCK_TYPES.has(unlock_type)) return json({ ok: false, error: 'Invalid unlock_type' }, 400); if (!UNLOCK_RARITIES.has(rarity)) return json({ ok: false, error: 'Invalid rarity' }, 400); const db = getDatabase(env); await ensureSchemaOnce(db); await db.prepare("INSERT INTO user_unlocks (user_id, unlock_key, unlock_type, name, description, icon_url, source, rarity, unlocked_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(user_id, unlock_key) DO UPDATE SET unlock_type=excluded.unlock_type, name=excluded.name, description=excluded.description, icon_url=excluded.icon_url, source=excluded.source, rarity=excluded.rarity").bind(userId, unlock_key, unlock_type, name, description, icon_url, source, rarity).run(); return json({ ok: true }); } catch (error) { return json({ ok: false, error: friendlyError(error) }, 500); } }
 
 
-async function handleLeaderboardLevels(request, env) { const user = await getCurrentUser(request, env); if (!user) return json({ ok:false, error:'Not logged in' },401); const db=getDatabase(env); await ensureCoreSchemaOnce(db); const rows=await db.prepare(`SELECT u.id, u.username, u.role, u.is_admin, u.created_at, u.status, ${PUBLIC_PROFILE_CARD_COLUMNS}, p.selected_rank_id FROM users u LEFT JOIN user_profiles p ON p.user_id = u.id ORDER BY u.username ASC`).all(); const ranks=await loadAccountRanks(request, env); const rankList=ranks.ranks||[]; const list=[]; for (const r of (rows.results||[])) { const pr=await getUserAccountProgress(db,r.id); list.push({ ...serializeUser(r), created_at:r.created_at||null, ...publicProfileCardFields(r), ...pr, rank:getDisplayedRank(pr.accountLevel,r.selected_rank_id,rankList), displayedRank:getDisplayedRank(pr.accountLevel,r.selected_rank_id,rankList) }); } list.sort((a,b)=>b.accountXp-a.accountXp||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.username||'').localeCompare(String(b.username||''))); return json({ok:true,leaderboard:list.slice(0,100).map((x,i)=>({rankPosition:i+1,...x}))}, 200, {'Cache-Control':'private, max-age=60'}); }
+async function handleLeaderboardLevels(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({ ok:false, error:'Not logged in' },401);
+  const db=getDatabase(env);
+  await ensureCoreSchemaOnce(db);
+  const rows=await db.prepare('SELECT id, username, role, is_admin, created_at, status FROM users ORDER BY username ASC').all();
+  const ranks=await loadAccountRanks(request, env);
+  const rankList=ranks.ranks||[];
+  const list=[];
+  for (const r of (rows.results||[])) {
+    const profile = await getSafeProfileSettings(db, r.id);
+    if (!profile.display_name) profile.display_name = r.username;
+    const pr=await getUserAccountProgress(db,r.id);
+    list.push({ ...serializeUser(r), created_at:r.created_at||null, ...publicProfileCardFields(profile), ...pr, rank:getDisplayedRank(pr.accountLevel,profile.selected_rank_id,rankList), displayedRank:getDisplayedRank(pr.accountLevel,profile.selected_rank_id,rankList) });
+  }
+  list.sort((a,b)=>b.accountXp-a.accountXp||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.username||'').localeCompare(String(b.username||'')));
+  return json({ok:true,leaderboard:list.slice(0,100).map((x,i)=>({rankPosition:i+1,...x}))}, 200, {'Cache-Control':'private, max-age=60'});
+}
 function getHomepageTileSeedConfigs() { return [
   { tile_id: 'profile-snapshot', label: 'Profile Spotlight', default_size: '4x1', allowed_sizes: ['2x1','4x1','4x2','4x3','4x4','6x4','8x4'], is_enabled: 1, sort_order: 10 },
   { tile_id: 'quick-actions', label: 'Quick Actions', default_size: '2x2', allowed_sizes: ['1x1','2x1','1x2','2x2','3x2','4x1','4x2'], is_enabled: 1, sort_order: 20 },
@@ -1123,12 +1447,12 @@ async function handleLeetifyProfile(request, env) {
   const user = await getCurrentUser(request, env);
   if (!user) return json({ ok:false, error:'Not logged in' },401);
   const db=getDatabase(env);
-  await ensureSchemaOnce(db);
+  await ensureCoreSchemaOnce(db);
   const url = new URL(request.url);
   const requestedId = url.searchParams.get('user_id') || url.searchParams.get('id');
   const userId = requestedId ? Number(requestedId) : Number(user.id);
   if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
-  const row=await db.prepare('SELECT leetify_url, leetify_profile_url, leetify_steam_id FROM user_profiles WHERE user_id = ?').bind(userId).first();
+  const row=await getSafeProfileSettings(db, userId);
   const savedUrl=String(row?.leetify_profile_url || row?.leetify_url || '').trim();
   if(!savedUrl) return json({ ok:true, available:false, source:'leetify', reasonCode:'no_profile_link', reason:'No Leetify profile link set', attribution: LEETIFY_ATTRIBUTION });
   let parsedSaved;
@@ -1381,12 +1705,12 @@ async function handleSteamProfile(request, env) {
   const user = await getCurrentUser(request, env);
   if (!user) return json({ ok:false, error:'Not logged in' },401);
   const db=getDatabase(env);
-  await ensureSchemaOnce(db);
+  await ensureCoreSchemaOnce(db);
   const url = new URL(request.url);
   const requestedId = url.searchParams.get('user_id') || url.searchParams.get('id');
   const userId = requestedId ? Number(requestedId) : Number(user.id);
   if(!Number.isInteger(userId)||userId<1) return json({ ok:false, error:'Invalid user id' },400);
-  const row=await db.prepare('SELECT steam_url FROM user_profiles WHERE user_id = ?').bind(userId).first();
+  const row=await getSafeProfileSettings(db, userId);
   if(!row?.steam_url) return json({ ok:true, steam:{ available:false, profileUrl:null, message:'No Steam URL set' } });
   const profileUrl=String(row.steam_url).trim();
   const parsed=parseSteamIdFromUrl(profileUrl);
