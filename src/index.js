@@ -19,7 +19,8 @@ const HOMEPAGE_TILE_SIZE_OPTIONS = ['1x1','2x1','1x2','2x2','3x2','4x1','2x3','3
 const LEETIFY_CARD_TOGGLE_FIELDS = ['card_show_leetify_rank','card_show_leetify_rating','card_show_leetify_steam_id','card_show_leetify_avatar','card_show_leetify_name','card_show_leetify_aim','card_show_leetify_positioning','card_show_leetify_utility','card_show_leetify_clutch','card_show_leetify_opening','card_show_leetify_recent_matches','card_show_leetify_premier','card_show_leetify_map_ranks','card_show_leetify_updated'];
 const LEETIFY_CARD_TILE_KEYS = ['leetify','leetify_name','leetify_avatar','leetify_steam_id','leetify_rank','leetify_premier','leetify_rating','leetify_aim','leetify_positioning','leetify_utility','leetify_clutch','leetify_opening','leetify_recent_matches','leetify_map_ranks','leetify_updated','leetify_attribution'];
 const PROFILE_LINK_CARD_TILE_KEYS = new Set(['links_1','links_2','links_3']);
-const CARD_TILE_KEYS = new Set(['name','username','role','level','rank','xp','status','steam','refrag',...LEETIFY_CARD_TILE_KEYS,...PROFILE_LINK_CARD_TILE_KEYS]);
+const CS_CARD_TILE_KEYS = ['cs_overview','cs_rank','cs_time_played','cs_kd','cs_recent_form','cs_last_match','cs_win_rate','cs_valve_premier','cs_faceit','cs_matches_tracked'];
+const CARD_TILE_KEYS = new Set(['name','username','user_id','role','level','rank','xp','status','steam','refrag',...LEETIFY_CARD_TILE_KEYS,...PROFILE_LINK_CARD_TILE_KEYS,...CS_CARD_TILE_KEYS]);
 const PROFILE_WIDGET_KEYS = new Set(['profile-card','bio','status','steam','leetify','refrag','showcase','links','progress','achievements']);
 const PROFILE_PAGE_SIZE_OPTIONS = new Set(['2x1','2x2','4x1','4x2','4x3','4x4','6x2','6x4']);
 const DASHBOARD_BACKGROUND_SIZES = new Set(['cover','contain','repeat','stretch','center']);
@@ -615,13 +616,15 @@ function publicCs2StatsFromRow(row) { if (!row) return null; return { premier_ra
 function publicFaceitStatsFromRow(row) { if (!row) return null; return { faceit_username:row.faceit_username||'', faceit_player_id:row.faceit_player_id||'', faceit_level:row.faceit_level==null?null:Number(row.faceit_level), faceit_elo:row.faceit_elo==null?null:Number(row.faceit_elo), last_match_map:row.last_match_map||'', last_match_result:row.last_match_result||'', last_match_score:row.last_match_score||'', recent_form:row.recent_form||'', matches_tracked:row.matches_tracked==null?null:Number(row.matches_tracked), win_rate:row.win_rate||'', last_synced_at:row.last_synced_at||'', updated_at:row.updated_at||'' }; }
 async function getPublicExternalStats(db, userId) {
   await ensureExternalCsStatsTables(db);
-  const [cs2, faceit] = await Promise.all([
+  const [cs2, faceit, latestMatch] = await Promise.all([
     db.prepare("SELECT s.* FROM cs2_public_stats s JOIN cs2_match_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1").bind(String(userId)).first().catch(()=>null),
-    db.prepare("SELECT s.* FROM faceit_public_stats s JOIN faceit_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1").bind(String(userId)).first().catch(()=>null)
+    db.prepare("SELECT s.* FROM faceit_public_stats s JOIN faceit_connections c ON c.user_id=s.user_id WHERE s.user_id=? AND c.is_enabled=1 AND c.public_stats_enabled=1").bind(String(userId)).first().catch(()=>null),
+    db.prepare("SELECT m.source, m.safe_match_ref, m.map, m.match_date, m.team_score, m.enemy_score, m.result, m.kills, m.deaths, m.assists, m.kd, m.rank_at_time FROM external_cs_matches m LEFT JOIN cs2_match_connections c ON c.user_id=m.user_id AND m.source='premier' LEFT JOIN faceit_connections f ON f.user_id=m.user_id AND m.source='faceit' WHERE m.user_id=? AND ((m.source='premier' AND c.is_enabled=1 AND c.public_stats_enabled=1) OR (m.source='faceit' AND f.is_enabled=1 AND f.public_stats_enabled=1)) ORDER BY datetime(m.match_date) DESC, m.id DESC LIMIT 1").bind(String(userId)).first().catch(()=>null)
   ]);
   const out={};
   const cs2Stats=publicCs2StatsFromRow(cs2); if (cs2Stats) out.cs2=cs2Stats;
   const faceitStats=publicFaceitStatsFromRow(faceit); if (faceitStats) out.faceit=faceitStats;
+  if (latestMatch) out.latestMatch = { source: latestMatch.source || '', safe_match_ref: latestMatch.safe_match_ref || '', map: latestMatch.map || '', match_date: latestMatch.match_date || '', team_score: latestMatch.team_score == null ? null : Number(latestMatch.team_score), enemy_score: latestMatch.enemy_score == null ? null : Number(latestMatch.enemy_score), result: latestMatch.result || '', kills: latestMatch.kills == null ? null : Number(latestMatch.kills), deaths: latestMatch.deaths == null ? null : Number(latestMatch.deaths), assists: latestMatch.assists == null ? null : Number(latestMatch.assists), kd: latestMatch.kd || '', rank_at_time: latestMatch.rank_at_time || '' };
   return out;
 }
 function serializeCs2Connection(row) { return { connected:!!row, steam_id64:row?.steam_id64||'', steam_profile_url:row?.steam_profile_url||'', public_stats_enabled:row?Number(row.public_stats_enabled)!==0:1, is_enabled:row?Number(row.is_enabled)!==0:1, last_checked_at:row?.last_checked_at||'', created_at:row?.created_at||'', updated_at:row?.updated_at||'', has_auth_code:!!row?.cs2_auth_code, has_latest_share_code:!!row?.latest_known_share_code, masked_auth_code_present:!!row?.cs2_auth_code, masked_latest_share_code_present:!!row?.latest_known_share_code }; }
@@ -828,6 +831,8 @@ function normalizeCardTileSettings(input) {
       const maxIcons = Number(value.maxIcons);
       if (Number.isInteger(maxIcons)) item.maxIcons = Math.max(1, Math.min(8, maxIcons));
       if (Array.isArray(value.linkKeys)) item.linkKeys = value.linkKeys.filter((linkKey) => PROFILE_LINK_SERVICE_KEYS.has(linkKey)).slice(0, 8);
+    } else if (CS_CARD_TILE_KEYS.includes(key)) {
+      if (typeof value.enabled === 'boolean') item.enabled = value.enabled;
     }
     out[key] = item;
   }
