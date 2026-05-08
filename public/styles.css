@@ -2767,3 +2767,11 @@ input[type="color"]::-moz-color-swatch {
   color: #f8fafc;
   font-weight: 800;
 }
+
+.cs-stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.45rem;align-items:stretch}
+.cs-overview-tile .cs-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cs-stat-tile,.cs-overview-tile{min-width:0}
+.cs-source-pill{display:inline-flex;align-items:center;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--border));padding:.08rem .35rem;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);background:color-mix(in srgb,var(--surface) 78%,transparent)}
+.cs-form-strip{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:.35rem;border-top:1px solid color-mix(in srgb,var(--border) 65%,transparent);padding-top:.35rem}
+.cs-stat-label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}
+.cs-stat-value{font-weight:800;color:var(--text);line-height:1.15;overflow-wrap:anywhere}
