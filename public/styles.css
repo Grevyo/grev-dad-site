@@ -373,6 +373,30 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .dashboard-board::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(to right,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--border) 35%,transparent) 1px,transparent 1px);background-size:var(--dashboard-cell) var(--dashboard-cell);opacity:.22}
 .dashboard-grid{display:grid;grid-template-columns:repeat(var(--dashboard-cols),var(--dashboard-cell));grid-auto-rows:var(--dashboard-cell);gap:0;width:100vw;max-width:none;margin:0;padding:0;align-items:start;justify-content:start;grid-auto-flow:row;position:relative;z-index:1;background:transparent;background-color:transparent;border:0;box-shadow:none}
 .dashboard-tile{box-sizing:border-box;width:100%;height:100%;min-width:0;min-height:0;border:1px solid var(--dashboard-tile-border,var(--border));background:var(--dashboard-tile-bg,transparent);background-color:var(--dashboard-tile-bg,transparent);color:var(--dashboard-tile-text,var(--text));padding:14px;border-radius:0;margin:0;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:none;backdrop-filter:blur(var(--dashboard-tile-blur,0px))}
+.dashboard-tile-content,
+.dashboard-tile-scroll,
+.tile-scroll-body{width:100%;height:100%;min-height:0;min-width:0;overflow:auto;box-sizing:border-box;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 70%,transparent) transparent}
+.dashboard-tile-content{flex:1 1 auto;display:block}
+.dashboard-tile-content::-webkit-scrollbar,
+.dashboard-tile-scroll::-webkit-scrollbar,
+.tile-scroll-body::-webkit-scrollbar{width:8px;height:8px}
+.dashboard-tile-content::-webkit-scrollbar-track,
+.dashboard-tile-scroll::-webkit-scrollbar-track,
+.tile-scroll-body::-webkit-scrollbar-track{background:transparent}
+.dashboard-tile-content::-webkit-scrollbar-thumb,
+.dashboard-tile-scroll::-webkit-scrollbar-thumb,
+.tile-scroll-body::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--accent) 65%,transparent);border:1px solid color-mix(in srgb,var(--border) 75%,transparent);border-radius:0}
+.dashboard-tile-content::-webkit-scrollbar-corner,
+.dashboard-tile-scroll::-webkit-scrollbar-corner,
+.tile-scroll-body::-webkit-scrollbar-corner{background:transparent}
+.dashboard-tile[data-grid-h="1"] .dashboard-tile-content,
+.dashboard-tile[data-tile-size$="x1"] .dashboard-tile-content,
+.dashboard-tile.tile-2x1 .dashboard-tile-content,
+.dashboard-tile.tile-4x1 .dashboard-tile-content{overflow:auto}
+.dashboard-tile[data-tile-id="profile-snapshot"] .dashboard-tile-content{overflow:auto;padding:0}
+.dashboard-tile[data-tile-id="profile-snapshot"] .player-card,
+.dashboard-tile[data-tile-id="profile-snapshot"] .player-card-custom,
+.dashboard-tile[data-tile-id="profile-snapshot"] .player-card-snapshot-variant{max-width:100%}
 .dashboard-widget,
 .dashboard-panel,
 .dashboard-card{--dashboard-tile-bg:transparent;--dashboard-tile-border:color-mix(in srgb,var(--border) 65%,transparent);background:var(--dashboard-tile-bg);background-color:var(--dashboard-tile-bg);border:1px solid var(--dashboard-tile-border);box-shadow:none}
@@ -507,6 +531,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
 .blank-dashboard-tile .blank-tile-label{display:none;color:var(--text-muted)}
 .dashboard-editing .blank-dashboard-tile .blank-tile-label{display:block}
 .chat-dashboard-tile{display:flex;flex-direction:column;overflow:hidden}
+.chat-dashboard-tile .dashboard-tile-content{display:flex;flex-direction:column}
 .chat-dashboard-tile .chat-message-list{flex:1;min-height:0;overflow-y:auto;background:transparent;background-color:transparent;box-shadow:none}
 .chat-launcher{position:fixed;right:16px;bottom:16px;z-index:1000;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:0}
 .chat-popup{position:fixed;right:16px;bottom:64px;width:min(420px,calc(100vw - 24px));max-height:70vh;display:none;z-index:1001;background:var(--surface);border:1px solid var(--border);padding:10px}
@@ -1059,6 +1084,7 @@ td button, td input, td select { margin: 0 0.2rem 0.2rem 0; }
   min-height:0;
 }
 
+.custom-member-card-tile .dashboard-tile-content,
 .custom-member-card-tile .member-card-tile-fill,
 .custom-member-card-tile .custom-member-card-content{
   width:100%;
@@ -2223,8 +2249,9 @@ input[type="color"]::-moz-color-swatch {
   inset: 0;
   z-index: 1700;
 }
-.dashboard-tutorial-content { font-size: .95rem; overflow: auto; }
+.dashboard-tutorial-content { font-size: .95rem; display: grid; gap: 10px; }
 .dashboard-tutorial-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.tutorial-hide-tile-button { justify-self: start; }
 .dashboard-tutorial-grid p { margin: 0; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); padding: 8px; background: transparent; background-color: transparent; box-shadow: none; }
 .dashboard-background-controls { display: grid; gap: 10px; }
 .dashboard-background-controls label { display: grid; gap: 4px; }
