@@ -2259,19 +2259,25 @@ input[type="color"]::-moz-color-swatch {
 .dashboard-background-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .profile-link-button-grid,
-.links-tile-button-grid {
+.links-tile-button-grid,
+.profile-card-link-icon-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
   gap: 8px;
+  align-items: center;
 }
 
+.profile-link-icon-button,
 .profile-link-button,
-.links-tile-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 8px 10px;
+.links-tile-icon-button,
+.links-tile-button,
+.profile-card-link-icon {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 55%, transparent);
   color: var(--text);
@@ -2280,10 +2286,16 @@ input[type="color"]::-moz-color-swatch {
   overflow: hidden;
 }
 
+.profile-link-icon-button:hover,
 .profile-link-button:hover,
+.links-tile-icon-button:hover,
 .links-tile-button:hover,
+.profile-card-link-icon:hover,
+.profile-link-icon-button:focus-visible,
 .profile-link-button:focus-visible,
-.links-tile-button:focus-visible {
+.links-tile-icon-button:focus-visible,
+.links-tile-button:focus-visible,
+.profile-card-link-icon:focus-visible {
   border-color: var(--accent);
 }
 
@@ -2293,18 +2305,22 @@ input[type="color"]::-moz-color-swatch {
   min-width: 24px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  border: 0;
+  background: transparent;
   font-size: .72rem;
   font-weight: 800;
   line-height: 1;
 }
 
+.link-service-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
 .link-service-label {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  display: none;
 }
 
 .link-service-steam .link-service-icon { color: #66c0f4; }
