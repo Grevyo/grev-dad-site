@@ -169,29 +169,69 @@
         function normalizeDashboardBackground(input = {}) { const size = ['cover','contain','repeat','stretch','center'].includes(String(input.dashboard_background_size || '')) ? String(input.dashboard_background_size) : 'cover'; const colour = /^#[0-9a-f]{6}$/i.test(String(input.dashboard_background_colour || '').trim()) ? String(input.dashboard_background_colour).trim() : ''; const url = isSafeDashboardUrl(input.dashboard_background_url) ? String(input.dashboard_background_url || '').trim() : ''; const overlay = Math.max(0, Math.min(80, Math.round(Number(input.dashboard_background_overlay_strength) || 0))); return { dashboard_background_colour: colour, dashboard_background_url: url, dashboard_background_size: size, dashboard_background_overlay_strength: overlay }; }
         function applyDashboardBackground(settings = dashboardBackgroundState) { const shell = document.getElementById('dashboard-custom-shell'); if (!shell) return; dashboardBackgroundState = normalizeDashboardBackground(settings); const s = dashboardBackgroundState; shell.style.setProperty('--dashboard-bg-colour', s.dashboard_background_colour || 'transparent'); shell.style.setProperty('--dashboard-bg-image', s.dashboard_background_url ? `url("${s.dashboard_background_url.replace(/"/g, '%22')}")` : 'none'); shell.style.setProperty('--dashboard-bg-overlay', String(s.dashboard_background_overlay_strength / 100)); if (s.dashboard_background_size === 'repeat') { shell.style.setProperty('--dashboard-bg-size', 'auto'); shell.style.setProperty('--dashboard-bg-repeat', 'repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } else if (s.dashboard_background_size === 'stretch') { shell.style.setProperty('--dashboard-bg-size', '100% 100%'); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } else if (s.dashboard_background_size === 'center') { shell.style.setProperty('--dashboard-bg-size', 'auto'); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center center'); } else { shell.style.setProperty('--dashboard-bg-size', s.dashboard_background_size); shell.style.setProperty('--dashboard-bg-repeat', 'no-repeat'); shell.style.setProperty('--dashboard-bg-position', 'center top'); } }
         const DASHBOARD_TILE_STYLE_DEFAULTS = {
-          colour: '',
-          opacity: 0,
+          backgroundColour: '',
+          backgroundOpacity: 0,
+          textColour: '',
+          borderColour: '',
           blur: 0
         };
 
-        function normaliseDashboardTileStyle(input = {}) {
-          const colour = /^#[0-9a-f]{6}$/i.test(String(input.colour || '').trim())
-            ? String(input.colour).trim()
-            : '';
-          const opacity = Math.max(0, Math.min(100, Math.round(Number(input.opacity) || 0)));
-          const blur = Math.max(0, Math.min(20, Math.round(Number(input.blur) || 0)));
-          return { colour, opacity, blur };
+        function clampInt(value, min, max, fallback = 0) {
+          const number = Number(value);
+          if (!Number.isFinite(number)) return fallback;
+          return Math.max(min, Math.min(max, Math.round(number)));
+        }
+
+        function normaliseHexColour(value) {
+          const text = String(value || '').trim();
+          if (!text) return '';
+          const expanded = text.replace(/^#?([0-9a-f])([0-9a-f])([0-9a-f])$/i, '#$1$1$2$2$3$3');
+          const withHash = expanded.startsWith('#') ? expanded : `#${expanded}`;
+          return /^#[0-9a-f]{6}$/i.test(withHash) ? withHash.toLowerCase() : '';
+        }
+
+        function normaliseTileStyle(style = {}) {
+          return {
+            backgroundColour: normaliseHexColour(style.backgroundColour ?? style.colour) || '',
+            backgroundOpacity: clampInt(style.backgroundOpacity ?? style.opacity, 0, 100, 0),
+            textColour: normaliseHexColour(style.textColour) || '',
+            borderColour: normaliseHexColour(style.borderColour) || '',
+            blur: clampInt(style.blur, 0, 20, 0)
+          };
+        }
+
+        const normaliseDashboardTileStyle = normaliseTileStyle;
+
+        function tileStyleHasCustomValues(style = {}) {
+          const normalised = normaliseTileStyle(style);
+          return Boolean(
+            normalised.backgroundColour ||
+            normalised.backgroundOpacity ||
+            normalised.textColour ||
+            normalised.borderColour ||
+            normalised.blur
+          );
         }
 
         function hexToRgba(hex, opacity) {
-          const match = String(hex || '').match(/^#([0-9a-f]{6})$/i);
-          if (!match || Number(opacity) <= 0) return 'transparent';
-          const raw = match[1];
-          const r = parseInt(raw.slice(0, 2), 16);
-          const g = parseInt(raw.slice(2, 4), 16);
-          const b = parseInt(raw.slice(4, 6), 16);
-          const a = Math.max(0, Math.min(1, Number(opacity) / 100));
-          return `rgba(${r}, ${g}, ${b}, ${a})`;
+          const clean = normaliseHexColour(hex);
+          const alpha = clampInt(opacity, 0, 100, 0);
+          if (!clean || alpha <= 0) return 'transparent';
+          const value = clean.replace('#', '');
+          const r = parseInt(value.slice(0, 2), 16);
+          const g = parseInt(value.slice(2, 4), 16);
+          const b = parseInt(value.slice(4, 6), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha / 100})`;
+        }
+
+        function escapeHtml(value) {
+          return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+          }[char]));
         }
 
         let pendingDashboardTileStyles = null;
@@ -199,11 +239,12 @@
         let lastPendingDashboardTileStyleId = '';
 
         function cloneDashboardTileStyles(styles = {}) {
-          try {
-            return JSON.parse(JSON.stringify(styles || {}));
-          } catch {
-            return {};
-          }
+          const normalised = {};
+          Object.entries(styles || {}).forEach(([tileId, style]) => {
+            const next = normaliseTileStyle(style);
+            if (tileStyleHasCustomValues(next)) normalised[tileId] = next;
+          });
+          return normalised;
         }
 
         function getDashboardTileStyle(tileId, options = {}) {
@@ -212,7 +253,7 @@
               ? dashboardLayout.tileStyles
               : (pendingDashboardTileStyles || dashboardLayout.tileStyles);
 
-          return normaliseDashboardTileStyle(source?.[tileId] || DASHBOARD_TILE_STYLE_DEFAULTS);
+          return normaliseTileStyle(source?.[tileId] || DASHBOARD_TILE_STYLE_DEFAULTS);
         }
 
         function setDashboardTileStyle(tileId, nextStyle) {
@@ -222,28 +263,54 @@
             pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
           }
 
-          pendingDashboardTileStyles[tileId] = normaliseDashboardTileStyle(nextStyle);
+          const normalised = normaliseTileStyle(nextStyle);
+          if (tileStyleHasCustomValues(normalised)) pendingDashboardTileStyles[tileId] = normalised;
+          else delete pendingDashboardTileStyles[tileId];
           dashboardTileStylesDirty = true;
           lastPendingDashboardTileStyleId = tileId;
 
-          applyDashboardTileStyles({ usePending: true });
+          applyDashboardTileStyle(grid.querySelector(`.dashboard-tile[data-tile-id="${CSS.escape(tileId)}"]`), tileId, { usePending: true });
           updateTileStylesSaveState();
+        }
+
+        function clearDashboardTileStyle(tileId) {
+          if (!tileId) return;
+          if (!pendingDashboardTileStyles) {
+            pendingDashboardTileStyles = cloneDashboardTileStyles(dashboardLayout.tileStyles || {});
+          }
+          delete pendingDashboardTileStyles[tileId];
+          dashboardTileStylesDirty = true;
+          lastPendingDashboardTileStyleId = tileId;
+          applyDashboardTileStyle(grid.querySelector(`.dashboard-tile[data-tile-id="${CSS.escape(tileId)}"]`), tileId, { usePending: true });
+          updateTileStylesSaveState('Tile style cleared. Save tile styles to keep this change.');
+        }
+
+        function applyDashboardTileStyle(tileEl, tileId, options = {}) {
+          if (!tileEl || !tileId) return;
+          const style = getDashboardTileStyle(tileId, { saved: options.usePending === false });
+          const hasCustomStyle = tileStyleHasCustomValues(style);
+
+          if (!hasCustomStyle) {
+            tileEl.style.removeProperty('--dashboard-tile-bg');
+            tileEl.style.removeProperty('--dashboard-tile-text');
+            tileEl.style.removeProperty('--dashboard-tile-border');
+            tileEl.style.removeProperty('--dashboard-tile-blur');
+          } else {
+            tileEl.style.setProperty('--dashboard-tile-bg', style.backgroundColour && style.backgroundOpacity > 0
+              ? hexToRgba(style.backgroundColour, style.backgroundOpacity)
+              : 'transparent');
+            tileEl.style.setProperty('--dashboard-tile-text', style.textColour || 'var(--text)');
+            tileEl.style.setProperty('--dashboard-tile-border', style.borderColour || 'var(--border)');
+            tileEl.style.setProperty('--dashboard-tile-blur', `${style.blur}px`);
+          }
+          tileEl.classList.toggle('dashboard-tile-has-custom-style', hasCustomStyle);
+          tileEl.classList.toggle('dashboard-tile-custom-style', hasCustomStyle);
         }
 
         function applyDashboardTileStyles(options = {}) {
           const usePending = options.usePending !== false;
           grid.querySelectorAll('.dashboard-tile[data-tile-id]').forEach((tile) => {
-            const tileId = tile.dataset.tileId;
-            const style = getDashboardTileStyle(tileId, { saved: !usePending });
-
-            tile.style.setProperty('--dashboard-tile-bg', hexToRgba(style.colour, style.opacity));
-            tile.style.setProperty('--dashboard-tile-blur', `${style.blur}px`);
-
-            if (style.colour && style.opacity > 0) {
-              tile.classList.add('dashboard-tile-custom-style');
-            } else {
-              tile.classList.remove('dashboard-tile-custom-style');
-            }
+            applyDashboardTileStyle(tile, tile.dataset.tileId, { usePending });
           });
         }
 
@@ -280,60 +347,171 @@
           }
         }
 
+        function updateRangeProgress(input) {
+          if (!input) return;
+          const min = Number(input.min || 0);
+          const max = Number(input.max || 100);
+          const value = Number(input.value || 0);
+          const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+          input.style.setProperty('--range-progress', `${Math.max(0, Math.min(100, pct))}%`);
+
+          const wrap = input.closest('.range-field');
+          const valueEl = wrap?.querySelector('.range-value');
+          if (valueEl) {
+            const suffix = input.dataset.suffix || '';
+            valueEl.textContent = `${value}${suffix}`;
+          }
+        }
+
+        function initRangeSliders(root = document) {
+          root.querySelectorAll('input[type="range"]').forEach((input) => {
+            updateRangeProgress(input);
+            if (input.dataset.rangeProgressBound === '1') return;
+            input.dataset.rangeProgressBound = '1';
+            input.addEventListener('input', () => updateRangeProgress(input));
+            input.addEventListener('change', () => updateRangeProgress(input));
+          });
+        }
+
         function renderDashboardTileStyleControls(tileId) {
+          const safeTileId = escapeHtml(tileId);
           const style = getDashboardTileStyle(tileId);
+          const backgroundPickerValue = style.backgroundColour || '#000000';
+          const textPickerValue = style.textColour || '#ffffff';
+          const borderPickerValue = style.borderColour || '#000000';
           return `
-            <div class="dashboard-tile-style-controls" data-style-tile-id="${tileId}">
-              <label class="colour-field">
-                Colour
-                <input type="color" class="dashboard-tile-colour-picker" value="${style.colour || '#000000'}">
-              </label>
-              <div class="range-field">
-                <label>
-                  <span class="range-label-row"><span>Background strength</span><span class="range-value dashboard-tile-opacity-value">${style.opacity}%</span></span>
-                  <small class="dashboard-tile-style-help">0% transparent, 100% solid</small>
-                  <input type="range" min="0" max="100" value="${style.opacity}" class="dashboard-tile-opacity">
+            <section class="dashboard-tile-style-editor" data-dashboard-tile-style-editor="${safeTileId}" hidden>
+              <div class="dashboard-tile-style-grid">
+                <label class="colour-field">
+                  <span>Background colour</span>
+                  <input type="color" data-tile-style-colour="backgroundColour" value="${backgroundPickerValue}">
+                  <input type="text" data-tile-style-text="backgroundColour" placeholder="#101820" value="${escapeHtml(style.backgroundColour)}">
                 </label>
-                <label>
-                  <span class="range-label-row"><span>Blur</span><span class="range-value dashboard-tile-blur-value">${style.blur}px</span></span>
-                  <input type="range" min="0" max="20" value="${style.blur}" class="dashboard-tile-blur">
+                <label class="range-field">
+                  <span class="range-label-row">
+                    <span>Background opacity</span>
+                    <span class="range-value" data-range-value>${style.backgroundOpacity}%</span>
+                  </span>
+                  <input type="range" min="0" max="100" step="1" value="${style.backgroundOpacity}" data-suffix="%" data-tile-style-range="backgroundOpacity">
+                </label>
+                <label class="colour-field">
+                  <span>Text colour</span>
+                  <input type="color" data-tile-style-colour="textColour" value="${textPickerValue}">
+                  <input type="text" data-tile-style-text="textColour" placeholder="#ffffff" value="${escapeHtml(style.textColour)}">
+                </label>
+                <label class="colour-field">
+                  <span>Border colour</span>
+                  <input type="color" data-tile-style-colour="borderColour" value="${borderPickerValue}">
+                  <input type="text" data-tile-style-text="borderColour" placeholder="#4ade80" value="${escapeHtml(style.borderColour)}">
+                </label>
+                <label class="range-field">
+                  <span class="range-label-row">
+                    <span>Blur</span>
+                    <span class="range-value" data-range-value>${style.blur}px</span>
+                  </span>
+                  <input type="range" min="0" max="20" step="1" value="${style.blur}" data-suffix="px" data-tile-style-range="blur">
                 </label>
               </div>
-            </div>
+              <div class="dashboard-tile-style-actions">
+                <button type="button" class="nav-button" data-tile-style-clear>Clear tile style</button>
+              </div>
+            </section>
           `;
         }
 
-        function bindDashboardTileStyleControls(row, tileId) {
-          const style = getDashboardTileStyle(tileId);
-          const colourInput = row.querySelector('.dashboard-tile-colour-picker');
-          const opacityInput = row.querySelector('.dashboard-tile-opacity');
-          const blurInput = row.querySelector('.dashboard-tile-blur');
-          const opacityValue = row.querySelector('.dashboard-tile-opacity-value');
-          const blurValue = row.querySelector('.dashboard-tile-blur-value');
-
-          if (colourInput) colourInput.value = style.colour || '#000000';
-          if (opacityInput) opacityInput.value = style.opacity;
-          if (blurInput) blurInput.value = style.blur;
-
-          function update() {
-            const next = {
-              colour: colourInput?.value || style.colour,
-              opacity: opacityInput?.value || 0,
-              blur: blurInput?.value || 0
-            };
-            const normalised = normaliseDashboardTileStyle(next);
-            if (opacityValue) opacityValue.textContent = `${normalised.opacity}%`;
-            if (blurValue) blurValue.textContent = `${normalised.blur}px`;
-            window.GREVTheme?.updateRangeProgress?.(opacityInput);
-            window.GREVTheme?.updateRangeProgress?.(blurInput);
-            setDashboardTileStyle(tileId, next);
+        function setDashboardTileStyleEditorExpanded(row, expanded) {
+          const editor = row?.querySelector('[data-dashboard-tile-style-editor]');
+          const button = row?.querySelector('[data-tile-style-toggle]');
+          if (!editor) return;
+          editor.hidden = !expanded;
+          if (button) {
+            button.textContent = expanded ? 'Hide Style' : 'Style';
+            button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
           }
+          if (expanded) initRangeSliders(editor);
+        }
 
-          colourInput?.addEventListener('input', update);
-          opacityInput?.addEventListener('input', update);
-          blurInput?.addEventListener('input', update);
-          window.GREVTheme?.updateRangeProgress?.(opacityInput);
-          window.GREVTheme?.updateRangeProgress?.(blurInput);
+        function addDashboardTileStyleToggle(actions, row) {
+          const styleButton = document.createElement('button');
+          styleButton.type = 'button';
+          styleButton.className = 'nav-button';
+          styleButton.dataset.tileStyleToggle = 'true';
+          styleButton.textContent = 'Style';
+          styleButton.setAttribute('aria-expanded', 'false');
+          styleButton.addEventListener('click', () => {
+            const editor = row.querySelector('[data-dashboard-tile-style-editor]');
+            setDashboardTileStyleEditorExpanded(row, !!editor?.hidden);
+          });
+          actions.append(styleButton);
+        }
+
+        function syncDashboardTileStyleControls(row, tileId) {
+          const style = getDashboardTileStyle(tileId);
+          row.querySelectorAll('[data-tile-style-text]').forEach((input) => {
+            const key = input.dataset.tileStyleText;
+            input.value = style[key] || '';
+          });
+          row.querySelectorAll('[data-tile-style-colour]').forEach((input) => {
+            const key = input.dataset.tileStyleColour;
+            input.value = style[key] || (key === 'textColour' ? '#ffffff' : '#000000');
+          });
+          row.querySelectorAll('[data-tile-style-range]').forEach((input) => {
+            const key = input.dataset.tileStyleRange;
+            input.value = style[key] || 0;
+            updateRangeProgress(input);
+          });
+        }
+
+        function bindDashboardTileStyleControls(row, tileId) {
+          const readStyleFromControls = () => {
+            const next = { ...DASHBOARD_TILE_STYLE_DEFAULTS };
+            row.querySelectorAll('[data-tile-style-text]').forEach((input) => {
+              next[input.dataset.tileStyleText] = input.value;
+            });
+            row.querySelectorAll('[data-tile-style-range]').forEach((input) => {
+              next[input.dataset.tileStyleRange] = input.value;
+            });
+            return normaliseTileStyle(next);
+          };
+
+          row.querySelectorAll('[data-tile-style-colour]').forEach((input) => {
+            input.addEventListener('input', () => {
+              const key = input.dataset.tileStyleColour;
+              const textInput = row.querySelector(`[data-tile-style-text="${key}"]`);
+              if (textInput) textInput.value = input.value;
+              setDashboardTileStyle(tileId, readStyleFromControls());
+            });
+          });
+
+          row.querySelectorAll('[data-tile-style-text]').forEach((input) => {
+            input.addEventListener('input', () => {
+              const key = input.dataset.tileStyleText;
+              const colour = normaliseHexColour(input.value);
+              const colourInput = row.querySelector(`[data-tile-style-colour="${key}"]`);
+              if (colour && colourInput) colourInput.value = colour;
+              setDashboardTileStyle(tileId, readStyleFromControls());
+            });
+          });
+
+          row.querySelectorAll('[data-tile-style-range]').forEach((input) => {
+            input.addEventListener('input', () => {
+              updateRangeProgress(input);
+              setDashboardTileStyle(tileId, readStyleFromControls());
+            });
+            input.addEventListener('change', () => {
+              updateRangeProgress(input);
+              setDashboardTileStyle(tileId, readStyleFromControls());
+            });
+          });
+
+          row.querySelector('[data-tile-style-clear]')?.addEventListener('click', () => {
+            clearDashboardTileStyle(tileId);
+            syncDashboardTileStyleControls(row, tileId);
+            initRangeSliders(row);
+          });
+
+          syncDashboardTileStyleControls(row, tileId);
+          initRangeSliders(row);
         }
         async function recordDashboardAchievement(achievement_key) { try { const r = await fetch('/api/achievements/event', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ achievement_key }) }); const d = await r.json(); if (r.ok && d?.achievementsAwarded?.length) showDashboardAchievementToast(d.achievementsAwarded); } catch {} }
         function showDashboardAchievementToast(items) { try { const panel=document.createElement('div'); panel.className='achievement-toast'; panel.innerHTML=`<strong>Achievement unlocked</strong><ul class='achievement-unlocked-list'>${items.map((a)=>`<li>${String(a.title||a.achievement_key).replace(/[&<>]/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))} +${Number(a.xp_awarded||a.xp?.amount||0)} XP</li>`).join('')}</ul>`; document.body.append(panel); setTimeout(()=>panel.remove(),7000); } catch {} }
@@ -512,7 +690,7 @@
         function hydrateLayout() {
           const saved = getDesktopLayout();
           const savedMobile = getMobileLayout();
-          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles) ? saved.hiddenTiles : [...DEFAULT_HIDDEN_TILE_IDS], blankTiles: {}, tileStyles: saved?.tileStyles && typeof saved.tileStyles === 'object' ? saved.tileStyles : {} };
+          dashboardLayout = { tiles: {}, customTiles: {}, hiddenTiles: Array.isArray(saved?.hiddenTiles) ? saved.hiddenTiles : [...DEFAULT_HIDDEN_TILE_IDS], blankTiles: {}, tileStyles: cloneDashboardTileStyles(saved?.tileStyles && typeof saved.tileStyles === 'object' ? saved.tileStyles : {}) };
           const enabledIds = defaultIds.filter((id)=>tileRuleFor(id).isEnabled!==0);
           defaultIds.forEach((id) => {
             if (!enabledIds.includes(id)) return; if (dashboardLayout.hiddenTiles.includes(id)) return; const fromSaved = saved?.tiles?.[id] || DEFAULT_TILE_LAYOUT[id] || { col: 1, row: 1, size: tileRuleFor(id).defaultSize };
@@ -873,7 +1051,7 @@
             settingsButton.addEventListener('click', (event) => {
               event.preventDefault();
               event.stopPropagation();
-              openDashboardTileSidebar({ focusTileId: tileId });
+              openDashboardTileSidebar({ focusTileId: tileId, expandStyle: true });
             });
             overlay.append(settingsButton);
 
@@ -1361,7 +1539,7 @@
               const a = document.createElement('div'); a.className='dashboard-tile-library-actions';
               const b = document.createElement('button'); b.type='button'; b.className='nav-button'; b.textContent = visible ? 'Hide' : 'Show'; b.disabled = !enabled;
               b.onclick = () => { if (visible) { dashboardLayout.hiddenTiles = Array.from(new Set([...(dashboardLayout.hiddenTiles||[]), tileId])); delete dashboardLayout.tiles[tileId]; mobileLayout.order = mobileLayout.order.filter((id) => id !== tileId); } else { dashboardLayout.hiddenTiles = (dashboardLayout.hiddenTiles||[]).filter((x)=>x!==tileId); const size = normalizeTileSize(tileId, tileRuleFor(tileId).defaultSize); const pos = findNearestFreePosition(tileId, size); dashboardLayout.tiles[tileId] = { col: pos.col, row: pos.row, size }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); } ensureTilesExist(); renderTilePositions(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary(); };
-              a.append(b); row.append(a); bindDashboardTileStyleControls(row, tileId); section.append(row);
+              a.append(b); addDashboardTileStyleToggle(a, row); row.append(a); bindDashboardTileStyleControls(row, tileId); section.append(row);
             });
             root.append(section);
           });
@@ -1387,7 +1565,7 @@
                 else { const size='4x2'; const normalizedSize = normalizeTileSize(tileId, size); const pos=findNearestFreePosition(tileId, normalizedSize); dashboardLayout.customTiles[tileId] = { type:'member-card', memberId, col:pos.col, row:pos.row, size: normalizedSize }; if (!mobileLayout.order.includes(tileId)) mobileLayout.order.push(tileId); recordDashboardAchievement('dashboard.add_member_profile_card'); }
                 ensureTilesExist(); renderTilePositions(); loadCustomMemberCardTiles(); createEditControls(); saveDesktopLayout(); saveMobileLayout(); renderDashboardTileLibrary();
               };
-              const a = document.createElement('div'); a.className='dashboard-tile-library-actions'; a.append(b); row.append(a); bindDashboardTileStyleControls(row, tileId); community.append(row);
+              const a = document.createElement('div'); a.className='dashboard-tile-library-actions'; a.append(b); addDashboardTileStyleToggle(a, row); row.append(a); bindDashboardTileStyleControls(row, tileId); community.append(row);
             });
           } catch { community.insertAdjacentHTML('beforeend','<p>Members unavailable.</p>'); }
           root.append(community);
@@ -1414,7 +1592,7 @@
             row.innerHTML = `<div class="dashboard-tile-library-meta"><strong>Blank tile</strong><p>${tileId}</p></div>${renderDashboardTileStyleControls(tileId)}`;
             const remove = document.createElement('button'); remove.type='button'; remove.className='nav-button'; remove.textContent='Remove';
             remove.addEventListener('click', () => { removeDashboardTile(tileId); });
-            const actions = document.createElement('div'); actions.className='dashboard-tile-library-actions'; actions.append(remove);
+            const actions = document.createElement('div'); actions.className='dashboard-tile-library-actions'; actions.append(remove); addDashboardTileStyleToggle(actions, row);
             row.append(actions); bindDashboardTileStyleControls(row, tileId); blanks.append(row);
           });
           root.append(blanks);
@@ -1485,17 +1663,19 @@
             const renderResult = renderDashboardTileLibrary?.();
             Promise.resolve(renderResult).then(() => {
               applyDashboardTileStyles({ usePending: true });
-              if (options.focusTileId) focusDashboardTileLibraryItem(options.focusTileId);
+              initRangeSliders(customisePanel);
+              if (options.focusTileId) focusDashboardTileLibraryItem(options.focusTileId, { expandStyle: options.expandStyle });
             });
           }
         }
-        function focusDashboardTileLibraryItem(tileId) {
+        function focusDashboardTileLibraryItem(tileId, options = {}) {
           if (!tileId) return;
           requestAnimationFrame(() => {
             const panel = getDashboardTileSidebar();
             const rows = panel?.querySelectorAll('[data-dashboard-library-tile-id]') || [];
             const row = Array.from(rows).find((item) => item.dataset.dashboardLibraryTileId === tileId);
             if (!row) return;
+            if (options.expandStyle) setDashboardTileStyleEditorExpanded(row, true);
             row.classList.add('is-focused-from-tile');
             row.scrollIntoView({ block: 'center', behavior: 'smooth' });
             setTimeout(() => row.classList.remove('is-focused-from-tile'), 2200);
