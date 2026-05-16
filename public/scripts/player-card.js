@@ -57,9 +57,10 @@
   const statValue=(stats,...keys)=>{for(const key of keys){const value=stats?.[key];if(hasValue(value))return value;}return '';};
   const joinPresent=(items,sep=' · ')=>items.filter(hasValue).map((v)=>String(v)).join(sep);
   const hasAnyStat=(stats,keys)=>keys.some((key)=>hasValue(stats?.[key]));
+  const hasCs2ModePublicStats=(stats)=>!!stats&&(['rank_label','rating','map_group','last_match_map','last_match_result','last_match_score','recent_form','win_rate','kd','last_synced_at'].some((key)=>hasValue(stats?.[key]))||['matches_tracked','wins','losses','kills','deaths','assists'].some((key)=>Number(stats?.[key])>0));
   const externalStatRows=(rows)=>`<div class='profile-card-external-stat-list'>${rows.filter(([,value])=>hasValue(value)).map(([label,value])=>`<div class='profile-card-cs2-stat profile-card-external-stat'><span class='profile-card-cs2-label profile-card-stat-label'>${esc(label)}</span><span class='profile-card-cs2-value profile-card-stat-value'>${esc(value)}</span></div>`).join('')}</div>`;
   const CS2_MODE_LABELS={premier:'Premier',competitive:'Competitive',wingman:'Wingman'};
-  function getCs2ModeStats(profile,mode){const modes=profile?.externalStats?.cs2Modes&&typeof profile.externalStats.cs2Modes==='object'?profile.externalStats.cs2Modes:{};return modes[mode]||null;}
+  function getCs2ModeStats(profile,mode){const modes=profile?.externalStats?.cs2Modes&&typeof profile.externalStats.cs2Modes==='object'?profile.externalStats.cs2Modes:{};const stats=modes[mode]||null;return hasCs2ModePublicStats(stats)?stats:null;}
   function cs2Connected(profile){const conn=profile?.externalStats?.cs2Connection||profile?.externalConnections?.cs2||{};return !!conn.connected;}
   function rankValue(stats){return joinPresent([stats?.rank_label,stats?.rating],' / ');}
   function matchValue(stats){return joinPresent([stats?.last_match_map,stats?.last_match_score,stats?.last_match_result]);}
