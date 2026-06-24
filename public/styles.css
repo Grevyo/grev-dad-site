@@ -2894,3 +2894,93 @@ input[type="color"]::-moz-color-swatch {
   flex-wrap: wrap;
   gap: 4px;
 }
+
+.netwatch-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding-top: 48px;
+}
+
+.netwatch-hero {
+  display: grid;
+  gap: var(--space-3);
+  padding: clamp(24px, 5vw, 56px);
+  background: linear-gradient(135deg, rgba(46, 125, 255, 0.18), var(--surface) 58%);
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.netwatch-lede {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  max-width: 620px;
+}
+
+.netwatch-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.download-button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+}
+
+.download-button:hover {
+  background: var(--accent-hover);
+  text-decoration: none;
+}
+
+.download-note {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.netwatch-card code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.25rem;
+}
+
+.netwatch-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.netwatch-steps li + li {
+  margin-top: var(--space-1);
+}
+
+.netwatch-title-row {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.netwatch-installer-logo {
+  flex: 0 0 auto;
+  height: 64px;
+  image-rendering: crisp-edges;
+  width: 64px;
+}
+
+@media (max-width: 520px) {
+  .netwatch-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

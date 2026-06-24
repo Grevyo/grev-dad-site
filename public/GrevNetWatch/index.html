@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grev NetWatch</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-brand" href="/" aria-label="Grev dashboard"><img class="site-logo" src="/grev.dad.logo.png" alt="Grev" /></a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <a class="nav-button" href="/login.html">Login</a>
+        <a class="nav-button" href="/register.html">Register</a>
+      </nav>
+    </header>
+
+    <main class="page-shell netwatch-page">
+      <section class="netwatch-hero" aria-labelledby="netwatch-title">
+        <div class="netwatch-title-row">
+          <img class="netwatch-installer-logo" src="/assets/grev-netwatch-installer-logo.svg" alt="Grev NetWatch installer logo" />
+          <div>
+            <p class="eyebrow">Grev utility</p>
+            <h1 id="netwatch-title">Grev NetWatch</h1>
+          </div>
+        </div>
+        <p class="netwatch-lede">Download the Windows setup executable to install Grev NetWatch.</p>
+        <div class="netwatch-actions">
+          <a class="download-button" href="/downloads/GrevNetWatchSetup.exe" download>Download setup .exe</a>
+          <span class="download-note">Windows installer</span>
+        </div>
+      </section>
+
+      <section class="netwatch-card" aria-labelledby="install-title">
+        <h2 id="install-title">Install steps</h2>
+        <ol class="netwatch-steps">
+          <li>Click <strong>Download setup .exe</strong>.</li>
+          <li>Open <strong>GrevNetWatchSetup.exe</strong> from your downloads folder.</li>
+          <li>Follow the setup prompts to install Grev NetWatch.</li>
+        </ol>
+      </section>
+
+      <section class="netwatch-card" aria-labelledby="upload-title">
+        <h2 id="upload-title">Site owner upload note</h2>
+        <p>Put the installer at <code>public/downloads/GrevNetWatchSetup.exe</code> in this repo before deploying. That file will be served from <code>/downloads/GrevNetWatchSetup.exe</code>.</p>
+      </section>
+    </main>
+  </body>
+</html>

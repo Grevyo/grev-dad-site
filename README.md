@@ -42,3 +42,9 @@ curl https://<your-domain>/api/setup/status
 ## Steam integration
 
 Steam profile links render from user-provided profile URLs and public profile pages; no server-side key is required.
+
+## Grev NetWatch download page
+
+- Public page: `/GrevNetWatch/`
+- Installer URL: `/downloads/GrevNetWatchSetup.exe`
+- To upload the installer for deploys, copy your setup executable into `public/downloads/GrevNetWatchSetup.exe`, commit it if your hosting allows repository binary assets, then deploy the Worker/static assets.
