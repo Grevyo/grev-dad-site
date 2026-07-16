@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "grev-dad-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-16",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "vars": { "APP_ENV": "development" },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "grev-dad-dev",
+    "database_id": "0e073f43-f79f-4d4f-a599-83736863259c",
+    "migrations_dir": "migrations"
+  }],
+  "env": {
+    "pbe": {
+      "name": "grev-dad-pbe",
+      "routes": [{
+        "pattern": "pbe.grev.dad",
+        "custom_domain": true
+      }],
+      "vars": { "APP_ENV": "pbe" },
+      "d1_databases": [{
+        "binding": "DB",
+        "database_name": "grev-dad-preview",
+        "database_id": "f75094f1-93f9-4e91-b8ba-386c148220c1",
+        "migrations_dir": "migrations"
+      }]
+    },
+    "production": {
+      "name": "grev-dad",
+      "routes": [{
+        "pattern": "grev.dad",
+        "custom_domain": true
+      }],
+      "vars": { "APP_ENV": "production" },
+      "d1_databases": [{
+        "binding": "DB",
+        "database_name": "grev-dad-production",
+        "database_id": "50aa73a6-edbc-44dc-b4f1-15705a2bf74b",
+        "migrations_dir": "migrations"
+      }]
+    }
+  }
+}

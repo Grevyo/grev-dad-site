@@ -1,0 +1,15 @@
+{
+  "name": "grev-dad",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "deploy:pbe": "wrangler d1 migrations apply grev-dad-preview --remote --env pbe && wrangler deploy --env pbe",
+    "deploy:production": "wrangler d1 migrations apply grev-dad-production --remote --env production && wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "wrangler": "latest"
+  }
+}
