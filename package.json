@@ -8,5 +8,12 @@
     "deploy:preview": "wrangler deploy --env preview",
     "deploy:production": "wrangler deploy --env production",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "check": "npm
+    "db:migrate:local": "wrangler d1 migrations apply grev-dad-dev --local",
+    "db:migrate:preview": "wrangler d1 migrations apply grev-dad-preview --remote --env preview",
+    "db:migrate:production": "wrangler d1 migrations apply grev-dad-production --remote --env production"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "wrangler": "latest"
+  }
+}
