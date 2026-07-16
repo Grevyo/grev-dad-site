@@ -42,6 +42,16 @@ async function createSession(env:Env,userId:string,remember:boolean,userAgent:st
 async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
   if(path==='/api/health'&&request.method==='GET')return json({ok:true,service:'grev-dad',environment:env.APP_ENV});
   if(path==='/api/auth/session'&&request.method==='GET'){const user=await getSessionUser(request,env);return json({ok:true,authenticated:Boolean(user),user});}
+
+  if(path.startsWith('/api/profiles/')&&request.method==='GET'){
+    const viewer=await getSessionUser(request,env);if(!viewer)return json({ok:false,message:'Authentication required.'},{status:401});
+    const profileId=decodeURIComponent(path.slice('/api/profiles/'.length));
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId))return json({ok:false,message:'Profile not found.'},{status:404});
+    const row=await env.DB.prepare(`SELECT id,username,display_name,is_verified,is_owner,created_at FROM users WHERE id=? AND status='active'`).bind(profileId).first<{id:string;username:string;display_name:string;is_verified:number;is_owner:number;created_at:number}>();
+    if(!row)return json({ok:false,message:'Profile not found.'},{status:404});
+    return json({ok:true,profile:{id:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),isOwner:Boolean(row.is_owner),createdAt:row.created_at,isSelf:viewer.id===row.id}});
+  }
+
   if(!sameOrigin(request))return json({ok:false,message:'Origin rejected.'},{status:403});
 
   if(path==='/api/auth/signup'&&request.method==='POST'){
@@ -80,7 +90,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
       env.DB.prepare(`UPDATE users SET username=?,updated_at=? WHERE id=?`).bind(username,now,user.id),
       env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,'account.username_changed','user',?,?,?)`).bind(crypto.randomUUID(),user.id,user.id,JSON.stringify({from:user.username,to:username}),now)
     ]);}catch{return json({ok:false,message:'That username is already in use.'},{status:409});}
-    return json({ok:true,username,message:'Username updated. Your account, sessions and access remain attached to the same internal ID.'});
+    return json({ok:true,username,message:'Username updated. Your permanent profile URL has not changed.'});
   }
 
   return json({ok:false,message:'Not found.'},{status:404});
@@ -94,6 +104,8 @@ export default{async fetch(request:Request,env:Env):Promise<Response>{
     else if(['/styles.css','/app.js','/favicon.svg'].includes(path))response=await env.ASSETS.fetch(assetRequest(request,path));
     else if(['/', '/login','/signup'].includes(path))response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/index.html'));
     else if(path==='/dashboard')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/dashboard.html')):redirect('/');
+    else if(path==='/profile'){const user=await getSessionUser(request,env);response=user?redirect(`/profile/${encodeURIComponent(user.id)}`):redirect('/');}
+    else if(/^\/profile\/[^/]+$/.test(path))response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/profile.html')):redirect('/');
     else response=new Response('Not found',{status:404});
   }catch(error){console.error(error);response=json({ok:false,message:'Internal server error.'},{status:500});}
   return secure(response);

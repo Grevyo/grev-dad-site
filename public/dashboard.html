@@ -2,11 +2,11 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
 <body>
-<header><strong>Grev.dad</strong><div><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/profile">My profile</a><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
 <main class="dashboard">
 <p class="eyebrow">Barebones access</p><h1>Welcome, <span id="name">member</span>.</h1><p>This clean foundation comes before custom tiles, profiles and community modules.</p>
 <section class="grid">
-<article><small>Account identity</small><h2>Permanent internal ID</h2><p>Your account, sessions, groups, permissions and future content are attached to a hidden ID. Changing your username does not create a new account.</p></article>
+<article><small>Permanent profile</small><h2>Stable profile URL</h2><p>Your profile address uses your permanent account ID, so it never changes when your username changes.</p><a id="profile-link" class="action-link" href="/profile">View profile</a></article>
 <article><small>Username</small><h2 id="username">—</h2><form id="username-form" class="compact-form"><label>Change username<input id="username-input" name="username" required minlength="3" maxlength="24"></label><button type="submit">Save username</button></form><p id="username-message" role="status"></p></article>
 <article><small>Verification</small><h2>Account status</h2><p id="verification">Checking verification…</p></article>
 <article><small>Access</small><h2>Basic dashboard</h2><p>Groups and policies will unlock additional areas later.</p></article>
