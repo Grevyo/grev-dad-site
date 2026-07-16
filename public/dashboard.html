@@ -6,7 +6,9 @@
 <main class="dashboard">
 <p class="eyebrow">Barebones access</p><h1>Welcome, <span id="name">member</span>.</h1><p>This clean foundation comes before custom tiles, profiles and community modules.</p>
 <section class="grid">
-<article><small>Account</small><h2 id="username">—</h2><p id="verification">Checking verification…</p></article>
+<article><small>Permanent account ID</small><h2 id="grev-id">—</h2><p>This Grev ID never changes and is used to sign in. Your username is separate.</p></article>
+<article><small>Username</small><h2 id="username">—</h2><form id="username-form" class="compact-form"><label>Change username<input id="username-input" name="username" required minlength="3" maxlength="24"></label><button type="submit">Save username</button></form><p id="username-message" role="status"></p></article>
+<article><small>Verification</small><h2>Account status</h2><p id="verification">Checking verification…</p></article>
 <article><small>Access</small><h2>Basic dashboard</h2><p>Groups and policies will unlock additional areas later.</p></article>
 <article><small>Build status</small><h2>Foundation milestone</h2><p>Authentication, sessions and clean migrations are in place first.</p></article>
 </section>
