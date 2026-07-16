@@ -30,7 +30,7 @@ $('#signup-form')?.addEventListener('submit', async (event) => {
   });
   const payload = await response.json();
   if (!response.ok) return showTargetMessage('#message', payload.message ?? 'Sign-up failed.');
-  location.replace(payload.next ?? '/access');
+  location.replace(payload.next ?? '/intentions');
 });
 
 async function loadDashboard() {
@@ -47,8 +47,6 @@ async function loadDashboard() {
   if (usernameInput) usernameInput.value = payload.user.username;
   $('#badge').textContent = payload.user.isVerified ? 'Verified' : 'Unverified';
   $('#verification').textContent = payload.user.isVerified ? 'An administrator has verified this account.' : 'This account is active but not yet verified.';
-  const adminLink = $('#admin-access-link');
-  if (adminLink) adminLink.hidden = !payload.user.isAdmin;
 }
 
 async function loadProfile() {
@@ -72,121 +70,69 @@ async function loadProfile() {
   if (ownProfile) ownProfile.hidden = !profile.isSelf;
 }
 
-function accessStatusLabel(status) {
-  if (status === 'granted' || status === 'approved') return 'Granted';
-  if (status === 'pending') return 'Pending approval';
-  if (status === 'denied') return 'Previously denied';
-  return 'Available';
+function makeIntentionCard(intention) {
+  const label = document.createElement('label');
+  label.className = `intention-card${intention.selected ? ' already-selected' : ''}`;
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.value = intention.id;
+  checkbox.checked = Boolean(intention.selected);
+  checkbox.disabled = Boolean(intention.selected);
+  checkbox.setAttribute('aria-label', intention.name);
+
+  const top = document.createElement('div');
+  top.className = 'intention-card-top';
+  const marker = document.createElement('span');
+  marker.className = 'intention-marker';
+  marker.textContent = intention.selected ? 'Already added' : 'Select';
+  const check = document.createElement('span');
+  check.className = 'intention-check';
+  check.textContent = intention.selected ? '✓' : '';
+  top.append(marker, check);
+
+  const title = document.createElement('h2');
+  title.textContent = intention.name;
+  const description = document.createElement('p');
+  description.textContent = intention.description;
+  label.append(checkbox, top, title, description);
+
+  if (!intention.selected) {
+    checkbox.addEventListener('change', () => {
+      label.classList.toggle('selected', checkbox.checked);
+      check.textContent = checkbox.checked ? '✓' : '';
+      marker.textContent = checkbox.checked ? 'Selected' : 'Select';
+    });
+  }
+  return label;
 }
 
-async function requestAccess(accessId) {
-  showTargetMessage('#access-message', 'Submitting request…', true);
-  const response = await fetch('/api/access/request', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accessId })
-  });
-  const payload = await response.json();
-  showTargetMessage('#access-message', payload.message ?? (response.ok ? 'Access updated.' : 'Request failed.'), response.ok);
-  if (response.ok) await loadAccess();
-}
-
-async function loadAccess() {
-  const list = $('#access-list');
+async function loadIntentions() {
+  const list = $('#intention-list');
   if (!list) return;
-  const response = await fetch('/api/access/catalog', { cache: 'no-store' });
+  const response = await fetch('/api/intentions', { cache: 'no-store' });
   const payload = await response.json();
   if (!response.ok) {
-    list.textContent = payload.message ?? 'Unable to load access options.';
+    list.textContent = payload.message ?? 'Unable to load the intention options.';
     return;
   }
-  list.replaceChildren();
-  for (const area of payload.areas ?? []) {
-    const card = document.createElement('article');
-    card.className = 'access-card';
-
-    const top = document.createElement('div');
-    top.className = 'access-card-top';
-    const type = document.createElement('span');
-    type.className = `access-type ${area.type}`;
-    type.textContent = area.type === 'public' ? 'Public access' : 'Private access';
-    const status = document.createElement('span');
-    status.className = `request-status ${area.status}`;
-    status.textContent = accessStatusLabel(area.status);
-    top.append(type, status);
-
-    const title = document.createElement('h2');
-    title.textContent = area.name;
-    const description = document.createElement('p');
-    description.textContent = area.description;
-    const button = document.createElement('button');
-    const canRequest = area.status === 'available' || area.status === 'denied';
-    button.disabled = !canRequest;
-    button.textContent = area.status === 'pending' ? 'Awaiting approval' : (area.status === 'granted' || area.status === 'approved' ? 'Access granted' : (area.type === 'public' ? 'Get access' : 'Request access'));
-    if (canRequest) button.addEventListener('click', () => requestAccess(area.id));
-
-    card.append(top, title, description, button);
-    list.append(card);
-  }
+  list.replaceChildren(...(payload.intentions ?? []).map(makeIntentionCard));
 }
 
-async function decideAccess(requestId, decision) {
-  showTargetMessage('#admin-message', `${decision === 'approved' ? 'Approving' : 'Denying'} request…`, true);
-  const response = await fetch(`/api/admin/access-requests/${encodeURIComponent(requestId)}/decision`, {
+$('#intentions-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const intentIds = [...document.querySelectorAll('#intention-list input[type="checkbox"]:checked:not(:disabled)')].map(input => input.value);
+  showTargetMessage('#intentions-message', 'Saving your choices…', true);
+  const response = await fetch('/api/intentions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision })
+    body: JSON.stringify({ intentionIds: intentIds })
   });
   const payload = await response.json();
-  showTargetMessage('#admin-message', payload.message ?? (response.ok ? 'Request updated.' : 'Unable to update request.'), response.ok);
-  if (response.ok) await loadAdminRequests();
-}
-
-async function loadAdminRequests() {
-  const list = $('#admin-request-list');
-  if (!list) return;
-  const response = await fetch('/api/admin/access-requests', { cache: 'no-store' });
-  const payload = await response.json();
-  if (!response.ok) {
-    list.textContent = payload.message ?? 'Unable to load requests.';
-    return;
-  }
-  list.replaceChildren();
-  if (!payload.requests?.length) {
-    const empty = document.createElement('p');
-    empty.className = 'empty-state';
-    empty.textContent = 'There are no pending private access requests.';
-    list.append(empty);
-    return;
-  }
-  for (const item of payload.requests) {
-    const card = document.createElement('article');
-    card.className = 'request-card';
-    const details = document.createElement('div');
-    const label = document.createElement('small');
-    label.textContent = item.access.name;
-    const title = document.createElement('h2');
-    title.textContent = item.user.displayName;
-    const username = document.createElement('p');
-    username.textContent = `@${item.user.username} · Requested ${new Date(item.requestedAt * 1000).toLocaleString()}`;
-    const description = document.createElement('p');
-    description.textContent = item.access.description;
-    details.append(label, title, username, description);
-
-    const actions = document.createElement('div');
-    actions.className = 'decision-actions';
-    const approve = document.createElement('button');
-    approve.textContent = 'Approve';
-    approve.addEventListener('click', () => decideAccess(item.id, 'approved'));
-    const deny = document.createElement('button');
-    deny.className = 'danger-button';
-    deny.textContent = 'Deny';
-    deny.addEventListener('click', () => decideAccess(item.id, 'denied'));
-    actions.append(approve, deny);
-    card.append(details, actions);
-    list.append(card);
-  }
-}
+  if (!response.ok) return showTargetMessage('#intentions-message', payload.message ?? 'Unable to save your choices.');
+  showTargetMessage('#intentions-message', payload.message ?? 'Your choices have been saved.', true);
+  location.replace(payload.next ?? '/dashboard');
+});
 
 $('#username-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -205,5 +151,4 @@ $('#logout')?.addEventListener('click', async () => {
 
 loadDashboard().catch(() => location.replace('/login'));
 loadProfile().catch(() => { if ($('#profile-status')) $('#profile-status').textContent = 'Unable to load this profile.'; });
-loadAccess().catch(() => { if ($('#access-list')) $('#access-list').textContent = 'Unable to load access options.'; });
-loadAdminRequests().catch(() => { if ($('#admin-request-list')) $('#admin-request-list').textContent = 'Unable to load requests.'; });
+loadIntentions().catch(() => { if ($('#intention-list')) $('#intention-list').textContent = 'Unable to load the intention options.'; });

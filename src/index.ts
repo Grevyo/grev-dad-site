@@ -7,7 +7,7 @@ interface D1Statement {
 }
 interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
 interface Env { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; APP_ENV: 'development' | 'pbe' | 'production'; }
-type SessionUser = { id: string; username: string; displayName: string; isVerified: boolean; isOwner: boolean; isAdmin: boolean };
+type SessionUser = { id: string; username: string; displayName: string; isVerified: boolean; isOwner: boolean };
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
@@ -36,8 +36,8 @@ async function readBody(request:Request):Promise<Record<string,unknown>>{if(!(re
 
 async function getSessionUser(request:Request,env:Env):Promise<SessionUser|null>{
   const token=parseCookies(request)[COOKIE]; if(!token)return null; const now=Math.floor(Date.now()/1000);
-  const row=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_verified,u.is_owner,CASE WHEN u.is_owner=1 OR EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='role-admin') THEN 1 ELSE 0 END AS is_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),now).first<{id:string;username:string;display_name:string;is_verified:number;is_owner:number;is_admin:number}>();
-  return row?{id:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),isOwner:Boolean(row.is_owner),isAdmin:Boolean(row.is_admin)}:null;
+  const row=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_verified,u.is_owner FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),now).first<{id:string;username:string;display_name:string;is_verified:number;is_owner:number}>();
+  return row?{id:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),isOwner:Boolean(row.is_owner)}:null;
 }
 async function createSession(env:Env,userId:string,remember:boolean,userAgent:string|null){
   const token=b64(crypto.getRandomValues(new Uint8Array(32))),now=Math.floor(Date.now()/1000),maxAge=remember?2592000:86400;
@@ -72,7 +72,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
       env.DB.prepare(`INSERT INTO audit_events(id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,'account.registered','user',?,'{}',?)`).bind(crypto.randomUUID(),id,now)
     ]);}catch{return json({ok:false,message:'That username or email is already in use.'},{status:409});}
     const created=await createSession(env,id,false,request.headers.get('User-Agent'));
-    return json({ok:true,next:'/access',message:'Account created. Choose the access you would like.'},{status:201,headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
+    return json({ok:true,next:'/intentions',message:'Account created. Tell us what brings you to Grev.dad.'},{status:201,headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
   }
 
   if(path==='/api/auth/login'&&request.method==='POST'){
@@ -88,57 +88,30 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
     return json({ok:true},{headers:{'Set-Cookie':clearCookie(usesSecureCookies(env))}});
   }
 
-  if(path==='/api/access/catalog'&&request.method==='GET'){
+  if(path==='/api/intentions'&&request.method==='GET'){
     const user=await getSessionUser(request,env);if(!user)return json({ok:false,message:'Authentication required.'},{status:401});
-    const rows=await env.DB.prepare(`SELECT a.id,a.slug,a.name,a.description,a.access_type,CASE WHEN gm.user_id IS NOT NULL THEN 'granted' ELSE COALESCE(ar.status,'available') END AS request_status FROM access_areas a LEFT JOIN group_memberships gm ON gm.group_id=a.group_id AND gm.user_id=? LEFT JOIN access_requests ar ON ar.access_area_id=a.id AND ar.user_id=? WHERE a.is_active=1 ORDER BY a.sort_order,a.name`).bind(user.id,user.id).all<{id:string;slug:string;name:string;description:string;access_type:'public'|'private';request_status:string}>();
-    return json({ok:true,areas:rows.results.map(row=>({id:row.id,slug:row.slug,name:row.name,description:row.description,type:row.access_type,status:row.request_status}))});
+    const rows=await env.DB.prepare(`SELECT i.id,i.slug,i.name,i.description,CASE WHEN ui.user_id IS NULL THEN 0 ELSE 1 END AS is_selected FROM intention_options i LEFT JOIN user_intentions ui ON ui.intention_id=i.id AND ui.user_id=? WHERE i.is_active=1 ORDER BY i.sort_order,i.name`).bind(user.id).all<{id:string;slug:string;name:string;description:string;is_selected:number}>();
+    return json({ok:true,intentions:rows.results.map(row=>({id:row.id,slug:row.slug,name:row.name,description:row.description,selected:Boolean(row.is_selected)}))});
   }
 
-  if(path==='/api/access/request'&&request.method==='POST'){
+  if(path==='/api/intentions'&&request.method==='POST'){
     const user=await getSessionUser(request,env);if(!user)return json({ok:false,message:'Authentication required.'},{status:401});
-    const data=await readBody(request),accessId=String(data.accessId??'');
-    const area=await env.DB.prepare(`SELECT id,name,access_type,group_id FROM access_areas WHERE id=? AND is_active=1`).bind(accessId).first<{id:string;name:string;access_type:'public'|'private';group_id:string}>();
-    if(!area)return json({ok:false,message:'Access area not found.'},{status:404});
-    const membership=await env.DB.prepare(`SELECT user_id FROM group_memberships WHERE group_id=? AND user_id=?`).bind(area.group_id,user.id).first<{user_id:string}>();
-    if(membership)return json({ok:true,status:'granted',message:`You already have ${area.name}.`});
-    const now=Math.floor(Date.now()/1000),requestId=crypto.randomUUID();
-    if(area.access_type==='public'){
-      await env.DB.batch([
-        env.DB.prepare(`INSERT INTO group_memberships(group_id,user_id,assigned_by,assigned_at) VALUES(?,?,?,?) ON CONFLICT(group_id,user_id) DO NOTHING`).bind(area.group_id,user.id,user.id,now),
-        env.DB.prepare(`INSERT INTO access_requests(id,user_id,access_area_id,status,requested_at,decided_at,decided_by) VALUES(?,?,?,'approved',?,?,?) ON CONFLICT(user_id,access_area_id) DO UPDATE SET status='approved',requested_at=excluded.requested_at,decided_at=excluded.decided_at,decided_by=excluded.decided_by`).bind(requestId,user.id,area.id,now,now,user.id),
-        env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,'access.public_granted','access_area',?,'{}',?)`).bind(crypto.randomUUID(),user.id,area.id,now)
-      ]);
-      return json({ok:true,status:'granted',message:`${area.name} has been granted.`});
+    const data=await readBody(request),rawIds=data.intentionIds;
+    if(!Array.isArray(rawIds)||rawIds.length>20||rawIds.some(value=>typeof value!=='string'))return json({ok:false,message:'Choose valid intentions.'},{status:400});
+    const requestedIds=[...new Set(rawIds.map(value=>value.trim()).filter(Boolean))];
+    const activeRows=await env.DB.prepare(`SELECT id,name FROM intention_options WHERE is_active=1`).all<{id:string;name:string}>();
+    const active=new Map(activeRows.results.map(row=>[row.id,row.name]));
+    if(requestedIds.some(id=>!active.has(id)))return json({ok:false,message:'One or more intentions are unavailable.'},{status:400});
+    const now=Math.floor(Date.now()/1000),statements:D1Statement[]=[];
+    for(const intentionId of requestedIds){
+      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO user_intentions(user_id,intention_id,selected_at) VALUES(?,?,?)`).bind(user.id,intentionId,now));
+      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO group_memberships(group_id,user_id,assigned_by,assigned_at) SELECT group_id,?,?,? FROM intention_group_grants WHERE intention_id=?`).bind(user.id,user.id,now,intentionId));
     }
-    await env.DB.batch([
-      env.DB.prepare(`INSERT INTO access_requests(id,user_id,access_area_id,status,requested_at,decided_at,decided_by) VALUES(?,?,?,'pending',?,NULL,NULL) ON CONFLICT(user_id,access_area_id) DO UPDATE SET status=CASE WHEN access_requests.status='approved' THEN 'approved' ELSE 'pending' END,requested_at=excluded.requested_at,decided_at=NULL,decided_by=NULL`).bind(requestId,user.id,area.id,now),
-      env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,'access.private_requested','access_area',?,'{}',?)`).bind(crypto.randomUUID(),user.id,area.id,now)
-    ]);
-    return json({ok:true,status:'pending',message:`${area.name} has been sent to an administrator for approval.`},{status:202});
-  }
-
-  if(path==='/api/admin/access-requests'&&request.method==='GET'){
-    const admin=await getSessionUser(request,env);if(!admin?.isAdmin)return json({ok:false,message:'Administrator access required.'},{status:403});
-    const rows=await env.DB.prepare(`SELECT ar.id,ar.requested_at,u.id AS user_id,u.username,u.display_name,a.id AS access_area_id,a.name AS access_name,a.description FROM access_requests ar JOIN users u ON u.id=ar.user_id JOIN access_areas a ON a.id=ar.access_area_id WHERE ar.status='pending' AND a.access_type='private' ORDER BY ar.requested_at`).all<{id:string;requested_at:number;user_id:string;username:string;display_name:string;access_area_id:string;access_name:string;description:string}>();
-    return json({ok:true,requests:rows.results.map(row=>({id:row.id,requestedAt:row.requested_at,user:{id:row.user_id,username:row.username,displayName:row.display_name},access:{id:row.access_area_id,name:row.access_name,description:row.description}}))});
-  }
-
-  const decisionMatch=path.match(/^\/api\/admin\/access-requests\/([0-9a-f-]+)\/decision$/i);
-  if(decisionMatch&&request.method==='POST'){
-    const admin=await getSessionUser(request,env);if(!admin?.isAdmin)return json({ok:false,message:'Administrator access required.'},{status:403});
-    const data=await readBody(request),decision=String(data.decision??'');
-    if(decision!=='approved'&&decision!=='denied')return json({ok:false,message:'Decision must be approved or denied.'},{status:400});
-    const requestId=decisionMatch[1]!;
-    const accessRequest=await env.DB.prepare(`SELECT ar.id,ar.user_id,ar.access_area_id,ar.status,a.group_id,a.name FROM access_requests ar JOIN access_areas a ON a.id=ar.access_area_id WHERE ar.id=? AND a.access_type='private'`).bind(requestId).first<{id:string;user_id:string;access_area_id:string;status:string;group_id:string;name:string}>();
-    if(!accessRequest)return json({ok:false,message:'Access request not found.'},{status:404});
-    if(accessRequest.status!=='pending')return json({ok:false,message:'This request has already been decided.'},{status:409});
-    const now=Math.floor(Date.now()/1000),statements:D1Statement[]=[
-      env.DB.prepare(`UPDATE access_requests SET status=?,decided_at=?,decided_by=? WHERE id=? AND status='pending'`).bind(decision,now,admin.id,requestId),
-      env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,'access_request',?,?,?)`).bind(crypto.randomUUID(),admin.id,decision==='approved'?'access.private_approved':'access.private_denied',requestId,JSON.stringify({accessAreaId:accessRequest.access_area_id,userId:accessRequest.user_id}),now)
-    ];
-    if(decision==='approved')statements.push(env.DB.prepare(`INSERT INTO group_memberships(group_id,user_id,assigned_by,assigned_at) VALUES(?,?,?,?) ON CONFLICT(group_id,user_id) DO NOTHING`).bind(accessRequest.group_id,accessRequest.user_id,admin.id,now));
-    await env.DB.batch(statements);
-    return json({ok:true,status:decision,message:`${accessRequest.name} request ${decision}.`});
+    if(requestedIds.length){
+      statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,'account.intentions_selected','user',?,?,?)`).bind(crypto.randomUUID(),user.id,user.id,JSON.stringify({intentionIds:requestedIds}),now));
+      await env.DB.batch(statements);
+    }
+    return json({ok:true,next:'/dashboard',message:requestedIds.length?'Your intentions have been saved and the matching areas have been added.':'You can choose intentions later from your dashboard.'});
   }
 
   if(path==='/api/account/username'&&request.method==='POST'){
@@ -162,12 +135,13 @@ export default{async fetch(request:Request,env:Env):Promise<Response>{
   try{
     if(path.startsWith('/api/'))response=await handleApi(request,env,path);
     else if(['/styles.css','/app.js','/favicon.svg'].includes(path))response=await env.ASSETS.fetch(assetRequest(request,path));
-    else if(path==='/'){response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/index.html'));}
+    else if(path==='/')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/index.html'));
     else if(path==='/login')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/login.html'));
     else if(path==='/signup')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/signup.html'));
     else if(path==='/dashboard')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/dashboard.html')):redirect('/login');
-    else if(path==='/access')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/access.html')):redirect('/login');
-    else if(path==='/admin/access-requests'){const user=await getSessionUser(request,env);response=user?.isAdmin?await env.ASSETS.fetch(assetRequest(request,'/admin-access.html')):redirect(user?'/dashboard':'/login');}
+    else if(path==='/access')response=redirect('/intentions');
+    else if(path==='/intentions')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/intentions.html')):redirect('/login');
+    else if(path==='/admin/access-requests')response=redirect('/dashboard');
     else if(path==='/profile'){const user=await getSessionUser(request,env);response=user?redirect(`/profile/${encodeURIComponent(user.id)}`):redirect('/login');}
     else if(/^\/profile\/[^/]+$/.test(path))response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/profile.html')):redirect('/login');
     else response=new Response('Not found',{status:404});
