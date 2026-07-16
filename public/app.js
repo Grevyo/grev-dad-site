@@ -45,8 +45,20 @@ async function loadDashboard() {
   if (profileLink) profileLink.href = profileUrl;
   const usernameInput = $('#username-input');
   if (usernameInput) usernameInput.value = payload.user.username;
-  $('#badge').textContent = payload.user.isVerified ? 'Verified' : 'Unverified';
+  $('#badge').textContent = payload.user.isOwner ? 'Owner' : (payload.user.isAdmin ? 'Administrator' : (payload.user.isVerified ? 'Verified' : 'Unverified'));
   $('#verification').textContent = payload.user.isVerified ? 'An administrator has verified this account.' : 'This account is active but not yet verified.';
+  const adminLink = $('#admin-link');
+  if (adminLink) adminLink.hidden = !payload.user.isAdmin;
+
+  const ownerSetupLink = $('#owner-setup-link');
+  const ownerSetupCard = $('#owner-setup-card');
+  if (!payload.user.isOwner && (ownerSetupLink || ownerSetupCard)) {
+    const statusResponse = await fetch('/api/bootstrap/owner-status', { cache: 'no-store' });
+    const status = await statusResponse.json();
+    const showSetup = statusResponse.ok && !status.ownerConfigured && status.eligible;
+    if (ownerSetupLink) ownerSetupLink.hidden = !showSetup;
+    if (ownerSetupCard) ownerSetupCard.hidden = !showSetup;
+  }
 }
 
 async function loadProfile() {
@@ -134,6 +146,45 @@ $('#intentions-form')?.addEventListener('submit', async (event) => {
   location.replace(payload.next ?? '/dashboard');
 });
 
+async function loadOwnerSetup() {
+  if (!$('#owner-setup-title')) return;
+  const response = await fetch('/api/bootstrap/owner-status', { cache: 'no-store' });
+  const payload = await response.json();
+  if (!response.ok) {
+    $('#owner-setup-title').textContent = 'Owner setup unavailable';
+    $('#owner-setup-description').textContent = payload.message ?? 'Unable to check Owner setup.';
+    return;
+  }
+  if (payload.ownerConfigured) {
+    $('#owner-setup-title').textContent = 'Owner already configured';
+    $('#owner-setup-description').textContent = 'The one-time Owner setup has already been completed.';
+    return;
+  }
+  if (!payload.eligible) {
+    $('#owner-setup-title').textContent = 'Manual Owner setup required';
+    $('#owner-setup-description').textContent = `Automatic setup is disabled because ${payload.userCount} accounts exist. No account will be selected automatically.`;
+    return;
+  }
+  $('#owner-setup-title').textContent = 'This account is eligible';
+  $('#owner-setup-description').textContent = 'Confirm your current password to make this sole account the Grev.dad Owner.';
+  $('#owner-setup-form').hidden = false;
+}
+
+$('#owner-setup-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  showTargetMessage('#owner-setup-message', 'Configuring Owner account…', true);
+  const response = await fetch('/api/bootstrap/owner', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: form.get('password') })
+  });
+  const payload = await response.json();
+  if (!response.ok) return showTargetMessage('#owner-setup-message', payload.message ?? 'Owner setup failed.');
+  showTargetMessage('#owner-setup-message', payload.message ?? 'Owner configured.', true);
+  location.replace(payload.next ?? '/admin');
+});
+
 $('#username-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -152,3 +203,4 @@ $('#logout')?.addEventListener('click', async () => {
 loadDashboard().catch(() => location.replace('/login'));
 loadProfile().catch(() => { if ($('#profile-status')) $('#profile-status').textContent = 'Unable to load this profile.'; });
 loadIntentions().catch(() => { if ($('#intention-list')) $('#intention-list').textContent = 'Unable to load the intention options.'; });
+loadOwnerSetup().catch(() => { if ($('#owner-setup-description')) $('#owner-setup-description').textContent = 'Unable to check Owner setup.'; });
