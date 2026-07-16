@@ -50,7 +50,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
     if(!/^[A-Za-z0-9_]{3,24}$/.test(username)||displayName.length<1||displayName.length>60||(email!==null&&!/^\S+@\S+\.\S+$/.test(email))||password.length<12)return json({ok:false,message:'Check the sign-up fields. Passwords need at least 12 characters.'},{status:400});
     const id=crypto.randomUUID(),now=Math.floor(Date.now()/1000),hashed=await hashPassword(password);
     try{await env.DB.batch([
-      env.DB.prepare(`INSERT INTO users(id,grev_id,username,email,display_name,status,is_verified,is_owner,created_at,updated_at) VALUES(?,?,?,?,?,'active',0,0,?,?)`).bind(id,id,username,email,displayName,now,now),
+      env.DB.prepare(`INSERT INTO users(id,username,email,display_name,status,is_verified,is_owner,created_at,updated_at) VALUES(?,?,?,?,'active',0,0,?,?)`).bind(id,username,email,displayName,now,now),
       env.DB.prepare(`INSERT INTO user_credentials(user_id,password_algorithm,password_iterations,password_salt,password_hash,password_updated_at) VALUES(?,'PBKDF2-SHA256',?,?,?,?)`).bind(id,hashed.iterations,hashed.salt,hashed.hash,now),
       env.DB.prepare(`INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES(?,'role-member',?)`).bind(id,now),
       env.DB.prepare(`INSERT INTO audit_events(id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,'account.registered','user',?,'{}',?)`).bind(crypto.randomUUID(),id,now)
