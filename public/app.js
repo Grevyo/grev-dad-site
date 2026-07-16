@@ -7,6 +7,13 @@ function showMessage(text, ok = false) {
   message.className = ok ? 'success' : 'error';
 }
 
+function showUsernameMessage(text, ok = false) {
+  const target = $('#username-message');
+  if (!target) return;
+  target.textContent = text;
+  target.className = ok ? 'success' : 'error';
+}
+
 for (const button of document.querySelectorAll('[data-tab]')) {
   button.addEventListener('click', () => {
     const signup = button.dataset.tab === 'signup';
@@ -31,8 +38,11 @@ $('#signup-form')?.addEventListener('submit', async (event) => {
   const form = new FormData(event.currentTarget);
   const response = await fetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(form)) });
   const payload = await response.json();
-  showMessage(payload.message ?? (response.ok ? 'Account created.' : 'Sign-up failed.'), response.ok);
-  if (response.ok) document.querySelector('[data-tab="login"]')?.click();
+  if (!response.ok) return showMessage(payload.message ?? 'Sign-up failed.');
+  document.querySelector('[data-tab="login"]')?.click();
+  const identifier = document.querySelector('#login-form [name="identifier"]');
+  if (identifier && payload.grevId) identifier.value = payload.grevId;
+  showMessage(payload.message ?? 'Account created.', true);
 });
 
 async function loadDashboard() {
@@ -42,9 +52,22 @@ async function loadDashboard() {
   if (!payload.authenticated || !payload.user) return location.replace('/');
   $('#name').textContent = payload.user.displayName;
   $('#username').textContent = `@${payload.user.username}`;
+  $('#grev-id').textContent = payload.user.grevId;
+  const usernameInput = $('#username-input');
+  if (usernameInput) usernameInput.value = payload.user.username;
   $('#badge').textContent = payload.user.isVerified ? 'Verified' : 'Unverified';
   $('#verification').textContent = payload.user.isVerified ? 'An administrator has verified this account.' : 'This account is active but not yet verified.';
 }
+
+$('#username-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const response = await fetch('/api/account/username', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: form.get('username') }) });
+  const payload = await response.json();
+  if (!response.ok) return showUsernameMessage(payload.message ?? 'Username update failed.');
+  $('#username').textContent = `@${payload.username}`;
+  showUsernameMessage(payload.message ?? 'Username updated.', true);
+});
 
 $('#logout')?.addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
