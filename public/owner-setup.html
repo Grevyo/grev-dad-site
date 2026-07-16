@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner setup · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><button id="logout">Log out</button></div></header>
+<main class="dashboard owner-setup-page">
+<p class="eyebrow">One-time setup</p>
+<h1>Configure the Owner account</h1>
+<p>The Owner controls administrators and the highest-level account settings. Automatic setup only works while this is the sole account and no Owner has already been configured.</p>
+<section class="admin-panel owner-setup-panel">
+<h2 id="owner-setup-title">Checking eligibility…</h2>
+<p id="owner-setup-description">Please wait while Grev.dad checks the account database.</p>
+<form id="owner-setup-form" class="admin-action-form" hidden><label>Confirm your password<input name="password" type="password" required autocomplete="current-password"></label><button type="submit">Make this account the Owner</button></form>
+<p id="owner-setup-message" role="status"></p>
+</section>
+</main>
+<script src="/app.js" defer></script>
+</body></html>
