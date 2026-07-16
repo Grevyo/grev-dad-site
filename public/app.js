@@ -52,10 +52,34 @@ async function loadDashboard() {
   if (!payload.authenticated || !payload.user) return location.replace('/');
   $('#name').textContent = payload.user.displayName;
   $('#username').textContent = `@${payload.user.username}`;
+  const profileUrl = `/profile/${encodeURIComponent(payload.user.id)}`;
+  const profileLink = $('#profile-link');
+  if (profileLink) profileLink.href = profileUrl;
   const usernameInput = $('#username-input');
   if (usernameInput) usernameInput.value = payload.user.username;
   $('#badge').textContent = payload.user.isVerified ? 'Verified' : 'Unverified';
   $('#verification').textContent = payload.user.isVerified ? 'An administrator has verified this account.' : 'This account is active but not yet verified.';
+}
+
+async function loadProfile() {
+  if (!$('#profile-name')) return;
+  const profileId = decodeURIComponent(location.pathname.slice('/profile/'.length));
+  const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}`, { cache: 'no-store' });
+  const payload = await response.json();
+  if (!response.ok || !payload.profile) {
+    $('#profile-name').textContent = 'Profile not found';
+    $('#profile-status').textContent = payload.message ?? 'This profile is unavailable.';
+    return;
+  }
+  const profile = payload.profile;
+  document.title = `${profile.displayName} · Grev.dad`;
+  $('#profile-name').textContent = profile.displayName;
+  $('#profile-username').textContent = `@${profile.username}`;
+  $('#profile-status').textContent = profile.isVerified ? 'Verified member' : 'Unverified member';
+  $('#profile-badge').textContent = profile.isOwner ? 'Owner' : (profile.isVerified ? 'Verified' : 'Unverified');
+  $('#profile-member-since').textContent = new Date(profile.createdAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const ownProfile = $('#own-profile-note');
+  if (ownProfile) ownProfile.hidden = !profile.isSelf;
 }
 
 $('#username-form')?.addEventListener('submit', async (event) => {
@@ -74,3 +98,6 @@ $('#logout')?.addEventListener('click', async () => {
 });
 
 loadDashboard().catch(() => location.replace('/'));
+loadProfile().catch(() => {
+  if ($('#profile-status')) $('#profile-status').textContent = 'Unable to load this profile.';
+});
