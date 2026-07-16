@@ -41,7 +41,7 @@ $('#signup-form')?.addEventListener('submit', async (event) => {
   if (!response.ok) return showMessage(payload.message ?? 'Sign-up failed.');
   document.querySelector('[data-tab="login"]')?.click();
   const identifier = document.querySelector('#login-form [name="identifier"]');
-  if (identifier && payload.grevId) identifier.value = payload.grevId;
+  if (identifier) identifier.value = String(form.get('username') ?? '');
   showMessage(payload.message ?? 'Account created.', true);
 });
 
@@ -52,7 +52,6 @@ async function loadDashboard() {
   if (!payload.authenticated || !payload.user) return location.replace('/');
   $('#name').textContent = payload.user.displayName;
   $('#username').textContent = `@${payload.user.username}`;
-  $('#grev-id').textContent = payload.user.grevId;
   const usernameInput = $('#username-input');
   if (usernameInput) usernameInput.value = payload.user.username;
   $('#badge').textContent = payload.user.isVerified ? 'Verified' : 'Unverified';
