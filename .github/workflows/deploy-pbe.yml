@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: grev-dad-pbe
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -39,4 +39,22 @@ jobs:
         run: npx wrangler d1 migrations apply grev-dad-preview --remote --env pbe
 
       - name: Deploy PBE
-        run: npx wrangler deploy --env pbe
+        shell: bash
+        run: |
+          set +e
+          output=$(npx wrangler deploy --env pbe 2>&1)
+          status=$?
+          printf '%s\n' "$output"
+
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if printf '%s\n' "$output" | grep -q "Completion token has already been consumed"; then
+            echo "Cloudflare returned transient completion-token error 100312. Retrying once in 20 seconds."
+            sleep 20
+            npx wrangler deploy --env pbe
+            exit $?
+          fi
+
+          exit "$status"
