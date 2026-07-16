@@ -1,15 +1,13 @@
 interface D1Statement { bind(...values: unknown[]): D1Statement; first<T = Record<string, unknown>>(): Promise<T | null>; run(): Promise<unknown>; }
 interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
 interface Env { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; APP_ENV: 'development' | 'pbe' | 'production'; }
-type SessionUser = { id: string; grevId: string; username: string; displayName: string; isVerified: boolean; isOwner: boolean };
+type SessionUser = { id: string; username: string; displayName: string; isVerified: boolean; isOwner: boolean };
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
-const GREV_ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function b64(bytes: Uint8Array): string { return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=',''); }
 function unb64(value: string): Uint8Array<ArrayBuffer> { const padded=value.replaceAll('-','+').replaceAll('_','/').padEnd(Math.ceil(value.length/4)*4,'='); return Uint8Array.from(atob(padded), c=>c.charCodeAt(0)); }
-function createGrevId(): string { const bytes=crypto.getRandomValues(new Uint8Array(8)); const value=Array.from(bytes,byte=>GREV_ID_ALPHABET[byte%GREV_ID_ALPHABET.length]).join(''); return `GREV-${value.slice(0,4)}-${value.slice(4)}`; }
 async function sha256(value: string): Promise<string> { return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)))); }
 async function hashPassword(password: string, salt=crypto.getRandomValues(new Uint8Array(16)), iterations=310000) {
   const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
@@ -32,8 +30,8 @@ async function readBody(request:Request):Promise<Record<string,unknown>>{if(!(re
 
 async function getSessionUser(request:Request,env:Env):Promise<SessionUser|null>{
   const token=parseCookies(request)[COOKIE]; if(!token)return null; const now=Math.floor(Date.now()/1000);
-  const row=await env.DB.prepare(`SELECT u.id,u.grev_id,u.username,u.display_name,u.is_verified,u.is_owner FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),now).first<{id:string;grev_id:string;username:string;display_name:string;is_verified:number;is_owner:number}>();
-  return row?{id:row.id,grevId:row.grev_id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),isOwner:Boolean(row.is_owner)}:null;
+  const row=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_verified,u.is_owner FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),now).first<{id:string;username:string;display_name:string;is_verified:number;is_owner:number}>();
+  return row?{id:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),isOwner:Boolean(row.is_owner)}:null;
 }
 async function createSession(env:Env,userId:string,remember:boolean,userAgent:string|null){
   const token=b64(crypto.getRandomValues(new Uint8Array(32))),now=Math.floor(Date.now()/1000),maxAge=remember?2592000:86400;
@@ -50,20 +48,20 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
     const data=await readBody(request),username=String(data.username??'').trim(),displayName=String(data.displayName??'').trim(),emailValue=String(data.email??'').trim().toLowerCase(),password=String(data.password??'');
     const email=emailValue||null;
     if(!/^[A-Za-z0-9_]{3,24}$/.test(username)||displayName.length<1||displayName.length>60||(email!==null&&!/^\S+@\S+\.\S+$/.test(email))||password.length<12)return json({ok:false,message:'Check the sign-up fields. Passwords need at least 12 characters.'},{status:400});
-    const id=crypto.randomUUID(),grevId=createGrevId(),now=Math.floor(Date.now()/1000),hashed=await hashPassword(password);
+    const id=crypto.randomUUID(),now=Math.floor(Date.now()/1000),hashed=await hashPassword(password);
     try{await env.DB.batch([
-      env.DB.prepare(`INSERT INTO users(id,grev_id,username,email,display_name,status,is_verified,is_owner,created_at,updated_at) VALUES(?,?,?,?,?,'active',0,0,?,?)`).bind(id,grevId,username,email,displayName,now,now),
+      env.DB.prepare(`INSERT INTO users(id,grev_id,username,email,display_name,status,is_verified,is_owner,created_at,updated_at) VALUES(?,?,?,?,?,'active',0,0,?,?)`).bind(id,id,username,email,displayName,now,now),
       env.DB.prepare(`INSERT INTO user_credentials(user_id,password_algorithm,password_iterations,password_salt,password_hash,password_updated_at) VALUES(?,'PBKDF2-SHA256',?,?,?,?)`).bind(id,hashed.iterations,hashed.salt,hashed.hash,now),
       env.DB.prepare(`INSERT INTO user_roles(user_id,role_id,assigned_at) VALUES(?,'role-member',?)`).bind(id,now),
-      env.DB.prepare(`INSERT INTO audit_events(id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,'account.registered','user',?,?,?)`).bind(crypto.randomUUID(),id,JSON.stringify({grevId}),now)
+      env.DB.prepare(`INSERT INTO audit_events(id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,'account.registered','user',?,'{}',?)`).bind(crypto.randomUUID(),id,now)
     ]);}catch{return json({ok:false,message:'That username or email is already in use.'},{status:409});}
-    return json({ok:true,grevId,message:`Account created. Your Grev ID is ${grevId}. Save it — this is your permanent sign-in ID.`},{status:201});
+    return json({ok:true,message:'Account created. Sign in with your username or email.'},{status:201});
   }
 
   if(path==='/api/auth/login'&&request.method==='POST'){
-    const data=await readBody(request),identifier=String(data.identifier??'').trim(),password=String(data.password??''),remember=Boolean(data.rememberMe);
-    const row=await env.DB.prepare(`SELECT u.id,u.status,c.password_iterations,c.password_salt,c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE upper(u.grev_id)=? OR (u.email IS NOT NULL AND lower(u.email)=?)`).bind(identifier.toUpperCase(),identifier.toLowerCase()).first<{id:string;status:string;password_iterations:number;password_salt:string;password_hash:string}>();
-    if(!row||row.status!=='active'||!(await verifyPassword(password,row.password_salt,row.password_hash,row.password_iterations)))return json({ok:false,message:'Invalid Grev ID/email or password.'},{status:401});
+    const data=await readBody(request),identifier=String(data.identifier??'').trim().toLowerCase(),password=String(data.password??''),remember=Boolean(data.rememberMe);
+    const row=await env.DB.prepare(`SELECT u.id,u.status,c.password_iterations,c.password_salt,c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE lower(u.username)=? OR (u.email IS NOT NULL AND lower(u.email)=?)`).bind(identifier,identifier).first<{id:string;status:string;password_iterations:number;password_salt:string;password_hash:string}>();
+    if(!row||row.status!=='active'||!(await verifyPassword(password,row.password_salt,row.password_hash,row.password_iterations)))return json({ok:false,message:'Invalid username/email or password.'},{status:401});
     const created=await createSession(env,row.id,remember,request.headers.get('User-Agent'));
     return json({ok:true},{headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
   }
@@ -82,7 +80,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
       env.DB.prepare(`UPDATE users SET username=?,updated_at=? WHERE id=?`).bind(username,now,user.id),
       env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,'account.username_changed','user',?,?,?)`).bind(crypto.randomUUID(),user.id,user.id,JSON.stringify({from:user.username,to:username}),now)
     ]);}catch{return json({ok:false,message:'That username is already in use.'},{status:409});}
-    return json({ok:true,username,message:'Username updated. Your Grev ID has not changed.'});
+    return json({ok:true,username,message:'Username updated. Your account, sessions and access remain attached to the same internal ID.'});
   }
 
   return json({ok:false,message:'Not found.'},{status:404});
