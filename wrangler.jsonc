@@ -16,9 +16,13 @@
     "migrations_dir": "migrations"
   }],
   "env": {
-    "preview": {
-      "name": "grev-dad-preview",
-      "vars": { "APP_ENV": "preview" },
+    "pbe": {
+      "name": "grev-dad-pbe",
+      "routes": [{
+        "pattern": "pbe.grev.dad",
+        "custom_domain": true
+      }],
+      "vars": { "APP_ENV": "pbe" },
       "d1_databases": [{
         "binding": "DB",
         "database_name": "grev-dad-preview",
@@ -28,6 +32,10 @@
     },
     "production": {
       "name": "grev-dad",
+      "routes": [{
+        "pattern": "grev.dad",
+        "custom_domain": true
+      }],
       "vars": { "APP_ENV": "production" },
       "d1_databases": [{
         "binding": "DB",
