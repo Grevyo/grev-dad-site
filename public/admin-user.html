@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>User management · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/admin">Admin centre</a><a class="header-link" href="/dashboard">Dashboard</a><button id="logout">Log out</button></div></header>
+<main class="dashboard admin-page admin-user-page">
+<a class="back-link" href="/admin">← Back to accounts</a>
+<p class="eyebrow">User management</p>
+<h1 id="admin-user-name">Loading account…</h1>
+<p id="admin-user-meta">—</p>
+<div id="admin-user-headline-badges" class="admin-user-badges"></div>
+<p id="admin-message" role="status"></p>
+<section class="admin-detail-grid">
+<article class="admin-panel">
+<h2>Account details</h2>
+<dl class="admin-details-list"><div><dt>Permanent account ID</dt><dd id="admin-account-id">—</dd></div><div><dt>Created</dt><dd id="admin-created-at">—</dd></div><div><dt>Active sessions</dt><dd id="admin-active-sessions">—</dd></div></dl>
+<a id="admin-profile-link" class="action-link" href="/profile">Open profile</a>
+</article>
+<article class="admin-panel">
+<h2>Verification</h2>
+<p>Verification is separate from intentions, groups and policies.</p>
+<form id="verification-form" class="admin-action-form"><label>Verification status<select id="verification-select"><option value="verified">Verified</option><option value="unverified">Unverified</option></select></label><button id="verification-save" type="submit">Save verification</button></form>
+</article>
+<article class="admin-panel">
+<h2>Account status</h2>
+<p>Suspending or disabling an account immediately revokes its active sessions.</p>
+<form id="status-form" class="admin-action-form"><label>Status<select id="status-select"><option value="active">Active</option><option value="suspended">Suspended</option><option value="disabled">Disabled</option></select></label><button id="status-save" type="submit">Save status</button></form>
+</article>
+<article class="admin-panel">
+<h2>Hidden private groups</h2>
+<p>These broad groups are never shown or requested in member onboarding.</p>
+<form id="private-groups-form" class="admin-action-form"><fieldset id="private-group-options" class="admin-check-grid"><legend class="sr-only">Private groups</legend></fieldset><button id="private-groups-save" type="submit">Save private groups</button></form>
+</article>
+<article id="admin-role-panel" class="admin-panel" hidden>
+<h2>Administrator role</h2>
+<p>Only the Owner can promote or remove administrators.</p>
+<form id="admin-role-form" class="admin-action-form"><label>Role<select id="admin-role-select"><option value="member">Standard member</option><option value="admin">Administrator</option></select></label><button id="admin-role-save" type="submit">Save administrator role</button></form>
+</article>
+<article class="admin-panel">
+<h2>Selected intentions</h2>
+<div id="intentions-list" class="admin-tag-list">Loading…</div>
+<h3>Roles</h3>
+<div id="roles-list" class="admin-tag-list">Loading…</div>
+</article>
+</section>
+<section class="admin-panel admin-audit-panel"><h2>Audit history</h2><p>Recent account and administration events involving this user.</p><div id="audit-list" class="admin-audit-list">Loading history…</div></section>
+</main>
+<script src="/admin.js" defer></script>
+</body></html>
