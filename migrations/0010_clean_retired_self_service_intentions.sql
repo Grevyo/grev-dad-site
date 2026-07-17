@@ -1,5 +1,6 @@
 PRAGMA foreign_keys = ON;
 
+-- Follow-up hardening for the relationship-first onboarding rollout.
 -- Remove memberships granted only by retired intention options. Relationship groups
 -- are deliberately preserved because they are now controlled by the separate
 -- relationship onboarding stage.
