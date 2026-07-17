@@ -147,3 +147,25 @@ jobs:
           }
           console.log('Relationship and intention onboarding catalog verified.');
           NODE
+
+      - name: Reject empty normalized intentions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status=$(curl --silent --show-error \
+            --output /tmp/empty-intentions.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"intentionIds":["   "]}' \
+            https://pbe.grev.dad/api/onboarding/intentions)
+
+          cat /tmp/empty-intentions.json
+          echo
+
+          if [ "$status" != "400" ]; then
+            echo "Whitespace-only intentions must be rejected with HTTP 400."
+            exit 1
+          fi
