@@ -1,4 +1,5 @@
 import app from './index';
+import { handleDashboardRequest, type DashboardEnv } from './dashboard';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -37,6 +38,9 @@ export default {
         // The existing API handler returns the normal invalid-body response.
       }
     }
+
+    const dashboardResponse = await handleDashboardRequest(request, env as unknown as DashboardEnv);
+    if (dashboardResponse) return dashboardResponse;
 
     return app.fetch(request, env);
   }
