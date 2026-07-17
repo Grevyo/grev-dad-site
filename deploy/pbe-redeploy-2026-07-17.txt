@@ -1,0 +1,2 @@
+Trigger a fresh PBE deployment after configuring LADMIN_BOOTSTRAP_PASSWORD.
+The deployed build includes the site-wide sharp rectangular interface from PR #414.
