@@ -7,17 +7,12 @@ import { spawnSync } from 'node:child_process';
 const password = process.env.LADMIN_BOOTSTRAP_PASSWORD ?? '';
 
 if (!password) {
-  console.warn('LADMIN_BOOTSTRAP_PASSWORD is not configured; skipping LADMIN bootstrap.');
-  process.exit(0);
-}
-
-if (password === 'Admin.Password') {
-  console.error('Refusing the exposed password Admin.Password. Set a new GitHub secret named LADMIN_BOOTSTRAP_PASSWORD.');
+  console.error('LADMIN_BOOTSTRAP_PASSWORD is not configured. Add the GitHub Actions repository secret before deploying PBE.');
   process.exit(1);
 }
 
-if (password.length < 16) {
-  console.error('LADMIN_BOOTSTRAP_PASSWORD must contain at least 16 characters.');
+if (password.length < 12) {
+  console.error('LADMIN_BOOTSTRAP_PASSWORD must contain at least 12 characters.');
   process.exit(1);
 }
 
