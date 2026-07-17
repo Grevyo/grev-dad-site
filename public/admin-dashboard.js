@@ -15,8 +15,10 @@ async function adminDashboardFetch(url, options = {}) {
   return payload;
 }
 
-function selectedFeature() {
-  return adminDashboardState.payload?.features.find(feature => feature.id === adminDashboardState.selectedId) ?? null;
+function setGroupFieldVisibility(audience) {
+  const groups = adminDashboardElement('#dashboard-feature-group-checks');
+  const fieldset = groups?.closest('fieldset');
+  if (fieldset) fieldset.hidden = audience !== 'groups';
 }
 
 function renderFeatureList() {
@@ -91,6 +93,7 @@ function clearFeatureForm() {
   adminDashboardElement('#dashboard-feature-default').checked = false;
   setAllowedSizes(['small', 'medium', 'wide', 'large']);
   renderGroupChecks([]);
+  setGroupFieldVisibility('groups');
   renderFeatureList();
 }
 
@@ -110,6 +113,7 @@ function fillFeatureForm(feature) {
   adminDashboardElement('#dashboard-feature-default').checked = feature.isDefault;
   setAllowedSizes(feature.allowedSizes);
   renderGroupChecks(feature.groupIds);
+  setGroupFieldVisibility(feature.audience);
 }
 
 function formPayload() {
@@ -137,6 +141,7 @@ async function loadAdminDashboard() {
   try {
     adminDashboardState.payload = await adminDashboardFetch('/api/admin/dashboard/features');
     renderGroupChecks([]);
+    setGroupFieldVisibility('groups');
     renderFeatureList();
     adminDashboardMessage(`${adminDashboardState.payload.features.length} dashboard features · ${adminDashboardState.payload.groups.length} available groups`, 'success');
   } catch (error) {
@@ -147,17 +152,18 @@ async function loadAdminDashboard() {
 adminDashboardElement('#dashboard-admin-form')?.addEventListener('submit', async event => {
   event.preventDefault();
   const featureId = adminDashboardState.selectedId;
+  const submitted = formPayload();
   const url = featureId ? `/api/admin/dashboard/features/${encodeURIComponent(featureId)}` : '/api/admin/dashboard/features';
   adminDashboardMessage(featureId ? 'Updating dashboard feature…' : 'Creating dashboard feature…');
   try {
     adminDashboardState.payload = await adminDashboardFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formPayload())
+      body: JSON.stringify(submitted)
     });
     const saved = featureId
       ? adminDashboardState.payload.features.find(feature => feature.id === featureId)
-      : [...adminDashboardState.payload.features].sort((a, b) => b.sortOrder - a.sortOrder)[0];
+      : adminDashboardState.payload.features.find(feature => feature.slug === submitted.slug.trim().toLowerCase());
     adminDashboardState.selectedId = saved?.id ?? null;
     if (saved) fillFeatureForm(saved);
     renderFeatureList();
@@ -174,8 +180,7 @@ adminDashboardElement('#dashboard-feature-default-size')?.addEventListener('chan
   if (matching) matching.checked = true;
 });
 adminDashboardElement('#dashboard-feature-audience')?.addEventListener('change', event => {
-  const groups = adminDashboardElement('#dashboard-feature-group-checks');
-  if (groups) groups.closest('fieldset').hidden = event.currentTarget.value !== 'groups';
+  setGroupFieldVisibility(event.currentTarget.value);
 });
 adminDashboardElement('#logout')?.addEventListener('click', async () => {
   await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
