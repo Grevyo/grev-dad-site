@@ -169,3 +169,49 @@ jobs:
             echo "Whitespace-only intentions must be rejected with HTTP 400."
             exit 1
           fi
+
+      - name: Verify dashboard catalogue and administration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dashboard_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/dashboard.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/dashboard)
+
+          admin_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/dashboard-admin.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/admin/dashboard/features)
+
+          cat /tmp/dashboard.json
+          echo
+          cat /tmp/dashboard-admin.json
+          echo
+
+          if [ "$dashboard_status" != "200" ] || [ "$admin_status" != "200" ]; then
+            echo "Dashboard smoke test failed: member=$dashboard_status admin=$admin_status."
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const dashboard = JSON.parse(fs.readFileSync('/tmp/dashboard.json', 'utf8'));
+          const admin = JSON.parse(fs.readFileSync('/tmp/dashboard-admin.json', 'utf8'));
+          const names = new Set((dashboard.features ?? []).map(item => item.name));
+          const required = ['My profile', 'Profile settings', 'Counter-Strike 2', 'Coding Lab', 'Admin centre'];
+          if (!dashboard.ok || !dashboard.preferences || required.some(name => !names.has(name))) {
+            console.error('The member dashboard catalogue is incomplete.');
+            process.exit(1);
+          }
+          if (!admin.ok || !Array.isArray(admin.features) || admin.features.length < 10 || !Array.isArray(admin.groups)) {
+            console.error('The dashboard administration catalogue is incomplete.');
+            process.exit(1);
+          }
+          console.log('Dashboard catalogue, preferences and administration verified.');
+          NODE
