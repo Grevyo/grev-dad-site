@@ -62,3 +62,54 @@ jobs:
           fi
 
           exit "$status"
+
+      - name: Verify LADMIN login end to end
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+
+          login_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/ladmin-login.json \
+            --write-out '%{http_code}' \
+            --cookie-jar /tmp/ladmin.cookies \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            https://pbe.grev.dad/api/auth/login)
+
+          cat /tmp/ladmin-login.json
+          echo
+
+          if [ "$login_status" != "200" ]; then
+            echo "LADMIN login smoke test failed with HTTP $login_status."
+            exit 1
+          fi
+
+          session_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/ladmin-session.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/auth/session)
+
+          cat /tmp/ladmin-session.json
+          echo
+
+          if [ "$session_status" != "200" ]; then
+            echo "LADMIN session smoke test failed with HTTP $session_status."
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const session = JSON.parse(fs.readFileSync('/tmp/ladmin-session.json', 'utf8'));
+          const user = session.user;
+          if (!session.authenticated || !user || String(user.username).toLowerCase() !== 'ladmin' || !user.isOwner || !user.isAdmin) {
+            console.error('LADMIN session did not return the required Owner and Administrator access.');
+            process.exit(1);
+          }
+          console.log('LADMIN login and Owner/Admin session verified.');
+          NODE
