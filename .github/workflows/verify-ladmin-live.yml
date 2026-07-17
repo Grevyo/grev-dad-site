@@ -1,0 +1,90 @@
+name: Verify Deployed LADMIN
+
+on:
+  push:
+    branches:
+      - agent/verify-ladmin-live
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Allow PBE deployment to finish
+        run: sleep 35
+
+      - name: Verify login and authenticated session
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          login_status=$(curl --silent --show-error --max-time 45 \
+            --output /tmp/login.json --write-out '%{http_code}' \
+            --cookie-jar /tmp/cookies \
+            --request POST --header 'Content-Type: application/json' \
+            --data "$payload" https://pbe.grev.dad/api/auth/login)
+          login_exit=$?
+
+          session_status=0
+          session_exit=0
+          session_summary='not checked'
+          if [ "$login_exit" -eq 0 ] && [ "$login_status" = "200" ]; then
+            session_status=$(curl --silent --show-error --max-time 45 \
+              --output /tmp/session.json --write-out '%{http_code}' \
+              --cookie /tmp/cookies https://pbe.grev.dad/api/auth/session)
+            session_exit=$?
+            if [ "$session_exit" -eq 0 ] && [ "$session_status" = "200" ]; then
+              session_summary=$(node - <<'NODE'
+          const fs = require('node:fs');
+          const value = JSON.parse(fs.readFileSync('/tmp/session.json', 'utf8'));
+          const user = value.user || {};
+          process.stdout.write(JSON.stringify({authenticated:Boolean(value.authenticated),username:user.username ?? null,isOwner:Boolean(user.isOwner),isAdmin:Boolean(user.isAdmin)}));
+          NODE
+              )
+            fi
+          fi
+
+          login_message=$(node - <<'NODE'
+          const fs = require('node:fs');
+          try {
+            const value = JSON.parse(fs.readFileSync('/tmp/login.json', 'utf8'));
+            process.stdout.write(String(value.message ?? (value.ok ? 'ok' : 'no message')));
+          } catch {
+            process.stdout.write('non-JSON response');
+          }
+          NODE
+          )
+
+          {
+            echo 'body<<EOF'
+            echo '## Independent deployed LADMIN verification'
+            echo
+            echo "- Login HTTP status: $login_status"
+            echo "- Login request exit: $login_exit"
+            echo "- Login response: $login_message"
+            echo "- Session HTTP status: $session_status"
+            echo "- Session request exit: $session_exit"
+            echo "- Session result: \`$session_summary\`"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$login_exit" -ne 0 ] || [ "$login_status" != "200" ] || [ "$session_exit" -ne 0 ] || [ "$session_status" != "200" ]; then
+            exit 1
+          fi
+
+          node -e 'const v=JSON.parse(process.argv[1]); if(!v.authenticated || String(v.username).toLowerCase()!=="ladmin" || !v.isOwner || !v.isAdmin) process.exit(1)' "$session_summary"
+
+      - name: Post result to merged fix PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ steps.verify.outputs.body }}
+        run: gh api "repos/${GITHUB_REPOSITORY}/issues/417/comments" -f body="$BODY"
