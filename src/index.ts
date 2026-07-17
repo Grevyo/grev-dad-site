@@ -83,7 +83,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
       env.DB.prepare(`INSERT INTO audit_events(id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,'account.registered','user',?,'{}',?)`).bind(crypto.randomUUID(),id,now)
     ]);}catch{return json({ok:false,message:'That username or email is already in use.'},{status:409});}
     const created=await createSession(env,id,false,request.headers.get('User-Agent'));
-    return json({ok:true,next:'/intentions',message:'Account created. Tell us what brings you to Grev.dad.'},{status:201,headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
+    return json({ok:true,next:'/dashboard',message:'Account created. Complete your account setup from the dashboard.'},{status:201,headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
   }
 
   if(path==='/api/auth/login'&&request.method==='POST'){
@@ -125,6 +125,54 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
     const owner=await env.DB.prepare(`SELECT is_owner FROM users WHERE id=?`).bind(user.id).first<{is_owner:number}>();
     if(!owner?.is_owner)return json({ok:false,message:'Owner setup was not completed because another Owner was configured first.'},{status:409});
     return json({ok:true,next:'/admin',message:'Owner account configured.'});
+  }
+
+
+  if(path==='/api/onboarding'&&request.method==='GET'){
+    const user=await getSessionUser(request,env);if(!user)return json({ok:false,message:'Authentication required.'},{status:401});
+    const [relationshipRows,intentionRows,progress]=await Promise.all([
+      env.DB.prepare(`SELECT r.id,r.slug,r.name,r.description,CASE WHEN ur.relationship_id=r.id THEN 1 ELSE 0 END AS is_selected FROM relationship_options r LEFT JOIN user_relationships ur ON ur.user_id=? WHERE r.is_active=1 ORDER BY r.sort_order,r.name`).bind(user.id).all<{id:string;slug:string;name:string;description:string;is_selected:number}>(),
+      env.DB.prepare(`SELECT i.id,i.slug,i.name,i.description,CASE WHEN ui.user_id IS NULL THEN 0 ELSE 1 END AS is_selected FROM intention_options i LEFT JOIN user_intentions ui ON ui.intention_id=i.id AND ui.user_id=? WHERE i.is_active=1 ORDER BY i.sort_order,i.name`).bind(user.id).all<{id:string;slug:string;name:string;description:string;is_selected:number}>(),
+      env.DB.prepare(`SELECT relationship_completed_at,intentions_completed_at FROM user_onboarding WHERE user_id=?`).bind(user.id).first<{relationship_completed_at:number|null;intentions_completed_at:number|null}>()
+    ]);
+    return json({ok:true,progress:{relationshipComplete:Boolean(progress?.relationship_completed_at),intentionsComplete:Boolean(progress?.intentions_completed_at)},relationships:relationshipRows.results.map(row=>({id:row.id,slug:row.slug,name:row.name,description:row.description,selected:Boolean(row.is_selected)})),intentions:intentionRows.results.map(row=>({id:row.id,slug:row.slug,name:row.name,description:row.description,selected:Boolean(row.is_selected)}))});
+  }
+
+  if(path==='/api/onboarding/relationship'&&request.method==='POST'){
+    const user=await getSessionUser(request,env);if(!user)return json({ok:false,message:'Authentication required.'},{status:401});
+    const data=await readBody(request),relationshipId=String(data.relationshipId??'').trim();
+    const relationship=await env.DB.prepare(`SELECT id,name FROM relationship_options WHERE id=? AND is_active=1`).bind(relationshipId).first<{id:string;name:string}>();
+    if(!relationship)return json({ok:false,message:'Choose how you know Grev.'},{status:400});
+    const now=Math.floor(Date.now()/1000);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM group_memberships WHERE user_id=? AND group_id IN (SELECT group_id FROM relationship_group_grants)`).bind(user.id),
+      env.DB.prepare(`INSERT INTO user_relationships(user_id,relationship_id,selected_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET relationship_id=excluded.relationship_id,updated_at=excluded.updated_at`).bind(user.id,relationship.id,now,now),
+      env.DB.prepare(`INSERT OR IGNORE INTO group_memberships(group_id,user_id,assigned_by,assigned_at) SELECT group_id,?,?,? FROM relationship_group_grants WHERE relationship_id=?`).bind(user.id,user.id,now,relationship.id),
+      env.DB.prepare(`INSERT INTO user_onboarding(user_id,relationship_completed_at,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET relationship_completed_at=excluded.relationship_completed_at,updated_at=excluded.updated_at`).bind(user.id,now,now),
+      audit(env,user.id,'account.relationship_selected','user',user.id,{relationshipId:relationship.id},now)
+    ]);
+    return json({ok:true,nextStage:'intentions',message:`${relationship.name} saved. Now choose what you want from Grev.dad.`});
+  }
+
+  if(path==='/api/onboarding/intentions'&&request.method==='POST'){
+    const user=await getSessionUser(request,env);if(!user)return json({ok:false,message:'Authentication required.'},{status:401});
+    const data=await readBody(request),rawIds=data.intentionIds;
+    if(!Array.isArray(rawIds)||rawIds.length<1||rawIds.length>20||rawIds.some(value=>typeof value!=='string'))return json({ok:false,message:'Choose at least one intention.'},{status:400});
+    const intentionIds=[...new Set(rawIds.map(value=>value.trim()).filter(Boolean))];
+    const activeRows=await env.DB.prepare(`SELECT id FROM intention_options WHERE is_active=1`).all<{id:string}>(),active=new Set(activeRows.results.map(row=>row.id));
+    if(intentionIds.some(id=>!active.has(id)))return json({ok:false,message:'One or more intentions are unavailable.'},{status:400});
+    const now=Math.floor(Date.now()/1000),statements:D1Statement[]=[
+      env.DB.prepare(`DELETE FROM user_intentions WHERE user_id=? AND intention_id IN (SELECT id FROM intention_options WHERE is_active=1)`).bind(user.id),
+      env.DB.prepare(`DELETE FROM group_memberships WHERE user_id=? AND group_id IN (SELECT igg.group_id FROM intention_group_grants igg JOIN intention_options io ON io.id=igg.intention_id WHERE io.is_active=1)`).bind(user.id)
+    ];
+    for(const intentionId of intentionIds){
+      statements.push(env.DB.prepare(`INSERT INTO user_intentions(user_id,intention_id,selected_at) VALUES(?,?,?)`).bind(user.id,intentionId,now));
+      statements.push(env.DB.prepare(`INSERT OR IGNORE INTO group_memberships(group_id,user_id,assigned_by,assigned_at) SELECT group_id,?,?,? FROM intention_group_grants WHERE intention_id=?`).bind(user.id,user.id,now,intentionId));
+    }
+    statements.push(env.DB.prepare(`INSERT INTO user_onboarding(user_id,intentions_completed_at,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET intentions_completed_at=excluded.intentions_completed_at,updated_at=excluded.updated_at`).bind(user.id,now,now));
+    statements.push(audit(env,user.id,'account.intentions_updated','user',user.id,{intentionIds},now));
+    await env.DB.batch(statements);
+    return json({ok:true,next:'/dashboard',message:'Your Grev.dad interests and account groups have been updated.'});
   }
 
   if(path==='/api/intentions'&&request.method==='GET'){
@@ -269,8 +317,9 @@ export default{async fetch(request:Request,env:Env):Promise<Response>{
     else if(path==='/login')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/login.html'));
     else if(path==='/signup')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/signup.html'));
     else if(path==='/dashboard')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/dashboard.html')):redirect('/login');
-    else if(path==='/access')response=redirect('/intentions');
-    else if(path==='/intentions')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/intentions.html')):redirect('/login');
+    else if(path==='/access')response=redirect('/settings');
+    else if(path==='/intentions')response=redirect('/settings');
+    else if(path==='/settings')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/settings.html')):redirect('/login');
     else if(path==='/owner-setup')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/owner-setup.html')):redirect('/login');
     else if(path==='/admin'||path==='/admin/users'){const user=await getSessionUser(request,env);response=user?.isAdmin?await env.ASSETS.fetch(assetRequest(request,'/admin.html')):redirect(user?'/dashboard':'/login');}
     else if(/^\/admin\/users\/[0-9a-f-]+$/i.test(path)){const user=await getSessionUser(request,env);response=user?.isAdmin?await env.ASSETS.fetch(assetRequest(request,'/admin-user.html')):redirect(user?'/dashboard':'/login');}
