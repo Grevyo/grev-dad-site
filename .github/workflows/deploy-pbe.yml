@@ -113,3 +113,37 @@ jobs:
           }
           console.log('LADMIN login and Owner/Admin session verified.');
           NODE
+
+      - name: Verify onboarding groups and options
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/onboarding.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/onboarding)
+
+          cat /tmp/onboarding.json
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "Onboarding catalog check failed with HTTP $status."
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/onboarding.json', 'utf8'));
+          const relationshipNames = new Set((payload.relationships ?? []).map(item => item.name));
+          const intentionNames = new Set((payload.intentions ?? []).map(item => item.name));
+          const expectedRelationships = ['Family', 'Friends', 'Co-workers', 'Who is Grev?'];
+          const expectedIntentions = ['Counter-Strike 2', 'Gaming', 'Coding', 'NHS', 'Grev News'];
+          if (!payload.ok || expectedRelationships.some(name => !relationshipNames.has(name)) || expectedIntentions.some(name => !intentionNames.has(name))) {
+            console.error('The deployed onboarding catalog is incomplete or incorrect.');
+            process.exit(1);
+          }
+          console.log('Relationship and intention onboarding catalog verified.');
+          NODE
