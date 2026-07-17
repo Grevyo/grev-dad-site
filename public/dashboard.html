@@ -1,12 +1,13 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard · Grev.dad</title><link rel="stylesheet" href="/styles.css"><style>[hidden]{display:none!important}</style></head>
 <body>
 <header><strong>Grev.dad</strong><div><a id="owner-setup-link" class="header-link" href="/owner-setup" hidden>Owner setup</a><a id="admin-link" class="header-link" href="/admin" hidden>Admin centre</a><a class="header-link" href="/settings">Profile settings</a><a class="header-link" href="/profile">My profile</a><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
 <main class="dashboard">
 <p class="eyebrow">Member dashboard</p><h1>Welcome, <span id="name">member</span>.</h1><p>Your relationship and interest groups determine which Grev.dad areas and policies apply to your account.</p>
 <section class="grid">
 <article id="owner-setup-card" hidden><small>One-time setup</small><h2>Configure the Owner</h2><p>This sole account can securely become the Grev.dad Owner after confirming its password.</p><a class="action-link" href="/owner-setup">Start Owner setup</a></article>
+<article><small>Pinned features</small><h2>Your dashboard space</h2><p>Features made available by your selected groups will be available to pin here.</p></article>
 <article><small>Account groups</small><h2>Your access profile</h2><p>Review how you know Grev and the Grev.dad interests attached to your account.</p><a class="action-link" href="/settings">Open profile settings</a></article>
 <article><small>Permanent profile</small><h2>Stable profile URL</h2><p>Your profile address uses your permanent account ID, so it never changes when your username changes.</p><a id="profile-link" class="action-link" href="/profile">View profile</a></article>
 <article><small>Username</small><h2 id="username">—</h2><form id="username-form" class="compact-form"><label>Change username<input id="username-input" name="username" required minlength="3" maxlength="24"></label><button type="submit">Save username</button></form><p id="username-message" role="status"></p></article>
@@ -24,5 +25,18 @@
 <p id="onboarding-message" role="status"></p>
 </section>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const overlay=document.querySelector('#onboarding-overlay');
+  const intentionsForm=document.querySelector('#onboarding-intentions-form');
+  if(!overlay||!intentionsForm)return;
+  intentionsForm.addEventListener('submit',()=>{
+    const observer=new MutationObserver(()=>{
+      if(overlay.hidden){observer.disconnect();location.replace('/dashboard');}
+    });
+    observer.observe(overlay,{attributes:true,attributeFilter:['hidden']});
+  });
+});
+</script>
 <script src="/app.js" defer></script>
 </body></html>
