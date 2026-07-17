@@ -1,0 +1,55 @@
+name: Diagnose PBKDF2 Runtime
+
+on:
+  push:
+    branches:
+      - agent/diagnose-pbkdf2-runtime
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait for Cloudflare branch preview
+        run: sleep 35
+
+      - name: Test PBKDF2 iteration levels
+        id: test
+        shell: bash
+        run: |
+          set +e
+          base="https://agent-diagnose-pbkdf2-runtime-grev-dad-site.joeahh.workers.dev/api/diagnostic/pbkdf2"
+          low=$(curl -sS --max-time 45 -w $'\nHTTP_STATUS:%{http_code}\n' "$base?iterations=20000" 2>&1)
+          low_exit=$?
+          high=$(curl -sS --max-time 45 -w $'\nHTTP_STATUS:%{http_code}\n' "$base?iterations=310000" 2>&1)
+          high_exit=$?
+          {
+            echo 'body<<EOF'
+            echo '## Isolated Cloudflare PBKDF2 result'
+            echo
+            echo 'This test uses no account, password, database or session data.'
+            echo
+            echo '### 20,000 iterations'
+            echo '```text'
+            printf '%s\n' "$low"
+            echo "CURL_EXIT:$low_exit"
+            echo '```'
+            echo
+            echo '### 310,000 iterations'
+            echo '```text'
+            printf '%s\n' "$high"
+            echo "CURL_EXIT:$high_exit"
+            echo '```'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post diagnostic result to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ steps.test.outputs.body }}
+        run: gh api "repos/${GITHUB_REPOSITORY}/issues/416/comments" -f body="$BODY"
