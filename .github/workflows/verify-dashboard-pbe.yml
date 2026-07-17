@@ -1,0 +1,82 @@
+name: Verify Dashboard PBE
+
+on:
+  push:
+    branches:
+      - agent/verify-dashboard-pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Authenticate to PBE
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          status=$(curl --silent --show-error \
+            --retry 8 --retry-delay 5 --retry-all-errors \
+            --output /tmp/login.json \
+            --write-out '%{http_code}' \
+            --cookie-jar /tmp/cookies \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            https://pbe.grev.dad/api/auth/login)
+          test "$status" = "200"
+
+      - name: Verify dashboard APIs and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          dashboard_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/dashboard.json --write-out '%{http_code}' --cookie /tmp/cookies https://pbe.grev.dad/api/dashboard)
+          admin_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/admin.json --write-out '%{http_code}' --cookie /tmp/cookies https://pbe.grev.dad/api/admin/dashboard/features)
+          page_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/page.html --write-out '%{http_code}' --cookie /tmp/cookies https://pbe.grev.dad/dashboard)
+          js_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/dashboard.js --write-out '%{http_code}' https://pbe.grev.dad/dashboard.js)
+          css_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/dashboard.css --write-out '%{http_code}' https://pbe.grev.dad/dashboard.css)
+          admin_js_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/admin-dashboard.js --write-out '%{http_code}' https://pbe.grev.dad/admin-dashboard.js)
+          feature_js_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/feature.js --write-out '%{http_code}' https://pbe.grev.dad/feature.js)
+
+          printf 'dashboard=%s admin=%s page=%s js=%s css=%s admin_js=%s feature_js=%s\n' "$dashboard_status" "$admin_status" "$page_status" "$js_status" "$css_status" "$admin_js_status" "$feature_js_status"
+          test "$dashboard_status" = "200"
+          test "$admin_status" = "200"
+          test "$page_status" = "200"
+          test "$js_status" = "200"
+          test "$css_status" = "200"
+          test "$admin_js_status" = "200"
+          test "$feature_js_status" = "200"
+
+          grep -q 'loadDashboardSystem' /tmp/dashboard.js
+          grep -q '.dashboard-tile-grid' /tmp/dashboard.css
+          grep -q 'loadAdminDashboard' /tmp/admin-dashboard.js
+          grep -q 'loadFeatureWorkspace' /tmp/feature.js
+          grep -q 'Customize dashboard' /tmp/page.html
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const dashboard = JSON.parse(fs.readFileSync('/tmp/dashboard.json', 'utf8'));
+          const admin = JSON.parse(fs.readFileSync('/tmp/admin.json', 'utf8'));
+          const names = new Set((dashboard.features ?? []).map(feature => feature.name));
+          const required = ['My profile', 'Profile settings', 'Counter-Strike 2', 'Coding Lab', 'Admin centre'];
+          if (!dashboard.ok || !dashboard.preferences || required.some(name => !names.has(name))) {
+            throw new Error('Member dashboard catalogue verification failed.');
+          }
+          if (!admin.ok || !Array.isArray(admin.features) || admin.features.length < 12 || !Array.isArray(admin.groups)) {
+            throw new Error('Admin dashboard catalogue verification failed.');
+          }
+          console.log(JSON.stringify({
+            dashboardFeatures: dashboard.features.length,
+            pinnedTiles: dashboard.pinnedTiles.length,
+            adminFeatures: admin.features.length,
+            groups: admin.groups.length,
+            density: dashboard.preferences.density,
+            showDescriptions: dashboard.preferences.showDescriptions
+          }, null, 2));
+          NODE
