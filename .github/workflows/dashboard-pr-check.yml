@@ -25,5 +25,7 @@ jobs:
           node --check public/dashboard.js
           node --check public/admin-dashboard.js
           node --check public/feature.js
+      - name: Apply full migration chain to fresh local D1
+        run: npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
       - name: Wrangler dry run
         run: npx wrangler deploy --dry-run --env pbe
