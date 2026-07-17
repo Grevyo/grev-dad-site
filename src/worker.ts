@@ -3,6 +3,13 @@ import { handleDashboardRequest, type DashboardEnv } from './dashboard';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
+const DASHBOARD_ASSETS = new Set([
+  '/dashboard.css',
+  '/dashboard.js',
+  '/admin-dashboard.js',
+  '/feature.js'
+]);
+
 function workerJson(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -24,6 +31,10 @@ function invalidIntentionsResponse(): Response {
 export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === 'GET' && DASHBOARD_ASSETS.has(url.pathname)) {
+      return (env as unknown as DashboardEnv).ASSETS.fetch(request);
+    }
 
     if (request.method === 'POST' && url.pathname === '/api/onboarding/intentions') {
       try {
