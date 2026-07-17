@@ -17,7 +17,7 @@ if (password.length < 12) {
 }
 
 const systemUserId = '03af6b83-ebb3-4d61-8572-f41371cb11b2';
-const iterations = 310000;
+const iterations = 100000;
 const salt = createHash('sha256').update('grev-dad:ladmin:pbe:v1').digest().subarray(0, 16);
 const passwordHash = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
 const saltText = salt.toString('base64url');

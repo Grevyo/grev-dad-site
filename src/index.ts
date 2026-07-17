@@ -17,7 +17,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 function b64(bytes: Uint8Array): string { return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=',''); }
 function unb64(value: string): Uint8Array<ArrayBuffer> { const padded=value.replaceAll('-','+').replaceAll('_','/').padEnd(Math.ceil(value.length/4)*4,'='); return Uint8Array.from(atob(padded), c=>c.charCodeAt(0)); }
 async function sha256(value: string): Promise<string> { return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)))); }
-async function hashPassword(password: string, salt=crypto.getRandomValues(new Uint8Array(16)), iterations=310000) {
+async function hashPassword(password: string, salt=crypto.getRandomValues(new Uint8Array(16)), iterations=100000) {
   const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,256);
   return {salt:b64(salt),hash:b64(new Uint8Array(bits)),iterations};
