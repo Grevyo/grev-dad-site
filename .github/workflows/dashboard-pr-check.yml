@@ -1,0 +1,29 @@
+name: Dashboard PR Check
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Strict TypeScript check
+        run: npm run typecheck
+      - name: Browser JavaScript syntax checks
+        run: |
+          node --check public/dashboard.js
+          node --check public/admin-dashboard.js
+          node --check public/feature.js
+      - name: Wrangler dry run
+        run: npx wrangler deploy --dry-run --env pbe
