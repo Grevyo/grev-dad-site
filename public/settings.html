@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profile settings · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a class="header-link" href="/profile">My profile</a><button id="logout">Log out</button></div></header>
+<main class="dashboard settings-page">
+<p class="eyebrow">Profile settings</p>
+<h1>Your account groups.</h1>
+<p>These are self-service account groups. Policies can use them to decide which Grev.dad areas, tiles and features are available. Hidden private groups are controlled separately by administrators.</p>
+<p id="settings-error" class="error" role="status"></p>
+<section class="settings-grid">
+<article class="settings-panel">
+<span class="settings-number">01</span><h2>How do you know Grev?</h2><p>Choose one relationship. Saving replaces your previous relationship group.</p>
+<form id="settings-relationship-form"><div id="settings-relationship-list" class="onboarding-choice-grid"></div><button type="submit">Save relationship</button><p id="settings-relationship-message" role="status"></p></form>
+</article>
+<article class="settings-panel">
+<span class="settings-number">02</span><h2>What are your intentions with Grev.dad?</h2><p>Choose every interest that applies. Saving updates your interest group memberships.</p>
+<form id="settings-intentions-form"><div id="settings-intention-list" class="onboarding-choice-grid"></div><button type="submit">Save intentions</button><p id="settings-intentions-message" role="status"></p></form>
+</article>
+</section>
+</main>
+<script src="/app.js" defer></script>
+</body></html>

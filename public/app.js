@@ -30,7 +30,7 @@ $('#signup-form')?.addEventListener('submit', async (event) => {
   });
   const payload = await response.json();
   if (!response.ok) return showTargetMessage('#message', payload.message ?? 'Sign-up failed.');
-  location.replace(payload.next ?? '/intentions');
+  location.replace(payload.next ?? '/dashboard');
 });
 
 async function loadDashboard() {
@@ -59,7 +59,139 @@ async function loadDashboard() {
     if (ownerSetupLink) ownerSetupLink.hidden = !showSetup;
     if (ownerSetupCard) ownerSetupCard.hidden = !showSetup;
   }
+  await loadOnboardingModal();
 }
+
+let onboardingState = null;
+
+async function fetchOnboardingState() {
+  const response = await fetch('/api/onboarding', { cache: 'no-store' });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message ?? 'Unable to load account setup.');
+  onboardingState = payload;
+  return payload;
+}
+
+function makeOnboardingChoice(option, type, name) {
+  const label = document.createElement('label');
+  label.className = `onboarding-choice${option.selected ? ' selected' : ''}`;
+  const input = document.createElement('input');
+  input.type = type;
+  input.name = name;
+  input.value = option.id;
+  input.checked = Boolean(option.selected);
+  const marker = document.createElement('span');
+  marker.className = 'onboarding-choice-marker';
+  marker.textContent = option.selected ? 'Selected' : 'Select';
+  const title = document.createElement('strong');
+  title.textContent = option.name;
+  const description = document.createElement('p');
+  description.textContent = option.description;
+  label.append(input, marker, title, description);
+  input.addEventListener('change', () => {
+    if (type === 'radio') {
+      label.parentElement?.querySelectorAll('.onboarding-choice').forEach(card => card.classList.remove('selected'));
+      label.parentElement?.querySelectorAll('.onboarding-choice-marker').forEach(item => { item.textContent = 'Select'; });
+    }
+    label.classList.toggle('selected', input.checked);
+    marker.textContent = input.checked ? 'Selected' : 'Select';
+  });
+  return label;
+}
+
+function renderOnboardingChoices(target, options, type, name) {
+  if (!target) return;
+  target.replaceChildren(...options.map(option => makeOnboardingChoice(option, type, name)));
+}
+
+function showOnboardingStage(stage) {
+  const relationshipForm = $('#onboarding-relationship-form');
+  const intentionsForm = $('#onboarding-intentions-form');
+  const step = $('#onboarding-step');
+  const title = $('#onboarding-title');
+  const description = $('#onboarding-description');
+  if (!relationshipForm || !intentionsForm) return;
+  const relationshipStage = stage === 'relationship';
+  relationshipForm.hidden = !relationshipStage;
+  intentionsForm.hidden = relationshipStage;
+  if (step) step.textContent = relationshipStage ? 'Step 1 of 2' : 'Step 2 of 2';
+  if (title) title.textContent = relationshipStage ? 'How do you know Grev?' : 'What are your intentions with Grev.dad?';
+  if (description) description.textContent = relationshipStage
+    ? 'Choose the option that best describes your relationship with Grev. This adds the matching account group.'
+    : 'Choose everything that interests you. These selections add the matching account groups and shape what Grev.dad can show you.';
+}
+
+async function loadOnboardingModal() {
+  const overlay = $('#onboarding-overlay');
+  if (!overlay) return;
+  const state = await fetchOnboardingState();
+  if (state.progress.relationshipComplete && state.progress.intentionsComplete) {
+    overlay.hidden = true;
+    document.body.classList.remove('modal-open');
+    return;
+  }
+  renderOnboardingChoices($('#onboarding-relationship-list'), state.relationships, 'radio', 'onboardingRelationship');
+  renderOnboardingChoices($('#onboarding-intention-list'), state.intentions, 'checkbox', 'onboardingIntention');
+  showOnboardingStage(state.progress.relationshipComplete ? 'intentions' : 'relationship');
+  overlay.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+$('#onboarding-relationship-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const selected = document.querySelector('input[name="onboardingRelationship"]:checked');
+  if (!selected) return showTargetMessage('#onboarding-message', 'Choose how you know Grev.');
+  showTargetMessage('#onboarding-message', 'Saving relationship…', true);
+  const response = await fetch('/api/onboarding/relationship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId: selected.value }) });
+  const payload = await response.json();
+  if (!response.ok) return showTargetMessage('#onboarding-message', payload.message ?? 'Unable to save relationship.');
+  const state = await fetchOnboardingState();
+  renderOnboardingChoices($('#onboarding-intention-list'), state.intentions, 'checkbox', 'onboardingIntention');
+  showTargetMessage('#onboarding-message', '', true);
+  showOnboardingStage('intentions');
+});
+
+$('#onboarding-intentions-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const intentionIds = [...document.querySelectorAll('input[name="onboardingIntention"]:checked')].map(input => input.value);
+  if (!intentionIds.length) return showTargetMessage('#onboarding-message', 'Choose at least one intention.');
+  showTargetMessage('#onboarding-message', 'Saving intentions…', true);
+  const response = await fetch('/api/onboarding/intentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentionIds }) });
+  const payload = await response.json();
+  if (!response.ok) return showTargetMessage('#onboarding-message', payload.message ?? 'Unable to save intentions.');
+  $('#onboarding-overlay').hidden = true;
+  document.body.classList.remove('modal-open');
+  showTargetMessage('#onboarding-message', '', true);
+});
+
+async function loadSettings() {
+  if (!$('#settings-relationship-list')) return;
+  const state = await fetchOnboardingState();
+  renderOnboardingChoices($('#settings-relationship-list'), state.relationships, 'radio', 'settingsRelationship');
+  renderOnboardingChoices($('#settings-intention-list'), state.intentions, 'checkbox', 'settingsIntention');
+}
+
+$('#settings-relationship-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const selected = document.querySelector('input[name="settingsRelationship"]:checked');
+  if (!selected) return showTargetMessage('#settings-relationship-message', 'Choose how you know Grev.');
+  const response = await fetch('/api/onboarding/relationship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId: selected.value }) });
+  const payload = await response.json();
+  if (!response.ok) return showTargetMessage('#settings-relationship-message', payload.message ?? 'Unable to save relationship.');
+  showTargetMessage('#settings-relationship-message', payload.message, true);
+  await loadSettings();
+});
+
+$('#settings-intentions-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const intentionIds = [...document.querySelectorAll('input[name="settingsIntention"]:checked')].map(input => input.value);
+  if (!intentionIds.length) return showTargetMessage('#settings-intentions-message', 'Choose at least one intention.');
+  const response = await fetch('/api/onboarding/intentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentionIds }) });
+  const payload = await response.json();
+  if (!response.ok) return showTargetMessage('#settings-intentions-message', payload.message ?? 'Unable to save intentions.');
+  showTargetMessage('#settings-intentions-message', payload.message, true);
+  await loadSettings();
+});
 
 async function loadProfile() {
   if (!$('#profile-name')) return;
@@ -80,6 +212,8 @@ async function loadProfile() {
   $('#profile-member-since').textContent = new Date(profile.createdAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   const ownProfile = $('#own-profile-note');
   if (ownProfile) ownProfile.hidden = !profile.isSelf;
+  const settingsLink = $('#profile-settings-link');
+  if (settingsLink) settingsLink.hidden = !profile.isSelf;
 }
 
 function makeIntentionCard(intention) {
@@ -204,3 +338,4 @@ loadDashboard().catch(() => location.replace('/login'));
 loadProfile().catch(() => { if ($('#profile-status')) $('#profile-status').textContent = 'Unable to load this profile.'; });
 loadIntentions().catch(() => { if ($('#intention-list')) $('#intention-list').textContent = 'Unable to load the intention options.'; });
 loadOwnerSetup().catch(() => { if ($('#owner-setup-description')) $('#owner-setup-description').textContent = 'Unable to check Owner setup.'; });
+loadSettings().catch(error => { if ($('#settings-error')) $('#settings-error').textContent = error.message; });
