@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard features · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/dashboard.css">
+</head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a class="header-link" href="/admin">Admin centre</a><a class="header-link" href="/profile">My profile</a><button id="logout">Log out</button></div></header>
+<main class="dashboard-shell admin-page">
+<section class="dashboard-hero">
+<div><p class="eyebrow">Administration</p><h1>Dashboard features</h1><p>Create feature tiles, control which groups can access them, choose defaults and set the sizes members can use.</p></div>
+<div class="dashboard-toolbar"><button id="new-dashboard-feature" class="primary" type="button">New feature</button></div>
+</section>
+<p id="dashboard-admin-message" class="dashboard-status" role="status">Loading feature catalogue…</p>
+<section class="dashboard-admin-grid">
+<section class="admin-panel">
+<h2>Feature catalogue</h2>
+<p>Select a feature to edit it. Disabled features remain stored but disappear from member catalogues and dashboards.</p>
+<div id="dashboard-admin-list" class="dashboard-admin-list"></div>
+</section>
+<section class="admin-panel">
+<form id="dashboard-admin-form" class="dashboard-admin-form">
+<input id="dashboard-feature-id" type="hidden">
+<div class="dashboard-admin-form-grid">
+<label>Name<input id="dashboard-feature-name" required maxlength="80"></label>
+<label>Slug<input id="dashboard-feature-slug" required maxlength="64" pattern="[a-z0-9]+(?:-[a-z0-9]+)*"></label>
+<label class="full">Description<textarea id="dashboard-feature-description" rows="4" maxlength="500"></textarea></label>
+<label>Category<input id="dashboard-feature-category" maxlength="60" value="General"></label>
+<label>Icon text<input id="dashboard-feature-icon" maxlength="3" value="GD"></label>
+<label>Feature type<select id="dashboard-feature-type"><option value="workspace">Workspace</option><option value="link">Internal link</option><option value="system">System feature</option></select></label>
+<label>Audience<select id="dashboard-feature-audience"><option value="groups">Selected groups</option><option value="all">All active members</option><option value="admin">Administrators</option><option value="owner">Owner only</option></select></label>
+<label class="full">Internal route<input id="dashboard-feature-route" placeholder="/feature/example"></label>
+<label>Default size<select id="dashboard-feature-default-size"><option value="small">Small</option><option value="medium" selected>Medium</option><option value="wide">Wide</option><option value="large">Large</option></select></label>
+<label>Sort order<input id="dashboard-feature-sort" type="number" value="0" min="-10000" max="10000"></label>
+<fieldset class="full"><legend>Allowed tile sizes</legend><div class="dashboard-admin-checks" id="dashboard-feature-size-checks"><label><input type="checkbox" value="small" checked> Small</label><label><input type="checkbox" value="medium" checked> Medium</label><label><input type="checkbox" value="wide" checked> Wide</label><label><input type="checkbox" value="large" checked> Large</label></div></fieldset>
+<fieldset class="full"><legend>Access groups</legend><div id="dashboard-feature-group-checks" class="dashboard-admin-checks"></div></fieldset>
+<label class="check"><input id="dashboard-feature-active" type="checkbox" checked> Feature enabled</label>
+<label class="check"><input id="dashboard-feature-default" type="checkbox"> Pin by default for eligible new dashboards</label>
+</div>
+<div class="dashboard-admin-actions"><button class="primary" type="submit">Save feature</button><button id="dashboard-feature-cancel" type="button">Clear form</button></div>
+</form>
+</section>
+</section>
+</main>
+<script src="/admin-dashboard.js" defer></script>
+</body>
+</html>
