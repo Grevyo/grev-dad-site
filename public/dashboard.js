@@ -396,8 +396,8 @@ function createGenericContentTile(feature, preferences, editing = false) {
 
 function createTileContent(feature, preferences, editing = false) {
   if (feature.presentation !== 'content') return createActionTileContent(feature, editing);
-  if (feature.slug === 'profile') return createProfileTileContent(feature, editing);
-  if (feature.slug === 'grev-news') return createNewsTileContent(feature, editing);
+  if (feature.id === 'feature-profile') return createProfileTileContent(feature, editing);
+  if (feature.id === 'feature-grev-news') return createNewsTileContent(feature, editing);
   return createGenericContentTile(feature, preferences, editing);
 }
 
