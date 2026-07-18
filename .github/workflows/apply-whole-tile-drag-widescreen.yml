@@ -1,0 +1,52 @@
+name: Apply Whole Tile Drag Widescreen
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/whole-tile-drag-settings-widescreen' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply dashboard interaction patch
+        run: node scripts/patch-whole-tile-drag-widescreen.mjs
+      - name: Check browser JavaScript
+        run: node --check public/dashboard.js
+      - name: Install dependencies
+        run: npm install --package-lock=false
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Check Worker bundle
+        run: npx wrangler deploy --dry-run --env pbe
+      - name: Verify generated dashboard changes
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q "article.draggable = !isSingleColumnFallback" public/dashboard.js
+          grep -q "TILE SETTINGS" public/dashboard.js
+          grep -q "dashboard-tile-settings-dialog" public/dashboard.html
+          grep -q "177.7778vh" public/dashboard.css
+          ! grep -q "DRAG TO MOVE" public/dashboard.js
+      - name: Commit dashboard implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/dashboard.html public/dashboard.js public/dashboard.css
+          git commit -m "Drag whole tiles, add tile settings and widen dashboard canvas"
+          git push origin HEAD:${{ github.head_ref }}
