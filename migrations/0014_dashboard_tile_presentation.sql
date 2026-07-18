@@ -12,7 +12,6 @@ WHERE id IN ('feature-profile','feature-grev-news');
 -- Existing user_dashboard_tiles rows keep their current per-user dimensions.
 UPDATE dashboard_features
 SET default_size = 'small',
-    allowed_sizes = 'small',
     default_width = 1,
     default_height = 1
 WHERE id IN (
@@ -30,14 +29,12 @@ WHERE id IN (
 
 UPDATE dashboard_features
 SET default_size = 'large',
-    allowed_sizes = 'large',
     default_width = 2,
     default_height = 2
 WHERE id = 'feature-profile';
 
 UPDATE dashboard_features
 SET default_size = 'large',
-    allowed_sizes = 'large',
     default_width = 3,
     default_height = 2
 WHERE id = 'feature-grev-news';
