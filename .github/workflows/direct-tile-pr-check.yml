@@ -1,0 +1,133 @@
+name: Direct Tile Interaction Check
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Strict TypeScript check
+        run: npm run typecheck
+      - name: Browser JavaScript syntax
+        run: node --check public/dashboard.js
+      - name: Wrangler dry run
+        run: npx wrangler deploy --dry-run --env pbe
+
+  browser-interaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --package-lock=false jsdom
+      - name: Test drag footprints and direct resize
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const { JSDOM } = require('jsdom');
+
+          const feature = (overrides = {}) => ({
+            id: 'feature-profile', slug: 'profile', name: 'My profile',
+            description: 'Profile description', category: 'Account', featureType: 'link',
+            route: '/profile', iconText: 'ME', audience: 'all', defaultDimension: '2x1',
+            defaultWidth: 2, defaultHeight: 1,
+            allowedDimensions: ['1x1','1x2','2x1','2x2','4x2'],
+            isActive: true, isDefault: true, sortOrder: 10, pinned: true,
+            x: 0, y: 0, width: 2, height: 1, accessGroups: [], ...overrides
+          });
+
+          async function main() {
+            const html = fs.readFileSync('public/dashboard.html', 'utf8');
+            const script = fs.readFileSync('public/dashboard.js', 'utf8');
+            const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only' });
+            const { window } = dom;
+            const { document } = window;
+            window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+            window.HTMLElement.prototype.scrollIntoView = function () {};
+            window.Response = Response;
+
+            const profile = feature();
+            const news = feature({
+              id: 'feature-news', slug: 'news', name: 'News', category: 'News',
+              route: '/feature/news', iconText: 'NW', defaultDimension: '2x2',
+              defaultWidth: 2, defaultHeight: 2, x: 0, y: 2, width: 2, height: 2,
+              sortOrder: 20, isDefault: false
+            });
+            const payload = {
+              ok: true,
+              grid: { columns: 6, dimensions: ['1x1','1x2','2x1','2x2','4x2'] },
+              features: [profile, news], pinnedTiles: [profile, news],
+              preferences: { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 },
+              capabilities: { canCustomize: true, isAdmin: true, isOwner: true }
+            };
+            window.fetch = async url => {
+              if (url === '/api/onboarding') return new Response(JSON.stringify({ ok: true, progress: { relationshipComplete: true, intentionsComplete: true } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+              if (url === '/api/dashboard') return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+              throw new Error(`Unexpected fetch ${url}`);
+            };
+
+            window.eval(script);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            document.querySelector('#customize-dashboard').click();
+            const grid = document.querySelector('#dashboard-grid');
+            grid.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1200, bottom: 1000, width: 1200, height: 1000 });
+
+            const dataTransfer = { value: '', dropEffect: '', effectAllowed: '', setData(_type, value) { this.value = value; }, getData() { return this.value; } };
+            const eventWithTransfer = (type, x, y) => {
+              const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+              Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+              return event;
+            };
+
+            let profileTile = [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === 'feature-profile');
+            profileTile.querySelector('.dashboard-tile-move').dispatchEvent(eventWithTransfer('dragstart', 50, 20));
+            grid.dispatchEvent(eventWithTransfer('dragover', 1100, 20));
+            let preview = document.querySelector('.dashboard-placement-preview');
+            if (!preview || !preview.classList.contains('valid') || preview.dataset.label !== 'DROP HERE') throw new Error('Valid move footprint was not shown.');
+            grid.dispatchEvent(eventWithTransfer('drop', 1100, 20));
+            profileTile = [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === 'feature-profile');
+            if (profileTile.style.gridColumn !== '5 / span 2') throw new Error(`Tile did not move to highlighted cells: ${profileTile.style.gridColumn}`);
+
+            profileTile.querySelector('.dashboard-tile-move').dispatchEvent(eventWithTransfer('dragstart', 1100, 20));
+            grid.dispatchEvent(eventWithTransfer('dragover', 50, 300));
+            preview = document.querySelector('.dashboard-placement-preview');
+            if (!preview || !preview.classList.contains('invalid') || preview.dataset.label !== 'POSITION BLOCKED') throw new Error('Blocked move footprint was not shown.');
+            profileTile.querySelector('.dashboard-tile-move').dispatchEvent(eventWithTransfer('dragend', 1100, 20));
+
+            let newsTile = [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === 'feature-news');
+            const resize = newsTile.querySelector('.dashboard-tile-resize');
+            const down = new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 390, clientY: 400 });
+            Object.defineProperty(down, 'pointerId', { value: 7 });
+            resize.dispatchEvent(down);
+            const move = new window.MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: 790, clientY: 430 });
+            Object.defineProperty(move, 'pointerId', { value: 7 });
+            window.dispatchEvent(move);
+            newsTile = [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === 'feature-news');
+            preview = document.querySelector('.dashboard-placement-preview');
+            if (!preview || preview.dataset.label !== 'RESIZE 4×2') throw new Error(`Resize footprint did not snap to 4×2: ${preview?.dataset.label}`);
+            if (newsTile.dataset.width !== '4' || newsTile.dataset.height !== '2') throw new Error('The real tile did not resize live.');
+            if (!newsTile.querySelector('.dashboard-tile-content') || !newsTile.querySelector('.dashboard-tile-body')) throw new Error('Adaptive tile content was lost during resize.');
+            const up = new window.MouseEvent('pointerup', { bubbles: true, cancelable: true, clientX: 790, clientY: 430 });
+            Object.defineProperty(up, 'pointerId', { value: 7 });
+            window.dispatchEvent(up);
+            newsTile = [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === 'feature-news');
+            if (newsTile.dataset.width !== '4' || newsTile.dataset.height !== '2') throw new Error('Direct resize did not persist in the working layout.');
+            console.log('Direct drag, valid/blocked footprints and corner resize passed.');
+          }
+
+          main().catch(error => { console.error(error); process.exitCode = 1; });
+          NODE
