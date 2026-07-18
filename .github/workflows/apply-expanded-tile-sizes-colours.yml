@@ -1,0 +1,43 @@
+name: Apply Expanded Tile Sizes And Colours
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/expanded-tile-sizes-colours
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply dashboard patches
+        run: node scripts/patch-expanded-tile-sizes-colours.mjs
+      - name: Check browser JavaScript
+        run: node --check public/dashboard.js
+      - name: Install dependencies
+        run: npm install --package-lock=false
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Check PBE Worker bundle
+        run: npx wrangler deploy --dry-run --env pbe
+      - name: Commit dashboard changes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/dashboard.ts public/dashboard.html public/dashboard.js public/dashboard.css public/admin-dashboard.html
+          git commit -m "Expand tile sizes and add per-user tile colours"
+          git push origin HEAD:agent/expanded-tile-sizes-colours
