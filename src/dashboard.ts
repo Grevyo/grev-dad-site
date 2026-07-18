@@ -27,6 +27,7 @@ type DashboardUser = {
 type LegacyDashboardSize = 'small' | 'medium' | 'wide' | 'large';
 type DashboardDensity = 'comfortable' | 'compact';
 type TileColour = 'default' | 'graphite' | 'blue' | 'cyan' | 'green' | 'amber' | 'red' | 'purple' | 'pink';
+type TilePresentation = 'action' | 'content';
 type Dimension = { width: number; height: number };
 type TilePlacement = Dimension & { featureId: string; x: number; y: number; colour?: TileColour };
 
@@ -37,6 +38,7 @@ type FeatureRow = {
   description: string;
   category: string;
   feature_type: 'workspace' | 'link' | 'system';
+  tile_presentation: TilePresentation;
   route: string;
   icon_text: string;
   audience: 'all' | 'groups' | 'admin' | 'owner';
@@ -201,6 +203,7 @@ function featureFromRow(row: FeatureRow) {
     description: row.description,
     category: row.category,
     featureType: row.feature_type,
+    presentation: row.tile_presentation === 'content' ? 'content' : 'action',
     route: row.route,
     iconText: row.icon_text,
     audience: row.audience,
@@ -331,6 +334,7 @@ async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
   const features = rows.map(featureFromRow);
   return {
     ok: true,
+    viewer: { id: user.id, username: user.username, displayName: user.displayName, isAdmin: user.isAdmin, isOwner: user.isOwner },
     grid: { columns: GRID_COLUMNS, maxY: MAX_GRID_Y, dimensions: ALL_DIMENSIONS },
     features,
     pinnedTiles: features.filter(feature => feature.pinned).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0)),
@@ -451,6 +455,11 @@ function normalizedFeatureInput(data: Record<string, unknown>) {
   const category = String(data.category ?? 'General').trim() || 'General';
   const featureTypeValue = String(data.featureType ?? 'workspace');
   const featureType = (['workspace', 'link', 'system'].includes(featureTypeValue) ? featureTypeValue : 'workspace') as 'workspace' | 'link' | 'system';
+  const hasPresentation = Object.prototype.hasOwnProperty.call(data, 'presentation');
+  const presentationValue = String(data.presentation ?? 'action');
+  const presentation = hasPresentation
+    ? (['action', 'content'].includes(presentationValue) ? presentationValue : 'action') as TilePresentation
+    : null;
   const audienceValue = String(data.audience ?? 'groups');
   const audience = (['all', 'groups', 'admin', 'owner'].includes(audienceValue) ? audienceValue : 'groups') as 'all' | 'groups' | 'admin' | 'owner';
   const defaultDimension = parseDimension(data.defaultDimension) ?? { width: 2, height: 1 };
@@ -464,7 +473,7 @@ function normalizedFeatureInput(data: Record<string, unknown>) {
   const groupIds = Array.isArray(data.groupIds) ? [...new Set(data.groupIds.map(value => String(value).trim()).filter(Boolean))] : [];
   const sortOrderNumber = Number(data.sortOrder ?? 0);
   return {
-    slug, name, description, category, featureType, audience, defaultDimension, allowedDimensions,
+    slug, name, description, category, featureType, presentation, audience, defaultDimension, allowedDimensions,
     route, iconText, groupIds,
     isActive: data.isActive !== false,
     isDefault: data.isDefault === true,
@@ -475,6 +484,7 @@ function normalizedFeatureInput(data: Record<string, unknown>) {
 async function saveAdminFeature(request: Request, env: DashboardEnv, actor: DashboardUser, featureId: string | null): Promise<Response> {
   const data = await readJson(request);
   const input = normalizedFeatureInput(data);
+  let presentation: TilePresentation = input.presentation ?? 'action';
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug) || input.slug.length > 64 || input.name.length < 2 || input.name.length > 80 || input.description.length > 500 || input.category.length > 60) {
     return secureJson({ ok: false, message: 'Check the feature name, slug, category and description.' }, { status: 400 });
   }
@@ -492,24 +502,25 @@ async function saveAdminFeature(request: Request, env: DashboardEnv, actor: Dash
   const legacySize = legacySizeForDimension(input.defaultDimension.width, input.defaultDimension.height);
   const statements: D1Statement[] = [];
   if (featureId) {
-    const existing = await env.DB.prepare(`SELECT id FROM dashboard_features WHERE id=?`).bind(featureId).first<{ id: string }>();
+    const existing = await env.DB.prepare(`SELECT id,tile_presentation FROM dashboard_features WHERE id=?`).bind(featureId).first<{ id: string; tile_presentation: string }>();
     if (!existing) return secureJson({ ok: false, message: 'Dashboard feature not found.' }, { status: 404 });
+    presentation = input.presentation ?? (existing.tile_presentation === 'content' ? 'content' : 'action');
     statements.push(env.DB.prepare(`
       UPDATE dashboard_features
-      SET slug=?,name=?,description=?,category=?,feature_type=?,route=?,icon_text=?,audience=?,default_size=?,allowed_sizes=?,default_width=?,default_height=?,allowed_dimensions=?,is_active=?,is_default=?,sort_order=?,updated_at=?
+      SET slug=?,name=?,description=?,category=?,feature_type=?,tile_presentation=?,route=?,icon_text=?,audience=?,default_size=?,allowed_sizes=?,default_width=?,default_height=?,allowed_dimensions=?,is_active=?,is_default=?,sort_order=?,updated_at=?
       WHERE id=?
-    `).bind(input.slug, input.name, input.description, input.category, input.featureType, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, id));
+    `).bind(input.slug, input.name, input.description, input.category, input.featureType, presentation, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, id));
   } else {
     statements.push(env.DB.prepare(`
-      INSERT INTO dashboard_features(id,slug,name,description,category,feature_type,route,icon_text,audience,default_size,allowed_sizes,default_width,default_height,allowed_dimensions,is_active,is_default,sort_order,created_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(id, input.slug, input.name, input.description, input.category, input.featureType, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, now));
+      INSERT INTO dashboard_features(id,slug,name,description,category,feature_type,tile_presentation,route,icon_text,audience,default_size,allowed_sizes,default_width,default_height,allowed_dimensions,is_active,is_default,sort_order,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(id, input.slug, input.name, input.description, input.category, input.featureType, presentation, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, now));
   }
   statements.push(env.DB.prepare(`DELETE FROM dashboard_feature_group_grants WHERE feature_id=?`).bind(id));
   input.groupIds.forEach(groupId => statements.push(env.DB.prepare(`INSERT INTO dashboard_feature_group_grants(feature_id,group_id) VALUES(?,?)`).bind(id, groupId)));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
     crypto.randomUUID(), actor.id, featureId ? 'dashboard.feature_updated' : 'dashboard.feature_created', 'dashboard_feature', id,
-    JSON.stringify({ slug: input.slug, audience: input.audience, groupIds: input.groupIds, defaultDimension: dimensionKey(input.defaultDimension.width, input.defaultDimension.height), allowedDimensions: input.allowedDimensions }), now
+    JSON.stringify({ slug: input.slug, presentation, audience: input.audience, groupIds: input.groupIds, defaultDimension: dimensionKey(input.defaultDimension.width, input.defaultDimension.height), allowedDimensions: input.allowedDimensions }), now
   ));
   try {
     await env.DB.batch(statements);

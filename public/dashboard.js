@@ -278,58 +278,127 @@ function applyGridSurface(element, preferences, rows) {
   element.style.gridTemplateRows = `repeat(${rows}, var(--tile-row-height))`;
 }
 
-function createTileContent(feature, preferences, editing = false) {
-  const content = document.createElement('div');
-  content.className = 'dashboard-tile-content';
-
-  const head = document.createElement('div');
-  head.className = 'dashboard-tile-head';
-  const meta = document.createElement('div');
-  meta.className = 'dashboard-tile-title-block';
-  const category = document.createElement('span');
-  category.className = 'dashboard-tile-meta';
-  category.textContent = `${feature.category} · ${feature.width}×${feature.height}`;
-  const title = document.createElement('h2');
-  title.textContent = feature.name;
-  meta.append(category, title);
-  const icon = document.createElement('span');
-  icon.className = 'dashboard-tile-icon';
-  icon.textContent = feature.iconText;
-  head.append(meta, icon);
-
-  const body = document.createElement('div');
-  body.className = 'dashboard-tile-body';
-  if (preferences.showDescriptions) {
-    const description = document.createElement('p');
-    description.textContent = feature.description;
-    body.append(description);
-  }
-
-  const footer = document.createElement('div');
-  footer.className = 'dashboard-tile-footer';
-  const access = document.createElement('span');
-  access.className = 'dashboard-access-label';
-  access.textContent = feature.accessGroups.length ? feature.accessGroups.join(' · ') : feature.audience === 'all' ? 'All members' : feature.audience;
-  footer.append(access);
-
+function tileSurface(feature, editing, className) {
   const route = tileRoute(feature);
-  if (route) {
-    if (editing) {
-      const previewAction = document.createElement('span');
-      previewAction.className = 'dashboard-feature-action dashboard-feature-action-preview';
-      previewAction.textContent = 'Open';
-      footer.append(previewAction);
-    } else {
-      const link = document.createElement('a');
-      link.className = 'dashboard-feature-action';
-      link.href = route;
-      link.textContent = 'Open';
-      footer.append(link);
-    }
+  const element = document.createElement(!editing && route ? 'a' : 'div');
+  element.className = `dashboard-tile-content ${className}`;
+  if (!editing && route) {
+    element.href = route;
+    element.setAttribute('aria-label', `Open ${feature.name}`);
   }
+  return element;
+}
 
-  content.append(head, body, footer);
+function createActionTileContent(feature, editing = false) {
+  const content = tileSurface(feature, editing, 'dashboard-action-tile');
+  const icon = document.createElement('span');
+  icon.className = 'dashboard-action-icon';
+  icon.textContent = feature.iconText;
+  const title = document.createElement('strong');
+  title.className = 'dashboard-action-title';
+  title.textContent = feature.name;
+  const arrow = document.createElement('span');
+  arrow.className = 'dashboard-action-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '→';
+  content.append(icon, title, arrow);
   return content;
+}
+
+function viewerInitials(viewer) {
+  return String(viewer?.displayName ?? viewer?.username ?? 'GD')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase() || 'GD';
+}
+
+function createProfileTileContent(feature, editing = false) {
+  const content = tileSurface(feature, editing, 'dashboard-content-tile dashboard-profile-tile');
+  const viewer = dashboardState.payload?.viewer ?? {};
+  const label = document.createElement('span');
+  label.className = 'dashboard-content-label';
+  label.textContent = 'YOUR PROFILE';
+  const card = document.createElement('div');
+  card.className = 'dashboard-profile-card';
+  const avatar = document.createElement('span');
+  avatar.className = 'dashboard-profile-avatar';
+  avatar.textContent = viewerInitials(viewer);
+  const identity = document.createElement('div');
+  identity.className = 'dashboard-profile-identity';
+  const name = document.createElement('strong');
+  name.textContent = viewer.displayName ?? feature.name;
+  const username = document.createElement('span');
+  username.textContent = viewer.username ? `@${viewer.username}` : 'Profile';
+  identity.append(name, username);
+  const role = document.createElement('span');
+  role.className = 'dashboard-profile-role';
+  role.textContent = viewer.isOwner ? 'Owner' : viewer.isAdmin ? 'Administrator' : 'Member';
+  card.append(avatar, identity, role);
+  const action = document.createElement('span');
+  action.className = 'dashboard-content-action';
+  action.textContent = editing ? 'PROFILE CARD PREVIEW' : 'View profile →';
+  content.append(label, card, action);
+  return content;
+}
+
+function createNewsTileContent(feature, editing = false) {
+  const content = tileSurface(feature, editing, 'dashboard-content-tile dashboard-news-tile');
+  const heading = document.createElement('div');
+  heading.className = 'dashboard-content-heading';
+  const label = document.createElement('span');
+  label.className = 'dashboard-content-label';
+  label.textContent = 'LATEST GREV NEWS';
+  const icon = document.createElement('span');
+  icon.className = 'dashboard-content-icon';
+  icon.textContent = feature.iconText;
+  heading.append(label, icon);
+  const headline = document.createElement('strong');
+  headline.className = 'dashboard-news-headline';
+  headline.textContent = 'No Grev News has been published yet.';
+  const action = document.createElement('span');
+  action.className = 'dashboard-content-action';
+  action.textContent = editing ? 'NEWS FEED PREVIEW' : 'Open Grev News →';
+  content.append(heading, headline, action);
+  return content;
+}
+
+function createGenericContentTile(feature, preferences, editing = false) {
+  const content = tileSurface(feature, editing, 'dashboard-content-tile dashboard-generic-content-tile');
+  const heading = document.createElement('div');
+  heading.className = 'dashboard-content-heading';
+  const label = document.createElement('span');
+  label.className = 'dashboard-content-label';
+  label.textContent = feature.category;
+  const icon = document.createElement('span');
+  icon.className = 'dashboard-content-icon';
+  icon.textContent = feature.iconText;
+  heading.append(label, icon);
+  const title = document.createElement('strong');
+  title.className = 'dashboard-content-title';
+  title.textContent = feature.name;
+  content.append(heading, title);
+  if (preferences.showDescriptions && feature.description) {
+    const description = document.createElement('p');
+    description.className = 'dashboard-content-description';
+    description.textContent = feature.description;
+    content.append(description);
+  }
+  const action = document.createElement('span');
+  action.className = 'dashboard-content-action';
+  action.textContent = editing ? 'INFORMATION TILE PREVIEW' : 'Open →';
+  content.append(action);
+  return content;
+}
+
+function createTileContent(feature, preferences, editing = false) {
+  if (feature.presentation !== 'content') return createActionTileContent(feature, editing);
+  if (feature.id === 'feature-profile') return createProfileTileContent(feature, editing);
+  if (feature.id === 'feature-grev-news') return createNewsTileContent(feature, editing);
+  return createGenericContentTile(feature, preferences, editing);
 }
 
 function createDashboardTile(feature, preferences, editing = false) {
@@ -339,6 +408,7 @@ function createDashboardTile(feature, preferences, editing = false) {
   article.dataset.width = String(feature.width);
   article.dataset.height = String(feature.height);
   article.dataset.colour = TILE_COLOURS.has(feature.colour ?? feature.tileColour) ? (feature.colour ?? feature.tileColour) : 'default';
+  article.dataset.presentation = feature.presentation === 'content' ? 'content' : 'action';
   article.style.gridColumn = `${Number(feature.x) + 1} / span ${feature.width}`;
   article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
 
