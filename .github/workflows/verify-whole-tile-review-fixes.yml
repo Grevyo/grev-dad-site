@@ -1,0 +1,73 @@
+name: Verify Whole Tile Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/whole-tile-drag-settings-widescreen'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false --no-save jsdom@26
+      - name: Verify guarded settings and normal whole-tile drag
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const { JSDOM } = require('jsdom');
+
+          (async () => {
+            const html = fs.readFileSync('public/dashboard.html', 'utf8');
+            const js = fs.readFileSync('public/dashboard.js', 'utf8');
+            const css = fs.readFileSync('public/dashboard.css', 'utf8');
+            const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only', pretendToBeVisual: true });
+            const { window } = dom;
+            window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+            window.HTMLElement.prototype.scrollIntoView = function () {};
+            window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+            window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+            const feature = { id: 'feature-settings', slug: 'settings', name: 'Profile settings', description: '', category: 'Account', featureType: 'system', presentation: 'action', route: '/settings', iconText: 'PS', audience: 'all', defaultDimension: '1x1', defaultWidth: 1, defaultHeight: 1, allowedDimensions: ['1x1','2x1'], isActive: true, isDefault: true, sortOrder: 1, pinned: true, x: 0, y: 0, width: 1, height: 1, tileColour: 'default', accessGroups: [] };
+            const payload = { ok: true, viewer: { id: 'u1', username: 'LADMIN', displayName: 'Local Administrator', isAdmin: true, isOwner: true }, grid: { columns: 6, dimensions: ['1x1','2x1'] }, preferences: { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 }, capabilities: { canCustomize: true, isAdmin: true, isOwner: true }, features: [feature], pinnedTiles: [feature] };
+            window.fetch = async url => ({ ok: true, json: async () => String(url).includes('/api/onboarding') ? { ok: true, progress: { relationshipComplete: true, intentionsComplete: true } } : payload });
+            window.eval(js);
+            await new Promise(resolve => setTimeout(resolve, 20));
+            window.document.querySelector('#customize-dashboard').click();
+            await new Promise(resolve => setTimeout(resolve, 10));
+            const tile = window.document.querySelector('.dashboard-tile.editing');
+            const settings = tile.querySelector('.dashboard-tile-settings');
+            settings.dispatchEvent(new window.Event('pointerdown', { bubbles: true, cancelable: true }));
+            const blockedDrag = new window.Event('dragstart', { bubbles: true, cancelable: true });
+            Object.defineProperty(blockedDrag, 'dataTransfer', { value: { setData() {}, effectAllowed: '' } });
+            tile.dispatchEvent(blockedDrag);
+            if (!blockedDrag.defaultPrevented) throw new Error('Settings-origin drag was not blocked');
+            if (tile.classList.contains('dragging')) throw new Error('Settings-origin drag marked the tile as dragging');
+            if (window.document.querySelector('.dashboard-placement-preview')) throw new Error('Settings-origin drag showed a placement preview');
+            settings.dispatchEvent(new window.Event('pointerup', { bubbles: true }));
+            settings.click();
+            if (!window.document.querySelector('#dashboard-tile-settings-dialog').open) throw new Error('Tile settings dialog did not open');
+            window.document.querySelector('#dashboard-close-tile-settings').click();
+            const normalDrag = new window.Event('dragstart', { bubbles: true, cancelable: true });
+            Object.defineProperty(normalDrag, 'dataTransfer', { value: { setData() {}, effectAllowed: '' } });
+            tile.dispatchEvent(normalDrag);
+            if (normalDrag.defaultPrevented) throw new Error('Normal whole-tile drag was incorrectly blocked');
+            if (!tile.classList.contains('dragging')) throw new Error('Normal whole-tile drag did not start');
+            if (!window.document.querySelector('.dashboard-placement-preview')) throw new Error('Normal drag did not show placement preview');
+            if (!css.includes('@media(max-height:686px) and (min-width:901px)')) throw new Error('Short widescreen editor fallback is missing');
+            if (!css.includes('177.7778vh')) throw new Error('Page-only widescreen rule is missing');
+            if (tile.dataset.width !== '1' || tile.dataset.height !== '1') throw new Error('Tile dimensions were reshaped');
+            console.log('Settings drag guard, normal whole-tile drag and short widescreen fallback verified.');
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - run: |
+          node --check public/dashboard.js
+          git diff --check
