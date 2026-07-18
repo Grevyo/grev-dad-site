@@ -4,10 +4,16 @@ const dashboardState = {
   workingTiles: [],
   search: '',
   category: 'all',
-  draggingId: null
+  draggingId: null,
+  selectedId: null,
+  editing: false
 };
 
 const dashboardElement = selector => document.querySelector(selector);
+
+function isSingleColumnFallback() {
+  return window.matchMedia?.('(max-width: 900px)').matches ?? false;
+}
 
 function dashboardMessage(text, type = '') {
   const target = dashboardElement('#dashboard-status');
@@ -16,11 +22,11 @@ function dashboardMessage(text, type = '') {
   target.className = `dashboard-status${type ? ` ${type}` : ''}`;
 }
 
-function customizerMessage(text, type = '') {
-  const target = dashboardElement('#dashboard-customizer-message');
+function editorMessage(text, type = '') {
+  const target = dashboardElement('#dashboard-editor-message');
   if (!target) return;
   target.textContent = text;
-  target.className = `dashboard-customizer-message${type ? ` ${type}` : ''}`;
+  target.className = `dashboard-editor-message${type ? ` ${type}` : ''}`;
 }
 
 async function dashboardFetch(url, options = {}) {
@@ -91,135 +97,8 @@ function preferenceValue(selector, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function gridRowHeight(density, editor = false) {
-  if (editor) return density === 'compact' ? 76 : 94;
+function gridRowHeight(density) {
   return density === 'compact' ? 92 : 116;
-}
-
-function applyGridSurface(element, preferences, rows, editor = false) {
-  const gap = Number(preferences.tileGap ?? 12);
-  const margin = editor ? 0 : Number(preferences.outerMargin ?? 0);
-  const density = preferences.density ?? 'comfortable';
-  element.style.setProperty('--dashboard-gap', `${gap}px`);
-  element.style.setProperty('--dashboard-margin', `${margin}px`);
-  element.style.setProperty('--tile-row-height', `${gridRowHeight(density, editor)}px`);
-  element.style.gridTemplateColumns = `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`;
-  element.style.gridTemplateRows = `repeat(${rows}, var(--tile-row-height))`;
-}
-
-function createDashboardTile(feature, preferences) {
-  const article = document.createElement('article');
-  article.className = 'dashboard-tile';
-  article.dataset.width = String(feature.width);
-  article.dataset.height = String(feature.height);
-  article.style.gridColumn = `${Number(feature.x) + 1} / span ${feature.width}`;
-  article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
-
-  const head = document.createElement('div');
-  head.className = 'dashboard-tile-head';
-  const meta = document.createElement('div');
-  const category = document.createElement('span');
-  category.className = 'dashboard-tile-meta';
-  category.textContent = `${feature.category} · ${feature.width}×${feature.height}`;
-  const title = document.createElement('h2');
-  title.textContent = feature.name;
-  meta.append(category, title);
-  const icon = document.createElement('span');
-  icon.className = 'dashboard-tile-icon';
-  icon.textContent = feature.iconText;
-  head.append(meta, icon);
-  article.append(head);
-
-  if (preferences.showDescriptions && (feature.width > 1 || feature.height > 1)) {
-    const description = document.createElement('p');
-    description.textContent = feature.description;
-    article.append(description);
-  }
-
-  const footer = document.createElement('div');
-  footer.className = 'dashboard-tile-footer';
-  const access = document.createElement('span');
-  access.className = 'dashboard-access-label';
-  access.textContent = feature.accessGroups.length ? feature.accessGroups.join(' · ') : feature.audience === 'all' ? 'All members' : feature.audience;
-  footer.append(access);
-
-  const route = tileRoute(feature);
-  if (route) {
-    const link = document.createElement('a');
-    link.className = 'dashboard-feature-action';
-    link.href = route;
-    link.textContent = 'Open';
-    footer.append(link);
-  }
-  article.append(footer);
-  return article;
-}
-
-function renderDashboard() {
-  const grid = dashboardElement('#dashboard-grid');
-  const empty = dashboardElement('#dashboard-empty');
-  if (!grid || !dashboardState.payload) return;
-  const { pinnedTiles, preferences } = dashboardState.payload;
-  grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}`;
-  grid.replaceChildren();
-  applyGridSurface(grid, preferences, dashboardRows(pinnedTiles), false);
-  pinnedTiles.forEach(feature => grid.append(createDashboardTile(feature, preferences)));
-  empty.hidden = pinnedTiles.length > 0;
-  dashboardMessage(`${pinnedTiles.length} pinned feature${pinnedTiles.length === 1 ? '' : 's'} · ${dashboardState.payload.features.length} available · ${GRID_COLUMNS}-column grid`, 'success');
-}
-
-function addWorkingTile(feature) {
-  if (workingTile(feature.id)) return;
-  const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
-  const placement = firstFreePlacement(dimension.width, dimension.height);
-  dashboardState.workingTiles.push({ featureId: feature.id, ...placement });
-  customizerMessage(`${feature.name} placed at column ${placement.x + 1}, row ${placement.y + 1}.`, 'success');
-  renderCustomizer();
-}
-
-function removeWorkingTile(featureId) {
-  dashboardState.workingTiles = dashboardState.workingTiles.filter(tile => tile.featureId !== featureId);
-  renderCustomizer();
-}
-
-function moveWorkingTile(featureId, deltaX, deltaY) {
-  const tile = workingTile(featureId);
-  if (!tile) return;
-  const candidate = { ...tile, x: tile.x + deltaX, y: tile.y + deltaY };
-  if (!placementIsFree(candidate, featureId)) {
-    customizerMessage('That position is occupied or outside the six-column grid.', 'error');
-    return;
-  }
-  Object.assign(tile, candidate);
-  customizerMessage(`Moved to column ${tile.x + 1}, row ${tile.y + 1}.`, 'success');
-  renderLayoutCanvas();
-}
-
-function resizeWorkingTile(featureId, dimensionValue) {
-  const tile = workingTile(featureId);
-  const feature = featureById(featureId);
-  const dimension = parseDimension(dimensionValue);
-  if (!tile || !feature || !dimension || !feature.allowedDimensions.includes(dimensionValue)) return;
-  const candidate = { ...tile, ...dimension };
-  if (placementIsFree(candidate, featureId)) {
-    Object.assign(tile, candidate);
-  } else {
-    Object.assign(tile, firstFreePlacement(dimension.width, dimension.height, featureId), dimension);
-    customizerMessage(`${feature.name} moved to the first empty area that fits ${dimension.width}×${dimension.height}.`, 'success');
-  }
-  renderLayoutCanvas();
-}
-
-function packWorkingTiles() {
-  const ordered = [...dashboardState.workingTiles].sort((a, b) => a.y - b.y || a.x - b.x);
-  const packed = [];
-  ordered.forEach(tile => {
-    const location = firstFreePlacement(tile.width, tile.height, tile.featureId, packed);
-    packed.push({ ...tile, ...location });
-  });
-  dashboardState.workingTiles = packed;
-  customizerMessage('Tiles packed from the top-left. Save the dashboard to keep this arrangement.', 'success');
-  renderLayoutCanvas();
 }
 
 function editorPreferences() {
@@ -231,59 +110,195 @@ function editorPreferences() {
   };
 }
 
-function dropCoordinates(event, tile) {
-  const canvas = dashboardElement('#dashboard-layout-canvas');
-  if (!canvas) return null;
-  const rect = canvas.getBoundingClientRect();
-  const gap = preferenceValue('#dashboard-tile-gap', 12);
-  const rowHeight = gridRowHeight(dashboardElement('#dashboard-density')?.value ?? 'comfortable', true);
-  const cellWidth = (rect.width - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-  const x = Math.max(0, Math.min(GRID_COLUMNS - tile.width, Math.floor((event.clientX - rect.left) / (cellWidth + gap))));
-  const y = Math.max(0, Math.floor((event.clientY - rect.top) / (rowHeight + gap)));
-  return { x, y };
+function currentPreferences() {
+  if (dashboardState.editing) return editorPreferences();
+  return dashboardState.payload?.preferences ?? { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 };
 }
 
-function createEditorTile(tile) {
-  const feature = featureById(tile.featureId);
-  if (!feature) return null;
+function applyGridSurface(element, preferences, rows) {
+  const gap = Number(preferences.tileGap ?? 12);
+  const margin = Number(preferences.outerMargin ?? 0);
+  const density = preferences.density ?? 'comfortable';
+  element.style.setProperty('--dashboard-gap', `${gap}px`);
+  element.style.setProperty('--dashboard-margin', `${margin}px`);
+  element.style.setProperty('--tile-row-height', `${gridRowHeight(density)}px`);
+  element.style.gridTemplateColumns = `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`;
+  element.style.gridTemplateRows = `repeat(${rows}, var(--tile-row-height))`;
+}
+
+function createTileContent(feature, preferences, editing = false) {
+  const content = document.createElement('div');
+  content.className = 'dashboard-tile-content';
+
+  const head = document.createElement('div');
+  head.className = 'dashboard-tile-head';
+  const meta = document.createElement('div');
+  meta.className = 'dashboard-tile-title-block';
+  const category = document.createElement('span');
+  category.className = 'dashboard-tile-meta';
+  category.textContent = `${feature.category} · ${feature.width}×${feature.height}`;
+  const title = document.createElement('h2');
+  title.textContent = feature.name;
+  meta.append(category, title);
+  const icon = document.createElement('span');
+  icon.className = 'dashboard-tile-icon';
+  icon.textContent = feature.iconText;
+  head.append(meta, icon);
+
+  const body = document.createElement('div');
+  body.className = 'dashboard-tile-body';
+  if (preferences.showDescriptions) {
+    const description = document.createElement('p');
+    description.textContent = feature.description;
+    body.append(description);
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'dashboard-tile-footer';
+  const access = document.createElement('span');
+  access.className = 'dashboard-access-label';
+  access.textContent = feature.accessGroups.length ? feature.accessGroups.join(' · ') : feature.audience === 'all' ? 'All members' : feature.audience;
+  footer.append(access);
+
+  const route = tileRoute(feature);
+  if (route) {
+    if (editing) {
+      const previewAction = document.createElement('span');
+      previewAction.className = 'dashboard-feature-action dashboard-feature-action-preview';
+      previewAction.textContent = 'Open';
+      footer.append(previewAction);
+    } else {
+      const link = document.createElement('a');
+      link.className = 'dashboard-feature-action';
+      link.href = route;
+      link.textContent = 'Open';
+      footer.append(link);
+    }
+  }
+
+  content.append(head, body, footer);
+  return content;
+}
+
+function createDashboardTile(feature, preferences, editing = false) {
   const article = document.createElement('article');
-  article.className = 'dashboard-editor-tile';
+  article.className = `dashboard-tile${editing ? ' editing' : ''}${dashboardState.selectedId === feature.id ? ' selected' : ''}`;
   article.dataset.featureId = feature.id;
-  article.dataset.width = String(tile.width);
-  article.dataset.height = String(tile.height);
-  article.style.gridColumn = `${tile.x + 1} / span ${tile.width}`;
-  article.style.gridRow = `${tile.y + 1} / span ${tile.height}`;
+  article.dataset.width = String(feature.width);
+  article.dataset.height = String(feature.height);
+  article.style.gridColumn = `${Number(feature.x) + 1} / span ${feature.width}`;
+  article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
 
-  const heading = document.createElement('div');
-  heading.className = 'dashboard-editor-tile-heading';
-  const identity = document.createElement('div');
-  const meta = document.createElement('small');
-  meta.textContent = `${tile.width}×${tile.height} · C${tile.x + 1} R${tile.y + 1}`;
-  const name = document.createElement('strong');
-  name.textContent = feature.name;
-  identity.append(meta, name);
-  const handle = document.createElement('button');
-  handle.type = 'button';
-  handle.className = 'dashboard-editor-move';
-  handle.textContent = 'MOVE';
-  handle.title = `Drag ${feature.name}`;
-  handle.draggable = true;
-  handle.addEventListener('dragstart', event => {
-    dashboardState.draggingId = feature.id;
-    article.classList.add('dragging');
-    event.dataTransfer?.setData('text/plain', feature.id);
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-  });
-  handle.addEventListener('dragend', () => {
-    dashboardState.draggingId = null;
-    article.classList.remove('dragging');
-  });
-  heading.append(identity, handle);
+  if (editing) {
+    const strip = document.createElement('div');
+    strip.className = 'dashboard-tile-edit-strip';
 
-  const controls = document.createElement('div');
-  controls.className = 'dashboard-editor-controls';
-  const size = document.createElement('select');
-  size.setAttribute('aria-label', `${feature.name} grid size`);
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'dashboard-tile-select';
+    select.textContent = 'SELECT';
+    select.setAttribute('aria-label', `Select ${feature.name} tile for editing`);
+    select.setAttribute('aria-pressed', String(dashboardState.selectedId === feature.id));
+    select.addEventListener('click', () => selectTile(feature.id));
+
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'dashboard-tile-move';
+    handle.textContent = isSingleColumnFallback() ? 'MOVE ON DESKTOP' : 'MOVE';
+    handle.title = isSingleColumnFallback() ? 'Open this editor on a wider screen to drag tiles' : `Drag ${feature.name}`;
+    handle.disabled = isSingleColumnFallback();
+    handle.draggable = !isSingleColumnFallback();
+    handle.addEventListener('click', () => selectTile(feature.id));
+    handle.addEventListener('dragstart', event => {
+      if (isSingleColumnFallback()) {
+        event.preventDefault();
+        return;
+      }
+      dashboardState.draggingId = feature.id;
+      dashboardState.selectedId = feature.id;
+      article.classList.add('dragging');
+      event.dataTransfer?.setData('text/plain', feature.id);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      renderSelectedControls();
+    });
+    handle.addEventListener('dragend', () => {
+      dashboardState.draggingId = null;
+      article.classList.remove('dragging');
+    });
+    strip.append(select, handle);
+    article.append(strip);
+  }
+
+  article.append(createTileContent(feature, preferences, editing));
+  return article;
+}
+
+function addGridCells(grid, rows) {
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < GRID_COLUMNS; x += 1) {
+      const cell = document.createElement('span');
+      cell.className = 'dashboard-grid-cell';
+      cell.style.gridColumn = String(x + 1);
+      cell.style.gridRow = String(y + 1);
+      grid.append(cell);
+    }
+  }
+}
+
+function renderDashboardGrid() {
+  const grid = dashboardElement('#dashboard-grid');
+  const empty = dashboardElement('#dashboard-empty');
+  if (!grid || !dashboardState.payload) return;
+
+  const preferences = currentPreferences();
+  let tiles = dashboardState.editing
+    ? dashboardState.workingTiles.map(tile => {
+        const feature = featureById(tile.featureId);
+        return feature ? { ...feature, ...tile, id: feature.id, dimension: dimensionKey(tile.width, tile.height) } : null;
+      }).filter(Boolean)
+    : dashboardState.payload.pinnedTiles;
+  if (dashboardState.editing && isSingleColumnFallback()) {
+    tiles = [...tiles].sort((a, b) => a.y - b.y || a.x - b.x);
+  }
+
+  const rows = dashboardRows(tiles, dashboardState.editing ? 3 : 1);
+  grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}${dashboardState.editing ? ' editing-grid' : ''}`;
+  grid.replaceChildren();
+  applyGridSurface(grid, preferences, rows);
+  if (dashboardState.editing) addGridCells(grid, rows);
+  tiles.forEach(feature => grid.append(createDashboardTile(feature, preferences, dashboardState.editing)));
+
+  empty.hidden = tiles.length > 0 || dashboardState.editing;
+  const summary = dashboardElement('#dashboard-grid-summary');
+  if (summary) summary.textContent = `${GRID_COLUMNS} columns × ${rows} visible rows`;
+
+  if (dashboardState.editing) {
+    dashboardMessage(`Editing live preview · ${tiles.length} tile${tiles.length === 1 ? '' : 's'} · changes not yet saved`, 'success');
+  } else {
+    dashboardMessage(`${tiles.length} pinned feature${tiles.length === 1 ? '' : 's'} · ${dashboardState.payload.features.length} available · ${GRID_COLUMNS}-column grid`, 'success');
+  }
+}
+
+function selectTile(featureId) {
+  if (!dashboardState.editing || !workingTile(featureId)) return;
+  dashboardState.selectedId = featureId;
+  renderSelectedControls();
+  renderDashboardGrid();
+}
+
+function renderSelectedControls() {
+  const controls = dashboardElement('#dashboard-selected-controls');
+  const tile = workingTile(dashboardState.selectedId);
+  const feature = tile ? featureById(tile.featureId) : null;
+  if (!controls || !tile || !feature) {
+    if (controls) controls.hidden = true;
+    return;
+  }
+
+  controls.hidden = false;
+  dashboardElement('#dashboard-selected-name').textContent = `${feature.name} · C${tile.x + 1} R${tile.y + 1}`;
+  const size = dashboardElement('#dashboard-selected-dimension');
+  size.replaceChildren();
   feature.allowedDimensions.forEach(value => {
     const option = document.createElement('option');
     option.value = value;
@@ -291,44 +306,117 @@ function createEditorTile(tile) {
     option.selected = dimensionKey(tile.width, tile.height) === value;
     size.append(option);
   });
-  size.addEventListener('change', () => resizeWorkingTile(feature.id, size.value));
-
-  const arrows = document.createElement('div');
-  arrows.className = 'dashboard-editor-arrows';
-  [['←', -1, 0, 'Move left'], ['↑', 0, -1, 'Move up'], ['↓', 0, 1, 'Move down'], ['→', 1, 0, 'Move right']].forEach(([text, dx, dy, title]) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = text;
-    button.title = title;
-    button.addEventListener('click', () => moveWorkingTile(feature.id, dx, dy));
-    arrows.append(button);
+  document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
+    const horizontal = Number(button.dataset.moveX) !== 0;
+    button.disabled = isSingleColumnFallback() && horizontal;
+    button.title = button.disabled ? 'Horizontal placement requires a wider screen' : button.title;
   });
-  const remove = document.createElement('button');
-  remove.type = 'button';
-  remove.className = 'dashboard-editor-remove';
-  remove.textContent = 'Remove';
-  remove.addEventListener('click', () => removeWorkingTile(feature.id));
-  controls.append(size, arrows, remove);
-  article.append(heading, controls);
-  return article;
 }
 
-function renderLayoutCanvas() {
-  const canvas = dashboardElement('#dashboard-layout-canvas');
-  if (!canvas) return;
-  canvas.replaceChildren();
-  const preferences = editorPreferences();
-  const rows = dashboardRows(dashboardState.workingTiles, 4);
-  canvas.className = `dashboard-layout-canvas ${preferences.density}`;
-  applyGridSurface(canvas, preferences, rows, true);
-  canvas.dataset.rows = String(rows);
-  dashboardState.workingTiles.forEach(tile => {
-    const element = createEditorTile(tile);
-    if (element) canvas.append(element);
+function addWorkingTile(feature) {
+  if (workingTile(feature.id)) {
+    selectTile(feature.id);
+    return;
+  }
+  const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
+  const placement = firstFreePlacement(dimension.width, dimension.height);
+  dashboardState.workingTiles.push({ featureId: feature.id, ...placement });
+  dashboardState.selectedId = feature.id;
+  editorMessage(`${feature.name} placed at column ${placement.x + 1}, row ${placement.y + 1}.`, 'success');
+  renderEditor();
+}
+
+function removeWorkingTile(featureId) {
+  const feature = featureById(featureId);
+  dashboardState.workingTiles = dashboardState.workingTiles.filter(tile => tile.featureId !== featureId);
+  dashboardState.selectedId = dashboardState.workingTiles[0]?.featureId ?? null;
+  editorMessage(`${feature?.name ?? 'Tile'} removed from the working layout.`, 'success');
+  renderEditor();
+}
+
+function moveWorkingTile(featureId, deltaX, deltaY) {
+  const tile = workingTile(featureId);
+  if (!tile) return;
+  if (isSingleColumnFallback() && deltaX !== 0) {
+    editorMessage('Horizontal tile placement is available on screens wider than 900px. Vertical order still follows the saved row coordinates.', 'error');
+    return;
+  }
+  const candidate = { ...tile, x: tile.x + deltaX, y: tile.y + deltaY };
+  if (!placementIsFree(candidate, featureId)) {
+    editorMessage('That position is occupied or outside the six-column grid.', 'error');
+    return;
+  }
+  Object.assign(tile, candidate);
+  editorMessage(`Moved to column ${tile.x + 1}, row ${tile.y + 1}.`, 'success');
+  renderSelectedControls();
+  renderDashboardGrid();
+}
+
+function resizeWorkingTile(featureId, dimensionValue) {
+  const tile = workingTile(featureId);
+  const feature = featureById(featureId);
+  const dimension = parseDimension(dimensionValue);
+  if (!tile || !feature || !dimension || !feature.allowedDimensions.includes(dimensionValue)) return;
+  const candidate = { ...tile, ...dimension };
+  if (placementIsFree(candidate, featureId)) {
+    Object.assign(tile, candidate);
+    editorMessage(`${feature.name} resized to ${dimension.width}×${dimension.height}.`, 'success');
+  } else {
+    const placement = firstFreePlacement(dimension.width, dimension.height, featureId);
+    Object.assign(tile, placement);
+    editorMessage(`${feature.name} resized and moved to the first empty ${dimension.width}×${dimension.height} area.`, 'success');
+  }
+  renderSelectedControls();
+  renderDashboardGrid();
+}
+
+function packWorkingTiles() {
+  const ordered = [...dashboardState.workingTiles].sort((a, b) => a.y - b.y || a.x - b.x);
+  const packed = [];
+  ordered.forEach(tile => {
+    const location = firstFreePlacement(tile.width, tile.height, tile.featureId, packed);
+    packed.push({ ...tile, ...location });
   });
-  const summary = dashboardElement('#dashboard-grid-summary');
-  if (summary) summary.textContent = `${GRID_COLUMNS} columns × ${rows} visible rows`;
-  canvas.classList.toggle('empty', dashboardState.workingTiles.length === 0);
+  dashboardState.workingTiles = packed;
+  editorMessage('Tiles packed from the top-left. Save the dashboard to keep this arrangement.', 'success');
+  renderEditor();
+}
+
+function loadDefaultWorkingTiles() {
+  const defaults = (dashboardState.payload?.features ?? [])
+    .filter(feature => feature.isDefault)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const tiles = [];
+  defaults.forEach(feature => {
+    const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
+    const placement = firstFreePlacement(dimension.width, dimension.height, null, tiles);
+    tiles.push({ featureId: feature.id, ...placement });
+  });
+  dashboardState.workingTiles = tiles;
+  dashboardState.selectedId = tiles[0]?.featureId ?? null;
+  dashboardElement('#dashboard-density').value = 'comfortable';
+  dashboardElement('#dashboard-tile-gap').value = '12';
+  dashboardElement('#dashboard-outer-margin').value = '0';
+  dashboardElement('#dashboard-show-descriptions').checked = true;
+  editorMessage('Default tiles loaded into the live preview. Press Save dashboard to store them.', 'success');
+  renderEditor();
+}
+
+function dropCoordinates(event, tile) {
+  const grid = dashboardElement('#dashboard-grid');
+  if (!grid) return null;
+  const rect = grid.getBoundingClientRect();
+  const preferences = editorPreferences();
+  const gap = Number(preferences.tileGap ?? 12);
+  const margin = Number(preferences.outerMargin ?? 0);
+  const rowHeight = gridRowHeight(preferences.density);
+  const innerWidth = Math.max(1, rect.width - margin * 2);
+  const cellWidth = (innerWidth - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+  const localX = event.clientX - rect.left - margin;
+  const localY = event.clientY - rect.top - margin;
+  const x = Math.max(0, Math.min(GRID_COLUMNS - tile.width, Math.floor(localX / (cellWidth + gap))));
+  const y = Math.max(0, Math.floor(localY / (rowHeight + gap)));
+  return { x, y };
 }
 
 function renderCatalogueTools() {
@@ -377,81 +465,78 @@ function renderCatalogue() {
     sizes.textContent = `Sizes: ${feature.allowedDimensions.map(value => value.replace('x', '×')).join(', ')}`;
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = pinned ? 'Remove tile' : 'Place tile';
-    button.addEventListener('click', () => pinned ? removeWorkingTile(feature.id) : addWorkingTile(feature));
+    button.textContent = pinned ? 'Select tile' : 'Place tile';
+    button.addEventListener('click', () => pinned ? selectTile(feature.id) : addWorkingTile(feature));
     card.append(marker, title, description, sizes, button);
     catalogue.append(card);
   });
 
   if (!features.length) {
     const empty = document.createElement('p');
-    empty.className = 'dashboard-customizer-intro';
+    empty.className = 'dashboard-catalogue-empty';
     empty.textContent = 'No available features match this filter.';
     catalogue.append(empty);
   }
 }
 
-function renderCustomizer() {
-  renderLayoutCanvas();
+function renderEditor() {
+  renderDashboardGrid();
+  renderSelectedControls();
   renderCatalogueTools();
   renderCatalogue();
 }
 
-function openCustomizer() {
-  if (!dashboardState.payload) return;
+function openEditor() {
+  if (!dashboardState.payload || dashboardState.editing) return;
+  dashboardState.editing = true;
   dashboardState.workingTiles = clonePinnedTiles();
+  dashboardState.selectedId = dashboardState.workingTiles[0]?.featureId ?? null;
   dashboardState.search = '';
   dashboardState.category = 'all';
-  const search = dashboardElement('#dashboard-feature-search');
-  if (search) search.value = '';
+
   dashboardElement('#dashboard-density').value = dashboardState.payload.preferences.density;
   dashboardElement('#dashboard-tile-gap').value = String(dashboardState.payload.preferences.tileGap);
   dashboardElement('#dashboard-outer-margin').value = String(dashboardState.payload.preferences.outerMargin);
   dashboardElement('#dashboard-show-descriptions').checked = dashboardState.payload.preferences.showDescriptions;
-  const panel = dashboardElement('#dashboard-customizer');
-  panel.hidden = false;
-  document.body.classList.add('modal-open');
-  customizerMessage('Drag tiles around the grid. Empty cells are preserved when saved.');
-  renderCustomizer();
+  dashboardElement('#dashboard-feature-search').value = '';
+
+  dashboardElement('#dashboard-editor-toolbar').hidden = false;
+  dashboardElement('#dashboard-editor-catalogue-panel').hidden = false;
+  dashboardElement('#dashboard-grid-heading').hidden = false;
+  dashboardElement('#customize-dashboard').hidden = true;
+  dashboardElement('#dashboard-shell').classList.add('dashboard-editing');
+  editorMessage(isSingleColumnFallback()
+    ? 'Single-column preview: select tiles, resize them, and change vertical order. Use a wider screen for exact column placement and dragging.'
+    : 'Select a tile, drag its MOVE strip, or change its preset size. The dashboard updates immediately.');
+  renderEditor();
+  dashboardElement('#dashboard-editor-toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function closeCustomizer() {
-  dashboardElement('#dashboard-customizer').hidden = true;
-  document.body.classList.remove('modal-open');
+function closeEditor(saved = false) {
+  dashboardState.editing = false;
+  dashboardState.workingTiles = [];
+  dashboardState.selectedId = null;
+  dashboardElement('#dashboard-editor-toolbar').hidden = true;
+  dashboardElement('#dashboard-editor-catalogue-panel').hidden = true;
+  dashboardElement('#dashboard-grid-heading').hidden = true;
+  dashboardElement('#customize-dashboard').hidden = false;
+  dashboardElement('#dashboard-shell').classList.remove('dashboard-editing');
+  renderDashboardGrid();
+  if (saved) dashboardMessage('Dashboard layout saved.', 'success');
 }
 
 async function saveDashboardLayout() {
   const preferences = editorPreferences();
-  customizerMessage('Saving dashboard…');
+  editorMessage('Saving dashboard…');
   try {
     dashboardState.payload = await dashboardFetch('/api/dashboard/layout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tiles: dashboardState.workingTiles, preferences })
     });
-    closeCustomizer();
-    renderDashboard();
+    closeEditor(true);
   } catch (error) {
-    customizerMessage(error.message, 'error');
-  }
-}
-
-async function resetDashboardLayout() {
-  customizerMessage('Restoring default dashboard…');
-  try {
-    dashboardState.payload = await dashboardFetch('/api/dashboard/reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
-    });
-    dashboardState.workingTiles = clonePinnedTiles();
-    dashboardElement('#dashboard-density').value = dashboardState.payload.preferences.density;
-    dashboardElement('#dashboard-tile-gap').value = String(dashboardState.payload.preferences.tileGap);
-    dashboardElement('#dashboard-outer-margin').value = String(dashboardState.payload.preferences.outerMargin);
-    dashboardElement('#dashboard-show-descriptions').checked = dashboardState.payload.preferences.showDescriptions;
-    renderCustomizer();
-    renderDashboard();
-    customizerMessage('Default dashboard restored.', 'success');
-  } catch (error) {
-    customizerMessage(error.message, 'error');
+    editorMessage(error.message, 'error');
   }
 }
 
@@ -466,18 +551,20 @@ async function loadDashboardSystem() {
       return;
     }
     dashboardState.payload = await dashboardFetch('/api/dashboard');
-    renderDashboard();
+    renderDashboardGrid();
   } catch (error) {
     dashboardMessage(error.message, 'error');
   }
 }
 
-const layoutCanvas = dashboardElement('#dashboard-layout-canvas');
-layoutCanvas?.addEventListener('dragover', event => {
+const dashboardGrid = dashboardElement('#dashboard-grid');
+dashboardGrid?.addEventListener('dragover', event => {
+  if (!dashboardState.editing || isSingleColumnFallback()) return;
   event.preventDefault();
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
 });
-layoutCanvas?.addEventListener('drop', event => {
+dashboardGrid?.addEventListener('drop', event => {
+  if (!dashboardState.editing || isSingleColumnFallback()) return;
   event.preventDefault();
   const featureId = dashboardState.draggingId ?? event.dataTransfer?.getData('text/plain');
   const tile = workingTile(featureId);
@@ -486,19 +573,33 @@ layoutCanvas?.addEventListener('drop', event => {
   if (!location) return;
   const candidate = { ...tile, ...location };
   if (!placementIsFree(candidate, featureId)) {
-    customizerMessage('That grid area is already occupied. Drop the tile onto empty cells.', 'error');
+    editorMessage('That grid area is already occupied. Drop the tile onto empty cells.', 'error');
     return;
   }
   Object.assign(tile, candidate);
-  customizerMessage(`Moved to column ${tile.x + 1}, row ${tile.y + 1}. Blank cells were left in place.`, 'success');
-  renderLayoutCanvas();
+  dashboardState.selectedId = featureId;
+  editorMessage(`Moved to column ${tile.x + 1}, row ${tile.y + 1}. Blank cells were left in place.`, 'success');
+  renderEditor();
 });
 
-dashboardElement('#customize-dashboard')?.addEventListener('click', openCustomizer);
-dashboardElement('#dashboard-customizer-close')?.addEventListener('click', closeCustomizer);
+
+dashboardElement('#customize-dashboard')?.addEventListener('click', openEditor);
+dashboardElement('#dashboard-cancel-layout')?.addEventListener('click', () => closeEditor(false));
 dashboardElement('#dashboard-save-layout')?.addEventListener('click', saveDashboardLayout);
-dashboardElement('#dashboard-reset-layout')?.addEventListener('click', resetDashboardLayout);
+dashboardElement('#dashboard-reset-layout')?.addEventListener('click', loadDefaultWorkingTiles);
 dashboardElement('#dashboard-pack-layout')?.addEventListener('click', packWorkingTiles);
+dashboardElement('#dashboard-remove-selected')?.addEventListener('click', () => {
+  if (dashboardState.selectedId) removeWorkingTile(dashboardState.selectedId);
+});
+dashboardElement('#dashboard-selected-dimension')?.addEventListener('change', event => {
+  if (dashboardState.selectedId) resizeWorkingTile(dashboardState.selectedId, event.currentTarget.value);
+});
+document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
+  button.addEventListener('click', () => {
+    if (!dashboardState.selectedId) return;
+    moveWorkingTile(dashboardState.selectedId, Number(button.dataset.moveX), Number(button.dataset.moveY));
+  });
+});
 dashboardElement('#dashboard-feature-search')?.addEventListener('input', event => {
   dashboardState.search = event.currentTarget.value;
   renderCatalogue();
@@ -507,14 +608,20 @@ dashboardElement('#dashboard-category-filter')?.addEventListener('change', event
   dashboardState.category = event.currentTarget.value;
   renderCatalogue();
 });
-['#dashboard-density', '#dashboard-tile-gap'].forEach(selector => {
-  dashboardElement(selector)?.addEventListener('change', renderLayoutCanvas);
-});
-dashboardElement('#dashboard-customizer')?.addEventListener('click', event => {
-  if (event.target.id === 'dashboard-customizer') closeCustomizer();
+['#dashboard-density', '#dashboard-tile-gap', '#dashboard-outer-margin', '#dashboard-show-descriptions'].forEach(selector => {
+  dashboardElement(selector)?.addEventListener('change', () => {
+    if (dashboardState.editing) renderDashboardGrid();
+  });
 });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !dashboardElement('#dashboard-customizer')?.hidden) closeCustomizer();
+  if (event.key === 'Escape' && dashboardState.editing) closeEditor(false);
+});
+window.addEventListener('resize', () => {
+  if (!dashboardState.editing) return;
+  renderEditor();
+  editorMessage(isSingleColumnFallback()
+    ? 'Single-column preview: the visual order follows saved row and column coordinates. Exact horizontal placement requires a wider screen.'
+    : 'Wide-grid editing restored. Drag tiles or move them one cell at a time.');
 });
 
 loadDashboardSystem();
