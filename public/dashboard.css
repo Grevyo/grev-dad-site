@@ -22,7 +22,7 @@
 .dashboard-grid-heading>strong{padding:7px 9px;border:1px solid var(--line);background:#11161d;color:var(--accent-strong);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
 .dashboard-tile-grid{
   --dashboard-gap:12px;--dashboard-margin:0px;--tile-row-height:116px;
-  display:grid;position:relative;gap:var(--dashboard-gap);padding:var(--dashboard-margin);margin-top:24px;min-height:120px;box-sizing:border-box
+  display:grid;position:relative;grid-auto-rows:var(--tile-row-height);gap:var(--dashboard-gap);padding:var(--dashboard-margin);margin-top:24px;min-height:120px;box-sizing:border-box
 }
 .dashboard-tile{
   container-type:size;container-name:dashboard-tile;position:relative;z-index:2;display:flex;min-width:0;min-height:0;height:100%;flex-direction:column;border:1px solid var(--line);background:var(--panel);overflow:hidden
@@ -107,15 +107,24 @@
 
 .editing-grid{border:1px solid var(--line-strong);background:#080b0f;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px)}
 .dashboard-grid-cell{z-index:0;border:1px dashed #29323e;background:#0d1117;pointer-events:none}
+.dashboard-placement-preview{position:relative;z-index:5;display:grid;place-items:center;min-width:0;min-height:0;border:2px solid #8cb4ff;background:rgba(77,126,214,.22);box-shadow:inset 0 0 0 2px rgba(10,14,20,.7);pointer-events:none}
+.dashboard-placement-preview::after{content:attr(data-label);padding:6px 8px;border:1px solid currentColor;background:#090d13;color:#dce9ff;font-size:.67rem;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+.dashboard-placement-preview.invalid{border-color:#ff6677;background:rgba(160,35,54,.3)}
+.dashboard-placement-preview.invalid::after{color:#ff9aaa}
 .dashboard-tile.editing{border-color:#64728a;box-shadow:4px 4px 0 #030508;cursor:pointer}
 .dashboard-tile.editing.selected{border-color:#dce7ff;box-shadow:0 0 0 2px #5268aa,6px 6px 0 #030508}
 .dashboard-tile.editing.dragging{opacity:.45}
+.dashboard-tile.editing.resizing{opacity:.78}
+.dashboard-tile.editing.resize-blocked{border-color:#ff6677;box-shadow:0 0 0 2px rgba(255,102,119,.45),6px 6px 0 #030508}
 .dashboard-tile-edit-strip{display:grid;grid-template-columns:1fr 1fr;min-height:24px;border-bottom:1px solid #435066;background:#1d2633}
 .dashboard-tile-select,.dashboard-tile-move{min-height:24px!important;padding:3px 7px!important;border:0!important;background:#1d2633!important;color:#dce7ff!important;font-size:.6rem!important;letter-spacing:.1em!important;transform:none!important;box-shadow:none!important}
 .dashboard-tile-select{border-right:1px solid #435066!important;cursor:pointer!important}
 .dashboard-tile-select[aria-pressed="true"]{background:#e7edf8!important;color:#080b0f!important}
 .dashboard-tile-move{cursor:grab!important}
 .dashboard-tile-move:disabled{cursor:not-allowed!important;color:#778291!important;background:#151b23!important}
+.dashboard-tile-resize{position:absolute;right:0;bottom:0;z-index:8;display:grid;place-items:center;width:30px;height:30px;padding:0!important;border:1px solid #7586a2!important;border-right:0!important;border-bottom:0!important;border-radius:0!important;background:#202b3a!important;color:#edf3ff!important;font-size:1rem!important;font-weight:950!important;line-height:1!important;cursor:nwse-resize!important;transform:none!important;box-shadow:none!important;touch-action:none}
+.dashboard-tile-resize:hover,.dashboard-tile-resize:focus-visible{background:#edf3ff!important;color:#090d13!important}
+.dashboard-tile-resize:disabled{display:none}
 .dashboard-tile.editing .dashboard-tile-content{height:calc(100% - 24px)}
 .dashboard-grid.compact .dashboard-tile.editing[data-height="1"] .dashboard-tile-edit-strip{min-height:20px}
 .dashboard-grid.compact .dashboard-tile.editing[data-height="1"] .dashboard-tile-content{height:calc(100% - 20px);grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr;column-gap:6px;padding:4px 6px}
@@ -174,7 +183,7 @@
   .dashboard-tile,.dashboard-grid-cell{grid-column:1/-1!important;grid-row:auto!important;min-height:170px}
   .dashboard-grid-cell{display:none}
   .dashboard-tile-edit-strip{grid-template-columns:1fr}
-  .dashboard-tile-move{display:none}
+  .dashboard-tile-move,.dashboard-tile-resize{display:none}
   .dashboard-tile[data-height="1"] .dashboard-tile-body{display:block}
   .dashboard-tile[data-width="1"] .dashboard-tile-content{padding:16px}
   .dashboard-tile[data-width="1"] .dashboard-tile-icon{width:42px;height:42px}
