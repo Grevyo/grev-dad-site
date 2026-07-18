@@ -53,5 +53,62 @@ jobs:
           ! grep -q 'modal-open' public/dashboard.js
           ! grep -q '^\.dashboard-customizer{' public/dashboard.css
 
+      - name: Inline editor browser DOM smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false jsdom
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const { JSDOM } = require('jsdom');
+          const html = fs.readFileSync('public/dashboard.html', 'utf8');
+          const script = fs.readFileSync('public/dashboard.js', 'utf8');
+          const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only' });
+          const { window } = dom;
+          window.HTMLElement.prototype.scrollIntoView = function () {};
+          window.fetch = async (url, options = {}) => {
+            if (url === '/api/onboarding') {
+              return new Response(JSON.stringify({ ok: true, progress: { relationshipComplete: true, intentionsComplete: true } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (url === '/api/dashboard') {
+              return new Response(JSON.stringify({
+                ok: true,
+                grid: { columns: 6, dimensions: ['1x1','1x2','2x1','2x2','4x2'] },
+                features: [
+                  { id:'feature-profile',slug:'profile',name:'My profile',description:'Profile description',category:'Account',featureType:'link',route:'/profile',iconText:'ME',audience:'all',defaultDimension:'2x1',defaultWidth:2,defaultHeight:1,allowedDimensions:['1x1','1x2','2x1','2x2'],isActive:true,isDefault:true,sortOrder:10,pinned:true,x:0,y:0,width:2,height:1,accessGroups:[] },
+                  { id:'feature-news',slug:'news',name:'News',description:'Longer news content for adaptive sizing',category:'News',featureType:'workspace',route:'/feature/news',iconText:'NW',audience:'all',defaultDimension:'2x2',defaultWidth:2,defaultHeight:2,allowedDimensions:['1x1','1x2','2x1','2x2','4x2'],isActive:true,isDefault:false,sortOrder:20,pinned:true,x:2,y:0,width:2,height:2,accessGroups:[] }
+                ],
+                pinnedTiles: [
+                  { id:'feature-profile',slug:'profile',name:'My profile',description:'Profile description',category:'Account',featureType:'link',route:'/profile',iconText:'ME',audience:'all',defaultDimension:'2x1',defaultWidth:2,defaultHeight:1,allowedDimensions:['1x1','1x2','2x1','2x2'],isActive:true,isDefault:true,sortOrder:10,pinned:true,x:0,y:0,width:2,height:1,accessGroups:[] },
+                  { id:'feature-news',slug:'news',name:'News',description:'Longer news content for adaptive sizing',category:'News',featureType:'workspace',route:'/feature/news',iconText:'NW',audience:'all',defaultDimension:'2x2',defaultWidth:2,defaultHeight:2,allowedDimensions:['1x1','1x2','2x1','2x2','4x2'],isActive:true,isDefault:false,sortOrder:20,pinned:true,x:2,y:0,width:2,height:2,accessGroups:[] }
+                ],
+                preferences: { density:'comfortable',showDescriptions:true,tileGap:12,outerMargin:0 },
+                capabilities: { canCustomize:true,isAdmin:true,isOwner:true }
+              }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (url === '/api/dashboard/layout' && options.method === 'POST') {
+              return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            throw new Error(`Unexpected fetch: ${url}`);
+          };
+          window.Response = Response;
+          window.eval(script);
+          await new Promise(resolve => setTimeout(resolve, 30));
+          const document = window.document;
+          if (document.querySelectorAll('.dashboard-tile').length !== 2) throw new Error('Initial dashboard tiles did not render.');
+          document.querySelector('#customize-dashboard').click();
+          if (document.querySelector('#dashboard-editor-toolbar').hidden) throw new Error('Inline editor toolbar did not open.');
+          if (document.querySelector('#dashboard-editor-catalogue-panel').hidden) throw new Error('Inline catalogue did not open.');
+          if (document.querySelector('#dashboard-customizer')) throw new Error('Legacy modal customizer still exists.');
+          const size = document.querySelector('#dashboard-selected-dimension');
+          size.value = '1x1';
+          size.dispatchEvent(new window.Event('change', { bubbles: true }));
+          const selected = document.querySelector('.dashboard-tile.selected');
+          if (!selected || selected.dataset.width !== '1' || selected.dataset.height !== '1') throw new Error('Live tile resize did not update the real grid.');
+          if (!selected.querySelector('.dashboard-tile-content')) throw new Error('Adaptive tile content wrapper is missing.');
+          if (!selected.querySelector('.dashboard-tile-body')) throw new Error('Scrollable fallback content region is missing.');
+          console.log('Inline editor opened and resized the live dashboard tile successfully.');
+          NODE
+
       - name: Wrangler dry run
         run: npx wrangler deploy --dry-run --env pbe
