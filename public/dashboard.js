@@ -11,6 +11,10 @@ const dashboardState = {
 
 const dashboardElement = selector => document.querySelector(selector);
 
+function isSingleColumnFallback() {
+  return window.matchMedia?.('(max-width: 900px)').matches ?? false;
+}
+
 function dashboardMessage(text, type = '') {
   const target = dashboardElement('#dashboard-status');
   if (!target) return;
@@ -186,30 +190,30 @@ function createDashboardTile(feature, preferences, editing = false) {
   article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
 
   if (editing) {
-    article.tabIndex = 0;
-    article.setAttribute('aria-label', `${feature.name}, ${feature.width} by ${feature.height} tile`);
-    article.addEventListener('click', event => {
-      if (event.target.closest('.dashboard-tile-move')) return;
-      selectTile(feature.id);
-    });
-    article.addEventListener('keydown', event => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        selectTile(feature.id);
-      }
-    });
+    const strip = document.createElement('div');
+    strip.className = 'dashboard-tile-edit-strip';
+
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'dashboard-tile-select';
+    select.textContent = 'SELECT';
+    select.setAttribute('aria-label', `Select ${feature.name} tile for editing`);
+    select.setAttribute('aria-pressed', String(dashboardState.selectedId === feature.id));
+    select.addEventListener('click', () => selectTile(feature.id));
 
     const handle = document.createElement('button');
     handle.type = 'button';
     handle.className = 'dashboard-tile-move';
-    handle.textContent = 'MOVE';
-    handle.title = `Drag ${feature.name}`;
-    handle.draggable = true;
-    handle.addEventListener('click', event => {
-      event.stopPropagation();
-      selectTile(feature.id);
-    });
+    handle.textContent = isSingleColumnFallback() ? 'MOVE ON DESKTOP' : 'MOVE';
+    handle.title = isSingleColumnFallback() ? 'Open this editor on a wider screen to drag tiles' : `Drag ${feature.name}`;
+    handle.disabled = isSingleColumnFallback();
+    handle.draggable = !isSingleColumnFallback();
+    handle.addEventListener('click', () => selectTile(feature.id));
     handle.addEventListener('dragstart', event => {
+      if (isSingleColumnFallback()) {
+        event.preventDefault();
+        return;
+      }
       dashboardState.draggingId = feature.id;
       dashboardState.selectedId = feature.id;
       article.classList.add('dragging');
@@ -221,7 +225,8 @@ function createDashboardTile(feature, preferences, editing = false) {
       dashboardState.draggingId = null;
       article.classList.remove('dragging');
     });
-    article.append(handle);
+    strip.append(select, handle);
+    article.append(strip);
   }
 
   article.append(createTileContent(feature, preferences, editing));
@@ -246,12 +251,15 @@ function renderDashboardGrid() {
   if (!grid || !dashboardState.payload) return;
 
   const preferences = currentPreferences();
-  const tiles = dashboardState.editing
+  let tiles = dashboardState.editing
     ? dashboardState.workingTiles.map(tile => {
         const feature = featureById(tile.featureId);
         return feature ? { ...feature, ...tile, id: feature.id, dimension: dimensionKey(tile.width, tile.height) } : null;
       }).filter(Boolean)
     : dashboardState.payload.pinnedTiles;
+  if (dashboardState.editing && isSingleColumnFallback()) {
+    tiles = [...tiles].sort((a, b) => a.y - b.y || a.x - b.x);
+  }
 
   const rows = dashboardRows(tiles, dashboardState.editing ? 3 : 1);
   grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}${dashboardState.editing ? ' editing-grid' : ''}`;
@@ -298,6 +306,11 @@ function renderSelectedControls() {
     option.selected = dimensionKey(tile.width, tile.height) === value;
     size.append(option);
   });
+  document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
+    const horizontal = Number(button.dataset.moveX) !== 0;
+    button.disabled = isSingleColumnFallback() && horizontal;
+    button.title = button.disabled ? 'Horizontal placement requires a wider screen' : button.title;
+  });
 }
 
 function addWorkingTile(feature) {
@@ -324,6 +337,10 @@ function removeWorkingTile(featureId) {
 function moveWorkingTile(featureId, deltaX, deltaY) {
   const tile = workingTile(featureId);
   if (!tile) return;
+  if (isSingleColumnFallback() && deltaX !== 0) {
+    editorMessage('Horizontal tile placement is available on screens wider than 900px. Vertical order still follows the saved row coordinates.', 'error');
+    return;
+  }
   const candidate = { ...tile, x: tile.x + deltaX, y: tile.y + deltaY };
   if (!placementIsFree(candidate, featureId)) {
     editorMessage('That position is occupied or outside the six-column grid.', 'error');
@@ -488,7 +505,9 @@ function openEditor() {
   dashboardElement('#dashboard-grid-heading').hidden = false;
   dashboardElement('#customize-dashboard').hidden = true;
   dashboardElement('#dashboard-shell').classList.add('dashboard-editing');
-  editorMessage('Select a tile, drag its MOVE strip, or change its preset size. The dashboard updates immediately.');
+  editorMessage(isSingleColumnFallback()
+    ? 'Single-column preview: select tiles, resize them, and change vertical order. Use a wider screen for exact column placement and dragging.'
+    : 'Select a tile, drag its MOVE strip, or change its preset size. The dashboard updates immediately.');
   renderEditor();
   dashboardElement('#dashboard-editor-toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -540,12 +559,12 @@ async function loadDashboardSystem() {
 
 const dashboardGrid = dashboardElement('#dashboard-grid');
 dashboardGrid?.addEventListener('dragover', event => {
-  if (!dashboardState.editing) return;
+  if (!dashboardState.editing || isSingleColumnFallback()) return;
   event.preventDefault();
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
 });
 dashboardGrid?.addEventListener('drop', event => {
-  if (!dashboardState.editing) return;
+  if (!dashboardState.editing || isSingleColumnFallback()) return;
   event.preventDefault();
   const featureId = dashboardState.draggingId ?? event.dataTransfer?.getData('text/plain');
   const tile = workingTile(featureId);
@@ -596,6 +615,13 @@ dashboardElement('#dashboard-category-filter')?.addEventListener('change', event
 });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && dashboardState.editing) closeEditor(false);
+});
+window.addEventListener('resize', () => {
+  if (!dashboardState.editing) return;
+  renderEditor();
+  editorMessage(isSingleColumnFallback()
+    ? 'Single-column preview: the visual order follows saved row and column coordinates. Exact horizontal placement requires a wider screen.'
+    : 'Wide-grid editing restored. Drag tiles or move them one cell at a time.');
 });
 
 loadDashboardSystem();
