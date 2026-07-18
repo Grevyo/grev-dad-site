@@ -1,0 +1,38 @@
+name: Apply Direct Tile Manipulation
+
+on:
+  push:
+    branches:
+      - agent/direct-tile-drag-resize
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/direct-tile-drag-resize
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: |
+          node scripts/patch-tile-manipulation-core.mjs
+          node scripts/patch-tile-resize.mjs
+          node scripts/patch-tile-controls.mjs
+          node scripts/patch-tile-drag-preview.mjs
+          node scripts/patch-tile-manipulation-css.mjs
+      - run: node --check public/dashboard.js
+      - run: npm install --package-lock=false
+      - run: npm run typecheck
+      - name: Commit direct manipulation changes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/dashboard.js public/dashboard.css
+          git commit -m "Add direct tile drag, resize and placement preview"
+          git push origin HEAD:agent/direct-tile-drag-resize
