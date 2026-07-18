@@ -1,9 +1,13 @@
 name: Apply Direct Tile Manipulation
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/direct-tile-drag-resize
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
