@@ -53,11 +53,22 @@ jobs:
           ! grep -q 'modal-open' public/dashboard.js
           ! grep -q '^\.dashboard-customizer{' public/dashboard.css
 
+      - name: Wrangler dry run
+        run: npx wrangler deploy --dry-run --env pbe
+
+  browser-dom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --package-lock=false jsdom
       - name: Inline editor browser DOM smoke test
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save --package-lock=false jsdom
           node - <<'NODE'
           const fs = require('node:fs');
           const { JSDOM } = require('jsdom');
@@ -66,6 +77,7 @@ jobs:
           const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only' });
           const { window } = dom;
           window.HTMLElement.prototype.scrollIntoView = function () {};
+          window.Response = Response;
           window.fetch = async (url, options = {}) => {
             if (url === '/api/onboarding') {
               return new Response(JSON.stringify({ ok: true, progress: { relationshipComplete: true, intentionsComplete: true } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -91,24 +103,24 @@ jobs:
             }
             throw new Error(`Unexpected fetch: ${url}`);
           };
-          window.Response = Response;
           window.eval(script);
-          await new Promise(resolve => setTimeout(resolve, 30));
+          await new Promise(resolve => setTimeout(resolve, 100));
           const document = window.document;
+          console.log('initial tile count', document.querySelectorAll('.dashboard-tile').length);
           if (document.querySelectorAll('.dashboard-tile').length !== 2) throw new Error('Initial dashboard tiles did not render.');
           document.querySelector('#customize-dashboard').click();
+          console.log('toolbar hidden', document.querySelector('#dashboard-editor-toolbar').hidden);
           if (document.querySelector('#dashboard-editor-toolbar').hidden) throw new Error('Inline editor toolbar did not open.');
           if (document.querySelector('#dashboard-editor-catalogue-panel').hidden) throw new Error('Inline catalogue did not open.');
           if (document.querySelector('#dashboard-customizer')) throw new Error('Legacy modal customizer still exists.');
           const size = document.querySelector('#dashboard-selected-dimension');
+          console.log('selected size options', [...size.options].map(option => option.value));
           size.value = '1x1';
           size.dispatchEvent(new window.Event('change', { bubbles: true }));
           const selected = document.querySelector('.dashboard-tile.selected');
+          console.log('selected dimensions', selected?.dataset.width, selected?.dataset.height);
           if (!selected || selected.dataset.width !== '1' || selected.dataset.height !== '1') throw new Error('Live tile resize did not update the real grid.');
           if (!selected.querySelector('.dashboard-tile-content')) throw new Error('Adaptive tile content wrapper is missing.');
           if (!selected.querySelector('.dashboard-tile-body')) throw new Error('Scrollable fallback content region is missing.');
           console.log('Inline editor opened and resized the live dashboard tile successfully.');
           NODE
-
-      - name: Wrangler dry run
-        run: npx wrangler deploy --dry-run --env pbe
