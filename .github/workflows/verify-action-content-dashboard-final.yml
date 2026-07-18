@@ -1,0 +1,50 @@
+name: Verify Action Content Dashboard Final
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/action-and-content-dashboard-tiles'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Check browser and Worker code
+        run: |
+          node --check public/dashboard.js
+          node --check public/admin-dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+      - name: Apply full local migration chain
+        run: |
+          rm -rf .tmp-action-content-final
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe --persist-to .tmp-action-content-final
+      - name: Verify presentations, defaults and resize ranges
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --persist-to .tmp-action-content-final --command "SELECT id,tile_presentation,default_width,default_height,allowed_dimensions FROM dashboard_features WHERE id IN ('feature-profile','feature-grev-news','feature-settings') ORDER BY id" > /tmp/presentation.txt
+          cat /tmp/presentation.txt
+          grep -q 'feature-profile' /tmp/presentation.txt
+          grep -q 'feature-grev-news' /tmp/presentation.txt
+          grep -q 'feature-settings' /tmp/presentation.txt
+          test "$(grep -o 'content' /tmp/presentation.txt | wc -l)" -ge 2
+          grep -q 'action' /tmp/presentation.txt
+          grep -q '6x4' /tmp/presentation.txt
+          git diff --check
