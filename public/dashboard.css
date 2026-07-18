@@ -213,3 +213,55 @@
   .feature-foundation{grid-template-columns:1fr}
   .dashboard-admin-checks,.dashboard-dimension-checks{grid-template-columns:1fr}
 }
+
+/* Action tiles are true dashboard buttons; content tiles reserve space for useful live information. */
+.dashboard-tile[data-presentation="action"]{cursor:pointer}
+.dashboard-action-tile{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:1fr;align-items:center;gap:16px;width:100%;height:100%;padding:18px;color:var(--text);text-decoration:none;box-sizing:border-box}
+.dashboard-action-tile:focus-visible{outline:2px solid var(--tile-accent);outline-offset:-4px}
+.dashboard-action-icon,.dashboard-content-icon{display:grid;place-items:center;width:48px;height:48px;border:1px solid var(--tile-border-strong);background:var(--tile-accent);color:#080b0f;font-weight:950;letter-spacing:-.04em}
+.dashboard-action-title{min-width:0;font-size:clamp(1rem,2.4cqw,1.65rem);line-height:1.05;overflow-wrap:anywhere}
+.dashboard-action-arrow{font-size:1.5rem;font-weight:950;color:var(--tile-accent)}
+.dashboard-tile[data-presentation="action"]:hover .dashboard-action-arrow{transform:translateX(4px)}
+.dashboard-tile[data-presentation="action"]:hover .dashboard-action-title{color:#fff}
+.dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-tile{grid-template-columns:1fr;grid-template-rows:auto auto;place-content:center;justify-items:center;gap:9px;padding:10px;text-align:center}
+.dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-icon{width:38px;height:38px;font-size:.78rem}
+.dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-title{font-size:clamp(.82rem,8cqw,1.05rem)}
+.dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-arrow{display:none}
+.dashboard-tile[data-presentation="action"][data-height="1"] .dashboard-action-tile{padding-top:10px;padding-bottom:10px}
+.dashboard-content-tile{display:flex;min-width:0;min-height:0;height:100%;flex-direction:column;gap:14px;padding:18px;color:var(--text);text-decoration:none;box-sizing:border-box}
+.dashboard-content-tile:focus-visible{outline:2px solid var(--tile-accent);outline-offset:-4px}
+.dashboard-content-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.dashboard-content-label{color:var(--tile-accent);font-size:.67rem;font-weight:950;letter-spacing:.12em;text-transform:uppercase}
+.dashboard-content-title,.dashboard-news-headline{font-size:clamp(1.15rem,3cqw,2rem);line-height:1.08;overflow-wrap:anywhere}
+.dashboard-content-description{min-height:0;margin:0;color:var(--muted);line-height:1.5;overflow:auto}
+.dashboard-content-action{margin-top:auto;color:var(--tile-accent);font-size:.76rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.dashboard-profile-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;min-width:0;margin:auto 0}
+.dashboard-profile-avatar{display:grid;place-items:center;width:62px;height:62px;border:1px solid var(--tile-border-strong);background:var(--tile-accent);color:#080b0f;font-size:1.15rem;font-weight:950}
+.dashboard-profile-identity{display:grid;min-width:0;gap:5px}
+.dashboard-profile-identity strong{font-size:clamp(1.05rem,3cqw,1.8rem);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-profile-identity span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dashboard-profile-role{padding:6px 8px;border:1px solid var(--tile-border-strong);color:var(--tile-accent);font-size:.66rem;font-weight:900;text-transform:uppercase}
+.dashboard-tile.editing .dashboard-action-tile,.dashboard-tile.editing .dashboard-content-tile{pointer-events:none}
+.dashboard-tile.editing[data-presentation="action"]{cursor:default}
+@container dashboard-tile (max-width:220px){
+  .dashboard-profile-card{grid-template-columns:1fr;justify-items:start;gap:8px}
+  .dashboard-profile-avatar{width:42px;height:42px;font-size:.8rem}
+  .dashboard-profile-role{display:none}
+  .dashboard-content-tile{padding:12px;gap:9px}
+  .dashboard-content-icon{width:34px;height:34px;font-size:.72rem}
+  .dashboard-content-action{font-size:.62rem}
+}
+@container dashboard-tile (max-height:130px){
+  .dashboard-content-tile{padding:10px 14px;gap:7px}
+  .dashboard-content-label{font-size:.58rem}
+  .dashboard-content-icon{width:32px;height:32px;font-size:.7rem}
+  .dashboard-profile-avatar{width:40px;height:40px;font-size:.75rem}
+  .dashboard-profile-role{display:none}
+  .dashboard-news-headline{font-size:1rem}
+}
+@media(max-width:900px){
+  .dashboard-action-tile{min-height:168px}
+  .dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-tile{grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:1fr;justify-items:stretch;text-align:left;padding:18px}
+  .dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-arrow{display:inline}
+  .dashboard-content-tile{min-height:168px}
+}

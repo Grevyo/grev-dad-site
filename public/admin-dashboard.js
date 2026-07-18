@@ -36,7 +36,7 @@ function renderFeatureList() {
     const name = document.createElement('strong');
     name.textContent = feature.name;
     const details = document.createElement('small');
-    details.textContent = `${feature.category} · ${feature.defaultDimension} · ${feature.audience} · ${feature.isActive ? 'enabled' : 'disabled'}`;
+    details.textContent = `${feature.category} · ${feature.presentation === 'content' ? 'information' : 'button'} · ${feature.defaultDimension} · ${feature.audience} · ${feature.isActive ? 'enabled' : 'disabled'}`;
     identity.append(name, document.createElement('br'), details);
     const order = document.createElement('small');
     order.textContent = String(feature.sortOrder);
@@ -85,6 +85,7 @@ function clearFeatureForm() {
   adminDashboardElement('#dashboard-feature-category').value = 'General';
   adminDashboardElement('#dashboard-feature-icon').value = 'GD';
   adminDashboardElement('#dashboard-feature-type').value = 'workspace';
+  adminDashboardElement('#dashboard-feature-presentation').value = 'action';
   adminDashboardElement('#dashboard-feature-audience').value = 'groups';
   adminDashboardElement('#dashboard-feature-route').value = '';
   adminDashboardElement('#dashboard-feature-default-dimension').value = '2x1';
@@ -105,6 +106,7 @@ function fillFeatureForm(feature) {
   adminDashboardElement('#dashboard-feature-category').value = feature.category;
   adminDashboardElement('#dashboard-feature-icon').value = feature.iconText;
   adminDashboardElement('#dashboard-feature-type').value = feature.featureType;
+  adminDashboardElement('#dashboard-feature-presentation').value = feature.presentation ?? 'action';
   adminDashboardElement('#dashboard-feature-audience').value = feature.audience;
   adminDashboardElement('#dashboard-feature-route').value = feature.route;
   adminDashboardElement('#dashboard-feature-default-dimension').value = feature.defaultDimension;
@@ -126,6 +128,7 @@ function formPayload() {
     category: adminDashboardElement('#dashboard-feature-category').value,
     iconText: adminDashboardElement('#dashboard-feature-icon').value,
     featureType: adminDashboardElement('#dashboard-feature-type').value,
+    presentation: adminDashboardElement('#dashboard-feature-presentation').value,
     audience: adminDashboardElement('#dashboard-feature-audience').value,
     route: adminDashboardElement('#dashboard-feature-route').value,
     defaultDimension: adminDashboardElement('#dashboard-feature-default-dimension').value,
