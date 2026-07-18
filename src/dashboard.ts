@@ -24,6 +24,11 @@ type DashboardUser = {
   isAdmin: boolean;
 };
 
+type LegacyDashboardSize = 'small' | 'medium' | 'wide' | 'large';
+type DashboardDensity = 'comfortable' | 'compact';
+type Dimension = { width: number; height: number };
+type TilePlacement = Dimension & { featureId: string; x: number; y: number };
+
 type FeatureRow = {
   id: string;
   slug: string;
@@ -34,22 +39,34 @@ type FeatureRow = {
   route: string;
   icon_text: string;
   audience: 'all' | 'groups' | 'admin' | 'owner';
-  default_size: DashboardSize;
+  default_size: LegacyDashboardSize;
   allowed_sizes: string;
+  default_width: number;
+  default_height: number;
+  allowed_dimensions: string;
   is_active: number;
   is_default: number;
   sort_order: number;
   position: number | null;
-  tile_size: DashboardSize | null;
+  grid_x: number | null;
+  grid_y: number | null;
+  tile_width: number | null;
+  tile_height: number | null;
   matched_groups: string;
 };
 
-type DashboardSize = 'small' | 'medium' | 'wide' | 'large';
-type DashboardDensity = 'comfortable' | 'compact';
-
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
-const VALID_SIZES = new Set<DashboardSize>(['small', 'medium', 'wide', 'large']);
+const GRID_COLUMNS = 6;
+const MAX_GRID_Y = 199;
+const MAX_TILES = 60;
+const VALID_DENSITIES = new Set<DashboardDensity>(['comfortable', 'compact']);
+const VALID_GAPS = new Set([0, 4, 8, 12, 16, 20, 24, 32, 40, 48]);
+const VALID_MARGINS = new Set([0, 8, 12, 16, 24, 32, 40, 48, 56, 64]);
+const ALL_DIMENSIONS = Array.from({ length: 3 }, (_, heightIndex) =>
+  Array.from({ length: GRID_COLUMNS }, (_, widthIndex) => `${widthIndex + 1}x${heightIndex + 1}`)
+).flat();
+const VALID_DIMENSIONS = new Set(ALL_DIMENSIONS);
 
 function b64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -123,11 +140,55 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
   return value as Record<string, unknown>;
 }
 
+function dimensionKey(width: number, height: number): string {
+  return `${width}x${height}`;
+}
+
+function parseDimension(value: unknown): Dimension | null {
+  const match = String(value ?? '').trim().toLowerCase().match(/^(\d+)x(\d+)$/);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  return VALID_DIMENSIONS.has(dimensionKey(width, height)) ? { width, height } : null;
+}
+
+function dimensionsFromCsv(value: string): string[] {
+  const result = [...new Set(value.split(',').map(item => item.trim()).filter(item => VALID_DIMENSIONS.has(item)))];
+  return result.length ? result : ['2x1'];
+}
+
+function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
+  if (width === 1 && height === 1) return 'small';
+  if (height === 1 && width <= 2) return 'medium';
+  if (width >= 4) return 'wide';
+  return 'large';
+}
+
+function overlaps(a: TilePlacement, b: TilePlacement): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function validPlacement(tile: TilePlacement): boolean {
+  return Number.isInteger(tile.x) && Number.isInteger(tile.y) && Number.isInteger(tile.width) && Number.isInteger(tile.height)
+    && tile.x >= 0 && tile.y >= 0 && tile.y <= MAX_GRID_Y
+    && tile.width >= 1 && tile.width <= GRID_COLUMNS && tile.height >= 1 && tile.height <= 3
+    && tile.x + tile.width <= GRID_COLUMNS && tile.y + tile.height <= MAX_GRID_Y + 1;
+}
+
+function firstFreePlacement(existing: TilePlacement[], width: number, height: number): Omit<TilePlacement, 'featureId'> {
+  for (let y = 0; y <= MAX_GRID_Y - height + 1; y += 1) {
+    for (let x = 0; x <= GRID_COLUMNS - width; x += 1) {
+      const candidate: TilePlacement = { featureId: '', x, y, width, height };
+      if (!existing.some(tile => overlaps(candidate, tile))) return { x, y, width, height };
+    }
+  }
+  return { x: 0, y: MAX_GRID_Y - height + 1, width, height };
+}
+
 function featureFromRow(row: FeatureRow) {
-  const allowedSizes = row.allowed_sizes
-    .split(',')
-    .map(value => value.trim())
-    .filter((value): value is DashboardSize => VALID_SIZES.has(value as DashboardSize));
+  const allowedDimensions = dimensionsFromCsv(row.allowed_dimensions);
+  const width = row.tile_width ?? row.default_width;
+  const height = row.tile_height ?? row.default_height;
   return {
     id: row.id,
     slug: row.slug,
@@ -138,14 +199,20 @@ function featureFromRow(row: FeatureRow) {
     route: row.route,
     iconText: row.icon_text,
     audience: row.audience,
-    defaultSize: row.default_size,
-    allowedSizes,
+    defaultDimension: dimensionKey(row.default_width, row.default_height),
+    defaultWidth: row.default_width,
+    defaultHeight: row.default_height,
+    allowedDimensions,
     isActive: Boolean(row.is_active),
     isDefault: Boolean(row.is_default),
     sortOrder: row.sort_order,
-    pinned: row.position !== null,
+    pinned: row.grid_x !== null,
     position: row.position,
-    size: row.tile_size ?? row.default_size,
+    x: row.grid_x,
+    y: row.grid_y,
+    width,
+    height,
+    dimension: dimensionKey(width, height),
     accessGroups: row.matched_groups ? row.matched_groups.split(', ') : []
   };
 }
@@ -154,7 +221,10 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
   const rows = await env.DB.prepare(`
     SELECT f.*,
       t.position,
-      t.size AS tile_size,
+      t.grid_x,
+      t.grid_y,
+      t.tile_width,
+      t.tile_height,
       COALESCE((
         SELECT GROUP_CONCAT(g.name, ', ')
         FROM dashboard_feature_group_grants fg
@@ -176,7 +246,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
         WHERE fg2.feature_id=f.id AND gm2.user_id=?
       ))
     )
-    ORDER BY CASE WHEN t.position IS NULL THEN 1 ELSE 0 END,t.position,f.sort_order,f.name
+    ORDER BY CASE WHEN t.grid_x IS NULL THEN 1 ELSE 0 END,t.grid_y,t.grid_x,f.sort_order,f.name
   `).bind(
     user.id,
     user.id,
@@ -190,7 +260,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
 
 async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
   const rows = await env.DB.prepare(`
-    SELECT f.*,NULL AS position,NULL AS tile_size,'' AS matched_groups
+    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,'' AS matched_groups
     FROM dashboard_features f
     WHERE f.is_active=1 AND f.is_default=1 AND (
       f.audience='all'
@@ -204,21 +274,36 @@ async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<
       ))
     )
     ORDER BY f.sort_order,f.name
-    LIMIT 12
+    LIMIT 20
   `).bind(user.isAdmin ? 1 : 0, user.isOwner ? 1 : 0, user.id).all<FeatureRow>();
   return rows.results;
+}
+
+function defaultPlacements(features: FeatureRow[]): TilePlacement[] {
+  const placements: TilePlacement[] = [];
+  for (const feature of features) {
+    const width = Math.max(1, Math.min(GRID_COLUMNS, feature.default_width));
+    const height = Math.max(1, Math.min(3, feature.default_height));
+    const location = firstFreePlacement(placements, width, height);
+    placements.push({ featureId: feature.id, ...location });
+  }
+  return placements;
 }
 
 async function ensureDashboardInitialized(env: DashboardEnv, user: DashboardUser): Promise<void> {
   const existing = await env.DB.prepare(`SELECT user_id FROM user_dashboard_preferences WHERE user_id=?`).bind(user.id).first<{ user_id: string }>();
   if (existing) return;
   const defaults = await defaultFeatures(env, user);
+  const placements = defaultPlacements(defaults);
   const now = Math.floor(Date.now() / 1000);
   const statements: D1Statement[] = [
-    env.DB.prepare(`INSERT OR IGNORE INTO user_dashboard_preferences(user_id,density,show_descriptions,initialized_at,updated_at) VALUES(?,'comfortable',1,?,?)`).bind(user.id, now, now)
+    env.DB.prepare(`INSERT OR IGNORE INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at) VALUES(?,'comfortable',1,12,0,?,?)`).bind(user.id, now, now)
   ];
-  defaults.forEach((feature, position) => {
-    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO user_dashboard_tiles(user_id,feature_id,position,size,pinned_at,updated_at) VALUES(?,?,?,?,?,?)`).bind(user.id, feature.id, position, feature.default_size, now, now));
+  placements.forEach((tile, position) => {
+    statements.push(env.DB.prepare(`
+      INSERT OR IGNORE INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, now, now));
   });
   await env.DB.batch(statements);
 }
@@ -227,9 +312,11 @@ async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
   await ensureDashboardInitialized(env, user);
   const [rows, preferences] = await Promise.all([
     accessibleFeatures(env, user),
-    env.DB.prepare(`SELECT density,show_descriptions,initialized_at,updated_at FROM user_dashboard_preferences WHERE user_id=?`).bind(user.id).first<{
+    env.DB.prepare(`SELECT density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at FROM user_dashboard_preferences WHERE user_id=?`).bind(user.id).first<{
       density: DashboardDensity;
       show_descriptions: number;
+      tile_gap: number;
+      outer_margin: number;
       initialized_at: number;
       updated_at: number;
     }>()
@@ -237,11 +324,14 @@ async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
   const features = rows.map(featureFromRow);
   return {
     ok: true,
+    grid: { columns: GRID_COLUMNS, maxY: MAX_GRID_Y, dimensions: ALL_DIMENSIONS },
     features,
-    pinnedTiles: features.filter(feature => feature.pinned).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    pinnedTiles: features.filter(feature => feature.pinned).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0)),
     preferences: {
       density: preferences?.density ?? 'comfortable',
       showDescriptions: Boolean(preferences?.show_descriptions ?? 1),
+      tileGap: preferences?.tile_gap ?? 12,
+      outerMargin: preferences?.outer_margin ?? 0,
       initializedAt: preferences?.initialized_at ?? null,
       updatedAt: preferences?.updated_at ?? null
     },
@@ -252,43 +342,58 @@ async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
 async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUser): Promise<Response> {
   const data = await readJson(request);
   const rawTiles = data.tiles;
-  if (!Array.isArray(rawTiles) || rawTiles.length > 40) return secureJson({ ok: false, message: 'Choose up to 40 dashboard tiles.' }, { status: 400 });
+  if (!Array.isArray(rawTiles) || rawTiles.length > MAX_TILES) return secureJson({ ok: false, message: `Choose up to ${MAX_TILES} dashboard tiles.` }, { status: 400 });
 
   const availableRows = await accessibleFeatures(env, user);
   const available = new Map(availableRows.map(row => [row.id, row]));
   const seen = new Set<string>();
-  const tiles: Array<{ featureId: string; size: DashboardSize }> = [];
+  const tiles: TilePlacement[] = [];
 
   for (const rawTile of rawTiles) {
     if (!rawTile || typeof rawTile !== 'object' || Array.isArray(rawTile)) return secureJson({ ok: false, message: 'The dashboard layout is invalid.' }, { status: 400 });
     const item = rawTile as Record<string, unknown>;
     const featureId = String(item.featureId ?? '').trim();
-    const size = String(item.size ?? '') as DashboardSize;
     const feature = available.get(featureId);
-    if (!feature || seen.has(featureId) || !VALID_SIZES.has(size)) return secureJson({ ok: false, message: 'The dashboard contains an unavailable or duplicate feature.' }, { status: 400 });
-    const allowed = new Set(feature.allowed_sizes.split(',').map(value => value.trim()));
-    if (!allowed.has(size)) return secureJson({ ok: false, message: `${feature.name} does not support that tile size.` }, { status: 400 });
+    const tile: TilePlacement = {
+      featureId,
+      x: Number(item.x),
+      y: Number(item.y),
+      width: Number(item.width),
+      height: Number(item.height)
+    };
+    if (!feature || seen.has(featureId) || !validPlacement(tile)) return secureJson({ ok: false, message: 'The dashboard contains an unavailable, duplicate, or out-of-bounds tile.' }, { status: 400 });
+    const allowed = new Set(dimensionsFromCsv(feature.allowed_dimensions));
+    if (!allowed.has(dimensionKey(tile.width, tile.height))) return secureJson({ ok: false, message: `${feature.name} does not support ${tile.width}×${tile.height}.` }, { status: 400 });
+    if (tiles.some(existing => overlaps(existing, tile))) return secureJson({ ok: false, message: `${feature.name} overlaps another tile. Move it into empty grid space.` }, { status: 400 });
     seen.add(featureId);
-    tiles.push({ featureId, size });
+    tiles.push(tile);
   }
 
   const rawPreferences = data.preferences;
   const preferences = rawPreferences && typeof rawPreferences === 'object' && !Array.isArray(rawPreferences) ? rawPreferences as Record<string, unknown> : {};
-  const densityValue = String(preferences.density ?? 'comfortable');
-  const density: DashboardDensity = densityValue === 'compact' ? 'compact' : 'comfortable';
+  const densityValue = String(preferences.density ?? 'comfortable') as DashboardDensity;
+  const density = VALID_DENSITIES.has(densityValue) ? densityValue : 'comfortable';
   const showDescriptions = preferences.showDescriptions !== false;
+  const gapValue = Number(preferences.tileGap ?? 12);
+  const marginValue = Number(preferences.outerMargin ?? 0);
+  const tileGap = VALID_GAPS.has(gapValue) ? gapValue : 12;
+  const outerMargin = VALID_MARGINS.has(marginValue) ? marginValue : 0;
   const now = Math.floor(Date.now() / 1000);
   const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id)];
   tiles.forEach((tile, position) => {
-    statements.push(env.DB.prepare(`INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,pinned_at,updated_at) VALUES(?,?,?,?,?,?)`).bind(user.id, tile.featureId, position, tile.size, now, now));
+    statements.push(env.DB.prepare(`
+      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, now, now));
   });
   statements.push(env.DB.prepare(`
-    INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,initialized_at,updated_at)
-    VALUES(?,?,?,?,?)
-    ON CONFLICT(user_id) DO UPDATE SET density=excluded.density,show_descriptions=excluded.show_descriptions,updated_at=excluded.updated_at
-  `).bind(user.id, density, showDescriptions ? 1 : 0, now, now));
+    INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at)
+    VALUES(?,?,?,?,?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET density=excluded.density,show_descriptions=excluded.show_descriptions,tile_gap=excluded.tile_gap,outer_margin=excluded.outer_margin,updated_at=excluded.updated_at
+  `).bind(user.id, density, showDescriptions ? 1 : 0, tileGap, outerMargin, now, now));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
-    crypto.randomUUID(), user.id, 'dashboard.layout_updated', 'user', user.id, JSON.stringify({ featureIds: tiles.map(tile => tile.featureId), density, showDescriptions }), now
+    crypto.randomUUID(), user.id, 'dashboard.grid_updated', 'user', user.id,
+    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height })), density, showDescriptions, tileGap, outerMargin }), now
   ));
   await env.DB.batch(statements);
   return secureJson(await dashboardPayload(env, user));
@@ -312,7 +417,7 @@ async function featureForUser(env: DashboardEnv, user: DashboardUser, slug: stri
 
 async function adminCatalogue(env: DashboardEnv) {
   const [features, grants, groups] = await Promise.all([
-    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS tile_size,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
+    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
     env.DB.prepare(`SELECT feature_id,group_id FROM dashboard_feature_group_grants ORDER BY feature_id,group_id`).all<{ feature_id: string; group_id: string }>(),
     env.DB.prepare(`SELECT id,name,description FROM groups ORDER BY name`).all<{ id: string; name: string; description: string }>()
   ]);
@@ -324,6 +429,7 @@ async function adminCatalogue(env: DashboardEnv) {
   }
   return {
     ok: true,
+    grid: { columns: GRID_COLUMNS, dimensions: ALL_DIMENSIONS },
     features: features.results.map(row => ({ ...featureFromRow(row), groupIds: grantsByFeature.get(row.id) ?? [] })),
     groups: groups.results.map(group => ({ id: group.id, name: group.name, description: group.description }))
   };
@@ -338,18 +444,18 @@ function normalizedFeatureInput(data: Record<string, unknown>) {
   const featureType = (['workspace', 'link', 'system'].includes(featureTypeValue) ? featureTypeValue : 'workspace') as 'workspace' | 'link' | 'system';
   const audienceValue = String(data.audience ?? 'groups');
   const audience = (['all', 'groups', 'admin', 'owner'].includes(audienceValue) ? audienceValue : 'groups') as 'all' | 'groups' | 'admin' | 'owner';
-  const defaultSizeValue = String(data.defaultSize ?? 'medium') as DashboardSize;
-  const defaultSize = VALID_SIZES.has(defaultSizeValue) ? defaultSizeValue : 'medium';
-  const rawAllowed = Array.isArray(data.allowedSizes) ? data.allowedSizes : [defaultSize];
-  const allowedSizes = [...new Set(rawAllowed.map(value => String(value)).filter((value): value is DashboardSize => VALID_SIZES.has(value as DashboardSize)))];
-  if (!allowedSizes.includes(defaultSize)) allowedSizes.push(defaultSize);
+  const defaultDimension = parseDimension(data.defaultDimension) ?? { width: 2, height: 1 };
+  const rawAllowed = Array.isArray(data.allowedDimensions) ? data.allowedDimensions : [dimensionKey(defaultDimension.width, defaultDimension.height)];
+  const allowedDimensions = [...new Set(rawAllowed.map(value => String(value).trim()).filter(value => VALID_DIMENSIONS.has(value)))];
+  const defaultKey = dimensionKey(defaultDimension.width, defaultDimension.height);
+  if (!allowedDimensions.includes(defaultKey)) allowedDimensions.push(defaultKey);
   const routeValue = String(data.route ?? '').trim();
   const route = routeValue || (featureType === 'workspace' && slug ? `/feature/${slug}` : '');
   const iconText = String(data.iconText ?? 'GD').trim().slice(0, 3).toUpperCase() || 'GD';
   const groupIds = Array.isArray(data.groupIds) ? [...new Set(data.groupIds.map(value => String(value).trim()).filter(Boolean))] : [];
   const sortOrderNumber = Number(data.sortOrder ?? 0);
   return {
-    slug, name, description, category, featureType, audience, defaultSize, allowedSizes,
+    slug, name, description, category, featureType, audience, defaultDimension, allowedDimensions,
     route, iconText, groupIds,
     isActive: data.isActive !== false,
     isDefault: data.isDefault === true,
@@ -374,23 +480,27 @@ async function saveAdminFeature(request: Request, env: DashboardEnv, actor: Dash
 
   const now = Math.floor(Date.now() / 1000);
   const id = featureId ?? `feature-${crypto.randomUUID()}`;
+  const legacySize = legacySizeForDimension(input.defaultDimension.width, input.defaultDimension.height);
   const statements: D1Statement[] = [];
   if (featureId) {
     const existing = await env.DB.prepare(`SELECT id FROM dashboard_features WHERE id=?`).bind(featureId).first<{ id: string }>();
     if (!existing) return secureJson({ ok: false, message: 'Dashboard feature not found.' }, { status: 404 });
     statements.push(env.DB.prepare(`
-      UPDATE dashboard_features SET slug=?,name=?,description=?,category=?,feature_type=?,route=?,icon_text=?,audience=?,default_size=?,allowed_sizes=?,is_active=?,is_default=?,sort_order=?,updated_at=? WHERE id=?
-    `).bind(input.slug, input.name, input.description, input.category, input.featureType, input.route, input.iconText, input.audience, input.defaultSize, input.allowedSizes.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, id));
+      UPDATE dashboard_features
+      SET slug=?,name=?,description=?,category=?,feature_type=?,route=?,icon_text=?,audience=?,default_size=?,allowed_sizes=?,default_width=?,default_height=?,allowed_dimensions=?,is_active=?,is_default=?,sort_order=?,updated_at=?
+      WHERE id=?
+    `).bind(input.slug, input.name, input.description, input.category, input.featureType, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, id));
   } else {
     statements.push(env.DB.prepare(`
-      INSERT INTO dashboard_features(id,slug,name,description,category,feature_type,route,icon_text,audience,default_size,allowed_sizes,is_active,is_default,sort_order,created_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(id, input.slug, input.name, input.description, input.category, input.featureType, input.route, input.iconText, input.audience, input.defaultSize, input.allowedSizes.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, now));
+      INSERT INTO dashboard_features(id,slug,name,description,category,feature_type,route,icon_text,audience,default_size,allowed_sizes,default_width,default_height,allowed_dimensions,is_active,is_default,sort_order,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(id, input.slug, input.name, input.description, input.category, input.featureType, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, now));
   }
   statements.push(env.DB.prepare(`DELETE FROM dashboard_feature_group_grants WHERE feature_id=?`).bind(id));
   input.groupIds.forEach(groupId => statements.push(env.DB.prepare(`INSERT INTO dashboard_feature_group_grants(feature_id,group_id) VALUES(?,?)`).bind(id, groupId)));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
-    crypto.randomUUID(), actor.id, featureId ? 'dashboard.feature_updated' : 'dashboard.feature_created', 'dashboard_feature', id, JSON.stringify({ slug: input.slug, audience: input.audience, groupIds: input.groupIds }), now
+    crypto.randomUUID(), actor.id, featureId ? 'dashboard.feature_updated' : 'dashboard.feature_created', 'dashboard_feature', id,
+    JSON.stringify({ slug: input.slug, audience: input.audience, groupIds: input.groupIds, defaultDimension: dimensionKey(input.defaultDimension.width, input.defaultDimension.height), allowedDimensions: input.allowedDimensions }), now
   ));
   try {
     await env.DB.batch(statements);
