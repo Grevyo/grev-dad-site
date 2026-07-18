@@ -1,0 +1,57 @@
+name: Inline Dashboard PR Check
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+
+      - name: Strict TypeScript check
+        run: npm run typecheck
+
+      - name: Browser JavaScript syntax
+        run: |
+          node --check public/dashboard.js
+          node --check public/admin-dashboard.js
+
+      - name: Verify inline editor structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'id="dashboard-editor-toolbar"' public/dashboard.html
+          grep -q 'id="dashboard-workspace"' public/dashboard.html
+          grep -q 'id="dashboard-editor-catalogue-panel"' public/dashboard.html
+          grep -q 'Edit directly on your dashboard' public/dashboard.html
+          ! grep -q 'id="dashboard-customizer"' public/dashboard.html
+          ! grep -q 'role="dialog" aria-modal="true" aria-labelledby="dashboard-customizer-title"' public/dashboard.html
+
+      - name: Verify realtime adaptive tile code
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'function openEditor' public/dashboard.js
+          grep -q 'function renderDashboardGrid' public/dashboard.js
+          grep -q 'dashboardState.editing' public/dashboard.js
+          grep -q 'createTileContent' public/dashboard.js
+          grep -q 'container-type:size' public/dashboard.css
+          grep -q 'container-name:dashboard-tile' public/dashboard.css
+          grep -q 'dashboard-tile-body{.*overflow:auto' public/dashboard.css
+          grep -q '@container dashboard-tile' public/dashboard.css
+          ! grep -q 'modal-open' public/dashboard.js
+          ! grep -q '^\.dashboard-customizer{' public/dashboard.css
+
+      - name: Wrangler dry run
+        run: npx wrangler deploy --dry-run --env pbe
