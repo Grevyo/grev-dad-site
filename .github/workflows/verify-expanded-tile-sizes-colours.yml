@@ -1,0 +1,93 @@
+name: Verify Expanded Tile Sizes And Colours
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/expanded-tile-sizes-colours
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Apply complete local migration chain
+        run: npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+      - name: Check schema and seeded dimensions
+        run: |
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --command "SELECT tile_colour FROM user_dashboard_tiles LIMIT 1;"
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --command "SELECT id,allowed_dimensions FROM dashboard_features WHERE id='feature-profile';" > /tmp/dimensions.txt
+          grep -q '6x4' /tmp/dimensions.txt
+      - name: Create local authenticated Owner session
+        shell: bash
+        run: |
+          set -euo pipefail
+          token='tile-colour-test-token'
+          token_hash=$(node -e "const {createHash}=require('node:crypto');process.stdout.write(createHash('sha256').update(process.argv[1]).digest('base64url'))" "$token")
+          cat > /tmp/test-user.sql <<SQL
+          PRAGMA foreign_keys = ON;
+          INSERT INTO users(id,username,email,display_name,status,is_verified,is_owner,verified_at,verified_by,created_at,updated_at)
+          VALUES('tile-test-user','TILETEST',NULL,'Tile Test Owner','active',1,1,unixepoch(),NULL,unixepoch(),unixepoch());
+          INSERT OR IGNORE INTO user_roles(user_id,role_id,assigned_by,assigned_at)
+          VALUES('tile-test-user','role-member','tile-test-user',unixepoch());
+          INSERT OR IGNORE INTO user_roles(user_id,role_id,assigned_by,assigned_at)
+          VALUES('tile-test-user','role-admin','tile-test-user',unixepoch());
+          INSERT INTO sessions(id,user_id,token_hash,created_at,last_seen_at,expires_at,revoked_at,remember_me,user_agent)
+          VALUES('tile-test-session','tile-test-user','$token_hash',unixepoch(),unixepoch(),unixepoch()+3600,NULL,0,'dashboard-integration-test');
+          SQL
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --file /tmp/test-user.sql
+      - name: Start local Worker
+        shell: bash
+        run: |
+          npx wrangler dev --local --env pbe --port 8787 > /tmp/wrangler.log 2>&1 &
+          echo $! > /tmp/wrangler.pid
+          for attempt in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:8787/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/wrangler.log
+          exit 1
+      - name: Save and reload a coloured 6x4 tile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cookie='grev_session=tile-colour-test-token'
+          status=$(curl --silent --show-error --output /tmp/save.json --write-out '%{http_code}' \
+            --cookie "$cookie" --request POST --header 'Content-Type: application/json' \
+            --data '{"tiles":[{"featureId":"feature-profile","x":0,"y":0,"width":6,"height":4,"colour":"purple"}],"preferences":{"density":"comfortable","showDescriptions":true,"tileGap":12,"outerMargin":0}}' \
+            http://127.0.0.1:8787/api/dashboard/layout)
+          test "$status" = "200"
+          curl --silent --show-error --fail --cookie "$cookie" http://127.0.0.1:8787/api/dashboard > /tmp/reload.json
+          node - <<'NODE'
+          const payload = require('/tmp/reload.json');
+          const tile = payload.pinnedTiles.find(item => item.id === 'feature-profile');
+          if (!tile || tile.width !== 6 || tile.height !== 4 || tile.tileColour !== 'purple') throw new Error('Large coloured tile did not persist.');
+          if (payload.grid.dimensions.length !== 24 || !payload.grid.dimensions.includes('6x4')) throw new Error('Complete 24-size grid is unavailable.');
+          console.log(JSON.stringify({dimensions: payload.grid.dimensions.length, tile:{width:tile.width,height:tile.height,colour:tile.tileColour}}, null, 2));
+          NODE
+      - name: Reject invalid tile colours
+        shell: bash
+        run: |
+          status=$(curl --silent --show-error --output /tmp/invalid.json --write-out '%{http_code}' \
+            --cookie 'grev_session=tile-colour-test-token' --request POST --header 'Content-Type: application/json' \
+            --data '{"tiles":[{"featureId":"feature-profile","x":0,"y":0,"width":2,"height":2,"colour":"chartreuse"}],"preferences":{}}' \
+            http://127.0.0.1:8787/api/dashboard/layout)
+          test "$status" = "400"
+          grep -q 'valid tile colour' /tmp/invalid.json
+      - name: Browser assets expose colour and 6x4 controls
+        run: |
+          node --check public/dashboard.js
+          grep -q 'dashboard-selected-colour' public/dashboard.html
+          grep -q 'data-colour="purple"' public/dashboard.css
+          grep -q 'value="6x4"' public/admin-dashboard.html
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
