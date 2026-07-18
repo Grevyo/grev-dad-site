@@ -9,44 +9,48 @@
 </head>
 <body>
 <header><strong>Grev.dad</strong><div><a id="owner-setup-link" class="header-link" href="/owner-setup" hidden>Owner setup</a><a id="admin-link" class="header-link" href="/admin" hidden>Admin centre</a><a class="header-link" href="/settings">Profile settings</a><a class="header-link" href="/profile">My profile</a><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
-<main class="dashboard-shell">
+<main id="dashboard-shell" class="dashboard-shell">
 <section class="dashboard-hero">
-<div><p class="eyebrow">Personal dashboard</p><h1>Welcome, <span id="name">member</span>.</h1><p>Build a true tile dashboard. Place features anywhere on the six-column grid, resize them to preset dimensions, and leave deliberate blank space wherever it suits your layout.</p></div>
+<div><p class="eyebrow">Personal dashboard</p><h1>Welcome, <span id="name">member</span>.</h1><p>Place features anywhere on the six-column grid, resize them to preset dimensions, and leave deliberate blank space wherever it suits your layout.</p></div>
 <div class="dashboard-toolbar"><button id="customize-dashboard" class="primary" type="button">Customize dashboard</button><a href="/settings">Manage account groups</a></div>
 </section>
 <p id="dashboard-status" class="dashboard-status" role="status">Loading your dashboard…</p>
-<section id="dashboard-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
-<section id="dashboard-empty" class="dashboard-empty" hidden><h2>Your dashboard is empty</h2><p>Open Customize dashboard and place any features currently available to your account.</p></section>
-<section hidden aria-hidden="true"><span id="username">—</span><input id="username-input"><span id="verification">—</span><a id="profile-link" href="/profile">Profile</a><article id="owner-setup-card"></article></section>
-</main>
 
-<div id="dashboard-customizer" class="dashboard-customizer" hidden>
-<section class="dashboard-customizer-panel" role="dialog" aria-modal="true" aria-labelledby="dashboard-customizer-title">
-<header class="dashboard-customizer-head">
-<div><p class="eyebrow">Dashboard editor</p><h2 id="dashboard-customizer-title">Build your tile grid</h2><p>Drag tiles onto empty cells. Positions, dimensions, gaps, margins and intentional blank space are saved to your account.</p></div>
-<div><button id="dashboard-pack-layout" type="button">Pack tiles</button><button id="dashboard-reset-layout" type="button">Restore defaults</button><button id="dashboard-customizer-close" type="button">Close</button></div>
-</header>
-<div class="dashboard-customizer-body dashboard-grid-editor-body">
-<section class="dashboard-layout-column">
-<div class="dashboard-editor-heading"><div><h3>Grid layout</h3><p class="dashboard-customizer-intro">Six columns. Drag using the MOVE handle, use arrow buttons for one-cell adjustments, or resize with a preset such as 1×1, 1×2, 2×2 or 4×2.</p></div><strong id="dashboard-grid-summary">6 columns</strong></div>
-<div class="dashboard-preferences dashboard-grid-preferences">
+<section id="dashboard-editor-toolbar" class="dashboard-editor-toolbar" hidden aria-label="Dashboard editing controls">
+<div class="dashboard-editor-topline">
+<div><p class="eyebrow">Live dashboard editor</p><h2>Edit directly on your dashboard</h2><p>Every move and resize is previewed below. Nothing is stored until you press Save dashboard.</p></div>
+<div class="dashboard-editor-actions"><button id="dashboard-pack-layout" type="button">Pack tiles</button><button id="dashboard-reset-layout" type="button">Load defaults</button><button id="dashboard-cancel-layout" type="button">Cancel</button><button id="dashboard-save-layout" class="primary" type="button">Save dashboard</button></div>
+</div>
+<div class="dashboard-editor-settings">
 <div class="dashboard-preference"><label>Tile density<select id="dashboard-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label></div>
 <div class="dashboard-preference"><label>Tile gap<select id="dashboard-tile-gap"><option value="0">0 px</option><option value="4">4 px</option><option value="8">8 px</option><option value="12" selected>12 px</option><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option></select></label></div>
 <div class="dashboard-preference"><label>Outer margin<select id="dashboard-outer-margin"><option value="0" selected>0 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option></select></label></div>
-<div class="dashboard-preference"><label class="check"><input id="dashboard-show-descriptions" type="checkbox" checked> Show descriptions</label></div>
+<div class="dashboard-preference"><label class="check"><input id="dashboard-show-descriptions" type="checkbox" checked> Show descriptions where space allows</label></div>
 </div>
-<div class="dashboard-layout-scroll"><div id="dashboard-layout-canvas" class="dashboard-layout-canvas" role="application" aria-label="Dashboard tile position editor"></div></div>
-<p id="dashboard-layout-help" class="dashboard-layout-help">Empty grid cells remain empty after saving. Tiles never auto-collapse unless you press Pack tiles.</p>
+<div id="dashboard-selected-controls" class="dashboard-selected-controls" hidden>
+<div class="dashboard-selected-identity"><small>Selected tile</small><strong id="dashboard-selected-name">—</strong></div>
+<label>Size<select id="dashboard-selected-dimension"></select></label>
+<div class="dashboard-selected-arrows" aria-label="Move selected tile"><button type="button" data-move-x="-1" data-move-y="0" title="Move left">←</button><button type="button" data-move-x="0" data-move-y="-1" title="Move up">↑</button><button type="button" data-move-x="0" data-move-y="1" title="Move down">↓</button><button type="button" data-move-x="1" data-move-y="0" title="Move right">→</button></div>
+<button id="dashboard-remove-selected" class="danger-action" type="button">Remove tile</button>
+</div>
+<p id="dashboard-editor-message" class="dashboard-editor-message" role="status">Select a tile to resize it or move it one cell at a time.</p>
 </section>
-<section class="dashboard-catalogue-column">
-<h3>Available features</h3><p class="dashboard-customizer-intro">Availability comes from normal member, relationship, interest, private, administrator and Owner access.</p>
+
+<section id="dashboard-workspace" class="dashboard-workspace">
+<div class="dashboard-grid-region">
+<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>Drag the MOVE strip onto empty cells. Blank cells remain blank after saving.</span></div><strong id="dashboard-grid-summary">6 columns</strong></div>
+<section id="dashboard-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
+<section id="dashboard-empty" class="dashboard-empty" hidden><h2>Your dashboard is empty</h2><p>Open Customize dashboard and place any features currently available to your account.</p></section>
+</div>
+<aside id="dashboard-editor-catalogue-panel" class="dashboard-editor-catalogue-panel" hidden>
+<div class="dashboard-catalogue-heading"><p class="eyebrow">Available features</p><h2>Add dashboard tiles</h2><p>Only features allowed by your current groups appear here.</p></div>
 <div class="dashboard-catalogue-tools"><input id="dashboard-feature-search" type="search" placeholder="Search features"><select id="dashboard-category-filter"><option value="all">All categories</option></select></div>
 <div id="dashboard-catalogue" class="dashboard-catalogue"></div>
+</aside>
 </section>
-</div>
-<footer class="dashboard-customizer-foot"><p id="dashboard-customizer-message" class="dashboard-customizer-message" role="status"></p><button id="dashboard-save-layout" class="primary" type="button">Save dashboard</button></footer>
-</section>
-</div>
+
+<section hidden aria-hidden="true"><span id="username">—</span><input id="username-input"><span id="verification">—</span><a id="profile-link" href="/profile">Profile</a><article id="owner-setup-card"></article></section>
+</main>
 
 <div id="onboarding-overlay" class="onboarding-overlay" hidden>
 <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
