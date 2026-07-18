@@ -271,3 +271,8 @@
 .dashboard-tile-settings-heading button{min-height:38px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:0;background:#171c23;color:var(--text);font-weight:900;cursor:pointer}
 .dashboard-tile-settings-dialog .dashboard-selected-controls{margin:0;padding:20px;border:0;background:transparent}
 @media(max-width:760px){.dashboard-shell{width:calc(100% - 16px)}.dashboard-tile-settings-dialog .dashboard-selected-controls{padding:15px}}
+
+@media(max-height:686px) and (min-width:901px){
+  .dashboard-workspace:has(.dashboard-editor-catalogue-panel:not([hidden])){grid-template-columns:1fr}
+  .dashboard-editor-catalogue-panel{position:static;max-height:none}
+}

@@ -416,14 +416,21 @@ function createDashboardTile(feature, preferences, editing = false) {
     const strip = document.createElement('div');
     strip.className = 'dashboard-tile-edit-strip';
 
+    let blockTileDrag = false;
     const settings = document.createElement('button');
     settings.type = 'button';
     settings.className = 'dashboard-tile-settings';
     settings.textContent = 'TILE SETTINGS';
     settings.setAttribute('aria-label', `Open settings for ${feature.name}`);
-    settings.addEventListener('pointerdown', event => event.stopPropagation());
+    settings.addEventListener('pointerdown', event => {
+      blockTileDrag = true;
+      event.stopPropagation();
+    });
+    settings.addEventListener('pointerup', () => { blockTileDrag = false; });
+    settings.addEventListener('pointercancel', () => { blockTileDrag = false; });
     settings.addEventListener('dragstart', event => event.preventDefault());
     settings.addEventListener('click', event => {
+      blockTileDrag = false;
       event.stopPropagation();
       openTileSettings(feature.id);
     });
@@ -433,7 +440,8 @@ function createDashboardTile(feature, preferences, editing = false) {
     article.draggable = !isSingleColumnFallback();
     article.title = isSingleColumnFallback() ? 'Exact tile dragging requires a wider screen' : `Drag ${feature.name} to another grid position`;
     article.addEventListener('dragstart', event => {
-      if (isSingleColumnFallback() || event.target.closest('button,select,input,a')) {
+      if (isSingleColumnFallback() || blockTileDrag || event.target.closest('button,select,input,a')) {
+        blockTileDrag = false;
         event.preventDefault();
         return;
       }
