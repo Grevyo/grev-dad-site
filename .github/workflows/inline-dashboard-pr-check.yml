@@ -65,11 +65,11 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-save --package-lock=false jsdom
-      - name: Inline editor browser DOM smoke test
+      - name: Run inline editor browser DOM smoke test
         shell: bash
         run: |
-          set -euo pipefail
-          node - <<'NODE'
+          set +e
+          node - <<'NODE' > /tmp/inline-dashboard-dom.log 2>&1
           const fs = require('node:fs');
           const { JSDOM } = require('jsdom');
           const html = fs.readFileSync('public/dashboard.html', 'utf8');
@@ -124,3 +124,16 @@ jobs:
           if (!selected.querySelector('.dashboard-tile-body')) throw new Error('Scrollable fallback content region is missing.');
           console.log('Inline editor opened and resized the live dashboard tile successfully.');
           NODE
+          status=$?
+          echo "$status" > /tmp/inline-dashboard-dom.status
+          cat /tmp/inline-dashboard-dom.log
+          exit 0
+      - name: Upload browser DOM output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inline-dashboard-dom-output
+          path: /tmp/inline-dashboard-dom.log
+      - name: Require browser DOM smoke test success
+        shell: bash
+        run: test "$(cat /tmp/inline-dashboard-dom.status)" = "0"
