@@ -1,4 +1,5 @@
 const GRID_COLUMNS = 6;
+const TILE_COLOURS = new Set(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
 const dashboardState = {
   payload: null,
   workingTiles: [],
@@ -85,7 +86,8 @@ function clonePinnedTiles() {
     x: Number(feature.x ?? 0),
     y: Number(feature.y ?? 0),
     width: Number(feature.width ?? feature.defaultWidth ?? 2),
-    height: Number(feature.height ?? feature.defaultHeight ?? 1)
+    height: Number(feature.height ?? feature.defaultHeight ?? 1),
+    colour: TILE_COLOURS.has(feature.tileColour) ? feature.tileColour : 'default'
   }));
 }
 
@@ -336,6 +338,7 @@ function createDashboardTile(feature, preferences, editing = false) {
   article.dataset.featureId = feature.id;
   article.dataset.width = String(feature.width);
   article.dataset.height = String(feature.height);
+  article.dataset.colour = TILE_COLOURS.has(feature.colour ?? feature.tileColour) ? (feature.colour ?? feature.tileColour) : 'default';
   article.style.gridColumn = `${Number(feature.x) + 1} / span ${feature.width}`;
   article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
 
@@ -470,6 +473,8 @@ function renderSelectedControls() {
     option.selected = dimensionKey(tile.width, tile.height) === value;
     size.append(option);
   });
+  const colour = dashboardElement('#dashboard-selected-colour');
+  if (colour) colour.value = TILE_COLOURS.has(tile.colour) ? tile.colour : 'default';
   document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
     const horizontal = Number(button.dataset.moveX) !== 0;
     button.disabled = isSingleColumnFallback() && horizontal;
@@ -484,7 +489,7 @@ function addWorkingTile(feature) {
   }
   const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
   const placement = firstFreePlacement(dimension.width, dimension.height);
-  dashboardState.workingTiles.push({ featureId: feature.id, ...placement });
+  dashboardState.workingTiles.push({ featureId: feature.id, ...placement, colour: 'default' });
   dashboardState.selectedId = feature.id;
   editorMessage(`${feature.name} placed at column ${placement.x + 1}, row ${placement.y + 1}.`, 'success');
   renderEditor();
@@ -554,7 +559,7 @@ function loadDefaultWorkingTiles() {
   defaults.forEach(feature => {
     const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
     const placement = firstFreePlacement(dimension.width, dimension.height, null, tiles);
-    tiles.push({ featureId: feature.id, ...placement });
+    tiles.push({ featureId: feature.id, ...placement, colour: 'default' });
   });
   dashboardState.workingTiles = tiles;
   dashboardState.selectedId = tiles[0]?.featureId ?? null;
@@ -765,6 +770,15 @@ dashboardElement('#dashboard-remove-selected')?.addEventListener('click', () => 
 });
 dashboardElement('#dashboard-selected-dimension')?.addEventListener('change', event => {
   if (dashboardState.selectedId) resizeWorkingTile(dashboardState.selectedId, event.currentTarget.value);
+});
+dashboardElement('#dashboard-selected-colour')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const colour = String(event.currentTarget.value);
+  if (!tile || !TILE_COLOURS.has(colour)) return;
+  tile.colour = colour;
+  editorMessage(`${featureById(tile.featureId)?.name ?? 'Tile'} colour changed to ${event.currentTarget.selectedOptions[0]?.textContent ?? colour}.`, 'success');
+  renderDashboardGrid();
+  renderSelectedControls();
 });
 document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
   button.addEventListener('click', () => {
