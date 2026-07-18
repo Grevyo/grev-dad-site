@@ -229,15 +229,26 @@ function beginTileResize(event, featureId) {
   renderSelectedControls();
 
   const move = pointerEvent => updateResizePreview(pointerEvent);
-  const end = pointerEvent => {
+  const removeListeners = () => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', end);
-    window.removeEventListener('pointercancel', end);
+    window.removeEventListener('pointercancel', cancel);
+  };
+  const end = pointerEvent => {
+    removeListeners();
     finishTileResize(pointerEvent);
+  };
+  const cancel = pointerEvent => {
+    if (!dashboardState.resizing || pointerEvent.pointerId !== dashboardState.resizing.pointerId) return;
+    removeListeners();
+    dashboardState.resizing = null;
+    clearPlacementPreview();
+    renderEditor();
+    editorMessage('Resize cancelled. The tile returned to its previous size.');
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', end);
-  window.addEventListener('pointercancel', end);
+  window.addEventListener('pointercancel', cancel);
 }
 
 function editorPreferences() {

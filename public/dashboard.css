@@ -107,7 +107,7 @@
 
 .editing-grid{border:1px solid var(--line-strong);background:#080b0f;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px)}
 .dashboard-grid-cell{z-index:0;border:1px dashed #29323e;background:#0d1117;pointer-events:none}
-.dashboard-placement-preview{position:relative;z-index:1;display:grid;place-items:center;min-width:0;min-height:0;border:2px solid #8cb4ff;background:rgba(77,126,214,.22);box-shadow:inset 0 0 0 2px rgba(10,14,20,.7);pointer-events:none}
+.dashboard-placement-preview{position:relative;z-index:5;display:grid;place-items:center;min-width:0;min-height:0;border:2px solid #8cb4ff;background:rgba(77,126,214,.22);box-shadow:inset 0 0 0 2px rgba(10,14,20,.7);pointer-events:none}
 .dashboard-placement-preview::after{content:attr(data-label);padding:6px 8px;border:1px solid currentColor;background:#090d13;color:#dce9ff;font-size:.67rem;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
 .dashboard-placement-preview.invalid{border-color:#ff6677;background:rgba(160,35,54,.3)}
 .dashboard-placement-preview.invalid::after{color:#ff9aaa}
