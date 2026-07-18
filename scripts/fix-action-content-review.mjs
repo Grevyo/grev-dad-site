@@ -7,6 +7,12 @@ function replaceOnce(source, before, after, label) {
   return source.slice(0, index) + after + source.slice(index + before.length);
 }
 
+function replaceFirst(source, before, after, label) {
+  const index = source.indexOf(before);
+  if (index < 0) throw new Error(`Missing patch anchor: ${label}`);
+  return source.slice(0, index) + after + source.slice(index + before.length);
+}
+
 function patch(path, transform) {
   const before = fs.readFileSync(path, 'utf8');
   const after = transform(before);
@@ -33,8 +39,8 @@ patch('src/dashboard.ts', source => {
     "    const existing = await env.DB.prepare(`SELECT id,tile_presentation FROM dashboard_features WHERE id=?`).bind(featureId).first<{ id: string; tile_presentation: string }>();\n    if (!existing) return secureJson({ ok: false, message: 'Dashboard feature not found.' }, { status: 404 });\n    presentation = input.presentation ?? (existing.tile_presentation === 'content' ? 'content' : 'action');\n    statements.push(env.DB.prepare(`",
     'preserve stored presentation on update'
   );
-  source = replaceOnce(source, 'input.featureType, input.presentation, input.route', 'input.featureType, presentation, input.route', 'update presentation bind');
-  source = replaceOnce(source, 'input.featureType, input.presentation, input.route', 'input.featureType, presentation, input.route', 'insert presentation bind');
+  source = replaceFirst(source, 'input.featureType, input.presentation, input.route', 'input.featureType, presentation, input.route', 'update presentation bind');
+  source = replaceFirst(source, 'input.featureType, input.presentation, input.route', 'input.featureType, presentation, input.route', 'insert presentation bind');
   source = replaceOnce(source, 'presentation: input.presentation, audience:', 'presentation, audience:', 'audit presentation');
   return source;
 });
