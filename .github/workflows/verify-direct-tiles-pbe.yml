@@ -1,0 +1,58 @@
+name: Verify Direct Tiles PBE
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Authenticate to deployed PBE
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          for attempt in {1..24}; do
+            status=$(curl --silent --show-error --output /tmp/login.json --write-out '%{http_code}' --cookie-jar /tmp/cookies --request POST --header 'Content-Type: application/json' --data "$payload" https://pbe.grev.dad/api/auth/login || true)
+            if [ "$status" = "200" ]; then exit 0; fi
+            sleep 5
+          done
+          cat /tmp/login.json || true
+          exit 1
+
+      - name: Verify deployed direct manipulation assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..24}; do
+            page_status=$(curl --silent --show-error --output /tmp/dashboard.html --write-out '%{http_code}' --cookie /tmp/cookies https://pbe.grev.dad/dashboard || true)
+            curl --silent --show-error --output /tmp/dashboard.js https://pbe.grev.dad/dashboard.js || true
+            curl --silent --show-error --output /tmp/dashboard.css https://pbe.grev.dad/dashboard.css || true
+            if [ "$page_status" = "200" ] \
+              && grep -q 'drag its bottom-right corner' /tmp/dashboard.html \
+              && grep -q 'function beginTileResize' /tmp/dashboard.js \
+              && grep -q 'dashboard-placement-preview' /tmp/dashboard.js \
+              && grep -q "window.addEventListener('pointercancel', cancel)" /tmp/dashboard.js \
+              && grep -q '.dashboard-placement-preview{position:relative;z-index:5;' /tmp/dashboard.css \
+              && grep -q '.dashboard-tile-resize{' /tmp/dashboard.css; then
+              break
+            fi
+            sleep 5
+          done
+          test "$page_status" = "200"
+          grep -q 'Drag the top strip to move' /tmp/dashboard.html
+          grep -q 'function beginTileResize' /tmp/dashboard.js
+          grep -q "valid ? 'DROP HERE' : 'POSITION BLOCKED'" /tmp/dashboard.js
+          grep -q "window.addEventListener('pointercancel', cancel)" /tmp/dashboard.js
+          grep -q '.dashboard-placement-preview{position:relative;z-index:5;' /tmp/dashboard.css
+          grep -q '.dashboard-placement-preview.invalid' /tmp/dashboard.css
+          grep -q '.dashboard-tile-resize{' /tmp/dashboard.css
+          printf 'Direct move footprints, resize grip, blocked visibility and resize cancellation are deployed.\n'
