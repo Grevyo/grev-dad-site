@@ -1,0 +1,95 @@
+name: Final Direct Tile Check
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - run: npm run typecheck
+      - run: node --check public/dashboard.js
+      - run: npx wrangler deploy --dry-run --env pbe
+      - name: Verify direct manipulation fixes
+        run: |
+          grep -q '.dashboard-placement-preview{position:relative;z-index:5;' public/dashboard.css
+          grep -q "window.addEventListener('pointercancel', cancel)" public/dashboard.js
+
+  browser-interaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --package-lock=false jsdom
+      - name: Test resize cancellation and commit
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const { JSDOM } = require('jsdom');
+
+          async function main() {
+            const html = fs.readFileSync('public/dashboard.html', 'utf8');
+            const script = fs.readFileSync('public/dashboard.js', 'utf8');
+            const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only' });
+            const { window } = dom;
+            const { document } = window;
+            window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+            window.HTMLElement.prototype.scrollIntoView = function () {};
+            window.Response = Response;
+            const feature = {
+              id:'feature-news',slug:'news',name:'News',description:'News content',category:'News',
+              featureType:'workspace',route:'/feature/news',iconText:'NW',audience:'all',
+              defaultDimension:'2x2',defaultWidth:2,defaultHeight:2,
+              allowedDimensions:['1x1','1x2','2x1','2x2','4x2'],isActive:true,isDefault:true,
+              sortOrder:10,pinned:true,x:0,y:0,width:2,height:2,accessGroups:[]
+            };
+            const payload = { ok:true, grid:{columns:6,dimensions:feature.allowedDimensions}, features:[feature], pinnedTiles:[feature], preferences:{density:'comfortable',showDescriptions:true,tileGap:12,outerMargin:0}, capabilities:{canCustomize:true,isAdmin:true,isOwner:true} };
+            window.fetch = async url => {
+              if (url === '/api/onboarding') return new Response(JSON.stringify({ok:true,progress:{relationshipComplete:true,intentionsComplete:true}}), {status:200,headers:{'Content-Type':'application/json'}});
+              if (url === '/api/dashboard') return new Response(JSON.stringify(payload), {status:200,headers:{'Content-Type':'application/json'}});
+              throw new Error(`Unexpected fetch ${url}`);
+            };
+            window.eval(script);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            document.querySelector('#customize-dashboard').click();
+            const grid = document.querySelector('#dashboard-grid');
+            grid.getBoundingClientRect = () => ({left:0,top:0,right:1200,bottom:1000,width:1200,height:1000});
+
+            const pointer = (type, x, y, id) => {
+              const event = new window.MouseEvent(type, {bubbles:true,cancelable:true,clientX:x,clientY:y});
+              Object.defineProperty(event, 'pointerId', {value:id});
+              return event;
+            };
+
+            let tile = document.querySelector('.dashboard-tile');
+            tile.querySelector('.dashboard-tile-resize').dispatchEvent(pointer('pointerdown',390,200,9));
+            window.dispatchEvent(pointer('pointermove',790,220,9));
+            tile = document.querySelector('.dashboard-tile');
+            if (tile.dataset.width !== '4') throw new Error('Live resize preview did not reach 4×2.');
+            window.dispatchEvent(pointer('pointercancel',790,220,9));
+            tile = document.querySelector('.dashboard-tile');
+            if (tile.dataset.width !== '2' || tile.dataset.height !== '2') throw new Error('Canceled resize did not revert to 2×2.');
+
+            tile.querySelector('.dashboard-tile-resize').dispatchEvent(pointer('pointerdown',390,200,10));
+            window.dispatchEvent(pointer('pointermove',790,220,10));
+            window.dispatchEvent(pointer('pointerup',790,220,10));
+            tile = document.querySelector('.dashboard-tile');
+            if (tile.dataset.width !== '4' || tile.dataset.height !== '2') throw new Error('Completed resize did not commit 4×2.');
+            console.log('Resize cancel reverted and pointerup committed successfully.');
+          }
+          main().catch(error => { console.error(error); process.exitCode = 1; });
+          NODE
