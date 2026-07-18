@@ -62,9 +62,9 @@ function showPlacementPreview(candidate, valid, label) {
     preview.setAttribute('aria-hidden', 'true');
     grid.append(preview);
   }
-  preview.className = `dashboard-placement-preview ${valid ? 'valid' : 'invalid'}`;
-  preview.style.gridColumn = `${candidate.x + 1} / span ${candidate.width}`;
-  preview.style.gridRow = `${candidate.y + 1} / span ${candidate.height}`;
+  preview.className = \`dashboard-placement-preview \${valid ? 'valid' : 'invalid'}\`;
+  preview.style.gridColumn = \`\${candidate.x + 1} / span \${candidate.width}\`;
+  preview.style.gridRow = \`\${candidate.y + 1} / span \${candidate.height}\`;
   preview.dataset.label = label;
   dashboardState.placementPreview = { ...candidate, valid, label };
 }
