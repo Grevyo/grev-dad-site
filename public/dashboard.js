@@ -5,6 +5,8 @@ const dashboardState = {
   search: '',
   category: 'all',
   draggingId: null,
+  placementPreview: null,
+  resizing: null,
   selectedId: null,
   editing: false
 };
@@ -99,6 +101,143 @@ function preferenceValue(selector, fallback) {
 
 function gridRowHeight(density) {
   return density === 'compact' ? 92 : 116;
+}
+
+function gridMetrics() {
+  const grid = dashboardElement('#dashboard-grid');
+  if (!grid) return null;
+  const rect = grid.getBoundingClientRect();
+  const preferences = editorPreferences();
+  const gap = Number(preferences.tileGap ?? 12);
+  const margin = Number(preferences.outerMargin ?? 0);
+  const rowHeight = gridRowHeight(preferences.density);
+  const innerWidth = Math.max(1, rect.width - margin * 2);
+  const cellWidth = Math.max(1, (innerWidth - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
+  return { grid, rect, gap, margin, rowHeight, cellWidth };
+}
+
+function pointerGridCell(event) {
+  const metrics = gridMetrics();
+  if (!metrics) return null;
+  return {
+    x: Math.max(0, Math.min(GRID_COLUMNS - 1, Math.floor((event.clientX - metrics.rect.left - metrics.margin) / (metrics.cellWidth + metrics.gap)))),
+    y: Math.max(0, Math.floor((event.clientY - metrics.rect.top - metrics.margin) / (metrics.rowHeight + metrics.gap)))
+  };
+}
+
+function clearPlacementPreview() {
+  dashboardElement('.dashboard-placement-preview')?.remove();
+  dashboardState.placementPreview = null;
+}
+
+function showPlacementPreview(candidate, valid, label) {
+  const grid = dashboardElement('#dashboard-grid');
+  if (!grid || !candidate) return;
+  let preview = dashboardElement('.dashboard-placement-preview');
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.setAttribute('aria-hidden', 'true');
+    grid.append(preview);
+  }
+  preview.className = `dashboard-placement-preview ${valid ? 'valid' : 'invalid'}`;
+  preview.style.gridColumn = `${candidate.x + 1} / span ${candidate.width}`;
+  preview.style.gridRow = `${candidate.y + 1} / span ${candidate.height}`;
+  preview.dataset.label = label;
+  dashboardState.placementPreview = { ...candidate, valid, label };
+}
+
+function nearestAllowedDimension(feature, tile, desiredWidth, desiredHeight) {
+  const allowed = feature.allowedDimensions
+    .map(value => ({ value, ...parseDimension(value) }))
+    .filter(size => size.width && size.height && size.width <= GRID_COLUMNS - tile.x);
+  allowed.sort((a, b) => {
+    const aDistance = Math.abs(a.width - desiredWidth) + Math.abs(a.height - desiredHeight);
+    const bDistance = Math.abs(b.width - desiredWidth) + Math.abs(b.height - desiredHeight);
+    return aDistance - bDistance || Math.abs(a.width * a.height - desiredWidth * desiredHeight) - Math.abs(b.width * b.height - desiredWidth * desiredHeight);
+  });
+  return allowed[0] ?? null;
+}
+
+function tileElement(featureId) {
+  return [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === featureId) ?? null;
+}
+
+function updateResizePreview(event) {
+  const resize = dashboardState.resizing;
+  if (!resize || event.pointerId !== resize.pointerId) return;
+  const tile = workingTile(resize.featureId);
+  const feature = featureById(resize.featureId);
+  const cell = pointerGridCell(event);
+  if (!tile || !feature || !cell) return;
+
+  const desiredWidth = Math.max(1, Math.min(GRID_COLUMNS - tile.x, cell.x - tile.x + 1));
+  const desiredHeight = Math.max(1, cell.y - tile.y + 1);
+  const dimension = nearestAllowedDimension(feature, tile, desiredWidth, desiredHeight);
+  if (!dimension) return;
+
+  const candidate = { ...tile, width: dimension.width, height: dimension.height };
+  const valid = placementIsFree(candidate, resize.featureId);
+  resize.currentCandidate = candidate;
+  resize.valid = valid;
+  if (valid) resize.lastValidCandidate = candidate;
+  showPlacementPreview(candidate, valid, valid ? `RESIZE ${dimension.width}×${dimension.height}` : 'SIZE BLOCKED');
+
+  const article = tileElement(resize.featureId);
+  if (article) {
+    article.classList.toggle('resize-blocked', !valid);
+    if (valid) {
+      article.style.gridColumn = `${candidate.x + 1} / span ${candidate.width}`;
+      article.style.gridRow = `${candidate.y + 1} / span ${candidate.height}`;
+      article.dataset.width = String(candidate.width);
+      article.dataset.height = String(candidate.height);
+    }
+  }
+  const size = dashboardElement('#dashboard-selected-dimension');
+  if (valid && size && [...size.options].some(option => option.value === dimension.value)) size.value = dimension.value;
+}
+
+function finishTileResize(event) {
+  const resize = dashboardState.resizing;
+  if (!resize || (event.pointerId !== undefined && event.pointerId !== resize.pointerId)) return;
+  const tile = workingTile(resize.featureId);
+  const feature = featureById(resize.featureId);
+  dashboardState.resizing = null;
+  clearPlacementPreview();
+  if (tile && resize.lastValidCandidate) {
+    Object.assign(tile, resize.lastValidCandidate);
+    editorMessage(`${feature?.name ?? 'Tile'} resized to ${tile.width}×${tile.height}.`, 'success');
+  }
+  renderEditor();
+}
+
+function beginTileResize(event, featureId) {
+  if (isSingleColumnFallback()) return;
+  const tile = workingTile(featureId);
+  if (!tile) return;
+  event.preventDefault();
+  event.stopPropagation();
+  dashboardState.selectedId = featureId;
+  dashboardState.resizing = {
+    featureId,
+    pointerId: event.pointerId,
+    currentCandidate: { ...tile },
+    lastValidCandidate: { ...tile },
+    valid: true
+  };
+  tileElement(featureId)?.classList.add('resizing');
+  showPlacementPreview(tile, true, `RESIZE ${tile.width}×${tile.height}`);
+  renderSelectedControls();
+
+  const move = pointerEvent => updateResizePreview(pointerEvent);
+  const end = pointerEvent => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    finishTileResize(pointerEvent);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
 }
 
 function editorPreferences() {
@@ -204,8 +343,8 @@ function createDashboardTile(feature, preferences, editing = false) {
     const handle = document.createElement('button');
     handle.type = 'button';
     handle.className = 'dashboard-tile-move';
-    handle.textContent = isSingleColumnFallback() ? 'MOVE ON DESKTOP' : 'MOVE';
-    handle.title = isSingleColumnFallback() ? 'Open this editor on a wider screen to drag tiles' : `Drag ${feature.name}`;
+    handle.textContent = isSingleColumnFallback() ? 'MOVE ON DESKTOP' : 'DRAG TO MOVE';
+    handle.title = isSingleColumnFallback() ? 'Open this editor on a wider screen to drag tiles' : `Drag ${feature.name} to another grid position`;
     handle.disabled = isSingleColumnFallback();
     handle.draggable = !isSingleColumnFallback();
     handle.addEventListener('click', () => selectTile(feature.id));
@@ -214,19 +353,32 @@ function createDashboardTile(feature, preferences, editing = false) {
         event.preventDefault();
         return;
       }
+      const tile = workingTile(feature.id);
       dashboardState.draggingId = feature.id;
       dashboardState.selectedId = feature.id;
       article.classList.add('dragging');
       event.dataTransfer?.setData('text/plain', feature.id);
       if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      if (tile) showPlacementPreview(tile, true, 'CURRENT POSITION');
       renderSelectedControls();
     });
     handle.addEventListener('dragend', () => {
       dashboardState.draggingId = null;
       article.classList.remove('dragging');
+      clearPlacementPreview();
     });
     strip.append(select, handle);
     article.append(strip);
+
+    const resize = document.createElement('button');
+    resize.type = 'button';
+    resize.className = 'dashboard-tile-resize';
+    resize.textContent = '↘';
+    resize.setAttribute('aria-label', `Drag to resize ${feature.name}`);
+    resize.title = isSingleColumnFallback() ? 'Use the Size menu on narrow screens' : `Drag the corner to resize ${feature.name}`;
+    resize.disabled = isSingleColumnFallback();
+    resize.addEventListener('pointerdown', event => beginTileResize(event, feature.id));
+    article.append(resize);
   }
 
   article.append(createTileContent(feature, preferences, editing));
@@ -263,6 +415,7 @@ function renderDashboardGrid() {
 
   const rows = dashboardRows(tiles, dashboardState.editing ? 3 : 1);
   grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}${dashboardState.editing ? ' editing-grid' : ''}`;
+  clearPlacementPreview();
   grid.replaceChildren();
   applyGridSurface(grid, preferences, rows);
   if (dashboardState.editing) addGridCells(grid, rows);
@@ -403,20 +556,9 @@ function loadDefaultWorkingTiles() {
 }
 
 function dropCoordinates(event, tile) {
-  const grid = dashboardElement('#dashboard-grid');
-  if (!grid) return null;
-  const rect = grid.getBoundingClientRect();
-  const preferences = editorPreferences();
-  const gap = Number(preferences.tileGap ?? 12);
-  const margin = Number(preferences.outerMargin ?? 0);
-  const rowHeight = gridRowHeight(preferences.density);
-  const innerWidth = Math.max(1, rect.width - margin * 2);
-  const cellWidth = (innerWidth - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-  const localX = event.clientX - rect.left - margin;
-  const localY = event.clientY - rect.top - margin;
-  const x = Math.max(0, Math.min(GRID_COLUMNS - tile.width, Math.floor(localX / (cellWidth + gap))));
-  const y = Math.max(0, Math.floor(localY / (rowHeight + gap)));
-  return { x, y };
+  const cell = pointerGridCell(event);
+  if (!cell) return null;
+  return { x: Math.max(0, Math.min(GRID_COLUMNS - tile.width, cell.x)), y: cell.y };
 }
 
 function renderCatalogueTools() {
@@ -513,6 +655,9 @@ function openEditor() {
 }
 
 function closeEditor(saved = false) {
+  clearPlacementPreview();
+  dashboardState.draggingId = null;
+  dashboardState.resizing = null;
   dashboardState.editing = false;
   dashboardState.workingTiles = [];
   dashboardState.selectedId = null;
@@ -561,7 +706,20 @@ const dashboardGrid = dashboardElement('#dashboard-grid');
 dashboardGrid?.addEventListener('dragover', event => {
   if (!dashboardState.editing || isSingleColumnFallback()) return;
   event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  const featureId = dashboardState.draggingId ?? event.dataTransfer?.getData('text/plain');
+  const tile = workingTile(featureId);
+  if (!tile) return;
+  const location = dropCoordinates(event, tile);
+  if (!location) return;
+  const candidate = { ...tile, ...location };
+  const valid = placementIsFree(candidate, featureId);
+  showPlacementPreview(candidate, valid, valid ? 'DROP HERE' : 'POSITION BLOCKED');
+  if (event.dataTransfer) event.dataTransfer.dropEffect = valid ? 'move' : 'none';
+});
+dashboardGrid?.addEventListener('dragleave', event => {
+  if (!dashboardState.draggingId) return;
+  const rect = dashboardGrid.getBoundingClientRect();
+  if (event.clientX <= rect.left || event.clientX >= rect.right || event.clientY <= rect.top || event.clientY >= rect.bottom) clearPlacementPreview();
 });
 dashboardGrid?.addEventListener('drop', event => {
   if (!dashboardState.editing || isSingleColumnFallback()) return;
@@ -572,11 +730,14 @@ dashboardGrid?.addEventListener('drop', event => {
   const location = dropCoordinates(event, tile);
   if (!location) return;
   const candidate = { ...tile, ...location };
-  if (!placementIsFree(candidate, featureId)) {
-    editorMessage('That grid area is already occupied. Drop the tile onto empty cells.', 'error');
+  const valid = placementIsFree(candidate, featureId);
+  clearPlacementPreview();
+  if (!valid) {
+    editorMessage('That grid area is already occupied. The tile was not moved.', 'error');
     return;
   }
   Object.assign(tile, candidate);
+  dashboardState.draggingId = null;
   dashboardState.selectedId = featureId;
   editorMessage(`Moved to column ${tile.x + 1}, row ${tile.y + 1}. Blank cells were left in place.`, 'success');
   renderEditor();
