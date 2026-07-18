@@ -1,0 +1,108 @@
+name: Verify Action Content PBE
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-action-content-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Authenticate to deployed PBE
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          status=$(curl --silent --show-error \
+            --retry 12 --retry-delay 5 --retry-all-errors \
+            --output /tmp/login.json \
+            --write-out '%{http_code}' \
+            --cookie-jar /tmp/pbe.cookies \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            https://pbe.grev.dad/api/auth/login)
+          cat /tmp/login.json
+          echo
+          if [ "$status" != "200" ]; then
+            echo "PBE login failed with HTTP $status."
+            exit 1
+          fi
+
+      - name: Fetch deployed dashboard API and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for target in dashboard admin; do
+            case "$target" in
+              dashboard) url='https://pbe.grev.dad/api/dashboard' ;;
+              admin) url='https://pbe.grev.dad/api/admin/dashboard/features' ;;
+            esac
+            status=$(curl --silent --show-error \
+              --retry 12 --retry-delay 5 --retry-all-errors \
+              --output "/tmp/$target.json" \
+              --write-out '%{http_code}' \
+              --cookie /tmp/pbe.cookies \
+              "$url")
+            if [ "$status" != "200" ]; then
+              cat "/tmp/$target.json"
+              echo
+              echo "$target API failed with HTTP $status."
+              exit 1
+            fi
+          done
+          curl --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors https://pbe.grev.dad/dashboard.js > /tmp/dashboard.js
+          curl --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors https://pbe.grev.dad/dashboard.css > /tmp/dashboard.css
+          curl --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --cookie /tmp/pbe.cookies https://pbe.grev.dad/admin/dashboard > /tmp/admin-dashboard.html
+
+      - name: Verify deployed action and information tile behaviour
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const dashboard = JSON.parse(fs.readFileSync('/tmp/dashboard.json', 'utf8'));
+          const admin = JSON.parse(fs.readFileSync('/tmp/admin.json', 'utf8'));
+          const byId = new Map((dashboard.features ?? []).map(feature => [feature.id, feature]));
+          const profile = byId.get('feature-profile');
+          const news = byId.get('feature-grev-news');
+          const settings = byId.get('feature-settings');
+          if (!dashboard.ok || dashboard.viewer?.username?.toLowerCase() !== 'ladmin' || !dashboard.viewer?.isOwner || !dashboard.viewer?.isAdmin) {
+            throw new Error('The deployed dashboard viewer payload is incorrect.');
+          }
+          if (profile?.presentation !== 'content' || profile?.defaultDimension !== '2x2') {
+            throw new Error('Profile is not deployed as a 2×2 information tile.');
+          }
+          if (news?.presentation !== 'content' || news?.defaultDimension !== '3x2') {
+            throw new Error('Grev News is not deployed as a 3×2 information tile.');
+          }
+          if (settings?.presentation !== 'action' || settings?.defaultDimension !== '1x1') {
+            throw new Error('Profile settings is not deployed as a 1×1 action button.');
+          }
+          if (!settings.allowedDimensions?.includes('6x4')) {
+            throw new Error('The full resize range was lost from action tiles.');
+          }
+          const adminProfile = (admin.features ?? []).find(feature => feature.id === 'feature-profile');
+          if (!admin.ok || adminProfile?.presentation !== 'content') {
+            throw new Error('The deployed Admin catalogue is missing tile presentation.');
+          }
+          console.log('Deployed API presentation, defaults and resize ranges verified.');
+          NODE
+
+          grep -q 'dashboard-action-tile' /tmp/dashboard.js
+          grep -q "feature.id === 'feature-profile'" /tmp/dashboard.js
+          grep -q "feature.id === 'feature-grev-news'" /tmp/dashboard.js
+          grep -q 'dashboard-profile-card' /tmp/dashboard.css
+          grep -q 'dashboard-news-headline' /tmp/dashboard.css
+          grep -q 'dashboard-feature-presentation' /tmp/admin-dashboard.html
+          echo 'Deployed action buttons, Profile card, Grev News surface and Admin controls verified.'
