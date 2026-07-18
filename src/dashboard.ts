@@ -26,8 +26,9 @@ type DashboardUser = {
 
 type LegacyDashboardSize = 'small' | 'medium' | 'wide' | 'large';
 type DashboardDensity = 'comfortable' | 'compact';
+type TileColour = 'default' | 'graphite' | 'blue' | 'cyan' | 'green' | 'amber' | 'red' | 'purple' | 'pink';
 type Dimension = { width: number; height: number };
-type TilePlacement = Dimension & { featureId: string; x: number; y: number };
+type TilePlacement = Dimension & { featureId: string; x: number; y: number; colour?: TileColour };
 
 type FeatureRow = {
   id: string;
@@ -52,6 +53,7 @@ type FeatureRow = {
   grid_y: number | null;
   tile_width: number | null;
   tile_height: number | null;
+  tile_colour: string | null;
   matched_groups: string;
 };
 
@@ -63,10 +65,11 @@ const MAX_TILES = 60;
 const VALID_DENSITIES = new Set<DashboardDensity>(['comfortable', 'compact']);
 const VALID_GAPS = new Set([0, 4, 8, 12, 16, 20, 24, 32, 40, 48]);
 const VALID_MARGINS = new Set([0, 8, 12, 16, 24, 32, 40, 48, 56, 64]);
-const ALL_DIMENSIONS = Array.from({ length: 3 }, (_, heightIndex) =>
+const ALL_DIMENSIONS = Array.from({ length: 4 }, (_, heightIndex) =>
   Array.from({ length: GRID_COLUMNS }, (_, widthIndex) => `${widthIndex + 1}x${heightIndex + 1}`)
 ).flat();
 const VALID_DIMENSIONS = new Set(ALL_DIMENSIONS);
+const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
 
 function b64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -171,7 +174,7 @@ function overlaps(a: TilePlacement, b: TilePlacement): boolean {
 function validPlacement(tile: TilePlacement): boolean {
   return Number.isInteger(tile.x) && Number.isInteger(tile.y) && Number.isInteger(tile.width) && Number.isInteger(tile.height)
     && tile.x >= 0 && tile.y >= 0 && tile.y <= MAX_GRID_Y
-    && tile.width >= 1 && tile.width <= GRID_COLUMNS && tile.height >= 1 && tile.height <= 3
+    && tile.width >= 1 && tile.width <= GRID_COLUMNS && tile.height >= 1 && tile.height <= 4
     && tile.x + tile.width <= GRID_COLUMNS && tile.y + tile.height <= MAX_GRID_Y + 1;
 }
 
@@ -189,6 +192,8 @@ function featureFromRow(row: FeatureRow) {
   const allowedDimensions = dimensionsFromCsv(row.allowed_dimensions);
   const width = row.tile_width ?? row.default_width;
   const height = row.tile_height ?? row.default_height;
+  const colourValue = String(row.tile_colour ?? 'default') as TileColour;
+  const tileColour = VALID_TILE_COLOURS.has(colourValue) ? colourValue : 'default';
   return {
     id: row.id,
     slug: row.slug,
@@ -213,6 +218,7 @@ function featureFromRow(row: FeatureRow) {
     width,
     height,
     dimension: dimensionKey(width, height),
+    tileColour,
     accessGroups: row.matched_groups ? row.matched_groups.split(', ') : []
   };
 }
@@ -225,6 +231,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
       t.grid_y,
       t.tile_width,
       t.tile_height,
+      t.tile_colour,
       COALESCE((
         SELECT GROUP_CONCAT(g.name, ', ')
         FROM dashboard_feature_group_grants fg
@@ -260,7 +267,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
 
 async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
   const rows = await env.DB.prepare(`
-    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,'' AS matched_groups
+    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,'' AS matched_groups
     FROM dashboard_features f
     WHERE f.is_active=1 AND f.is_default=1 AND (
       f.audience='all'
@@ -283,7 +290,7 @@ function defaultPlacements(features: FeatureRow[]): TilePlacement[] {
   const placements: TilePlacement[] = [];
   for (const feature of features) {
     const width = Math.max(1, Math.min(GRID_COLUMNS, feature.default_width));
-    const height = Math.max(1, Math.min(3, feature.default_height));
+    const height = Math.max(1, Math.min(4, feature.default_height));
     const location = firstFreePlacement(placements, width, height);
     placements.push({ featureId: feature.id, ...location });
   }
@@ -301,9 +308,9 @@ async function ensureDashboardInitialized(env: DashboardEnv, user: DashboardUser
   ];
   placements.forEach((tile, position) => {
     statements.push(env.DB.prepare(`
-      INSERT OR IGNORE INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,pinned_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?)
-    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, now, now));
+      INSERT OR IGNORE INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, 'default', now, now));
   });
   await env.DB.batch(statements);
 }
@@ -359,8 +366,10 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
       x: Number(item.x),
       y: Number(item.y),
       width: Number(item.width),
-      height: Number(item.height)
+      height: Number(item.height),
+      colour: String(item.colour ?? 'default') as TileColour
     };
+    if (!VALID_TILE_COLOURS.has(tile.colour ?? 'default')) return secureJson({ ok: false, message: 'Choose a valid tile colour.' }, { status: 400 });
     if (!feature || seen.has(featureId) || !validPlacement(tile)) return secureJson({ ok: false, message: 'The dashboard contains an unavailable, duplicate, or out-of-bounds tile.' }, { status: 400 });
     const allowed = new Set(dimensionsFromCsv(feature.allowed_dimensions));
     if (!allowed.has(dimensionKey(tile.width, tile.height))) return secureJson({ ok: false, message: `${feature.name} does not support ${tile.width}×${tile.height}.` }, { status: 400 });
@@ -382,9 +391,9 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id)];
   tiles.forEach((tile, position) => {
     statements.push(env.DB.prepare(`
-      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,pinned_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?)
-    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, now, now));
+      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', now, now));
   });
   statements.push(env.DB.prepare(`
     INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at)
@@ -393,7 +402,7 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   `).bind(user.id, density, showDescriptions ? 1 : 0, tileGap, outerMargin, now, now));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
     crypto.randomUUID(), user.id, 'dashboard.grid_updated', 'user', user.id,
-    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height })), density, showDescriptions, tileGap, outerMargin }), now
+    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default' })), density, showDescriptions, tileGap, outerMargin }), now
   ));
   await env.DB.batch(statements);
   return secureJson(await dashboardPayload(env, user));
@@ -417,7 +426,7 @@ async function featureForUser(env: DashboardEnv, user: DashboardUser, slug: stri
 
 async function adminCatalogue(env: DashboardEnv) {
   const [features, grants, groups] = await Promise.all([
-    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
+    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
     env.DB.prepare(`SELECT feature_id,group_id FROM dashboard_feature_group_grants ORDER BY feature_id,group_id`).all<{ feature_id: string; group_id: string }>(),
     env.DB.prepare(`SELECT id,name,description FROM groups ORDER BY name`).all<{ id: string; name: string; description: string }>()
   ]);
