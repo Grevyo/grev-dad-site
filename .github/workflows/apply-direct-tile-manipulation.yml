@@ -24,15 +24,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: |
-          node scripts/patch-tile-manipulation-core.mjs
-          node scripts/patch-tile-resize.mjs
-          node scripts/patch-tile-controls.mjs
-          node scripts/patch-tile-drag-preview.mjs
-          node scripts/patch-tile-manipulation-css.mjs
-      - run: node --check public/dashboard.js
+      - name: Patch manipulation core
+        run: node scripts/patch-tile-manipulation-core.mjs
+      - name: Patch pointer resize
+        run: node scripts/patch-tile-resize.mjs
+      - name: Patch tile controls
+        run: node scripts/patch-tile-controls.mjs
+      - name: Patch drag placement preview
+        run: node scripts/patch-tile-drag-preview.mjs
+      - name: Patch manipulation styles
+        run: node scripts/patch-tile-manipulation-css.mjs
+      - name: Browser JavaScript syntax
+        run: node --check public/dashboard.js
       - run: npm install --package-lock=false
-      - run: npm run typecheck
+      - name: Strict TypeScript check
+        run: npm run typecheck
       - name: Commit direct manipulation changes
         run: |
           git config user.name github-actions[bot]
