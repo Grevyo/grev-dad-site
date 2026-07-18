@@ -36,7 +36,7 @@ function renderFeatureList() {
     const name = document.createElement('strong');
     name.textContent = feature.name;
     const details = document.createElement('small');
-    details.textContent = `${feature.category} · ${feature.audience} · ${feature.isActive ? 'enabled' : 'disabled'}`;
+    details.textContent = `${feature.category} · ${feature.defaultDimension} · ${feature.audience} · ${feature.isActive ? 'enabled' : 'disabled'}`;
     identity.append(name, document.createElement('br'), details);
     const order = document.createElement('small');
     order.textContent = String(feature.sortOrder);
@@ -69,9 +69,9 @@ function renderGroupChecks(selectedIds = []) {
   });
 }
 
-function setAllowedSizes(values) {
+function setAllowedDimensions(values) {
   const selected = new Set(values);
-  document.querySelectorAll('#dashboard-feature-size-checks input[type="checkbox"]').forEach(input => {
+  document.querySelectorAll('#dashboard-feature-dimension-checks input[type="checkbox"]').forEach(input => {
     input.checked = selected.has(input.value);
   });
 }
@@ -87,11 +87,11 @@ function clearFeatureForm() {
   adminDashboardElement('#dashboard-feature-type').value = 'workspace';
   adminDashboardElement('#dashboard-feature-audience').value = 'groups';
   adminDashboardElement('#dashboard-feature-route').value = '';
-  adminDashboardElement('#dashboard-feature-default-size').value = 'medium';
+  adminDashboardElement('#dashboard-feature-default-dimension').value = '2x1';
   adminDashboardElement('#dashboard-feature-sort').value = '0';
   adminDashboardElement('#dashboard-feature-active').checked = true;
   adminDashboardElement('#dashboard-feature-default').checked = false;
-  setAllowedSizes(['small', 'medium', 'wide', 'large']);
+  setAllowedDimensions(['1x1', '1x2', '2x1', '2x2', '3x1', '3x2', '4x1', '4x2']);
   renderGroupChecks([]);
   setGroupFieldVisibility('groups');
   renderFeatureList();
@@ -107,17 +107,17 @@ function fillFeatureForm(feature) {
   adminDashboardElement('#dashboard-feature-type').value = feature.featureType;
   adminDashboardElement('#dashboard-feature-audience').value = feature.audience;
   adminDashboardElement('#dashboard-feature-route').value = feature.route;
-  adminDashboardElement('#dashboard-feature-default-size').value = feature.defaultSize;
+  adminDashboardElement('#dashboard-feature-default-dimension').value = feature.defaultDimension;
   adminDashboardElement('#dashboard-feature-sort').value = String(feature.sortOrder);
   adminDashboardElement('#dashboard-feature-active').checked = feature.isActive;
   adminDashboardElement('#dashboard-feature-default').checked = feature.isDefault;
-  setAllowedSizes(feature.allowedSizes);
+  setAllowedDimensions(feature.allowedDimensions);
   renderGroupChecks(feature.groupIds);
   setGroupFieldVisibility(feature.audience);
 }
 
 function formPayload() {
-  const allowedSizes = [...document.querySelectorAll('#dashboard-feature-size-checks input:checked')].map(input => input.value);
+  const allowedDimensions = [...document.querySelectorAll('#dashboard-feature-dimension-checks input:checked')].map(input => input.value);
   const groupIds = [...document.querySelectorAll('#dashboard-feature-group-checks input:checked')].map(input => input.value);
   return {
     name: adminDashboardElement('#dashboard-feature-name').value,
@@ -128,8 +128,8 @@ function formPayload() {
     featureType: adminDashboardElement('#dashboard-feature-type').value,
     audience: adminDashboardElement('#dashboard-feature-audience').value,
     route: adminDashboardElement('#dashboard-feature-route').value,
-    defaultSize: adminDashboardElement('#dashboard-feature-default-size').value,
-    allowedSizes,
+    defaultDimension: adminDashboardElement('#dashboard-feature-default-dimension').value,
+    allowedDimensions,
     groupIds,
     sortOrder: Number(adminDashboardElement('#dashboard-feature-sort').value),
     isActive: adminDashboardElement('#dashboard-feature-active').checked,
@@ -143,7 +143,7 @@ async function loadAdminDashboard() {
     renderGroupChecks([]);
     setGroupFieldVisibility('groups');
     renderFeatureList();
-    adminDashboardMessage(`${adminDashboardState.payload.features.length} dashboard features · ${adminDashboardState.payload.groups.length} available groups`, 'success');
+    adminDashboardMessage(`${adminDashboardState.payload.features.length} dashboard features · ${adminDashboardState.payload.groups.length} available groups · ${adminDashboardState.payload.grid.columns}-column grid`, 'success');
   } catch (error) {
     adminDashboardMessage(error.message, 'error');
   }
@@ -175,8 +175,8 @@ adminDashboardElement('#dashboard-admin-form')?.addEventListener('submit', async
 
 adminDashboardElement('#new-dashboard-feature')?.addEventListener('click', clearFeatureForm);
 adminDashboardElement('#dashboard-feature-cancel')?.addEventListener('click', clearFeatureForm);
-adminDashboardElement('#dashboard-feature-default-size')?.addEventListener('change', event => {
-  const matching = document.querySelector(`#dashboard-feature-size-checks input[value="${CSS.escape(event.currentTarget.value)}"]`);
+adminDashboardElement('#dashboard-feature-default-dimension')?.addEventListener('change', event => {
+  const matching = document.querySelector(`#dashboard-feature-dimension-checks input[value="${CSS.escape(event.currentTarget.value)}"]`);
   if (matching) matching.checked = true;
 });
 adminDashboardElement('#dashboard-feature-audience')?.addEventListener('change', event => {
