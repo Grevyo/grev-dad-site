@@ -1,0 +1,84 @@
+name: Verify Whole Tile Drag Dialog
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/whole-tile-drag-settings-widescreen'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser test dependency
+        run: npm install --package-lock=false --no-save jsdom@26
+      - name: Run dashboard DOM interaction test
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const { JSDOM } = require('jsdom');
+
+          const html = fs.readFileSync('public/dashboard.html', 'utf8');
+          const js = fs.readFileSync('public/dashboard.js', 'utf8');
+          const css = fs.readFileSync('public/dashboard.css', 'utf8');
+          const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only', pretendToBeVisual: true });
+          const { window } = dom;
+          window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+          window.HTMLElement.prototype.scrollIntoView = function () {};
+          if (window.HTMLDialogElement) {
+            window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+            window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+          }
+          const dashboardPayload = {
+            ok: true,
+            viewer: { id: 'u1', username: 'LADMIN', displayName: 'Local Administrator', isAdmin: true, isOwner: true },
+            grid: { columns: 6, dimensions: ['1x1','2x1','2x2'] },
+            preferences: { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 },
+            capabilities: { canCustomize: true, isAdmin: true, isOwner: true },
+            features: [{ id: 'feature-settings', slug: 'settings', name: 'Profile settings', description: '', category: 'Account', featureType: 'system', presentation: 'action', route: '/settings', iconText: 'PS', audience: 'all', defaultDimension: '1x1', defaultWidth: 1, defaultHeight: 1, allowedDimensions: ['1x1','2x1','2x2'], isActive: true, isDefault: true, sortOrder: 1, pinned: true, x: 0, y: 0, width: 1, height: 1, tileColour: 'default', accessGroups: [] }],
+            pinnedTiles: [{ id: 'feature-settings', slug: 'settings', name: 'Profile settings', description: '', category: 'Account', featureType: 'system', presentation: 'action', route: '/settings', iconText: 'PS', audience: 'all', defaultDimension: '1x1', defaultWidth: 1, defaultHeight: 1, allowedDimensions: ['1x1','2x1','2x2'], isActive: true, isDefault: true, sortOrder: 1, pinned: true, x: 0, y: 0, width: 1, height: 1, tileColour: 'default', accessGroups: [] }]
+          };
+          window.fetch = async url => ({
+            ok: true,
+            json: async () => String(url).includes('/api/onboarding')
+              ? { ok: true, progress: { relationshipComplete: true, intentionsComplete: true } }
+              : dashboardPayload
+          });
+          window.eval(js);
+          await new Promise(resolve => setTimeout(resolve, 20));
+          window.document.querySelector('#customize-dashboard').click();
+          await new Promise(resolve => setTimeout(resolve, 10));
+          const tile = window.document.querySelector('.dashboard-tile.editing');
+          if (!tile) throw new Error('Editable tile was not rendered');
+          if (!tile.draggable) throw new Error('Whole tile is not draggable');
+          if (tile.dataset.width !== '1' || tile.dataset.height !== '1') throw new Error('Tile dimensions changed unexpectedly');
+          const settings = tile.querySelector('.dashboard-tile-settings');
+          if (!settings || settings.textContent !== 'TILE SETTINGS') throw new Error('Tile settings control missing');
+          settings.click();
+          const dialog = window.document.querySelector('#dashboard-tile-settings-dialog');
+          if (!dialog.open) throw new Error('Tile settings dialog did not open');
+          window.document.querySelector('#dashboard-close-tile-settings').click();
+          if (dialog.open) throw new Error('Tile settings dialog did not close');
+          const drag = new window.Event('dragstart', { bubbles: true, cancelable: true });
+          Object.defineProperty(drag, 'dataTransfer', { value: { setData() {}, effectAllowed: '' } });
+          tile.dispatchEvent(drag);
+          if (!tile.classList.contains('dragging')) throw new Error('Whole-tile drag did not start from tile body');
+          if (!window.document.querySelector('.dashboard-placement-preview')) throw new Error('Placement preview was not shown');
+          tile.dispatchEvent(new window.Event('dragend', { bubbles: true }));
+          if (css.includes('--tile-row-height:65') || css.includes('aspect-ratio:16/9')) throw new Error('Tile aspect ratio was reshaped');
+          if (!css.includes('177.7778vh')) throw new Error('Widescreen page rule is missing');
+          console.log('Whole-tile drag, tile settings dialog and page-only widescreen layout verified.');
+          NODE
+      - name: Check browser syntax and diff
+        run: |
+          node --check public/dashboard.js
+          git diff --check
