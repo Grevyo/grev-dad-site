@@ -21,8 +21,7 @@ source = replaceOnce(source,
 source = replaceOnce(source,
 `function gridRowHeight(density) {
   return density === 'compact' ? 92 : 116;
-}
-`,
+}`,
 `function gridRowHeight(density) {
   return density === 'compact' ? 92 : 116;
 }
@@ -84,8 +83,7 @@ function nearestAllowedDimension(feature, tile, desiredWidth, desiredHeight) {
 
 function tileElement(featureId) {
   return [...document.querySelectorAll('.dashboard-tile')].find(tile => tile.dataset.featureId === featureId) ?? null;
-}
-`,
+}`,
 'grid helpers');
 
 fs.writeFileSync('public/dashboard.js', source);
