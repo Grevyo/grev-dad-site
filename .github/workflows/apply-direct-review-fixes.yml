@@ -1,0 +1,33 @@
+name: Apply Direct Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - pbe
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/direct-tile-drag-resize
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/patch-direct-review-fixes.mjs
+      - run: node --check public/dashboard.js
+      - run: npm install --package-lock=false
+      - run: npm run typecheck
+      - name: Commit review fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/dashboard.js public/dashboard.css
+          git commit -m "Fix blocked footprint visibility and resize cancellation"
+          git push origin HEAD:agent/direct-tile-drag-resize
