@@ -18,7 +18,7 @@
 
 <section id="dashboard-editor-toolbar" class="dashboard-editor-toolbar" hidden aria-label="Dashboard editing controls">
 <div class="dashboard-editor-topline">
-<div><p class="eyebrow">Live dashboard editor</p><h2>Edit directly on your dashboard</h2><p>Every move and resize is previewed below. Nothing is stored until you press Save dashboard.</p></div>
+<div><p class="eyebrow">Live dashboard editor</p><h2>Edit directly on your dashboard</h2><p>Drag the top strip to move a tile and drag its bottom-right corner to resize it. The highlighted footprint shows exactly where it will land. Nothing is stored until you press Save dashboard.</p></div>
 <div class="dashboard-editor-actions"><button id="dashboard-pack-layout" type="button">Pack tiles</button><button id="dashboard-reset-layout" type="button">Load defaults</button><button id="dashboard-cancel-layout" type="button">Cancel</button><button id="dashboard-save-layout" class="primary" type="button">Save dashboard</button></div>
 </div>
 <div class="dashboard-editor-settings">
@@ -33,12 +33,12 @@
 <div class="dashboard-selected-arrows" aria-label="Move selected tile"><button type="button" data-move-x="-1" data-move-y="0" title="Move left">←</button><button type="button" data-move-x="0" data-move-y="-1" title="Move up">↑</button><button type="button" data-move-x="0" data-move-y="1" title="Move down">↓</button><button type="button" data-move-x="1" data-move-y="0" title="Move right">→</button></div>
 <button id="dashboard-remove-selected" class="danger-action" type="button">Remove tile</button>
 </div>
-<p id="dashboard-editor-message" class="dashboard-editor-message" role="status">Select a tile to resize it or move it one cell at a time.</p>
+<p id="dashboard-editor-message" class="dashboard-editor-message" role="status">Drag a tile to move it, drag its corner to resize it, or use the selected-tile controls.</p>
 </section>
 
 <section id="dashboard-workspace" class="dashboard-workspace">
 <div class="dashboard-grid-region">
-<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>Drag the MOVE strip onto empty cells. Blank cells remain blank after saving.</span></div><strong id="dashboard-grid-summary">6 columns</strong></div>
+<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>Drag the top strip to move. Drag the bottom-right corner to resize. The highlighted footprint shows valid or blocked cells.</span></div><strong id="dashboard-grid-summary">6 columns</strong></div>
 <section id="dashboard-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
 <section id="dashboard-empty" class="dashboard-empty" hidden><h2>Your dashboard is empty</h2><p>Open Customize dashboard and place any features currently available to your account.</p></section>
 </div>
