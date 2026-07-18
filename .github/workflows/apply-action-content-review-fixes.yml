@@ -1,0 +1,110 @@
+name: Apply Action Content Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/action-and-content-dashboard-tiles' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply review fixes
+        run: node scripts/fix-action-content-review.mjs
+      - name: Install and check code
+        run: |
+          npm install --package-lock=false
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+      - name: Apply local migrations
+        run: |
+          rm -rf .tmp-action-content-review
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe --persist-to .tmp-action-content-review
+      - name: Seed authenticated Owner session
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN='dashboard-review-test-token'
+          HASH=$(TOKEN="$TOKEN" node -e "const c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(process.env.TOKEN).digest('base64url'))")
+          NOW=$(date +%s)
+          EXPIRES=$((NOW + 3600))
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --persist-to .tmp-action-content-review --command "INSERT INTO users(id,username,email,display_name,status,is_verified,is_owner,verified_at,verified_by,created_at,updated_at) VALUES('dashboard-review-user','REVIEWER',NULL,'Review User','active',1,1,$NOW,NULL,$NOW,$NOW); INSERT INTO sessions(id,user_id,token_hash,created_at,last_seen_at,expires_at,revoked_at,remember_me,user_agent) VALUES('dashboard-review-session','dashboard-review-user','$HASH',$NOW,$NOW,$EXPIRES,NULL,0,'GitHub Actions');"
+          echo "GREVDAD_REVIEW_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Start local Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler dev --env pbe --local --persist-to .tmp-action-content-review --port 8788 > /tmp/review-worker.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8788/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/review-worker.log
+          exit 1
+      - name: Preserve Profile presentation when old payload omits field
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail --cookie "grev_session=$GREVDAD_REVIEW_TOKEN" http://127.0.0.1:8788/api/admin/dashboard/features > /tmp/catalogue.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const catalogue = JSON.parse(fs.readFileSync('/tmp/catalogue.json', 'utf8'));
+          const profile = catalogue.features.find(feature => feature.id === 'feature-profile');
+          if (!profile || profile.presentation !== 'content') throw new Error('Profile did not begin as content.');
+          const payload = {
+            name: profile.name,
+            slug: 'profile-renamed-review-test',
+            description: profile.description,
+            category: profile.category,
+            iconText: profile.iconText,
+            featureType: profile.featureType,
+            audience: profile.audience,
+            route: profile.route,
+            defaultDimension: profile.defaultDimension,
+            allowedDimensions: profile.allowedDimensions,
+            groupIds: profile.groupIds,
+            sortOrder: profile.sortOrder,
+            isActive: profile.isActive,
+            isDefault: profile.isDefault
+          };
+          fs.writeFileSync('/tmp/profile-update.json', JSON.stringify(payload));
+          NODE
+          curl --silent --show-error --fail \
+            --cookie "grev_session=$GREVDAD_REVIEW_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --request POST \
+            --data-binary @/tmp/profile-update.json \
+            http://127.0.0.1:8788/api/admin/dashboard/features/feature-profile > /tmp/profile-updated.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/profile-updated.json', 'utf8'));
+          const profile = payload.features.find(feature => feature.id === 'feature-profile');
+          if (!profile || profile.presentation !== 'content' || profile.slug !== 'profile-renamed-review-test') throw new Error('Omitted presentation was not preserved.');
+          console.log('Missing update presentation preserved successfully.');
+          NODE
+      - name: Verify stable IDs and commit fixes
+        run: |
+          grep -q "feature.id === 'feature-profile'" public/dashboard.js
+          grep -q "feature.id === 'feature-grev-news'" public/dashboard.js
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/dashboard.ts public/dashboard.js
+          git commit -m "Preserve information tile presentation and use stable feature IDs"
+          git push origin HEAD:${{ github.head_ref }}
