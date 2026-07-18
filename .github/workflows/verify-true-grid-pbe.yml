@@ -60,9 +60,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --silent --show-error --fail https://pbe.grev.dad/dashboard.js | grep -q 'firstFreePlacement'
-          curl --silent --show-error --fail https://pbe.grev.dad/dashboard.js | grep -q 'outerMargin'
-          curl --silent --show-error --fail https://pbe.grev.dad/dashboard.css | grep -q 'dashboard-layout-canvas'
+          curl --silent --show-error --fail --output /tmp/dashboard.js https://pbe.grev.dad/dashboard.js
+          curl --silent --show-error --fail --output /tmp/dashboard.css https://pbe.grev.dad/dashboard.css
+          grep -q 'firstFreePlacement' /tmp/dashboard.js
+          grep -q 'outerMargin' /tmp/dashboard.js
+          grep -q 'dashboard-layout-canvas' /tmp/dashboard.css
           page_status=$(curl --silent --show-error --output /tmp/dashboard.html --write-out '%{http_code}' --cookie /tmp/cookies https://pbe.grev.dad/dashboard)
           test "$page_status" = "200"
           grep -q 'Pack tiles' /tmp/dashboard.html
