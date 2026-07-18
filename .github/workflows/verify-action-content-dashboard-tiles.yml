@@ -1,0 +1,108 @@
+name: Verify Action And Content Dashboard Tiles
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/action-and-content-dashboard-tiles'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --package-lock=false
+      - name: Check browser JavaScript
+        run: |
+          node --check public/dashboard.js
+          node --check public/admin-dashboard.js
+      - name: Check TypeScript and Worker bundle
+        run: |
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+      - name: Apply complete local migration chain
+        run: |
+          rm -rf .tmp-action-content-d1
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe --persist-to .tmp-action-content-d1
+      - name: Seed authenticated local Owner session
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN='dashboard-action-content-test-token'
+          HASH=$(TOKEN="$TOKEN" node -e "const c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(process.env.TOKEN).digest('base64url'))")
+          NOW=$(date +%s)
+          EXPIRES=$((NOW + 3600))
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --persist-to .tmp-action-content-d1 --command "INSERT INTO users(id,username,email,display_name,status,is_verified,is_owner,verified_at,verified_by,created_at,updated_at) VALUES('dashboard-test-user','TESTER',NULL,'Test User','active',1,1,$NOW,NULL,$NOW,$NOW); INSERT INTO sessions(id,user_id,token_hash,created_at,last_seen_at,expires_at,revoked_at,remember_me,user_agent) VALUES('dashboard-test-session','dashboard-test-user','$HASH',$NOW,$NOW,$EXPIRES,NULL,0,'GitHub Actions');"
+          echo "GREVDAD_TEST_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Start local Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler dev --env pbe --local --persist-to .tmp-action-content-d1 --port 8788 > /tmp/grev-dashboard-worker.log 2>&1 &
+          echo $! > /tmp/grev-dashboard-worker.pid
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8788/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/grev-dashboard-worker.log
+          exit 1
+      - name: Verify dashboard presentation payload and defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail \
+            --cookie "grev_session=$GREVDAD_TEST_TOKEN" \
+            http://127.0.0.1:8788/api/dashboard > /tmp/dashboard.json
+          cat /tmp/dashboard.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/dashboard.json', 'utf8'));
+          const byId = new Map((payload.features ?? []).map(feature => [feature.id, feature]));
+          const profile = byId.get('feature-profile');
+          const news = byId.get('feature-grev-news');
+          const settings = byId.get('feature-settings');
+          if (!payload.ok || payload.viewer?.username !== 'TESTER' || !payload.viewer?.isOwner) throw new Error('Signed-in viewer payload is missing or incorrect.');
+          if (profile?.presentation !== 'content' || profile?.defaultDimension !== '2x2') throw new Error('Profile is not a 2x2 information tile.');
+          if (news?.presentation !== 'content' || news?.defaultDimension !== '3x2') throw new Error('Grev News is not a 3x2 information tile.');
+          if (settings?.presentation !== 'action' || settings?.defaultDimension !== '1x1') throw new Error('Settings is not a 1x1 action tile.');
+          console.log('Dashboard action/content presentation and defaults verified.');
+          NODE
+      - name: Verify Admin can create an information tile
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail \
+            --cookie "grev_session=$GREVDAD_TEST_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --request POST \
+            --data '{"name":"Test information","slug":"test-information","description":"Useful data","category":"Test","iconText":"TI","featureType":"workspace","presentation":"content","audience":"all","route":"/feature/test-information","defaultDimension":"2x2","allowedDimensions":["1x1","2x2"],"groupIds":[],"sortOrder":999,"isActive":true,"isDefault":false}' \
+            http://127.0.0.1:8788/api/admin/dashboard/features > /tmp/admin-dashboard.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/admin-dashboard.json', 'utf8'));
+          const created = (payload.features ?? []).find(feature => feature.slug === 'test-information');
+          if (!created || created.presentation !== 'content' || created.defaultDimension !== '2x2') throw new Error('Admin presentation was not persisted.');
+          console.log('Admin information-tile persistence verified.');
+          NODE
+      - name: Verify browser renderers and clean diff
+        run: |
+          git diff --check
+          grep -q "dashboard-action-tile" public/dashboard.js
+          grep -q "dashboard-profile-card" public/dashboard.js
+          grep -q "dashboard-news-headline" public/dashboard.js
+          grep -q "article.dataset.presentation" public/dashboard.js
+          grep -q "dashboard-feature-presentation" public/admin-dashboard.html
