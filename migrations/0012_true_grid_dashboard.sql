@@ -34,7 +34,7 @@ ALTER TABLE user_dashboard_tiles ADD COLUMN tile_height INTEGER NOT NULL DEFAULT
 
 UPDATE user_dashboard_tiles
 SET grid_x = 0,
-    grid_y = position * 3,
+    grid_y = position * 2,
     tile_width = CASE size
       WHEN 'small' THEN 1
       WHEN 'medium' THEN 2
