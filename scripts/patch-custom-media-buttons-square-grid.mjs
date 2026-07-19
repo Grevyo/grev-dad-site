@@ -197,12 +197,11 @@ patch('src/dashboard.ts', source => {
     "    borderColour: HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour,\n    contentMode: VALID_CONTENT_MODES.has(String(row.content_mode ?? '') as TileContentMode) ? String(row.content_mode) as TileContentMode : DEFAULT_TILE_APPEARANCE.contentMode,\n    customTitle: typeof row.custom_title === 'string' && row.custom_title.trim() ? row.custom_title.trim() : null,\n    customIcon: typeof row.custom_icon === 'string' && row.custom_icon.trim() ? row.custom_icon.trim() : null,\n    mediaFit: VALID_MEDIA_FITS.has(String(row.media_fit ?? '') as TileMediaFit) ? String(row.media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.mediaFit,\n    mediaOverlay: VALID_MEDIA_OVERLAYS.has(String(row.media_overlay ?? '') as TileMediaOverlay) ? String(row.media_overlay) as TileMediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay\n  };",
     'hydrate custom content fields'
   );
-  source = replaceOnce(
-    source,
-    "       COALESCE((\n         SELECT GROUP_CONCAT",
-    "       t.content_mode,\n       t.custom_title,\n       t.custom_icon,\n       t.media_fit,\n       t.media_overlay,\n       COALESCE((\n         SELECT GROUP_CONCAT",
-    'accessible feature custom columns'
-  );
+  {
+    const accessibleColumnsPattern = /(\n\s*t\.border_colour,\n)(\s*COALESCE\(\()/;
+    if (!accessibleColumnsPattern.test(source)) throw new Error('Missing accessible feature custom column insertion point.');
+    source = source.replace(accessibleColumnsPattern, '$1       t.content_mode,\n       t.custom_title,\n       t.custom_icon,\n       t.media_fit,\n       t.media_overlay,\n$2');
+  }
   source = replaceAllChecked(
     source,
     "NULL AS font_family,NULL AS border_colour,'' AS matched_groups",
