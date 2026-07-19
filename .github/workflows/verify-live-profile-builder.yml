@@ -104,6 +104,11 @@ jobs:
           if (!Array.isArray(profile.tiles) || !profile.preferences || profile.grid?.columns !== 8 || profile.grid?.maxTileWidth !== 6 || profile.grid?.maxTileHeight !== 4) {
             throw new Error('The profile tile builder grid or preferences are incomplete.');
           }
+          fs.writeFileSync('/tmp/profile-save.json', JSON.stringify({
+            card: profile.card,
+            tiles: profile.tiles,
+            preferences: profile.preferences
+          }));
           console.log(JSON.stringify({
             ok: true,
             profileId: profile.id,
@@ -114,10 +119,59 @@ jobs:
           }, null, 2));
           NODE
 
+          save_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/profile-save-response.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/profile.cookies \
+            --request PUT \
+            --header 'Origin: https://pbe.grev.dad' \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/profile-save.json \
+            https://pbe.grev.dad/api/profile)
+          test "$save_status" = "200"
+
+          reload_status=$(curl --silent --show-error --output /tmp/profile-reload.json --write-out '%{http_code}' --cookie /tmp/profile.cookies "https://pbe.grev.dad/api/profiles/$profile_id")
+          test "$reload_status" = "200"
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const expected = JSON.parse(fs.readFileSync('/tmp/profile-save.json', 'utf8'));
+          const saved = JSON.parse(fs.readFileSync('/tmp/profile-save-response.json', 'utf8')).profile;
+          const reloaded = JSON.parse(fs.readFileSync('/tmp/profile-reload.json', 'utf8')).profile;
+          for (const profile of [saved, reloaded]) {
+            if (!profile || JSON.stringify(profile.card) !== JSON.stringify(expected.card) || JSON.stringify(profile.tiles) !== JSON.stringify(expected.tiles) || JSON.stringify(profile.preferences) !== JSON.stringify(expected.preferences)) {
+              throw new Error('The saved profile did not reload with the same card, tiles and preferences.');
+            }
+          }
+          const crypto = require('node:crypto');
+          const invalid = {
+            card: expected.card,
+            preferences: expected.preferences,
+            tiles: [{
+              tileId: crypto.randomUUID(), tileType: 'text', x: 0, y: 199, width: 1, height: 4,
+              title: 'Invalid bounds test', body: null, linkLabel: null, linkUrl: null, statValue: null,
+              backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#3157c9',
+              backgroundAngle: 135, backgroundMedia: null, mediaFit: 'cover', mediaOverlay: 'dark',
+              textColour: '#f4f7fb', borderColour: '#394657', fontFamily: 'system'
+            }]
+          };
+          fs.writeFileSync('/tmp/profile-invalid.json', JSON.stringify(invalid));
+          console.log('Profile save and reload preserved the existing visible values.');
+          NODE
+
+          invalid_status=$(curl --silent --show-error --output /tmp/profile-invalid-response.json --write-out '%{http_code}' \
+            --cookie /tmp/profile.cookies \
+            --request PUT \
+            --header 'Origin: https://pbe.grev.dad' \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/profile-invalid.json \
+            https://pbe.grev.dad/api/profile)
+          test "$invalid_status" = "400"
+
           unauthenticated_status=$(curl --silent --show-error --output /tmp/profile-unauthenticated.json --write-out '%{http_code}' "https://pbe.grev.dad/api/profiles/$profile_id")
           test "$unauthenticated_status" = "401"
 
           dashboard_status=$(curl --silent --show-error --output /tmp/profile-dashboard.json --write-out '%{http_code}' --cookie /tmp/profile.cookies https://pbe.grev.dad/api/dashboard)
           test "$dashboard_status" = "200"
 
-          echo 'Live PBE profile card, profile grid, migration-backed API, assets and dashboard compatibility verified.'
+          echo 'Live PBE profile card, profile grid, save/reload, bounds validation, assets and dashboard compatibility verified.'
