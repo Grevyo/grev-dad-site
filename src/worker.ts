@@ -2,6 +2,7 @@ import app from './index';
 import { handleDashboardRequest, type DashboardEnv } from './dashboard';
 import { type ProfileEnv } from './profile';
 import { handleProfileMediaRequest } from './profile-media';
+import { handleProfileCardTilesRequest } from './profile-card-tiles';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -12,7 +13,9 @@ const DASHBOARD_ASSETS = new Set([
   '/feature.js',
   '/profile.css',
   '/profile.js',
-  '/profile-card.js'
+  '/profile-card.js',
+  '/profile-card-tiles.css',
+  '/profile-card-tiles.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -60,6 +63,8 @@ export default {
     }
 
     try {
+      const cardTileResponse = await handleProfileCardTilesRequest(request, env as unknown as ProfileEnv);
+      if (cardTileResponse) return cardTileResponse;
       const profileResponse = await handleProfileMediaRequest(request, env as unknown as ProfileEnv);
       if (profileResponse) return profileResponse;
     } catch (error) {
