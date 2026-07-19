@@ -164,26 +164,15 @@ function createActionTileContent(feature, editing = false) {
   const icon = createStandardTileIcon(feature, 'dashboard-action-icon');''',
     "standard action icon helper",
 )
-js = replace_once(
-    js,
-    '''  const icon = document.createElement('span');
+content_icon_anchor = '''  const icon = document.createElement('span');
   icon.className = 'dashboard-content-icon';
   icon.textContent = feature.iconText;
-  heading.append(label, icon);''',
-    '''  const icon = createStandardTileIcon(feature, 'dashboard-content-icon');
-  heading.append(label, icon);''',
-    "news standard icon",
-)
-js = replace_once(
-    js,
-    '''  const icon = document.createElement('span');
-  icon.className = 'dashboard-content-icon';
-  icon.textContent = feature.iconText;
-  heading.append(label, icon);''',
-    '''  const icon = createStandardTileIcon(feature, 'dashboard-content-icon');
-  heading.append(label, icon);''',
-    "generic standard icon",
-)
+  heading.append(label, icon);'''
+content_icon_replacement = '''  const icon = createStandardTileIcon(feature, 'dashboard-content-icon');
+  heading.append(label, icon);'''
+if js.count(content_icon_anchor) != 2:
+    raise RuntimeError(f"standard content icons: expected two anchors, found {js.count(content_icon_anchor)}")
+js = js.replace(content_icon_anchor, content_icon_replacement)
 js = replace_once(
     js,
     '''function setCustomContentVisibility(mode) {
