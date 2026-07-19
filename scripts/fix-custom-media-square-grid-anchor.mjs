@@ -33,6 +33,18 @@ if (source.includes(oldExactServerBlock)) {
   changed = true;
 }
 
-if (!changed && !source.includes('accessibleColumnsPattern')) throw new Error('No custom media patch anchors were available to correct.');
+const oldSaveBlock = `  source = replaceOnce(
+    source,
+    "INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,pinned_at,updated_at)\\n       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    "INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,content_mode,custom_title,custom_icon,media_fit,media_overlay,pinned_at,updated_at)\\n       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    'save custom content columns'
+  );`;
+const regexSaveBlock = `  {\n    const saveInsertPattern = /(INSERT INTO user_dashboard_tiles\\([^\\n]*border_colour),pinned_at,updated_at\\)(\\n\\s*)VALUES\\(\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?,\\?\\)/;\n    if (!saveInsertPattern.test(source)) throw new Error('Missing dashboard tile insert statement.');\n    source = source.replace(saveInsertPattern, '$1,content_mode,custom_title,custom_icon,media_fit,media_overlay,pinned_at,updated_at)$2VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');\n  }`;
+if (source.includes(oldSaveBlock)) {
+  source = source.replace(oldSaveBlock, regexSaveBlock);
+  changed = true;
+}
+
+if (!changed && !source.includes('accessibleColumnsPattern') && !source.includes('saveInsertPattern')) throw new Error('No custom media patch anchors were available to correct.');
 fs.writeFileSync(path, source);
 console.log('Custom media patch anchors corrected.');
