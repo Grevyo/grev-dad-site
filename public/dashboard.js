@@ -1104,7 +1104,11 @@ dashboardElement('#dashboard-content-mode')?.addEventListener('change', event =>
   const value = String(event.currentTarget.value);
   if (!tile || !TILE_CONTENT_MODES.has(value)) return;
   tile.contentMode = value;
-  if (value === 'media-button') tile.backgroundType = 'media';
+  if (value === 'media-button') {
+    tile.backgroundType = 'media';
+  } else if (tile.backgroundType === 'media' && !tile.backgroundMedia) {
+    tile.backgroundType = 'solid';
+  }
   refreshAppearancePreview(tile, value === 'media-button' ? 'Custom media button selected. Upload a picture or GIF before saving.' : 'Standard tile content restored.');
 });
 [['#dashboard-custom-title','customTitle',80],['#dashboard-custom-icon','customIcon',12]].forEach(([selector, field, maximum]) => {
