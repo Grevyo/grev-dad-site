@@ -28,5 +28,5 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --location \
             https://raw.githubusercontent.com/Grevyo/grev-dad-site/agent/streamline-profile-editor/.github/scripts/verify-unified-profile-editor.cjs \
-            --output /tmp/verify-unified-profile-editor.cjs
-          node /tmp/verify-unified-profile-editor.cjs
+            --output verify-unified-profile-editor.cjs
+          node verify-unified-profile-editor.cjs
