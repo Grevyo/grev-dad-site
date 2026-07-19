@@ -1,0 +1,62 @@
+name: Verify Live Standard Tile Icons
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-standard-icons-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Verify deployed dashboard markup
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            if curl --silent --show-error --fail https://pbe.grev.dad/dashboard.html | grep -q 'dashboard-icon-mode'; then
+              echo 'Standard icon controls are deployed.'
+              exit 0
+            fi
+            sleep 6
+          done
+          echo 'Deployed dashboard markup does not yet contain standard icon controls.'
+          exit 1
+      - name: Verify migrated live dashboard API
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          login_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/icon-login.json --write-out '%{http_code}' --cookie-jar /tmp/icon.cookies --request POST --header 'Content-Type: application/json' --data "$payload" https://pbe.grev.dad/api/auth/login)
+          cat /tmp/icon-login.json
+          test "$login_status" = 200
+          dashboard_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/icon-dashboard.json --write-out '%{http_code}' --cookie /tmp/icon.cookies https://pbe.grev.dad/api/dashboard)
+          test "$dashboard_status" = 200
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/icon-dashboard.json', 'utf8'));
+          if (!payload.ok || !Array.isArray(payload.features) || !Array.isArray(payload.pinnedTiles)) {
+            throw new Error('Dashboard API did not return the expected payload.');
+          }
+          const sample = payload.pinnedTiles[0] ?? payload.features[0];
+          if (!sample) throw new Error('Dashboard API returned no feature to inspect.');
+          const required = ['iconMode','iconLabel','iconMedia','iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit'];
+          const missing = required.filter(field => !(field in sample));
+          if (missing.length) throw new Error('Missing standard icon fields: ' + missing.join(', '));
+          if (payload.features.some(feature => feature.iconMedia !== null)) {
+            throw new Error('Feature catalogue exposed private icon media.');
+          }
+          console.log(JSON.stringify({
+            ok: true,
+            pinnedTiles: payload.pinnedTiles.length,
+            features: payload.features.length,
+            iconMode: sample.iconMode,
+            hasPrivateIconMediaInCatalogue: false
+          }, null, 2));
+          NODE
