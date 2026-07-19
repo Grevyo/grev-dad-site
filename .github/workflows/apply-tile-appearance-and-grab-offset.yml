@@ -24,21 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Correct embedded generator syntax
+        run: node scripts/fix-tile-appearance-patch-generator.mjs
       - name: Apply appearance and drag patch
-        run: |
-          set +e
-          node scripts/patch-tile-appearance-and-grab-offset.mjs > patch-debug.txt 2>&1
-          status=$?
-          cat patch-debug.txt
-          if [ "$status" -ne 0 ]; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add patch-debug.txt
-            git commit -m "Capture tile appearance patch failure"
-            git push origin HEAD:${{ github.head_ref }}
-            exit "$status"
-          fi
-          rm patch-debug.txt
+        run: node scripts/patch-tile-appearance-and-grab-offset.mjs
       - name: Check browser JavaScript
         run: node --check public/dashboard.js
       - name: Install dependencies
