@@ -1,6 +1,7 @@
 import app from './index';
 import { handleDashboardRequest, type DashboardEnv } from './dashboard';
-import { handleProfileRequest, type ProfileEnv } from './profile';
+import { type ProfileEnv } from './profile';
+import { handleProfileMediaRequest } from './profile-media';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -59,7 +60,7 @@ export default {
     }
 
     try {
-      const profileResponse = await handleProfileRequest(request, env as unknown as ProfileEnv);
+      const profileResponse = await handleProfileMediaRequest(request, env as unknown as ProfileEnv);
       if (profileResponse) return profileResponse;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'UNKNOWN';
