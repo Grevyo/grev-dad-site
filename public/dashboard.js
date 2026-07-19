@@ -188,7 +188,7 @@ function preferenceValue(selector, fallback) {
 function squareGridCellSize(element, gap, margin) {
   const measuredWidth = element.getBoundingClientRect().width || element.parentElement?.getBoundingClientRect().width || window.innerWidth;
   const usableWidth = Math.max(1, measuredWidth - margin * 2 - gap * (GRID_COLUMNS - 1));
-  return Math.max(64, usableWidth / GRID_COLUMNS);
+  return Math.max(1, usableWidth / GRID_COLUMNS);
 }
 
 function gridMetrics() {

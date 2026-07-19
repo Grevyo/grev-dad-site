@@ -95,13 +95,14 @@ type FeatureRow = {
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
 const GRID_COLUMNS = 8;
+const MAX_TILE_WIDTH = 6;
 const MAX_GRID_Y = 199;
 const MAX_TILES = 60;
 const VALID_DENSITIES = new Set<DashboardDensity>(['comfortable', 'compact']);
 const VALID_GAPS = new Set([0, 4, 8, 12, 16, 20, 24, 32, 40, 48]);
 const VALID_MARGINS = new Set([0, 8, 12, 16, 24, 32, 40, 48, 56, 64]);
 const ALL_DIMENSIONS = Array.from({ length: 4 }, (_, heightIndex) =>
-  Array.from({ length: GRID_COLUMNS }, (_, widthIndex) => `${widthIndex + 1}x${heightIndex + 1}`)
+  Array.from({ length: MAX_TILE_WIDTH }, (_, widthIndex) => `${widthIndex + 1}x${heightIndex + 1}`)
 ).flat();
 const VALID_DIMENSIONS = new Set(ALL_DIMENSIONS);
 const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
@@ -306,7 +307,7 @@ function overlaps(a: TilePlacement, b: TilePlacement): boolean {
 function validPlacement(tile: TilePlacement): boolean {
   return Number.isInteger(tile.x) && Number.isInteger(tile.y) && Number.isInteger(tile.width) && Number.isInteger(tile.height)
     && tile.x >= 0 && tile.y >= 0 && tile.y <= MAX_GRID_Y
-    && tile.width >= 1 && tile.width <= GRID_COLUMNS && tile.height >= 1 && tile.height <= 4
+    && tile.width >= 1 && tile.width <= MAX_TILE_WIDTH && tile.height >= 1 && tile.height <= 4
     && tile.x + tile.width <= GRID_COLUMNS && tile.y + tile.height <= MAX_GRID_Y + 1;
 }
 
