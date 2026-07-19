@@ -94,6 +94,19 @@ async function storedPageMediaBytes(env: ProfileEnv, userId: string): Promise<nu
   return row?.media_data ? dataUrlByteLength(row.media_data) : 0;
 }
 
+async function storedProfileMediaBytes(env: ProfileEnv, userId: string): Promise<number> {
+  const [cardRows, tileRows] = await Promise.all([
+    env.DB.prepare(`SELECT media_data FROM user_profile_media WHERE user_id=?`)
+      .bind(userId).all<{ media_data: string }>(),
+    env.DB.prepare(`SELECT background_media FROM user_profile_tiles WHERE user_id=? AND background_media IS NOT NULL`)
+      .bind(userId).all<{ background_media: string }>()
+  ]);
+  return [
+    ...cardRows.results.map(row => row.media_data),
+    ...tileRows.results.map(row => row.background_media)
+  ].reduce((sum, value) => sum + dataUrlByteLength(value), 0);
+}
+
 async function completeMediaBytesWithoutDesign(body: Record<string, unknown>, env: ProfileEnv, userId: string): Promise<number> {
   let total = await storedPageMediaBytes(env, userId);
   const card = body.card && typeof body.card === 'object' && !Array.isArray(body.card)
@@ -153,7 +166,8 @@ export async function handleProfileCustomizationHardeningRequest(request: Reques
     } catch {
       return null;
     }
-    const total = await completeMediaBytesWithoutDesign({ cardTiles: body.tiles }, env, userId);
+    const total = await completeMediaBytesWithoutDesign({ cardTiles: body.tiles }, env, userId)
+      + await storedProfileMediaBytes(env, userId);
     if (total > MAX_PROFILE_MEDIA_BYTES) {
       return secureJson({ ok: false, message: 'Profile pictures, page background and all profile tile media may use up to 8 MB in total.' }, 400);
     }
