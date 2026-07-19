@@ -1,5 +1,6 @@
 const { chromium } = require('playwright');
 const base = 'https://agent-streamline-profile-editor-grev-dad-site.joeahh.workers.dev';
+const authBase = 'https://pbe.grev.dad';
 const assert = (value, message) => { if (!value) throw new Error(message); };
 const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
 
@@ -10,11 +11,11 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
   try {
     let profileId = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
-      const login = await context.request.post(`${base}/api/auth/login`, {
+      const login = await context.request.post(`${authBase}/api/auth/login`, {
         data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
       });
       if (login.status() === 200) {
-        const session = await context.request.get(`${base}/api/auth/session`);
+        const session = await context.request.get(`${authBase}/api/auth/session`);
         if (session.status() === 200) {
           const payload = await session.json();
           profileId = payload.user?.id || null;
@@ -23,7 +24,23 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
       }
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
-    assert(profileId, 'Could not authenticate against the branch preview.');
+    assert(profileId, 'Could not authenticate against PBE.');
+
+    const pbeCookies = await context.cookies(authBase);
+    const sessionCookie = pbeCookies.find(cookie => cookie.name === 'grev_session');
+    assert(sessionCookie, 'PBE login did not return the session cookie.');
+    await context.addCookies([{
+      name: sessionCookie.name,
+      value: sessionCookie.value,
+      domain: new URL(base).hostname,
+      path: '/',
+      httpOnly: sessionCookie.httpOnly,
+      secure: true,
+      sameSite: sessionCookie.sameSite
+    }]);
+
+    const branchSession = await context.request.get(`${base}/api/auth/session`);
+    assert(branchSession.status() === 200, `Branch preview rejected the shared PBE session (${branchSession.status()}).`);
     checkpoint('authenticated');
 
     const beforeResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`);
