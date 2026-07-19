@@ -1,4 +1,4 @@
-const GRID_COLUMNS = 6;
+const GRID_COLUMNS = 8;
 const TILE_COLOURS = new Set(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
 const TILE_SOLIDS = [
   { name: 'Charcoal', value: '#11161d' }, { name: 'Graphite', value: '#171b22' }, { name: 'Midnight blue', value: '#101a2a' },
@@ -22,7 +22,10 @@ const TILE_FONT_STACKS = {
   serif: 'Georgia,Times New Roman,serif',
   rounded: 'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'
 };
-const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657' });
+const TILE_CONTENT_MODES = new Set(['standard','media-button']);
+const TILE_MEDIA_FITS = new Set(['cover','contain','stretch']);
+const TILE_MEDIA_OVERLAYS = new Set(['none','dark','light']);
+const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657', contentMode: 'standard', customTitle: null, customIcon: null, mediaFit: 'cover', mediaOverlay: 'dark' });
 const MAX_TILE_MEDIA_BYTES = 1_400_000;
 const dashboardState = {
   payload: null,
@@ -77,7 +80,7 @@ function validHex(value) {
 }
 
 function normalizedTileAppearance(source = {}) {
-  const flatFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour'];
+  const flatFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay'];
   const hasFlatAppearance = flatFields.some(field => Object.prototype.hasOwnProperty.call(source, field));
   const appearance = hasFlatAppearance ? source : (source.appearance ?? source);
   return {
@@ -88,13 +91,21 @@ function normalizedTileAppearance(source = {}) {
     backgroundMedia: typeof appearance.backgroundMedia === 'string' && appearance.backgroundMedia.startsWith('data:image/') ? appearance.backgroundMedia : null,
     textColour: validHex(appearance.textColour) ? appearance.textColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.textColour,
     fontFamily: Object.hasOwn(TILE_FONT_STACKS, appearance.fontFamily) ? appearance.fontFamily : DEFAULT_TILE_APPEARANCE.fontFamily,
-    borderColour: validHex(appearance.borderColour) ? appearance.borderColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour
+    borderColour: validHex(appearance.borderColour) ? appearance.borderColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour,
+    contentMode: TILE_CONTENT_MODES.has(appearance.contentMode) ? appearance.contentMode : DEFAULT_TILE_APPEARANCE.contentMode,
+    customTitle: typeof appearance.customTitle === 'string' && appearance.customTitle.trim() ? appearance.customTitle.trim().slice(0, 80) : null,
+    customIcon: typeof appearance.customIcon === 'string' && appearance.customIcon.trim() ? appearance.customIcon.trim().slice(0, 12) : null,
+    mediaFit: TILE_MEDIA_FITS.has(appearance.mediaFit) ? appearance.mediaFit : DEFAULT_TILE_APPEARANCE.mediaFit,
+    mediaOverlay: TILE_MEDIA_OVERLAYS.has(appearance.mediaOverlay) ? appearance.mediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay
   };
 }
 
 function applyTileAppearance(article, feature) {
   const appearance = normalizedTileAppearance(feature);
   article.dataset.backgroundType = appearance.backgroundType;
+  article.dataset.contentMode = appearance.contentMode;
+  article.dataset.mediaFit = appearance.mediaFit;
+  article.dataset.mediaOverlay = appearance.mediaOverlay;
   article.dataset.customAppearance = 'true';
   article.style.setProperty('--tile-custom-text', appearance.textColour);
   article.style.setProperty('--tile-custom-border', appearance.borderColour);
@@ -103,8 +114,9 @@ function applyTileAppearance(article, feature) {
   article.style.borderColor = appearance.borderColour;
   article.style.color = appearance.textColour;
   article.style.fontFamily = TILE_FONT_STACKS[appearance.fontFamily];
-  article.style.backgroundSize = 'cover';
+  article.style.backgroundSize = appearance.mediaFit === 'stretch' ? '100% 100%' : appearance.mediaFit;
   article.style.backgroundPosition = 'center';
+  article.style.setProperty('--tile-media-overlay', appearance.mediaOverlay === 'dark' ? 'rgba(0,0,0,.42)' : appearance.mediaOverlay === 'light' ? 'rgba(255,255,255,.24)' : 'transparent');
   article.style.backgroundRepeat = 'no-repeat';
   if (appearance.backgroundType === 'gradient') {
     article.style.backgroundImage = 'linear-gradient(' + appearance.backgroundAngle + 'deg, ' + appearance.backgroundPrimary + ', ' + appearance.backgroundSecondary + ')';
@@ -173,8 +185,10 @@ function preferenceValue(selector, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function gridRowHeight(density) {
-  return density === 'compact' ? 92 : 116;
+function squareGridCellSize(element, gap, margin) {
+  const measuredWidth = element.getBoundingClientRect().width || element.parentElement?.getBoundingClientRect().width || window.innerWidth;
+  const usableWidth = Math.max(1, measuredWidth - margin * 2 - gap * (GRID_COLUMNS - 1));
+  return Math.max(1, usableWidth / GRID_COLUMNS);
 }
 
 function gridMetrics() {
@@ -184,9 +198,8 @@ function gridMetrics() {
   const preferences = editorPreferences();
   const gap = Number(preferences.tileGap ?? 12);
   const margin = Number(preferences.outerMargin ?? 0);
-  const rowHeight = gridRowHeight(preferences.density);
-  const innerWidth = Math.max(1, rect.width - margin * 2);
-  const cellWidth = Math.max(1, (innerWidth - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
+  const cellWidth = squareGridCellSize(grid, gap, margin);
+  const rowHeight = cellWidth;
   return { grid, rect, gap, margin, rowHeight, cellWidth };
 }
 
@@ -342,11 +355,10 @@ function currentPreferences() {
 function applyGridSurface(element, preferences, rows) {
   const gap = Number(preferences.tileGap ?? 12);
   const margin = Number(preferences.outerMargin ?? 0);
-  const density = preferences.density ?? 'comfortable';
   element.style.setProperty('--dashboard-gap', `${gap}px`);
   element.style.setProperty('--dashboard-margin', `${margin}px`);
-  element.style.setProperty('--tile-row-height', `${gridRowHeight(density)}px`);
   element.style.gridTemplateColumns = `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`;
+  element.style.setProperty('--tile-row-height', `${squareGridCellSize(element, gap, margin)}px`);
   element.style.gridTemplateRows = `repeat(${rows}, var(--tile-row-height))`;
 }
 
@@ -466,7 +478,32 @@ function createGenericContentTile(feature, preferences, editing = false) {
   return content;
 }
 
+function createCustomMediaButtonContent(feature, editing = false) {
+  const appearance = normalizedTileAppearance(feature);
+  const content = tileSurface(feature, editing, 'dashboard-media-button-tile');
+  if (appearance.customIcon) {
+    const icon = document.createElement('span');
+    icon.className = 'dashboard-media-button-icon';
+    icon.textContent = appearance.customIcon;
+    content.append(icon);
+  }
+  if (appearance.customTitle) {
+    const title = document.createElement('strong');
+    title.className = 'dashboard-media-button-title';
+    title.textContent = appearance.customTitle;
+    content.append(title);
+  }
+  if (!appearance.backgroundMedia && editing) {
+    const placeholder = document.createElement('span');
+    placeholder.className = 'dashboard-media-button-placeholder';
+    placeholder.textContent = 'UPLOAD A PICTURE OR GIF';
+    content.append(placeholder);
+  }
+  return content;
+}
+
 function createTileContent(feature, preferences, editing = false) {
+  if (normalizedTileAppearance(feature).contentMode === 'media-button') return createCustomMediaButtonContent(feature, editing);
   if (feature.presentation !== 'content') return createActionTileContent(feature, editing);
   if (feature.id === 'feature-profile') return createProfileTileContent(feature, editing);
   if (feature.id === 'feature-grev-news') return createNewsTileContent(feature, editing);
@@ -481,6 +518,7 @@ function createDashboardTile(feature, preferences, editing = false) {
   article.dataset.height = String(feature.height);
   article.dataset.colour = TILE_COLOURS.has(feature.colour ?? feature.tileColour) ? (feature.colour ?? feature.tileColour) : 'default';
   article.dataset.presentation = feature.presentation === 'content' ? 'content' : 'action';
+  article.dataset.contentMode = normalizedTileAppearance(feature).contentMode;
   article.style.gridColumn = `${Number(feature.x) + 1} / span ${feature.width}`;
   article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
   applyTileAppearance(article, feature);
@@ -652,6 +690,11 @@ function renderSelectedControls() {
   });
 }
 
+function setCustomContentVisibility(mode) {
+  const controls = dashboardElement('#dashboard-custom-content-controls');
+  if (controls) controls.hidden = mode !== 'media-button';
+}
+
 function setAppearanceModeVisibility(type) {
   const solid = dashboardElement('#dashboard-solid-controls');
   const gradient = dashboardElement('#dashboard-gradient-controls');
@@ -696,6 +739,17 @@ function refreshAppearancePreview(tile, message = '') {
 function renderAppearanceControls(tile) {
   const appearance = normalizedTileAppearance(tile);
   Object.assign(tile, appearance);
+  const contentMode = dashboardElement('#dashboard-content-mode');
+  const customTitle = dashboardElement('#dashboard-custom-title');
+  const customIcon = dashboardElement('#dashboard-custom-icon');
+  const mediaFit = dashboardElement('#dashboard-media-fit');
+  const mediaOverlay = dashboardElement('#dashboard-media-overlay');
+  if (contentMode) contentMode.value = appearance.contentMode;
+  if (customTitle) customTitle.value = appearance.customTitle ?? '';
+  if (customIcon) customIcon.value = appearance.customIcon ?? '';
+  if (mediaFit) mediaFit.value = appearance.mediaFit;
+  if (mediaOverlay) mediaOverlay.value = appearance.mediaOverlay;
+  setCustomContentVisibility(appearance.contentMode);
   const type = dashboardElement('#dashboard-background-type');
   if (type) type.value = appearance.backgroundType;
   setAppearanceModeVisibility(appearance.backgroundType);
@@ -772,7 +826,7 @@ function moveWorkingTile(featureId, deltaX, deltaY) {
   }
   const candidate = { ...tile, x: tile.x + deltaX, y: tile.y + deltaY };
   if (!placementIsFree(candidate, featureId)) {
-    editorMessage('That position is occupied or outside the six-column grid.', 'error');
+    editorMessage('That position is occupied or outside the eight-column grid.', 'error');
     return;
   }
   Object.assign(tile, candidate);
@@ -1045,6 +1099,36 @@ dashboardElement('#dashboard-remove-selected')?.addEventListener('click', () => 
 dashboardElement('#dashboard-selected-dimension')?.addEventListener('change', event => {
   if (dashboardState.selectedId) resizeWorkingTile(dashboardState.selectedId, event.currentTarget.value);
 });
+dashboardElement('#dashboard-content-mode')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const value = String(event.currentTarget.value);
+  if (!tile || !TILE_CONTENT_MODES.has(value)) return;
+  tile.contentMode = value;
+  if (value === 'media-button') {
+    tile.backgroundType = 'media';
+  } else if (tile.backgroundType === 'media' && !tile.backgroundMedia) {
+    tile.backgroundType = 'solid';
+  }
+  refreshAppearancePreview(tile, value === 'media-button' ? 'Custom media button selected. Upload a picture or GIF before saving.' : 'Standard tile content restored.');
+});
+[['#dashboard-custom-title','customTitle',80],['#dashboard-custom-icon','customIcon',12]].forEach(([selector, field, maximum]) => {
+  dashboardElement(selector)?.addEventListener('input', event => {
+    const tile = workingTile(dashboardState.selectedId);
+    if (!tile) return;
+    const value = String(event.currentTarget.value).slice(0, Number(maximum));
+    tile[field] = value || null;
+    renderDashboardGrid();
+  });
+});
+[['#dashboard-media-fit','mediaFit',TILE_MEDIA_FITS],['#dashboard-media-overlay','mediaOverlay',TILE_MEDIA_OVERLAYS]].forEach(([selector, field, allowed]) => {
+  dashboardElement(selector)?.addEventListener('change', event => {
+    const tile = workingTile(dashboardState.selectedId);
+    const value = String(event.currentTarget.value);
+    if (!tile || !allowed.has(value)) return;
+    tile[field] = value;
+    refreshAppearancePreview(tile);
+  });
+});
 dashboardElement('#dashboard-background-type')?.addEventListener('change', event => {
   const tile = workingTile(dashboardState.selectedId);
   const value = String(event.currentTarget.value);
@@ -1144,7 +1228,11 @@ document.addEventListener('keydown', event => {
   closeEditor(false);
 });
 window.addEventListener('resize', () => {
-  if (!dashboardState.editing) return;
+  if (!dashboardState.payload) return;
+  if (!dashboardState.editing) {
+    renderDashboardGrid();
+    return;
+  }
   renderEditor();
   editorMessage(isSingleColumnFallback()
     ? 'Single-column preview: the visual order follows saved row and column coordinates. Exact horizontal placement requires a wider screen.'
