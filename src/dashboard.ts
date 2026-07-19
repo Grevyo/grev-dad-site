@@ -149,7 +149,7 @@ const DEFAULT_TILE_APPEARANCE: TileAppearance = {
   iconLabel: null,
   iconMedia: null,
   iconTextColour: '#090b0f',
-  iconBackgroundColour: '#f3f5f8',
+  iconBackgroundColour: '#394657',
   iconBorderColour: '#667181',
   iconMediaFit: 'cover'
 };

@@ -236,7 +236,7 @@
 .dashboard-content-description{min-height:0;margin:0;color:var(--muted);line-height:1.5;overflow:auto}
 .dashboard-content-action{margin-top:auto;color:var(--tile-accent);font-size:.76rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
 .dashboard-profile-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;min-width:0;margin:auto 0}
-.dashboard-profile-avatar{display:grid;place-items:center;width:62px;height:62px;border:1px solid var(--tile-border-strong);background:var(--tile-accent);color:#080b0f;font-size:1.15rem;font-weight:950}
+.dashboard-profile-avatar{display:grid;place-items:center;width:62px;height:62px;border:1px solid var(--tile-icon-border,var(--tile-border-strong));background:var(--tile-icon-bg,var(--tile-accent));color:var(--tile-icon-text,#080b0f);font-size:1.15rem;font-weight:950;overflow:hidden}
 .dashboard-profile-identity{display:grid;min-width:0;gap:5px}
 .dashboard-profile-identity strong{font-size:clamp(1.05rem,3cqw,1.8rem);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dashboard-profile-identity span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -282,7 +282,6 @@
 .dashboard-tile[data-custom-appearance="true"]:hover{border-color:var(--tile-custom-border)}
 .dashboard-tile[data-custom-appearance="true"] .dashboard-tile-content,.dashboard-tile[data-custom-appearance="true"] .dashboard-action-title,.dashboard-tile[data-custom-appearance="true"] .dashboard-content-title,.dashboard-tile[data-custom-appearance="true"] .dashboard-news-headline,.dashboard-tile[data-custom-appearance="true"] .dashboard-profile-identity strong{color:inherit}
 .dashboard-tile[data-custom-appearance="true"] .dashboard-content-label,.dashboard-tile[data-custom-appearance="true"] .dashboard-content-action,.dashboard-tile[data-custom-appearance="true"] .dashboard-profile-identity span,.dashboard-tile[data-custom-appearance="true"] .dashboard-content-description{color:color-mix(in srgb,var(--tile-custom-text) 76%,transparent)}
-.dashboard-tile[data-custom-appearance="true"] .dashboard-profile-avatar{border-color:color-mix(in srgb,var(--tile-custom-border) 75%,white);background:color-mix(in srgb,var(--tile-custom-border) 35%,#f4f7fb);color:var(--tile-custom-text)}
 .dashboard-tile[data-background-type="media"] .dashboard-tile-content{text-shadow:0 1px 3px rgba(0,0,0,.88)}
 .dashboard-tile.editing{border-color:var(--tile-custom-border,var(--tile-border))}
 .dashboard-tile-settings{font-family:Inter,Segoe UI,Arial,sans-serif!important}

@@ -27,7 +27,7 @@ const TILE_CONTENT_MODES = new Set(['standard','media-button']);
 const TILE_ICON_MODES = new Set(['text','image']);
 const TILE_MEDIA_FITS = new Set(['cover','contain','stretch']);
 const TILE_MEDIA_OVERLAYS = new Set(['none','dark','light']);
-const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657', contentMode: 'standard', customTitle: null, customIcon: null, mediaFit: 'cover', mediaOverlay: 'dark', iconMode: 'text', iconLabel: null, iconMedia: null, iconTextColour: '#090b0f', iconBackgroundColour: '#f3f5f8', iconBorderColour: '#667181', iconMediaFit: 'cover' });
+const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657', contentMode: 'standard', customTitle: null, customIcon: null, mediaFit: 'cover', mediaOverlay: 'dark', iconMode: 'text', iconLabel: null, iconMedia: null, iconTextColour: '#090b0f', iconBackgroundColour: '#394657', iconBorderColour: '#667181', iconMediaFit: 'cover' });
 const MAX_TILE_MEDIA_BYTES = 1_400_000;
 const dashboardState = {
   payload: null,
@@ -435,6 +435,10 @@ function tileSurface(feature, editing, className) {
   return element;
 }
 
+function standardIconFallback(feature) {
+  return feature.id === 'feature-profile' ? viewerInitials(dashboardState.payload?.viewer) : feature.iconText;
+}
+
 function createStandardTileIcon(feature, className) {
   const appearance = normalizedTileAppearance(feature);
   const icon = document.createElement('span');
@@ -448,7 +452,7 @@ function createStandardTileIcon(feature, className) {
     image.draggable = false;
     icon.append(image);
   } else {
-    icon.textContent = appearance.iconLabel ?? feature.iconText;
+    icon.textContent = appearance.iconLabel ?? standardIconFallback(feature);
   }
   return icon;
 }
@@ -486,9 +490,7 @@ function createProfileTileContent(feature, editing = false) {
   label.textContent = 'YOUR PROFILE';
   const card = document.createElement('div');
   card.className = 'dashboard-profile-card';
-  const avatar = document.createElement('span');
-  avatar.className = 'dashboard-profile-avatar';
-  avatar.textContent = viewerInitials(viewer);
+  const avatar = createStandardTileIcon(feature, 'dashboard-profile-avatar');
   const identity = document.createElement('div');
   identity.className = 'dashboard-profile-identity';
   const name = document.createElement('strong');
@@ -842,7 +844,8 @@ function renderAppearanceControls(tile) {
   if (iconLabel) {
     iconLabel.value = appearance.iconLabel ?? '';
     const feature = featureById(tile.featureId);
-    iconLabel.placeholder = feature?.iconText ? `Use feature default (${feature.iconText})` : 'Use feature default';
+    const fallback = feature ? standardIconFallback(feature) : '';
+    iconLabel.placeholder = fallback ? `Use feature default (${fallback})` : 'Use feature default';
   }
   if (iconTextColour) iconTextColour.value = appearance.iconTextColour;
   if (iconBackgroundColour) iconBackgroundColour.value = appearance.iconBackgroundColour;
