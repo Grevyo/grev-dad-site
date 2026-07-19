@@ -16,7 +16,7 @@ jobs:
   patch:
     if: github.head_ref == 'agent/mobile-square-dashboard' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 17
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
