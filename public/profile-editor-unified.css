@@ -1,0 +1,86 @@
+body.profile-unified-editing{overflow-x:hidden}
+.profile-unified-editor[hidden]{display:none!important}
+.profile-unified-editor{position:fixed;z-index:80;top:58px;right:0;bottom:0;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;width:min(430px,42vw);border-left:1px solid var(--line-strong);background:#090d12;color:var(--text);box-shadow:-12px 0 0 rgba(0,0,0,.38)}
+.profile-unified-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:18px;border-bottom:1px solid var(--line-strong);background:#0b1016}
+.profile-unified-header h2{margin:3px 0 5px;font-size:1.75rem;line-height:1}
+.profile-unified-header p{margin:0;color:var(--muted);font-size:.78rem;line-height:1.45}
+.profile-unified-header .eyebrow{color:var(--accent-strong);font-size:.65rem;font-weight:950;letter-spacing:.12em;text-transform:uppercase}
+.profile-unified-preview,.profile-unified-tabs button,.profile-unified-footer button,.profile-unified-grid-actions button{min-height:40px;padding:9px 12px;border:1px solid var(--line-strong);border-radius:0;background:#151b23;color:var(--text);font-weight:900;cursor:pointer}
+.profile-unified-preview:hover,.profile-unified-tabs button:hover,.profile-unified-footer button:hover,.profile-unified-grid-actions button:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #000}
+.profile-unified-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;padding:1px;border-bottom:1px solid var(--line-strong);background:var(--line-strong)}
+.profile-unified-tabs button{display:grid;gap:3px;min-width:0;border:0;background:#10151c;text-align:left;box-shadow:none;transform:none}
+.profile-unified-tabs button strong{font-size:.8rem}
+.profile-unified-tabs button span{overflow:hidden;color:var(--muted);font-size:.65rem;text-overflow:ellipsis;white-space:nowrap}
+.profile-unified-tabs button.is-active{background:#eaf0fa;color:#080b10}
+.profile-unified-tabs button.is-active span{color:#3e4857}
+.profile-unified-body{min-height:0;padding:16px;overflow:auto;overscroll-behavior:contain}
+.profile-unified-section{display:grid;gap:14px}
+.profile-unified-section[hidden]{display:none!important}
+.profile-unified-section-intro{display:grid;gap:4px;padding:12px 13px;border-left:4px solid var(--accent-strong);background:#111720}
+.profile-unified-section-intro strong{font-size:.95rem}
+.profile-unified-section-intro span{color:var(--muted);font-size:.72rem;line-height:1.45}
+.profile-unified-footer{display:grid;gap:10px;padding:13px 16px;border-top:1px solid var(--line-strong);background:#0b1016}
+.profile-unified-footer .profile-editor-message{min-height:0;margin:0;font-size:.72rem;line-height:1.4}
+.profile-unified-save-actions{display:grid;grid-template-columns:1fr 1.35fr;gap:8px}
+.profile-unified-save-actions .primary{border-color:#f4f6fa;background:#f4f6fa;color:#090b0f}
+.profile-unified-grid-actions{display:flex;justify-content:flex-end}
+.profile-unified-editor .profile-editor-inline-dialog{position:static;display:none;width:auto;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent;box-shadow:none;overflow:visible;color:inherit}
+.profile-unified-editor .profile-editor-inline-dialog[open]{display:block}
+.profile-unified-editor .profile-editor-inline-dialog::backdrop{display:none}
+.profile-unified-editor .profile-dialog-heading{align-items:center;padding:0 0 12px;border-bottom:1px solid var(--line)}
+.profile-unified-editor .profile-dialog-heading .eyebrow{display:none}
+.profile-unified-editor .profile-dialog-heading h2{margin:0;font-size:1.2rem}
+.profile-unified-editor .profile-dialog-heading>button{display:none!important}
+.profile-unified-editor .profile-dialog-body{gap:10px;padding:12px 0 0}
+.profile-unified-editor .profile-settings-section,.profile-unified-editor .card-tile-dialog-section{gap:10px;padding:12px;border:1px solid var(--line);background:#0e141b}
+.profile-unified-editor .profile-settings-section h3,.profile-unified-editor .card-tile-dialog-section h3{font-size:.9rem}
+.profile-unified-editor label{font-size:.72rem}
+.profile-unified-editor input,.profile-unified-editor textarea,.profile-unified-editor select{min-height:38px}
+.profile-unified-editor textarea{min-height:92px}
+.profile-unified-editor .profile-two-column,.profile-unified-editor .profile-three-column,.profile-unified-editor .profile-four-column,.profile-unified-editor .profile-check-grid,.profile-unified-editor .card-tile-two,.profile-unified-editor .card-tile-three,.profile-unified-editor .card-tile-four{grid-template-columns:1fr!important}
+.profile-unified-editor .profile-check-grid label{min-height:38px}
+.profile-unified-editor #profile-card-tile-editor{display:grid!important;gap:10px;padding:0;border:0;background:transparent;box-shadow:none}
+.profile-unified-editor #profile-card-tile-editor[hidden]{display:none!important}
+.profile-unified-editor .profile-card-tile-editor-heading{display:grid;gap:6px;padding:12px;border:1px solid var(--line);background:#0e141b}
+.profile-unified-editor .profile-card-tile-editor-heading h3{margin:0;font-size:1.05rem}
+.profile-unified-editor .profile-card-tile-editor-heading p{margin:0;color:var(--muted);font-size:.72rem}
+.profile-unified-editor .profile-card-tile-add{grid-template-columns:1fr 1fr}
+.profile-unified-editor .profile-card-tile-add button{min-height:72px}
+.profile-unified-editor .profile-editor-preferences{grid-template-columns:1fr 1fr;margin:0}
+.profile-unified-editor #profile-catalogue{position:static;display:grid!important;gap:8px;padding:0;border:0;background:transparent;box-shadow:none}
+.profile-unified-editor #profile-catalogue[hidden]{display:none!important}
+.profile-unified-editor #profile-catalogue>div{padding:12px;border:1px solid var(--line);background:#0e141b}
+.profile-unified-editor #profile-catalogue h2{font-size:1.15rem}
+.profile-unified-editor #profile-catalogue button{min-height:64px;background:#121923}
+body.profile-unified-editing #profile-editor-toolbar{display:none!important}
+body.profile-unified-editing .profile-workspace.editing{display:block}
+body.profile-unified-editing .profile-shell{width:calc(100vw - min(430px,42vw) - 34px)!important;margin-left:12px!important;margin-right:calc(min(430px,42vw) + 22px)!important;transition:width .16s ease,margin .16s ease}
+body.profile-unified-editing .profile-card-quick-controls{position:relative;z-index:8}
+body.profile-unified-editing .profile-card-quick-actions [data-quick-card-details],body.profile-unified-editing .profile-card-quick-actions [data-quick-profile-design]{display:none}
+@media(max-width:1100px){
+  .profile-unified-editor{width:380px}
+  body.profile-unified-editing .profile-shell{width:calc(100vw - 404px)!important;margin-right:392px!important}
+}
+@media(max-width:820px){
+  body.profile-unified-editing{padding-bottom:74vh}
+  body.profile-unified-editing .profile-shell{width:min(calc(100vw - 20px),177.7778vh)!important;margin:0 auto!important}
+  .profile-unified-editor{top:auto;left:0;right:0;bottom:0;width:100%;height:72vh;border-top:1px solid var(--line-strong);border-left:0;box-shadow:0 -10px 0 rgba(0,0,0,.42);transition:height .18s ease}
+  .profile-unified-editor.is-collapsed{height:62px}
+  .profile-unified-editor.is-collapsed .profile-unified-tabs,.profile-unified-editor.is-collapsed .profile-unified-body,.profile-unified-editor.is-collapsed .profile-unified-footer{display:none}
+  .profile-unified-editor.is-collapsed .profile-unified-header{align-items:center;padding:10px 14px}
+  .profile-unified-editor.is-collapsed .profile-unified-header p:not(.eyebrow){display:none}
+  .profile-unified-editor.is-collapsed .profile-unified-header h2{font-size:1.1rem}
+  .profile-unified-header{padding:13px 14px}
+  .profile-unified-header h2{font-size:1.35rem}
+  .profile-unified-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .profile-unified-tabs button{padding:8px 5px;text-align:center}
+  .profile-unified-tabs button span{display:none}
+  .profile-unified-body{padding:12px}
+  .profile-unified-footer{padding:10px 12px}
+}
+@media(max-width:520px){
+  .profile-unified-editor{height:78vh}
+  body.profile-unified-editing{padding-bottom:80vh}
+  .profile-unified-tabs button strong{font-size:.68rem}
+  .profile-unified-editor .profile-card-tile-add,.profile-unified-editor .profile-editor-preferences{grid-template-columns:1fr}
+}
