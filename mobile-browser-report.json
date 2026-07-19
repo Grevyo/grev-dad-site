@@ -1,0 +1,43 @@
+{
+  "stages": {
+    "mobile": {
+      "url": "http://127.0.0.1:8000/login",
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "scrollWidth": 390,
+      "bodyScrollWidth": 374,
+      "gridExists": false,
+      "gridColumns": null,
+      "rowHeight": null,
+      "gap": null,
+      "padding": null,
+      "tiles": []
+    },
+    "desktop": {
+      "url": "http://127.0.0.1:8000/login",
+      "innerWidth": 1000,
+      "innerHeight": 800,
+      "scrollWidth": 1000,
+      "bodyScrollWidth": 984,
+      "gridExists": false,
+      "gridColumns": null,
+      "rowHeight": null,
+      "gap": null,
+      "padding": null,
+      "tiles": []
+    }
+  },
+  "console": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (File not found)"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (File not found)"
+    }
+  ],
+  "pageErrors": [],
+  "customizeCount": 0,
+  "customizeVisible": false
+}
