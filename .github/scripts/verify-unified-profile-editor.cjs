@@ -35,8 +35,13 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
 
     const response = await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
     assert(response?.status() === 200, 'Profile page did not load.');
-    await page.addStyleTag({ url: `${assetBase}/profile-editor-unified.css` });
-    await page.addScriptTag({ url: `${assetBase}/profile-editor-unified.js` });
+    const [cssResponse, jsResponse] = await Promise.all([
+      context.request.get(`${assetBase}/profile-editor-unified.css`),
+      context.request.get(`${assetBase}/profile-editor-unified.js`)
+    ]);
+    assert(cssResponse.status() === 200 && jsResponse.status() === 200, 'Branch editor assets did not load.');
+    await page.addStyleTag({ content: await cssResponse.text() });
+    await page.addScriptTag({ content: await jsResponse.text() });
     await page.locator('#profile-unified-editor').waitFor({ state: 'attached' });
 
     await page.locator('#profile-edit').click();
