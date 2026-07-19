@@ -16,7 +16,7 @@ jobs:
   patch:
     if: github.head_ref == 'agent/custom-media-buttons-square-grid' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    timeout-minutes: 17
     steps:
       - uses: actions/checkout@v4
         with:
