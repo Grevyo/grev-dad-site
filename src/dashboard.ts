@@ -96,7 +96,7 @@ const VALID_BACKGROUND_TYPES = new Set<TileBackgroundType>(['solid','gradient','
 const VALID_FONT_FAMILIES = new Set<TileFontFamily>(['system','display','mono','serif','rounded']);
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
-const MAX_TILE_MEDIA_BYTES = 2 * 1024 * 1024;
+const MAX_TILE_MEDIA_BYTES = 1_400_000;
 const MAX_LAYOUT_MEDIA_BYTES = 8 * 1024 * 1024;
 const DEFAULT_TILE_APPEARANCE: TileAppearance = {
   backgroundType: 'solid',

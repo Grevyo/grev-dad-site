@@ -23,7 +23,7 @@ const TILE_FONT_STACKS = {
   rounded: 'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'
 };
 const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657' });
-const MAX_TILE_MEDIA_BYTES = 2 * 1024 * 1024;
+const MAX_TILE_MEDIA_BYTES = 1_400_000;
 const dashboardState = {
   payload: null,
   workingTiles: [],
@@ -1087,7 +1087,7 @@ dashboardElement('#dashboard-background-media')?.addEventListener('change', even
   }
   if (file.size > MAX_TILE_MEDIA_BYTES) {
     event.currentTarget.value = '';
-    editorMessage('Tile pictures and GIFs must be 2 MB or smaller.', 'error');
+    editorMessage('Tile pictures and GIFs must be 1.4 MB or smaller.', 'error');
     return;
   }
   const reader = new FileReader();
