@@ -16,7 +16,7 @@ jobs:
   patch:
     if: github.head_ref == 'agent/mobile-square-dashboard' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    timeout-minutes: 17
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +54,6 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add public/dashboard.js public/dashboard.css
+          git add -A public/dashboard.js public/dashboard.css mobile-patch-error.txt
           git commit -m "Restore a two-column square dashboard on mobile"
           git push origin HEAD:${{ github.head_ref }}
