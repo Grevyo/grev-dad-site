@@ -1,0 +1,32 @@
+name: Fix Mobile Patch Escaping
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'agent/mobile-square-dashboard' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fix-mobile-patch-escaping.mjs
+      - run: node --check scripts/patch-mobile-square-dashboard.mjs
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/patch-mobile-square-dashboard.mjs
+          git commit -m "Escape mobile dashboard patch templates"
+          git push origin HEAD:${{ github.head_ref }}
