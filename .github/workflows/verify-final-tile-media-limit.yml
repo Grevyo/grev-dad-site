@@ -1,0 +1,87 @@
+name: Verify Final Tile Media Limit
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Apply full migration chain
+        run: |
+          rm -rf .wrangler/state
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+      - name: Start local Worker
+        run: |
+          npx wrangler dev --local --env pbe --ip 127.0.0.1 --port 8788 > /tmp/worker.log 2>&1 &
+          for attempt in $(seq 1 40); do curl -fsS http://127.0.0.1:8788/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/worker.log
+          exit 1
+      - name: Save near-limit media and reject over-limit media
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const base = 'http://127.0.0.1:8788';
+          let cookie = '';
+          async function request(path, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (cookie) headers.set('Cookie', cookie);
+            const response = await fetch(base + path, { ...options, headers });
+            const setCookie = response.headers.get('set-cookie');
+            if (setCookie) cookie = setCookie.split(';', 1)[0];
+            const payload = await response.json();
+            return { response, payload };
+          }
+          function pngDataUrl(size) {
+            const signature = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
+            return 'data:image/png;base64,' + Buffer.concat([signature, Buffer.alloc(size - signature.length)]).toString('base64');
+          }
+          (async () => {
+            let result = await request('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'media_limit_test', displayName: 'Media Limit Test', email: '', password: 'Testing.Password.123' }) });
+            assert.equal(result.response.status, 201, JSON.stringify(result.payload));
+            result = await request('/api/onboarding');
+            const relationshipId = result.payload.relationships[0].id;
+            const intentionId = result.payload.intentions[0].id;
+            result = await request('/api/onboarding/relationship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId }) });
+            assert.equal(result.response.status, 200);
+            result = await request('/api/onboarding/intentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentionIds: [intentionId] }) });
+            assert.equal(result.response.status, 200);
+            result = await request('/api/dashboard');
+            const feature = result.payload.features.find(item => item.id === 'feature-profile') || result.payload.features[0];
+            const preferences = { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 };
+            const baseTile = { featureId: feature.id, x: 0, y: 0, width: 2, height: 2, colour: 'default', backgroundType: 'media', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, textColour: '#ffffff', fontFamily: 'system', borderColour: '#00ffcc' };
+            const nearLimit = pngDataUrl(1_390_000);
+            result = await request('/api/dashboard/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [{ ...baseTile, backgroundMedia: nearLimit }], preferences }) });
+            assert.equal(result.response.status, 200, JSON.stringify(result.payload).slice(0, 1000));
+            assert.equal(result.payload.pinnedTiles[0].backgroundMedia.length, nearLimit.length);
+            result = await request('/api/dashboard');
+            assert.equal(result.response.status, 200);
+            assert.equal(result.payload.pinnedTiles[0].backgroundMedia.length, nearLimit.length);
+            const overLimit = pngDataUrl(1_400_001);
+            result = await request('/api/dashboard/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [{ ...baseTile, backgroundMedia: overLimit }], preferences }) });
+            assert.equal(result.response.status, 400, 'A file over the 1.4 MB raw limit must be rejected');
+            console.log('Near-limit D1 tile media persistence and over-limit rejection passed.');
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Final build checks
+        run: |
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+          grep -q 'Maximum file size: 1.4 MB' public/dashboard.html
+      - if: failure()
+        run: cat /tmp/worker.log || true
