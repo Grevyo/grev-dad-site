@@ -1,0 +1,41 @@
+name: Apply Tile Appearance Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/address-tile-appearance-review.mjs
+      - run: |
+          npm install --package-lock=false
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+          grep -q "hasFlatAppearance" public/dashboard.js
+          grep -q "LEGACY_TILE_APPEARANCE" src/dashboard.ts
+          grep -q "hasBackgroundMedia" src/dashboard.ts
+          ! grep -q '^    appearance,$' src/dashboard.ts
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/dashboard.js src/dashboard.ts
+          git commit -m "Fix live appearance preview, legacy colours and media payload duplication"
+          git push origin HEAD:${{ github.head_ref }}
