@@ -6,6 +6,8 @@ CREATE TABLE user_profiles (
   bio TEXT,
   location TEXT,
   website_url TEXT,
+  avatar_media TEXT,
+  cover_media TEXT,
   background_primary TEXT NOT NULL DEFAULT '#11161d',
   background_secondary TEXT NOT NULL DEFAULT '#3157c9',
   background_angle INTEGER NOT NULL DEFAULT 135 CHECK (background_angle BETWEEN 0 AND 360),
