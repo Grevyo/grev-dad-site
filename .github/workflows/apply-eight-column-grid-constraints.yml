@@ -1,0 +1,37 @@
+name: Apply Eight Column Grid Constraints
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/custom-media-buttons-square-grid' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fix-eight-column-grid-constraints.mjs
+      - run: |
+          npm install --package-lock=false
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/dashboard.js src/dashboard.ts
+          git commit -m "Align eight-column D1 constraints and square metrics"
+          git push origin HEAD:${{ github.head_ref }}
