@@ -89,4 +89,58 @@
   }
 
   window.GrevProfileCard = { apply, initials, statusText };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof validProfilePlacement !== 'function' || typeof selectedTile !== 'function') return;
+
+    validProfilePlacement = function(candidate, ignoreId = null) {
+      if (
+        !Number.isInteger(candidate.x) || !Number.isInteger(candidate.y) ||
+        !Number.isInteger(candidate.width) || !Number.isInteger(candidate.height) ||
+        candidate.x < 0 || candidate.y < 0 || candidate.y > 199 ||
+        candidate.width < 1 || candidate.width > 6 ||
+        candidate.height < 1 || candidate.height > 4 ||
+        candidate.x + candidate.width > 8 || candidate.y + candidate.height > 200
+      ) return false;
+      return !(profileState.working?.tiles ?? []).some(tile => tile.tileId !== ignoreId && tileOverlaps(candidate, tile));
+    };
+
+    const originalPopulateTileDialog = populateTileDialog;
+    populateTileDialog = function() {
+      originalPopulateTileDialog();
+      const tile = selectedTile();
+      const backgroundType = document.querySelector('#profile-tile-background-type');
+      if (!tile || !backgroundType) return;
+      const mediaTile = tile.tileType === 'media';
+      if (mediaTile) {
+        tile.backgroundType = 'media';
+        backgroundType.value = 'media';
+      }
+      backgroundType.disabled = mediaTile;
+    };
+
+    const originalValidateProfileBeforeSave = validateProfileBeforeSave;
+    validateProfileBeforeSave = function() {
+      const originalMessage = originalValidateProfileBeforeSave();
+      if (originalMessage) return originalMessage;
+      for (const tile of profileState.working?.tiles ?? []) {
+        if (!validProfilePlacement(tile, tile.tileId)) return 'Every profile tile must stay inside the eight-column grid.';
+        if (tile.tileType === 'media' && tile.backgroundType !== 'media') return 'Picture / GIF tiles must keep a media background.';
+      }
+      return null;
+    };
+
+    const backgroundType = document.querySelector('#profile-tile-background-type');
+    backgroundType?.addEventListener('change', event => {
+      const tile = selectedTile();
+      if (tile?.tileType !== 'media') return;
+      event.currentTarget.value = 'media';
+      tile.backgroundType = 'media';
+      renderProfileGrid();
+    }, true);
+
+    const style = document.createElement('style');
+    style.textContent = '@media(max-width:900px){.profile-grid .profile-tile{grid-column:auto/span var(--profile-mobile-width,1)!important;grid-row:auto/span var(--profile-mobile-height,1)!important}}';
+    document.head.append(style);
+  });
 })();
