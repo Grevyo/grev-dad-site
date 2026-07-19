@@ -1,0 +1,181 @@
+name: Verify Mobile Square Dashboard
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/mobile-square-dashboard'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser test dependencies
+        run: |
+          npm install --package-lock=false --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start static dashboard server
+        run: |
+          python3 -m http.server 8000 --directory public >/tmp/mobile-dashboard-server.log 2>&1 &
+          echo $! >/tmp/mobile-dashboard-server.pid
+          for attempt in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8000/dashboard.html >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/mobile-dashboard-server.log
+          exit 1
+      - name: Verify iPhone-sized dashboard and editor
+        run: |
+          mkdir -p mobile-dashboard-artifacts
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { chromium } = require('playwright');
+
+          const appearance = {
+            backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa',
+            backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system',
+            borderColour: '#394657', contentMode: 'standard', customTitle: null, customIcon: null,
+            mediaFit: 'cover', mediaOverlay: 'dark'
+          };
+          const baseFeature = {
+            category: 'Test', featureType: 'link', presentation: 'action', route: '/profile', iconText: 'GD',
+            audience: 'all', defaultDimension: '1x1', defaultWidth: 1, defaultHeight: 1,
+            allowedDimensions: ['1x1','1x2','2x1','2x2','4x2'], isActive: true, isDefault: true,
+            tileColour: 'default', accessGroups: [], ...appearance
+          };
+          const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+          const pinnedTiles = [
+            { ...baseFeature, id: 'tile-wide', slug: 'wide', name: 'Wide tile', sortOrder: 1, pinned: true, x: 0, y: 0, width: 2, height: 1 },
+            { ...baseFeature, id: 'tile-small', slug: 'small', name: 'Small tile', sortOrder: 2, pinned: true, x: 7, y: 0, width: 1, height: 1 },
+            { ...baseFeature, id: 'tile-square', slug: 'square', name: 'Square tile', sortOrder: 3, pinned: true, x: 2, y: 1, width: 2, height: 2, presentation: 'content', featureType: 'workspace', route: '/feature/square' },
+            { ...baseFeature, id: 'tile-media', slug: 'media', name: 'Media tile', sortOrder: 4, pinned: true, x: 4, y: 1, width: 2, height: 2, backgroundType: 'media', backgroundMedia: gif, contentMode: 'media-button', customTitle: 'Media', customIcon: '★' },
+            { ...baseFeature, id: 'tile-tall', slug: 'tall', name: 'Tall tile', sortOrder: 5, pinned: true, x: 0, y: 3, width: 1, height: 2 }
+          ];
+          const features = pinnedTiles.map(tile => ({ ...tile, backgroundMedia: null, hasBackgroundMedia: Boolean(tile.backgroundMedia) }));
+          const payload = {
+            ok: true,
+            viewer: { id: 'u1', username: 'mobiletest', displayName: 'Mobile Test', isAdmin: false, isOwner: false },
+            grid: { columns: 8, dimensions: ['1x1','1x2','2x1','2x2','4x2'] },
+            features,
+            pinnedTiles,
+            preferences: { density: 'comfortable', showDescriptions: true, tileGap: 48, outerMargin: 64 },
+            capabilities: { canCustomize: true, isAdmin: false, isOwner: false }
+          };
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            await page.route('**/api/onboarding', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, progress: { relationshipComplete: true, intentionsComplete: true } }) }));
+            await page.route('**/api/dashboard', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) }));
+            await page.route('**/api/session', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, username: 'mobiletest', displayName: 'Mobile Test' }) }));
+            await page.goto('http://127.0.0.1:8000/dashboard.html', { waitUntil: 'networkidle' });
+            await page.waitForSelector('.dashboard-tile');
+
+            const layout = await page.evaluate(() => {
+              const grid = document.querySelector('#dashboard-grid');
+              const tiles = [...document.querySelectorAll('.dashboard-tile')].map(tile => ({
+                id: tile.dataset.featureId,
+                width: tile.getBoundingClientRect().width,
+                height: tile.getBoundingClientRect().height,
+                column: tile.style.gridColumn,
+                row: tile.style.gridRow
+              }));
+              return {
+                viewport: window.innerWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                gridColumns: getComputedStyle(grid).gridTemplateColumns,
+                rowHeight: getComputedStyle(grid).getPropertyValue('--tile-row-height').trim(),
+                gap: getComputedStyle(grid).gap,
+                paddingLeft: getComputedStyle(grid).paddingLeft,
+                tiles,
+                summary: document.querySelector('#dashboard-grid-summary')?.textContent
+              };
+            });
+            assert.equal(layout.viewport, 390);
+            assert.ok(layout.scrollWidth <= 390, `horizontal overflow: ${layout.scrollWidth}`);
+            const columns = layout.gridColumns.split(' ').filter(Boolean).map(Number);
+            assert.equal(columns.length, 2, layout.gridColumns);
+            assert.ok(Math.abs(columns[0] - columns[1]) < 1, layout.gridColumns);
+            assert.equal(layout.summary.includes('2-column mobile grid'), true, layout.summary);
+            assert.equal(layout.gap, '12px');
+            assert.equal(layout.paddingLeft, '8px');
+
+            const small = layout.tiles.find(tile => tile.id === 'tile-small');
+            const wide = layout.tiles.find(tile => tile.id === 'tile-wide');
+            const square = layout.tiles.find(tile => tile.id === 'tile-square');
+            const media = layout.tiles.find(tile => tile.id === 'tile-media');
+            const tall = layout.tiles.find(tile => tile.id === 'tile-tall');
+            assert.ok(Math.abs(small.width - small.height) < 2, `small not square: ${small.width}x${small.height}`);
+            assert.ok(Math.abs(square.width - square.height) < 2, `square not square: ${square.width}x${square.height}`);
+            assert.ok(Math.abs(media.width - media.height) < 2, `media not square: ${media.width}x${media.height}`);
+            assert.ok(wide.width > wide.height * 1.8, `wide ratio broken: ${wide.width}x${wide.height}`);
+            assert.ok(tall.height > tall.width * 1.8, `tall ratio broken: ${tall.width}x${tall.height}`);
+            for (const tile of layout.tiles) {
+              assert.ok(tile.width > 0 && tile.height > 0, JSON.stringify(tile));
+              assert.ok(!tile.column.includes('span 8'), JSON.stringify(tile));
+            }
+            const originalStillIntact = payload.pinnedTiles.find(tile => tile.id === 'tile-small');
+            assert.equal(originalStillIntact.x, 7);
+            assert.equal(originalStillIntact.width, 1);
+
+            await page.screenshot({ path: 'mobile-dashboard-artifacts/mobile-dashboard.png', fullPage: true });
+            await page.click('#customize-dashboard');
+            await page.waitForSelector('.dashboard-tile.editing');
+            const editor = await page.evaluate(() => ({
+              scrollWidth: document.documentElement.scrollWidth,
+              columns: getComputedStyle(document.querySelector('#dashboard-grid')).gridTemplateColumns,
+              draggable: [...document.querySelectorAll('.dashboard-tile.editing')].map(tile => tile.draggable),
+              resizeButtons: [...document.querySelectorAll('.dashboard-tile-resize')].map(button => ({ disabled: button.disabled, display: getComputedStyle(button).display })),
+              settingsButtons: document.querySelectorAll('.dashboard-tile-settings').length
+            }));
+            assert.ok(editor.scrollWidth <= 390, `editor horizontal overflow: ${editor.scrollWidth}`);
+            assert.equal(editor.columns.split(' ').filter(Boolean).length, 2);
+            assert.ok(editor.draggable.every(value => value === false));
+            assert.ok(editor.resizeButtons.every(button => button.disabled && button.display === 'none'));
+            assert.equal(editor.settingsButtons, pinnedTiles.length);
+
+            await page.locator('.dashboard-tile-settings').first().click();
+            await page.waitForSelector('#dashboard-tile-settings-dialog[open]');
+            const dialog = await page.evaluate(() => {
+              const box = document.querySelector('#dashboard-tile-settings-dialog').getBoundingClientRect();
+              return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight, scrollWidth: document.documentElement.scrollWidth };
+            });
+            assert.ok(dialog.left >= 0 && dialog.right <= dialog.viewportWidth + 1, JSON.stringify(dialog));
+            assert.ok(dialog.top >= 0 && dialog.bottom <= dialog.viewportHeight + 1, JSON.stringify(dialog));
+            assert.ok(dialog.scrollWidth <= 390, `dialog horizontal overflow: ${dialog.scrollWidth}`);
+            await page.screenshot({ path: 'mobile-dashboard-artifacts/mobile-editor-dialog.png', fullPage: true });
+
+            await page.setViewportSize({ width: 1000, height: 800 });
+            await page.waitForTimeout(150);
+            const desktop = await page.evaluate(() => ({
+              columns: getComputedStyle(document.querySelector('#dashboard-grid')).gridTemplateColumns,
+              smallColumn: document.querySelector('[data-feature-id="tile-small"]').style.gridColumn
+            }));
+            assert.equal(desktop.columns.split(' ').filter(Boolean).length, 8, desktop.columns);
+            assert.ok(desktop.smallColumn.startsWith('8 /'), desktop.smallColumn);
+
+            await browser.close();
+            console.log(JSON.stringify({ mobile: layout, editor, dialog, desktop }, null, 2));
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Final source checks
+        run: |
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-dashboard-screenshots
+          path: mobile-dashboard-artifacts
+          if-no-files-found: warn
