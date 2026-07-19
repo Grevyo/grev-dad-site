@@ -4,6 +4,7 @@ const path = 'scripts/patch-tile-appearance-and-grab-offset.mjs';
 let source = fs.readFileSync(path, 'utf8');
 const replacements = [
   ["type TilePlacement = Dimension & TileAppearance & { featureId: string; x: number; y: number; colour?: TileColour };", "type TilePlacement = Dimension & Partial<TileAppearance> & { featureId: string; x: number; y: number; colour?: TileColour };"],
+  ["const IMAGE_DATA_URL = /^data:image\\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+={0,2}$/i;", "const IMAGE_DATA_URL = /^data:image\\\\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+={0,2}$/i;"],
   ["article.style.backgroundImage = `linear-gradient(${appearance.backgroundAngle}deg, ${appearance.backgroundPrimary}, ${appearance.backgroundSecondary})`;", "article.style.backgroundImage = 'linear-gradient(' + appearance.backgroundAngle + 'deg, ' + appearance.backgroundPrimary + ', ' + appearance.backgroundSecondary + ')';"],
   ["article.style.backgroundImage = `url(${JSON.stringify(appearance.backgroundMedia)})`;", "article.style.backgroundImage = 'url(' + JSON.stringify(appearance.backgroundMedia) + ')';"],
   ["return `Gradient · ${preset?.name ?? 'Custom'}`;", "return 'Gradient · ' + (preset?.name ?? 'Custom');"],
@@ -22,4 +23,4 @@ for (const [before, after] of replacements) {
   source = source.replace(before, after);
 }
 fs.writeFileSync(path, source);
-console.log('Tile appearance patch generator syntax and placement typing corrected.');
+console.log('Tile appearance patch generator syntax, regex escaping and placement typing corrected.');
