@@ -216,11 +216,13 @@ function packMobileTiles(tiles) {
   const packed = [];
   const occupied = [];
   const sorted = [...tiles].sort((a, b) => Number(a.y) - Number(b.y) || Number(a.x) - Number(b.x));
+  let cursor = { x: 0, y: 0 };
   for (const tile of sorted) {
     const dimension = mobileTileDimension(tile);
     let location = null;
-    for (let y = 0; y < 400 && !location; y += 1) {
-      for (let x = 0; x <= MOBILE_GRID_COLUMNS - dimension.width; x += 1) {
+    for (let y = cursor.y; y < 400 && !location; y += 1) {
+      const firstX = y === cursor.y ? cursor.x : 0;
+      for (let x = firstX; x <= MOBILE_GRID_COLUMNS - dimension.width; x += 1) {
         const candidate = { x, y, ...dimension };
         if (!occupied.some(existing => overlaps(candidate, existing))) {
           location = candidate;
@@ -228,9 +230,13 @@ function packMobileTiles(tiles) {
         }
       }
     }
-    const placement = location ?? { x: 0, y: occupied.reduce((maximum, item) => Math.max(maximum, item.y + item.height), 0), ...dimension };
+    const placement = location ?? { x: 0, y: occupied.reduce((maximum, item) => Math.max(maximum, item.y + item.height), cursor.y), ...dimension };
     occupied.push(placement);
     packed.push({ ...tile, ...placement });
+    const nextX = placement.x + placement.width;
+    cursor = nextX >= MOBILE_GRID_COLUMNS
+      ? { x: 0, y: placement.y + 1 }
+      : { x: nextX, y: placement.y };
   }
   return packed;
 }
@@ -403,7 +409,7 @@ function applyGridSurface(element, preferences, rows) {
   element.style.setProperty('--dashboard-margin', `${margin}px`);
   element.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
   element.style.setProperty('--tile-row-height', `${squareGridCellSize(element, gap, margin, columns)}px`);
-  element.style.gridTemplateRows = `repeat(${rows}, var(--tile-row-height))`;
+  element.style.gridTemplateRows = rows > 0 ? `repeat(${rows}, var(--tile-row-height))` : 'none';
 }
 
 function tileSurface(feature, editing, className) {
@@ -667,8 +673,8 @@ function renderDashboardGrid() {
     : dashboardState.payload.pinnedTiles;
   if (isSingleColumnFallback()) tiles = packMobileTiles(tiles);
 
-  const rows = dashboardRows(tiles, dashboardState.editing ? 2 : 0);
-  grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}${dashboardState.editing ? ' editing-grid' : ''}`;
+  const rows = tiles.length || dashboardState.editing ? dashboardRows(tiles, dashboardState.editing ? 2 : 0) : 0;
+  grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}${dashboardState.editing ? ' editing-grid' : ''}${!tiles.length && !dashboardState.editing ? ' empty-grid' : ''}`;
   clearPlacementPreview();
   grid.replaceChildren();
   applyGridSurface(grid, preferences, rows);
