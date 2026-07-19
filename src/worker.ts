@@ -19,7 +19,9 @@ const DASHBOARD_ASSETS = new Set([
   '/profile-card-tiles.js',
   '/profile-customization.css',
   '/profile-customization.js',
-  '/profile-customization-hardening.js'
+  '/profile-customization-hardening.js',
+  '/profile-editor-unified.css',
+  '/profile-editor-unified.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
