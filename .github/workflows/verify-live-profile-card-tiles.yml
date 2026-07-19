@@ -1,0 +1,296 @@
+name: Verify Live Profile Card Tiles
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-profile-card-tiles-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Verify live profile card mini tiles
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          login_payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          ready=0
+
+          for attempt in $(seq 1 36); do
+            rm -f /tmp/card-tiles.cookies
+            login_status=$(curl --silent --show-error --retry 2 --retry-delay 2 --retry-all-errors \
+              --output /tmp/card-tiles-login.json \
+              --write-out '%{http_code}' \
+              --cookie-jar /tmp/card-tiles.cookies \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --data "$login_payload" \
+              https://pbe.grev.dad/api/auth/login || true)
+
+            if [ "$login_status" = "200" ]; then
+              session_status=$(curl --silent --show-error --output /tmp/card-tiles-session.json --write-out '%{http_code}' --cookie /tmp/card-tiles.cookies https://pbe.grev.dad/api/auth/session || true)
+              if [ "$session_status" = "200" ]; then
+                profile_id=$(node -e 'const fs=require("node:fs");const p=JSON.parse(fs.readFileSync("/tmp/card-tiles-session.json","utf8"));process.stdout.write(String(p.user?.id??""))')
+                if [ -n "$profile_id" ]; then
+                  profile_status=$(curl --silent --show-error --output /tmp/card-tiles-profile.json --write-out '%{http_code}' --cookie /tmp/card-tiles.cookies "https://pbe.grev.dad/api/profiles/$profile_id" || true)
+                  catalogue_status=$(curl --silent --show-error --output /tmp/card-tiles-catalogue.json --write-out '%{http_code}' --cookie /tmp/card-tiles.cookies https://pbe.grev.dad/api/profile-card-tiles/catalogue || true)
+                  if [ "$profile_status" = "200" ] && [ "$catalogue_status" = "200" ]; then
+                    if node - <<'NODE'
+          const fs = require('node:fs');
+          const profile = JSON.parse(fs.readFileSync('/tmp/card-tiles-profile.json', 'utf8'));
+          const catalogue = JSON.parse(fs.readFileSync('/tmp/card-tiles-catalogue.json', 'utf8'));
+          if (!profile.ok || !profile.profile || !Array.isArray(profile.profile.cardTiles)) process.exit(1);
+          if (profile.profile.cardTileGrid?.columns !== 4 || profile.profile.cardTileGrid?.maxTiles !== 4) process.exit(1);
+          if (!catalogue.ok || !Array.isArray(catalogue.features) || catalogue.grid?.columns !== 4 || catalogue.grid?.maxTiles !== 4) process.exit(1);
+          NODE
+                    then
+                      ready=1
+                      break
+                    fi
+                  fi
+                fi
+              fi
+            fi
+
+            echo "PBE profile-card tiles are not ready yet (attempt $attempt)."
+            sleep 10
+          done
+
+          if [ "$ready" != "1" ]; then
+            echo 'The live PBE profile-card tile API did not become ready.'
+            cat /tmp/card-tiles-login.json 2>/dev/null || true
+            cat /tmp/card-tiles-session.json 2>/dev/null || true
+            cat /tmp/card-tiles-profile.json 2>/dev/null || true
+            cat /tmp/card-tiles-catalogue.json 2>/dev/null || true
+            exit 1
+          fi
+
+          page_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/card-tiles-page.html \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            "https://pbe.grev.dad/profile/$profile_id")
+          test "$page_status" = "200"
+          grep -q 'href="/profile-card-tiles.css"' /tmp/card-tiles-page.html
+          grep -q 'src="/profile-card-tiles.js"' /tmp/card-tiles-page.html
+
+          for asset in profile-card-tiles.css profile-card-tiles.js; do
+            status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+              --output "/tmp/$asset" \
+              --write-out '%{http_code}' \
+              "https://pbe.grev.dad/$asset")
+            test "$status" = "200"
+          done
+          grep -q '.profile-card-tile-grid' /tmp/profile-card-tiles.css
+          grep -q 'data-add-card-tile' /tmp/profile-card-tiles.js
+          grep -q 'cardTiles = serializableTiles' /tmp/profile-card-tiles.js
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/card-tiles-profile.json', 'utf8'));
+          fs.writeFileSync('/tmp/original-card-tiles.json', JSON.stringify(payload.profile.cardTiles));
+          fs.writeFileSync('/tmp/original-card-body.json', JSON.stringify({ tiles: payload.profile.cardTiles }));
+
+          const original = structuredClone(payload.profile.cardTiles);
+          const occupied = original.map(tile => ({ x: tile.x, y: tile.y, width: tile.width, height: tile.height }));
+          const overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+          let working = structuredClone(original);
+          let position;
+          let x;
+          let y;
+          if (working.length >= 4) {
+            const removed = working.pop();
+            position = removed.position;
+            x = removed.x;
+            y = removed.y;
+          } else {
+            position = working.length;
+            outer: for (let row = 0; row <= 7; row += 1) {
+              for (let column = 0; column < 4; column += 1) {
+                const candidate = { x: column, y: row, width: 1, height: 1 };
+                if (!occupied.some(tile => overlaps(candidate, tile))) {
+                  x = column;
+                  y = row;
+                  break outer;
+                }
+              }
+            }
+          }
+          if (!Number.isInteger(x) || !Number.isInteger(y)) throw new Error('No temporary card-tile position available.');
+          const temporaryId = crypto.randomUUID();
+          working.push({
+            tileId: temporaryId,
+            tileKind: 'custom',
+            featureId: null,
+            position,
+            x,
+            y,
+            width: 1,
+            height: 1,
+            title: 'PBE verification tile',
+            description: 'Temporary card tile restored immediately after verification.',
+            linkLabel: null,
+            linkUrl: null,
+            contentMode: 'standard',
+            customTitle: null,
+            customIcon: null,
+            backgroundType: 'gradient',
+            backgroundPrimary: '#11161d',
+            backgroundSecondary: '#3157c9',
+            backgroundAngle: 135,
+            backgroundMedia: null,
+            textColour: '#f4f7fb',
+            fontFamily: 'system',
+            borderColour: '#394657',
+            mediaFit: 'cover',
+            mediaOverlay: 'dark',
+            iconMode: 'text',
+            iconLabel: 'OK',
+            iconMedia: null,
+            iconTextColour: '#090b0f',
+            iconBackgroundColour: '#f3f5f8',
+            iconBorderColour: '#667181',
+            iconMediaFit: 'cover'
+          });
+          working.sort((a, b) => a.position - b.position);
+          fs.writeFileSync('/tmp/temporary-card-body.json', JSON.stringify({ tiles: working }));
+          fs.writeFileSync('/tmp/temporary-card-id.txt', temporaryId);
+
+          const profile = payload.profile;
+          fs.writeFileSync('/tmp/full-profile-unchanged.json', JSON.stringify({
+            card: profile.card,
+            tiles: profile.tiles,
+            preferences: profile.preferences,
+            cardTiles: profile.cardTiles
+          }));
+
+          const invalid = Array.from({ length: 5 }, (_, index) => ({
+            tileId: crypto.randomUUID(), tileKind: 'custom', featureId: null, position: index,
+            x: index % 4, y: Math.floor(index / 4), width: 1, height: 1,
+            title: `Invalid ${index}`, description: null, linkLabel: null, linkUrl: null,
+            contentMode: 'standard', customTitle: null, customIcon: null,
+            backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#3157c9', backgroundAngle: 135,
+            backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657',
+            mediaFit: 'cover', mediaOverlay: 'dark', iconMode: 'text', iconLabel: 'X', iconMedia: null,
+            iconTextColour: '#090b0f', iconBackgroundColour: '#f3f5f8', iconBorderColour: '#667181', iconMediaFit: 'cover'
+          }));
+          fs.writeFileSync('/tmp/five-card-tiles.json', JSON.stringify({ tiles: invalid }));
+          fs.writeFileSync('/tmp/overlapping-card-tiles.json', JSON.stringify({ tiles: invalid.slice(0, 2).map((tile, index) => ({ ...tile, position: index, x: 0, y: 0 })) }));
+          NODE
+
+          restore_original() {
+            curl --silent --show-error \
+              --cookie /tmp/card-tiles.cookies \
+              --request PUT \
+              --header 'Content-Type: application/json' \
+              --data-binary @/tmp/original-card-body.json \
+              https://pbe.grev.dad/api/profile-card-tiles >/tmp/card-tiles-restore.json || true
+          }
+          trap restore_original EXIT
+
+          temporary_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-temporary-save.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            --request PUT \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/temporary-card-body.json \
+            https://pbe.grev.dad/api/profile-card-tiles)
+          test "$temporary_status" = "200"
+
+          reload_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-temporary-profile.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            "https://pbe.grev.dad/api/profiles/$profile_id")
+          test "$reload_status" = "200"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/card-tiles-temporary-profile.json', 'utf8'));
+          const expectedId = fs.readFileSync('/tmp/temporary-card-id.txt', 'utf8').trim();
+          if (!payload.profile.cardTiles.some(tile => tile.tileId === expectedId && tile.title === 'PBE verification tile')) {
+            throw new Error('Temporary profile-card tile did not persist through the live API.');
+          }
+          NODE
+
+          restore_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-restore.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            --request PUT \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/original-card-body.json \
+            https://pbe.grev.dad/api/profile-card-tiles)
+          test "$restore_status" = "200"
+
+          restored_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-restored-profile.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            "https://pbe.grev.dad/api/profiles/$profile_id")
+          test "$restored_status" = "200"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const original = JSON.parse(fs.readFileSync('/tmp/original-card-tiles.json', 'utf8'));
+          const restored = JSON.parse(fs.readFileSync('/tmp/card-tiles-restored-profile.json', 'utf8')).profile.cardTiles;
+          if (JSON.stringify(restored) !== JSON.stringify(original)) throw new Error('Original profile-card tiles were not restored exactly.');
+          NODE
+          trap - EXIT
+
+          profile_save_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-full-profile-save.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            --request PUT \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/full-profile-unchanged.json \
+            https://pbe.grev.dad/api/profile)
+          test "$profile_save_status" = "200"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const saved = JSON.parse(fs.readFileSync('/tmp/card-tiles-full-profile-save.json', 'utf8'));
+          const original = JSON.parse(fs.readFileSync('/tmp/card-tiles-profile.json', 'utf8'));
+          if (!saved.ok || !saved.profile) throw new Error('Combined profile save failed.');
+          for (const key of ['card', 'tiles', 'preferences', 'cardTiles']) {
+            if (JSON.stringify(saved.profile[key]) !== JSON.stringify(original.profile[key])) throw new Error(`Combined profile save changed ${key}.`);
+          }
+          NODE
+
+          five_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-five.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            --request PUT \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/five-card-tiles.json \
+            https://pbe.grev.dad/api/profile-card-tiles)
+          test "$five_status" = "400"
+
+          overlap_status=$(curl --silent --show-error \
+            --output /tmp/card-tiles-overlap.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/card-tiles.cookies \
+            --request PUT \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/overlapping-card-tiles.json \
+            https://pbe.grev.dad/api/profile-card-tiles)
+          test "$overlap_status" = "400"
+
+          unauthenticated_profile_status=$(curl --silent --show-error --output /tmp/card-tiles-unauth-profile.json --write-out '%{http_code}' "https://pbe.grev.dad/api/profiles/$profile_id")
+          test "$unauthenticated_profile_status" = "401"
+          unauthenticated_catalogue_status=$(curl --silent --show-error --output /tmp/card-tiles-unauth-catalogue.json --write-out '%{http_code}' https://pbe.grev.dad/api/profile-card-tiles/catalogue)
+          test "$unauthenticated_catalogue_status" = "401"
+
+          dashboard_status=$(curl --silent --show-error --output /tmp/card-tiles-dashboard.json --write-out '%{http_code}' --cookie /tmp/card-tiles.cookies https://pbe.grev.dad/api/dashboard)
+          test "$dashboard_status" = "200"
+
+          echo 'Live PBE profile-card mini tiles, persistence, restoration, validation, authentication and dashboard compatibility verified.'
