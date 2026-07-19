@@ -1,0 +1,126 @@
+name: Verify Tile Appearance Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Prepare fresh local D1 and Worker
+        run: |
+          rm -rf .wrangler/state
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+          npx wrangler dev --local --env pbe --ip 127.0.0.1 --port 8788 > /tmp/worker.log 2>&1 &
+          for attempt in $(seq 1 40); do curl -fsS http://127.0.0.1:8788/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/worker.log
+          exit 1
+      - name: Verify legacy colours and non-duplicated media responses
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const base = 'http://127.0.0.1:8788';
+          let cookie = '';
+          async function request(path, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (cookie) headers.set('Cookie', cookie);
+            const response = await fetch(base + path, { ...options, headers });
+            const setCookie = response.headers.get('set-cookie');
+            if (setCookie) cookie = setCookie.split(';', 1)[0];
+            const text = await response.text();
+            return { response, text, payload: JSON.parse(text) };
+          }
+          (async () => {
+            let result = await request('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'review_fix_test', displayName: 'Review Fix Test', email: '', password: 'Testing.Password.123' }) });
+            assert.equal(result.response.status, 201, result.text);
+            result = await request('/api/onboarding');
+            const relationshipId = result.payload.relationships[0].id;
+            const intentionId = result.payload.intentions[0].id;
+            assert.equal((await request('/api/onboarding/relationship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId }) })).response.status, 200);
+            assert.equal((await request('/api/onboarding/intentions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentionIds: [intentionId] }) })).response.status, 200);
+            result = await request('/api/dashboard');
+            const feature = result.payload.features.find(item => item.id === 'feature-profile') || result.payload.features[0];
+            const preferences = { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 };
+
+            const legacyBlue = { featureId: feature.id, x: 0, y: 0, width: 2, height: 2, colour: 'blue' };
+            result = await request('/api/dashboard/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [legacyBlue], preferences }) });
+            assert.equal(result.response.status, 200, result.text);
+            let pinned = result.payload.pinnedTiles[0];
+            assert.equal(pinned.tileColour, 'blue');
+            assert.equal(pinned.backgroundPrimary, '#101a2a');
+            assert.equal(pinned.borderColour, '#365987');
+
+            const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            const media = { featureId: feature.id, x: 0, y: 0, width: 2, height: 2, colour: 'blue', backgroundType: 'media', backgroundPrimary: '#101a2a', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: gif, textColour: '#ffffff', fontFamily: 'mono', borderColour: '#365987' };
+            result = await request('/api/dashboard/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [media], preferences }) });
+            assert.equal(result.response.status, 200, result.text.slice(0, 500));
+            assert.equal((result.text.match(new RegExp(gif.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1, 'media data URL should appear once in the save response');
+            assert.equal(result.payload.features.find(item => item.id === feature.id).backgroundMedia, null);
+            assert.equal(result.payload.features.find(item => item.id === feature.id).hasBackgroundMedia, true);
+            assert.equal(result.payload.pinnedTiles[0].backgroundMedia, gif);
+
+            result = await request('/api/dashboard');
+            assert.equal((result.text.match(new RegExp(gif.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1, 'media data URL should appear once in the GET response');
+            console.log('Legacy colour fallback and single-copy media payload passed.');
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Install DOM dependency
+        run: npm install --package-lock=false --no-save jsdom@26
+      - name: Verify unsaved appearance renders immediately
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const assert = require('node:assert/strict');
+          const { JSDOM } = require('jsdom');
+          (async () => {
+            const html = fs.readFileSync('public/dashboard.html', 'utf8');
+            const js = fs.readFileSync('public/dashboard.js', 'utf8');
+            const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only', pretendToBeVisual: true });
+            const { window } = dom;
+            window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+            window.HTMLElement.prototype.scrollIntoView = function () {};
+            window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+            window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+            const oldAppearance = { backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657' };
+            const feature = { id: 'feature-profile', slug: 'profile', name: 'My profile', description: '', category: 'Account', featureType: 'system', presentation: 'content', route: '/profile', iconText: 'ME', audience: 'all', defaultDimension: '2x2', defaultWidth: 2, defaultHeight: 2, allowedDimensions: ['1x1','2x2'], isActive: true, isDefault: true, sortOrder: 1, pinned: true, x: 0, y: 0, width: 2, height: 2, tileColour: 'default', accessGroups: [], ...oldAppearance, appearance: oldAppearance };
+            const payload = { ok: true, viewer: { id: 'u1', username: 'tester', displayName: 'Test User', isAdmin: false, isOwner: false }, grid: { columns: 6, dimensions: ['1x1','2x2'] }, preferences: { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 }, capabilities: { canCustomize: true }, features: [{ ...feature, backgroundMedia: null }], pinnedTiles: [feature] };
+            window.fetch = async url => ({ ok: true, json: async () => String(url).includes('/api/onboarding') ? { ok: true, progress: { relationshipComplete: true, intentionsComplete: true } } : payload });
+            window.eval(js);
+            await new Promise(resolve => setTimeout(resolve, 25));
+            window.document.querySelector('#customize-dashboard').click();
+            await new Promise(resolve => setTimeout(resolve, 10));
+            let tile = window.document.querySelector('.dashboard-tile.editing');
+            tile.querySelector('.dashboard-tile-settings').click();
+            const purple = [...window.document.querySelectorAll('#dashboard-solid-palette .dashboard-appearance-choice')].find(button => button.textContent.includes('Purple'));
+            purple.click();
+            tile = window.document.querySelector('.dashboard-tile.editing');
+            assert.ok(tile.style.backgroundColor === 'rgb(33, 23, 47)' || tile.style.backgroundColor === '#21172f', `unexpected live solid preview: ${tile.style.backgroundColor}`);
+            const ocean = [...window.document.querySelectorAll('#dashboard-gradient-palette .dashboard-appearance-choice')].find(button => button.textContent.includes('Ocean'));
+            ocean.click();
+            tile = window.document.querySelector('.dashboard-tile.editing');
+            assert.match(tile.style.backgroundImage, /linear-gradient/);
+            assert.doesNotMatch(tile.style.backgroundImage, /17, 22, 29/);
+            console.log('Unsaved flat appearance overrides nested saved appearance in live preview.');
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Final build checks
+        run: |
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+      - if: failure()
+        run: cat /tmp/worker.log || true
