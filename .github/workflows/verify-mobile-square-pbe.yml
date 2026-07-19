@@ -1,0 +1,174 @@
+name: Verify Mobile Square PBE
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-mobile-square-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for merged PBE assets
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 42); do
+            curl -fsS https://pbe.grev.dad/dashboard.js -o /tmp/live-dashboard.js || true
+            curl -fsS https://pbe.grev.dad/dashboard.css -o /tmp/live-dashboard.css || true
+            if grep -q 'const MOBILE_GRID_COLUMNS = 2' /tmp/live-dashboard.js \
+              && grep -q 'let cursor = { x: 0, y: 0 }' /tmp/live-dashboard.js \
+              && grep -q "rows > 0 ?" /tmp/live-dashboard.js \
+              && grep -q 'dashboard-tile-grid.empty-grid' /tmp/live-dashboard.css \
+              && ! grep -q 'grid-template-columns:1fr!important;grid-template-rows:none!important' /tmp/live-dashboard.css; then
+              echo 'Merged mobile assets are live.'
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Merged mobile assets did not become live in time.' >&2
+          exit 1
+      - name: Install Chromium
+        run: |
+          npm install --package-lock=false --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Verify real PBE at phone width without saving
+        env:
+          LADMIN_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+        run: |
+          test -n "$LADMIN_PASSWORD"
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+            const login = await context.request.post('https://pbe.grev.dad/api/auth/login', {
+              data: { identifier: 'LADMIN', password: process.env.LADMIN_PASSWORD, rememberMe: false }
+            });
+            assert.equal(login.status(), 200, await login.text());
+
+            const page = await context.newPage();
+            await page.goto('https://pbe.grev.dad/dashboard', { waitUntil: 'networkidle' });
+            await page.waitForSelector('#dashboard-grid');
+            await page.waitForFunction(() => document.querySelectorAll('.dashboard-tile').length > 0 || !document.querySelector('#dashboard-empty')?.hidden);
+            await page.evaluate(() => {
+              const overlay = document.querySelector('#onboarding-overlay');
+              if (overlay && !overlay.hidden) {
+                overlay.hidden = true;
+                document.body.classList.remove('modal-open');
+              }
+            });
+
+            const mobile = await page.evaluate(() => {
+              const grid = document.querySelector('#dashboard-grid');
+              const style = getComputedStyle(grid);
+              const columns = style.gridTemplateColumns.split(' ').filter(Boolean).map(value => Number.parseFloat(value));
+              const rowHeight = Number.parseFloat(style.getPropertyValue('--tile-row-height'));
+              const tiles = [...document.querySelectorAll('.dashboard-tile')].map(tile => {
+                const box = tile.getBoundingClientRect();
+                return {
+                  id: tile.dataset.featureId,
+                  left: box.left,
+                  right: box.right,
+                  top: box.top,
+                  bottom: box.bottom,
+                  width: box.width,
+                  height: box.height,
+                  column: tile.style.gridColumn,
+                  row: tile.style.gridRow
+                };
+              });
+              const box = grid.getBoundingClientRect();
+              return {
+                viewport: innerWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                columns,
+                rowHeight,
+                gridHeight: box.height,
+                gridRows: style.gridTemplateRows,
+                gridMinHeight: style.minHeight,
+                gridMarginTop: style.marginTop,
+                tileCount: tiles.length,
+                tiles,
+                emptyVisible: !document.querySelector('#dashboard-empty')?.hidden,
+                summary: document.querySelector('#dashboard-grid-summary')?.textContent,
+                username: document.querySelector('#username')?.textContent
+              };
+            });
+
+            assert.equal(mobile.viewport, 390);
+            assert.ok(mobile.scrollWidth <= 390, JSON.stringify(mobile));
+            assert.equal(mobile.columns.length, 2, JSON.stringify(mobile));
+            assert.ok(mobile.columns.every(Number.isFinite), JSON.stringify(mobile));
+            assert.ok(Math.abs(mobile.columns[0] - mobile.columns[1]) < 1, JSON.stringify(mobile));
+            assert.ok(Math.abs(mobile.columns[0] - mobile.rowHeight) < 1, JSON.stringify(mobile));
+            assert.ok(mobile.summary?.includes('2-column mobile grid'), mobile.summary);
+            assert.equal(mobile.username, '@LADMIN');
+            for (const tile of mobile.tiles) {
+              assert.ok(tile.left >= 0 && tile.right <= 391, JSON.stringify(tile));
+              assert.ok(tile.width > 0 && tile.height > 0, JSON.stringify(tile));
+              const span = Number(tile.column.match(/span\s+(\d+)/)?.[1] ?? 1);
+              assert.ok(span <= 2, JSON.stringify(tile));
+            }
+            if (!mobile.tileCount) {
+              assert.equal(mobile.emptyVisible, true);
+              assert.ok(mobile.gridHeight <= 1, JSON.stringify(mobile));
+              assert.equal(mobile.gridRows, 'none');
+              assert.equal(mobile.gridMinHeight, '0px');
+              assert.equal(mobile.gridMarginTop, '0px');
+            }
+
+            const customize = page.locator('#customize-dashboard');
+            assert.equal(await customize.isVisible(), true);
+            await customize.click();
+            await page.waitForSelector('.dashboard-tile.editing, #dashboard-grid.editing-grid');
+            const editor = await page.evaluate(() => ({
+              scrollWidth: document.documentElement.scrollWidth,
+              columns: getComputedStyle(document.querySelector('#dashboard-grid')).gridTemplateColumns.split(' ').filter(Boolean).length,
+              tiles: document.querySelectorAll('.dashboard-tile.editing').length,
+              draggable: [...document.querySelectorAll('.dashboard-tile.editing')].map(tile => tile.draggable),
+              resize: [...document.querySelectorAll('.dashboard-tile-resize')].map(button => ({ disabled: button.disabled, display: getComputedStyle(button).display })),
+              settings: document.querySelectorAll('.dashboard-tile-settings').length
+            }));
+            assert.ok(editor.scrollWidth <= 390, JSON.stringify(editor));
+            assert.equal(editor.columns, 2);
+            assert.ok(editor.draggable.every(value => value === false));
+            assert.ok(editor.resize.every(value => value.disabled && value.display === 'none'));
+            assert.equal(editor.settings, editor.tiles);
+
+            if (editor.settings) {
+              await page.locator('.dashboard-tile-settings').first().click();
+              await page.waitForSelector('#dashboard-tile-settings-dialog[open]');
+              const dialog = await page.evaluate(() => {
+                const box = document.querySelector('#dashboard-tile-settings-dialog').getBoundingClientRect();
+                return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth };
+              });
+              assert.ok(dialog.left >= 0 && dialog.right <= dialog.width + 1, JSON.stringify(dialog));
+              assert.ok(dialog.top >= 0 && dialog.bottom <= dialog.height + 1, JSON.stringify(dialog));
+              assert.ok(dialog.scrollWidth <= 390, JSON.stringify(dialog));
+              await page.locator('#dashboard-close-tile-settings').click();
+            }
+
+            await page.locator('#dashboard-cancel-layout').click();
+            await page.setViewportSize({ width: 1000, height: 800 });
+            await page.waitForTimeout(200);
+            const desktopColumns = await page.evaluate(() => getComputedStyle(document.querySelector('#dashboard-grid')).gridTemplateColumns.split(' ').filter(Boolean).length);
+            assert.equal(desktopColumns, 8);
+
+            await browser.close();
+            console.log(JSON.stringify({ mobile, editor, desktopColumns }, null, 2));
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
