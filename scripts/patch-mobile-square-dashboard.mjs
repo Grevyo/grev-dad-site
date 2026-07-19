@@ -97,20 +97,20 @@ js = replaceOnce(
   `function applyGridSurface(element, preferences, rows) {
   const gap = Number(preferences.tileGap ?? 12);
   const margin = Number(preferences.outerMargin ?? 0);
-  element.style.setProperty('--dashboard-gap', \`${gap}px\`);
-  element.style.setProperty('--dashboard-margin', \`${margin}px\`);
-  element.style.gridTemplateColumns = \`repeat(${GRID_COLUMNS}, minmax(0, 1fr))\`;
-  element.style.setProperty('--tile-row-height', \`${squareGridCellSize(element, gap, margin)}px\`);
-  element.style.gridTemplateRows = \`repeat(${rows}, var(--tile-row-height))\`;
+  element.style.setProperty('--dashboard-gap', \`\${gap}px\`);
+  element.style.setProperty('--dashboard-margin', \`\${margin}px\`);
+  element.style.gridTemplateColumns = \`repeat(\${GRID_COLUMNS}, minmax(0, 1fr))\`;
+  element.style.setProperty('--tile-row-height', \`\${squareGridCellSize(element, gap, margin)}px\`);
+  element.style.gridTemplateRows = \`repeat(\${rows}, var(--tile-row-height))\`;
 }`,
   `function applyGridSurface(element, preferences, rows) {
   const { gap, margin } = responsiveGridSpacing(preferences);
   const columns = activeGridColumns();
-  element.style.setProperty('--dashboard-gap', \`${gap}px\`);
-  element.style.setProperty('--dashboard-margin', \`${margin}px\`);
-  element.style.gridTemplateColumns = \`repeat(${columns}, minmax(0, 1fr))\`;
-  element.style.setProperty('--tile-row-height', \`${squareGridCellSize(element, gap, margin, columns)}px\`);
-  element.style.gridTemplateRows = \`repeat(${rows}, var(--tile-row-height))\`;
+  element.style.setProperty('--dashboard-gap', \`\${gap}px\`);
+  element.style.setProperty('--dashboard-margin', \`\${margin}px\`);
+  element.style.gridTemplateColumns = \`repeat(\${columns}, minmax(0, 1fr))\`;
+  element.style.setProperty('--tile-row-height', \`\${squareGridCellSize(element, gap, margin, columns)}px\`);
+  element.style.gridTemplateRows = \`repeat(\${rows}, var(--tile-row-height))\`;
 }`,
   'responsive grid surface'
 );
@@ -139,20 +139,20 @@ js = replaceOnce(
 );
 js = replaceOnce(
   js,
-  `  if (summary) summary.textContent = \`${GRID_COLUMNS} columns × ${rows} visible rows\`;
+  `  if (summary) summary.textContent = \`\${GRID_COLUMNS} columns × \${rows} visible rows\`;
 
   if (dashboardState.editing) {
-    dashboardMessage(\`Editing live preview · ${tiles.length} tile${tiles.length === 1 ? '' : 's'} · changes not yet saved\`, 'success');
+    dashboardMessage(\`Editing live preview · \${tiles.length} tile\${tiles.length === 1 ? '' : 's'} · changes not yet saved\`, 'success');
   } else {
-    dashboardMessage(\`${tiles.length} pinned feature${tiles.length === 1 ? '' : 's'} · ${dashboardState.payload.features.length} available · ${GRID_COLUMNS}-column grid\`, 'success');
+    dashboardMessage(\`\${tiles.length} pinned feature\${tiles.length === 1 ? '' : 's'} · \${dashboardState.payload.features.length} available · \${GRID_COLUMNS}-column grid\`, 'success');
   }`,
   `  const columns = activeGridColumns();
-  if (summary) summary.textContent = isSingleColumnFallback() ? \`${columns}-column mobile grid × ${rows} rows\` : \`${columns} columns × ${rows} visible rows\`;
+  if (summary) summary.textContent = isSingleColumnFallback() ? \`\${columns}-column mobile grid × \${rows} rows\` : \`\${columns} columns × \${rows} visible rows\`;
 
   if (dashboardState.editing) {
-    dashboardMessage(\`Editing live preview · ${tiles.length} tile${tiles.length === 1 ? '' : 's'} · changes not yet saved\`, 'success');
+    dashboardMessage(\`Editing live preview · \${tiles.length} tile\${tiles.length === 1 ? '' : 's'} · changes not yet saved\`, 'success');
   } else {
-    dashboardMessage(\`${tiles.length} pinned feature${tiles.length === 1 ? '' : 's'} · ${dashboardState.payload.features.length} available · ${columns}-column ${isSingleColumnFallback() ? 'mobile ' : ''}grid\`, 'success');
+    dashboardMessage(\`\${tiles.length} pinned feature\${tiles.length === 1 ? '' : 's'} · \${dashboardState.payload.features.length} available · \${columns}-column \${isSingleColumnFallback() ? 'mobile ' : ''}grid\`, 'success');
   }`,
   'responsive grid summary'
 );
