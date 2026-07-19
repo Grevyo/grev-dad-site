@@ -1,0 +1,71 @@
+name: Verify Custom Media Square Grid PBE
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-custom-media-square-grid-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for PBE deployment and authenticate
+        env:
+          LADMIN_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$LADMIN_PASSWORD"
+          python3 - <<'PY' > login.json
+          import json,os
+          print(json.dumps({'identifier':'LADMIN','password':os.environ['LADMIN_PASSWORD'],'rememberMe':False}))
+          PY
+          for attempt in $(seq 1 36); do
+            status=$(curl -sS -o login-response.json -w '%{http_code}' -c cookies.txt -H 'Content-Type: application/json' --data @login.json https://pbe.grev.dad/api/auth/login || true)
+            if [ "$status" = "200" ]; then
+              curl -fsS -b cookies.txt https://pbe.grev.dad/api/dashboard -o dashboard-api.json
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard -o dashboard.html
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard.js -o dashboard.js
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard.css -o dashboard.css
+              if grep -q '"columns":8' dashboard-api.json && grep -q 'dashboard-content-mode' dashboard.html && grep -q 'createCustomMediaButtonContent' dashboard.js; then
+                break
+              fi
+            fi
+            if [ "$attempt" = "36" ]; then
+              echo 'Expected PBE deployment did not become available.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Verify deployed API and controls
+        run: |
+          python3 - <<'PY'
+          import json
+          payload=json.load(open('dashboard-api.json'))
+          assert payload.get('ok') is True
+          assert payload['grid']['columns']==8
+          assert '6x4' in payload['grid']['dimensions']
+          assert '8x4' not in payload['grid']['dimensions']
+          required={'contentMode','customTitle','customIcon','mediaFit','mediaOverlay'}
+          for tile in payload['pinnedTiles']:
+              missing=required.difference(tile)
+              assert not missing,(tile.get('id'),missing)
+          print(json.dumps({'columns':payload['grid']['columns'],'features':len(payload['features']),'pinnedTiles':len(payload['pinnedTiles']),'customFields':sorted(required)}))
+          PY
+          grep -q 'Custom media button' dashboard.html
+          grep -q 'dashboard-custom-title' dashboard.html
+          grep -q 'dashboard-custom-icon' dashboard.html
+          grep -q 'dashboard-media-fit' dashboard.html
+          grep -q 'dashboard-media-overlay' dashboard.html
+          grep -q 'createCustomMediaButtonContent' dashboard.js
+          grep -q 'squareGridCellSize' dashboard.js
+          grep -q 'const GRID_COLUMNS = 8' dashboard.js
+          grep -q "tile.backgroundType === 'media' && !tile.backgroundMedia" dashboard.js
+          grep -q 'dashboard-media-button-tile' dashboard.css
+          grep -q 'data-content-mode="media-button"' dashboard.css
+          echo 'Live PBE custom media buttons and eight-column square grid verified.'
