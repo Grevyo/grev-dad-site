@@ -325,11 +325,12 @@ function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance 
   if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
   if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
   if (submittedIconMedia && !validImageDataUrl(submittedIconMedia)) return null;
-  const iconMedia = iconMode === 'image' ? submittedIconMedia : null;
+  const activeIconMode: TileIconMode = contentMode === 'standard' ? iconMode : 'text';
+  const iconMedia = activeIconMode === 'image' ? submittedIconMedia : null;
   if (backgroundType === 'media' && !backgroundMediaValue) return null;
   if (contentMode === 'media-button' && (backgroundType !== 'media' || !backgroundMediaValue)) return null;
-  if (iconMode === 'image' && !iconMedia) return null;
-  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay, iconMode, iconLabel, iconMedia, iconTextColour, iconBackgroundColour, iconBorderColour, iconMediaFit };
+  if (activeIconMode === 'image' && !iconMedia) return null;
+  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay, iconMode: activeIconMode, iconLabel, iconMedia, iconTextColour, iconBackgroundColour, iconBorderColour, iconMediaFit };
 }
 
 function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
