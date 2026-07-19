@@ -1,0 +1,39 @@
+name: Complete Standard Icon Upload Invalidation
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  complete:
+    if: github.head_ref == 'agent/standard-tile-icon-customization' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: python3 scripts/complete-standard-icon-upload-invalidation.py
+      - run: |
+          npm install --package-lock=false
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+          grep -A5 "dashboardElement('#dashboard-icon-media')" public/dashboard.js | grep -q "cancelIconUpload(tile.featureId)"
+          grep -A5 "dashboardElement('#dashboard-reset-appearance')" public/dashboard.js | grep -q "cancelIconUpload(tile.featureId)"
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/dashboard.js
+          git commit -m "Complete standard icon upload invalidation"
+          git push origin HEAD:${{ github.head_ref }}
