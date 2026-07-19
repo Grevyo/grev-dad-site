@@ -21,7 +21,7 @@
 .dashboard-grid-heading span{color:var(--muted);font-size:.8rem}
 .dashboard-grid-heading>strong{padding:7px 9px;border:1px solid var(--line);background:#11161d;color:var(--accent-strong);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
 .dashboard-tile-grid{
-  --dashboard-gap:12px;--dashboard-margin:0px;--tile-row-height:116px;
+  --dashboard-gap:12px;--dashboard-margin:0px;--tile-row-height:100px;
   display:grid;position:relative;grid-auto-rows:var(--tile-row-height);gap:var(--dashboard-gap);padding:var(--dashboard-margin);margin-top:24px;min-height:120px;box-sizing:border-box
 }
 .dashboard-tile{
@@ -37,7 +37,7 @@
 .dashboard-tile[data-colour="red"]{--tile-bg:#291417;--tile-bg-hover:#381a1f;--tile-border:#793842;--tile-border-strong:#a95461;--tile-accent:#ff7080}
 .dashboard-tile[data-colour="purple"]{--tile-bg:#21172f;--tile-bg-hover:#2d1e40;--tile-border:#60457f;--tile-border-strong:#8765aa;--tile-accent:#ba8cff}
 .dashboard-tile[data-colour="pink"]{--tile-bg:#2b1624;--tile-bg-hover:#391d30;--tile-border:#7c3b65;--tile-border-strong:#a9588a;--tile-accent:#ff84ca}
-.dashboard-tile-content{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-width:0;min-height:0;height:100%;padding:20px;overflow:hidden;box-sizing:border-box}
+.dashboard-tile-content{position:relative;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-width:0;min-height:0;height:100%;padding:20px;overflow:hidden;box-sizing:border-box}
 .dashboard-grid.compact .dashboard-tile-content{padding:15px}
 .dashboard-tile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;min-width:0}
 .dashboard-tile-title-block{min-width:0}
@@ -314,3 +314,17 @@
   .dashboard-tile-settings-section-heading{align-items:flex-start;flex-direction:column}
 }
 @media(max-width:480px){.dashboard-appearance-palette,.dashboard-gradient-controls,.dashboard-appearance-finish{grid-template-columns:1fr}}
+
+/* Custom media buttons remove normal feature content while keeping the complete tile clickable. */
+.dashboard-tile[data-content-mode="media-button"]::before{display:none}
+.dashboard-tile[data-content-mode="media-button"]::after{content:"";position:absolute;inset:0;z-index:1;background:var(--tile-media-overlay,rgba(0,0,0,.42));pointer-events:none}
+.dashboard-media-button-tile{position:relative;z-index:2;display:flex;min-width:0;min-height:0;width:100%;height:100%;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:8px;padding:16px;color:var(--tile-custom-text,#fff);text-decoration:none;box-sizing:border-box}
+.dashboard-media-button-icon{display:grid;place-items:center;min-width:42px;min-height:42px;padding:8px;border:1px solid currentColor;background:rgba(0,0,0,.28);font-size:clamp(1rem,4cqw,2rem);font-weight:950;line-height:1}
+.dashboard-media-button-title{max-width:100%;font-size:clamp(1rem,5cqw,2.25rem);line-height:1.02;overflow-wrap:anywhere;text-shadow:0 2px 12px rgba(0,0,0,.75)}
+.dashboard-media-button-placeholder{margin:auto;align-self:center;padding:8px 10px;border:1px dashed currentColor;background:rgba(0,0,0,.45);font-size:.68rem;font-weight:950;letter-spacing:.08em;text-align:center}
+.dashboard-tile[data-content-mode="media-button"][data-media-overlay="light"] .dashboard-media-button-title{color:#090b0f;text-shadow:0 1px 8px rgba(255,255,255,.7)}
+.dashboard-tile[data-content-mode="media-button"][data-media-fit="contain"]{background-repeat:no-repeat}
+.dashboard-custom-content-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--line);background:#0b0f14}
+.dashboard-custom-content-controls>p{grid-column:1/-1;margin:0;color:var(--muted);font-size:.82rem;line-height:1.45}
+.dashboard-custom-media-options{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(max-width:760px){.dashboard-custom-content-controls,.dashboard-custom-media-options{grid-template-columns:1fr}}

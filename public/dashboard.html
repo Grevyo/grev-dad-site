@@ -11,7 +11,7 @@
 <header><strong>Grev.dad</strong><div><a id="owner-setup-link" class="header-link" href="/owner-setup" hidden>Owner setup</a><a id="admin-link" class="header-link" href="/admin" hidden>Admin centre</a><a class="header-link" href="/settings">Profile settings</a><a class="header-link" href="/profile">My profile</a><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
 <main id="dashboard-shell" class="dashboard-shell">
 <section class="dashboard-hero">
-<div><p class="eyebrow">Personal dashboard</p><h1>Welcome, <span id="name">member</span>.</h1><p>Place features anywhere on the six-column grid, resize them to preset dimensions, and leave deliberate blank space wherever it suits your layout.</p></div>
+<div><p class="eyebrow">Personal dashboard</p><h1>Welcome, <span id="name">member</span>.</h1><p>Place features anywhere on the eight-column square grid, resize them to preset dimensions, and leave deliberate blank space wherever it suits your layout.</p></div>
 <div class="dashboard-toolbar"><button id="customize-dashboard" class="primary" type="button">Customize dashboard</button><a href="/settings">Manage account groups</a></div>
 </section>
 <p id="dashboard-status" class="dashboard-status" role="status">Loading your dashboard…</p>
@@ -38,6 +38,16 @@
 <div class="dashboard-selected-arrows" aria-label="Move selected tile"><button type="button" data-move-x="-1" data-move-y="0" title="Move left">←</button><button type="button" data-move-x="0" data-move-y="-1" title="Move up">↑</button><button type="button" data-move-x="0" data-move-y="1" title="Move down">↓</button><button type="button" data-move-x="1" data-move-y="0" title="Move right">→</button></div>
 </div>
 </section>
+<section class="dashboard-tile-settings-section" aria-labelledby="dashboard-content-settings-title">
+<div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-content-settings-title">Tile content</h3><span>Standard or fully custom</span></div>
+<label>Content mode<select id="dashboard-content-mode"><option value="standard">Standard feature tile</option><option value="media-button">Custom media button</option></select></label>
+<div id="dashboard-custom-content-controls" class="dashboard-custom-content-controls" hidden>
+<p>Custom media mode removes the built-in tile content. The whole tile becomes the uploaded picture or GIF with only the optional title and icon below.</p>
+<label>Custom title <span class="optional">optional</span><input id="dashboard-custom-title" type="text" maxlength="80" placeholder="Leave empty for no title"></label>
+<label>Custom icon <span class="optional">optional</span><input id="dashboard-custom-icon" type="text" maxlength="12" placeholder="Emoji or short icon text"></label>
+<div class="dashboard-custom-media-options"><label>Picture fit<select id="dashboard-media-fit"><option value="cover">Fill tile (cover)</option><option value="contain">Show whole picture (contain)</option><option value="stretch">Stretch to tile</option></select></label><label>Text overlay<select id="dashboard-media-overlay"><option value="dark">Dark overlay</option><option value="light">Light overlay</option><option value="none">No overlay</option></select></label></div>
+</div>
+</section>
 <section class="dashboard-tile-settings-section" aria-labelledby="dashboard-appearance-settings-title">
 <div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-appearance-settings-title">Appearance</h3><span id="dashboard-appearance-name">Solid · Charcoal</span></div>
 <label>Background type<select id="dashboard-background-type"><option value="solid">Solid colour</option><option value="gradient">Multi-colour gradient</option><option value="media">Picture or animated GIF</option></select></label>
@@ -56,7 +66,7 @@
 </div>
 </div>
 <div id="dashboard-media-controls" class="dashboard-appearance-mode" hidden>
-<strong>Picture or GIF background</strong>
+<strong>Picture or GIF</strong>
 <label class="dashboard-media-upload">Choose PNG, JPEG, WebP or animated GIF<input id="dashboard-background-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
 <div class="dashboard-media-actions"><span id="dashboard-media-status">No picture selected.</span><button id="dashboard-remove-media" type="button">Remove picture</button></div>
 <small>Maximum file size: 1.4 MB. The image is stored privately with your dashboard layout.</small>
@@ -76,7 +86,7 @@
 
 <section id="dashboard-workspace" class="dashboard-workspace">
 <div class="dashboard-grid-region">
-<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>The placement highlight keeps the exact point where you grabbed the tile. Open Tile settings for colours, gradients, pictures, fonts and borders.</span></div><strong id="dashboard-grid-summary">6 columns</strong></div>
+<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>The placement highlight keeps the exact point where you grabbed the tile. Open Tile settings for standard content or a fully custom picture/GIF button.</span></div><strong id="dashboard-grid-summary">8 square columns</strong></div>
 <section id="dashboard-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
 <section id="dashboard-empty" class="dashboard-empty" hidden><h2>Your dashboard is empty</h2><p>Open Customize dashboard and place any features currently available to your account.</p></section>
 </div>

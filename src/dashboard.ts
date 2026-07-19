@@ -30,6 +30,9 @@ type TileColour = 'default' | 'graphite' | 'blue' | 'cyan' | 'green' | 'amber' |
 type TilePresentation = 'action' | 'content';
 type TileBackgroundType = 'solid' | 'gradient' | 'media';
 type TileFontFamily = 'system' | 'display' | 'mono' | 'serif' | 'rounded';
+type TileContentMode = 'standard' | 'media-button';
+type TileMediaFit = 'cover' | 'contain' | 'stretch';
+type TileMediaOverlay = 'none' | 'dark' | 'light';
 type Dimension = { width: number; height: number };
 type TileAppearance = {
   backgroundType: TileBackgroundType;
@@ -40,6 +43,11 @@ type TileAppearance = {
   textColour: string;
   fontFamily: TileFontFamily;
   borderColour: string;
+  contentMode: TileContentMode;
+  customTitle: string | null;
+  customIcon: string | null;
+  mediaFit: TileMediaFit;
+  mediaOverlay: TileMediaOverlay;
 };
 type TilePlacement = Dimension & Partial<TileAppearance> & { featureId: string; x: number; y: number; colour?: TileColour };
 
@@ -76,12 +84,17 @@ type FeatureRow = {
   text_colour: string | null;
   font_family: string | null;
   border_colour: string | null;
+  content_mode: string | null;
+  custom_title: string | null;
+  custom_icon: string | null;
+  media_fit: string | null;
+  media_overlay: string | null;
   matched_groups: string;
 };
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
-const GRID_COLUMNS = 6;
+const GRID_COLUMNS = 8;
 const MAX_GRID_Y = 199;
 const MAX_TILES = 60;
 const VALID_DENSITIES = new Set<DashboardDensity>(['comfortable', 'compact']);
@@ -94,6 +107,9 @@ const VALID_DIMENSIONS = new Set(ALL_DIMENSIONS);
 const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
 const VALID_BACKGROUND_TYPES = new Set<TileBackgroundType>(['solid','gradient','media']);
 const VALID_FONT_FAMILIES = new Set<TileFontFamily>(['system','display','mono','serif','rounded']);
+const VALID_CONTENT_MODES = new Set<TileContentMode>(['standard','media-button']);
+const VALID_MEDIA_FITS = new Set<TileMediaFit>(['cover','contain','stretch']);
+const VALID_MEDIA_OVERLAYS = new Set<TileMediaOverlay>(['none','dark','light']);
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_TILE_MEDIA_BYTES = 1_400_000;
@@ -106,7 +122,12 @@ const DEFAULT_TILE_APPEARANCE: TileAppearance = {
   backgroundMedia: null,
   textColour: '#f4f7fb',
   fontFamily: 'system',
-  borderColour: '#394657'
+  borderColour: '#394657',
+  contentMode: 'standard',
+  customTitle: null,
+  customIcon: null,
+  mediaFit: 'cover',
+  mediaOverlay: 'dark'
 };
 const LEGACY_TILE_APPEARANCE: Record<TileColour, Pick<TileAppearance, 'backgroundPrimary' | 'borderColour'>> = {
   default: { backgroundPrimary: '#11161d', borderColour: '#394657' },
@@ -252,11 +273,23 @@ function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance 
   const textColour = String(item.textColour ?? defaults.textColour).toLowerCase();
   const fontFamily = String(item.fontFamily ?? defaults.fontFamily) as TileFontFamily;
   const borderColour = String(item.borderColour ?? defaults.borderColour).toLowerCase();
+  const contentMode = String(item.contentMode ?? defaults.contentMode) as TileContentMode;
+  const customTitleRaw = item.customTitle === null || item.customTitle === undefined || item.customTitle === '' ? null : item.customTitle;
+  const customIconRaw = item.customIcon === null || item.customIcon === undefined || item.customIcon === '' ? null : item.customIcon;
+  if (customTitleRaw !== null && typeof customTitleRaw !== 'string') return null;
+  if (customIconRaw !== null && typeof customIconRaw !== 'string') return null;
+  const customTitle = typeof customTitleRaw === 'string' && customTitleRaw.trim() ? customTitleRaw.trim() : null;
+  const customIcon = typeof customIconRaw === 'string' && customIconRaw.trim() ? customIconRaw.trim() : null;
+  const mediaFit = String(item.mediaFit ?? defaults.mediaFit) as TileMediaFit;
+  const mediaOverlay = String(item.mediaOverlay ?? defaults.mediaOverlay) as TileMediaOverlay;
+  if ((customTitle?.length ?? 0) > 80 || (customIcon?.length ?? 0) > 12) return null;
+  if (!VALID_CONTENT_MODES.has(contentMode) || !VALID_MEDIA_FITS.has(mediaFit) || !VALID_MEDIA_OVERLAYS.has(mediaOverlay)) return null;
   if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour)) return null;
   if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
   if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
   if (backgroundType === 'media' && !backgroundMediaValue) return null;
-  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour };
+  if (contentMode === 'media-button' && (backgroundType !== 'media' || !backgroundMediaValue)) return null;
+  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay };
 }
 
 function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
@@ -305,7 +338,12 @@ function featureFromRow(row: FeatureRow) {
     backgroundMedia: typeof row.background_media === 'string' && row.background_media ? row.background_media : null,
     textColour: HEX_COLOUR.test(String(row.text_colour ?? '')) ? String(row.text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.textColour,
     fontFamily,
-    borderColour: HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour
+    borderColour: HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour,
+    contentMode: VALID_CONTENT_MODES.has(String(row.content_mode ?? '') as TileContentMode) ? String(row.content_mode) as TileContentMode : DEFAULT_TILE_APPEARANCE.contentMode,
+    customTitle: typeof row.custom_title === 'string' && row.custom_title.trim() ? row.custom_title.trim() : null,
+    customIcon: typeof row.custom_icon === 'string' && row.custom_icon.trim() ? row.custom_icon.trim() : null,
+    mediaFit: VALID_MEDIA_FITS.has(String(row.media_fit ?? '') as TileMediaFit) ? String(row.media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.mediaFit,
+    mediaOverlay: VALID_MEDIA_OVERLAYS.has(String(row.media_overlay ?? '') as TileMediaOverlay) ? String(row.media_overlay) as TileMediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay
   };
   return {
     id: row.id,
@@ -355,6 +393,11 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
       t.text_colour,
       t.font_family,
       t.border_colour,
+       t.content_mode,
+       t.custom_title,
+       t.custom_icon,
+       t.media_fit,
+       t.media_overlay,
       COALESCE((
         SELECT GROUP_CONCAT(g.name, ', ')
         FROM dashboard_feature_group_grants fg
@@ -390,7 +433,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
 
 async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
   const rows = await env.DB.prepare(`
-    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,'' AS matched_groups
+    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,'' AS matched_groups
     FROM dashboard_features f
     WHERE f.is_active=1 AND f.is_default=1 AND (
       f.audience='all'
@@ -531,9 +574,9 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id)];
   tiles.forEach((tile, position) => {
     statements.push(env.DB.prepare(`
-      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,pinned_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', tile.backgroundType, tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, now, now));
+      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,content_mode,custom_title,custom_icon,media_fit,media_overlay,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', tile.backgroundType, tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, tile.contentMode, tile.customTitle, tile.customIcon, tile.mediaFit, tile.mediaOverlay, now, now));
   });
   statements.push(env.DB.prepare(`
     INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at)
@@ -542,7 +585,7 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   `).bind(user.id, density, showDescriptions ? 1 : 0, tileGap, outerMargin, now, now));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
     crypto.randomUUID(), user.id, 'dashboard.grid_updated', 'user', user.id,
-    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default', backgroundType: tile.backgroundType, backgroundPrimary: tile.backgroundPrimary, backgroundSecondary: tile.backgroundSecondary, backgroundAngle: tile.backgroundAngle, hasBackgroundMedia: Boolean(tile.backgroundMedia), textColour: tile.textColour, fontFamily: tile.fontFamily, borderColour: tile.borderColour })), density, showDescriptions, tileGap, outerMargin }), now
+    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default', backgroundType: tile.backgroundType, backgroundPrimary: tile.backgroundPrimary, backgroundSecondary: tile.backgroundSecondary, backgroundAngle: tile.backgroundAngle, hasBackgroundMedia: Boolean(tile.backgroundMedia), textColour: tile.textColour, fontFamily: tile.fontFamily, borderColour: tile.borderColour, contentMode: tile.contentMode, hasCustomTitle: Boolean(tile.customTitle), hasCustomIcon: Boolean(tile.customIcon), mediaFit: tile.mediaFit, mediaOverlay: tile.mediaOverlay })), density, showDescriptions, tileGap, outerMargin }), now
   ));
   await env.DB.batch(statements);
   return secureJson(await dashboardPayload(env, user));
@@ -566,7 +609,7 @@ async function featureForUser(env: DashboardEnv, user: DashboardUser, slug: stri
 
 async function adminCatalogue(env: DashboardEnv) {
   const [features, grants, groups] = await Promise.all([
-    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
+    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
     env.DB.prepare(`SELECT feature_id,group_id FROM dashboard_feature_group_grants ORDER BY feature_id,group_id`).all<{ feature_id: string; group_id: string }>(),
     env.DB.prepare(`SELECT id,name,description FROM groups ORDER BY name`).all<{ id: string; name: string; description: string }>()
   ]);
