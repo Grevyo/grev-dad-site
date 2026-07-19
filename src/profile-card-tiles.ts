@@ -359,7 +359,7 @@ async function otherProfileMediaBytes(env: ProfileEnv, userId: string): Promise<
     .reduce((total, media) => total + dataUrlByteLength(media), 0);
 }
 
-async function prepareTiles(rawTiles: unknown, env: ProfileEnv, viewer: Viewer): Promise<{ tiles: PreparedTile[] } | Response> {
+async function prepareTiles(rawTiles: unknown, env: ProfileEnv, viewer: Viewer, includeStoredOtherMedia = true): Promise<{ tiles: PreparedTile[] } | Response> {
   if (!Array.isArray(rawTiles) || rawTiles.length > MAX_CARD_TILES) {
     return secureJson({ ok: false, message: 'Choose up to four profile-card tiles.' }, 400);
   }
@@ -471,7 +471,7 @@ async function prepareTiles(rawTiles: unknown, env: ProfileEnv, viewer: Viewer):
     });
   }
 
-  const otherBytes = await otherProfileMediaBytes(env, viewer.id);
+  const otherBytes = includeStoredOtherMedia ? await otherProfileMediaBytes(env, viewer.id) : 0;
   if (otherBytes + cardMediaBytes > MAX_PROFILE_MEDIA_BYTES) {
     return secureJson({ ok: false, message: 'Profile pictures and all profile tile media may use up to 8 MB in total.' }, 400);
   }
@@ -546,7 +546,7 @@ async function saveWithProfile(request: Request, env: ProfileEnv): Promise<Respo
   if (!sameOrigin(request)) return secureJson({ ok: false, message: 'Origin rejected.' }, 403);
   const viewer = await getViewer(request, env);
   if (!viewer) return secureJson({ ok: false, message: 'Authentication required.' }, 401);
-  const prepared = await prepareTiles(body.cardTiles, env, viewer);
+  const prepared = await prepareTiles(body.cardTiles, env, viewer, false);
   if (prepared instanceof Response) return prepared;
 
   const profileResponse = await handleProfileMediaRequest(request, env);
