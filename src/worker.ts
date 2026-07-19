@@ -3,6 +3,7 @@ import { handleDashboardRequest, type DashboardEnv } from './dashboard';
 import { type ProfileEnv } from './profile';
 import { handleProfileMediaRequest } from './profile-media';
 import { handleProfileCardTilesRequest } from './profile-card-tiles';
+import { handleProfileCustomizationHardeningRequest } from './profile-customization-hardening';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -15,7 +16,10 @@ const DASHBOARD_ASSETS = new Set([
   '/profile.js',
   '/profile-card.js',
   '/profile-card-tiles.css',
-  '/profile-card-tiles.js'
+  '/profile-card-tiles.js',
+  '/profile-customization.css',
+  '/profile-customization.js',
+  '/profile-customization-hardening.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -36,10 +40,30 @@ function invalidIntentionsResponse(): Response {
   return workerJson({ ok: false, message: 'Choose at least one intention.' }, 400);
 }
 
+async function bundledProfileCustomization(request: Request, env: AppEnv): Promise<Response> {
+  const assets = (env as unknown as DashboardEnv).ASSETS;
+  const baseUrl = new URL(request.url);
+  const hardeningUrl = new URL('/profile-customization-hardening.js', baseUrl);
+  const [baseResponse, hardeningResponse] = await Promise.all([
+    assets.fetch(request),
+    assets.fetch(new Request(hardeningUrl.toString(), request))
+  ]);
+  if (!baseResponse.ok) return baseResponse;
+  const content = `${await baseResponse.text()}\n${hardeningResponse.ok ? await hardeningResponse.text() : ''}`;
+  const headers = new Headers(baseResponse.headers);
+  headers.delete('Content-Length');
+  headers.set('Content-Type', 'application/javascript; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  return new Response(content, { status: baseResponse.status, headers });
+}
+
 export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
 
+    if (request.method === 'GET' && url.pathname === '/profile-customization.js') {
+      return bundledProfileCustomization(request, env);
+    }
     if (request.method === 'GET' && DASHBOARD_ASSETS.has(url.pathname)) {
       return (env as unknown as DashboardEnv).ASSETS.fetch(request);
     }
@@ -63,6 +87,8 @@ export default {
     }
 
     try {
+      const customizationResponse = await handleProfileCustomizationHardeningRequest(request, env as unknown as ProfileEnv);
+      if (customizationResponse) return customizationResponse;
       const cardTileResponse = await handleProfileCardTilesRequest(request, env as unknown as ProfileEnv);
       if (cardTileResponse) return cardTileResponse;
       const profileResponse = await handleProfileMediaRequest(request, env as unknown as ProfileEnv);
