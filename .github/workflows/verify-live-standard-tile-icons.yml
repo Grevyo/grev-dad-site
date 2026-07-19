@@ -17,25 +17,20 @@ jobs:
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
     steps:
-      - name: Verify deployed dashboard markup
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 10); do
-            if curl --location --silent --show-error --fail https://pbe.grev.dad/dashboard | grep -q 'dashboard-icon-mode'; then
-              echo 'Standard icon controls are deployed.'
-              exit 0
-            fi
-            sleep 6
-          done
-          echo 'Deployed dashboard markup does not yet contain standard icon controls.'
-          exit 1
-      - name: Verify migrated live dashboard API
+      - name: Verify deployed controls and migrated dashboard API
         run: |
           set -euo pipefail
           payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
           login_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/icon-login.json --write-out '%{http_code}' --cookie-jar /tmp/icon.cookies --request POST --header 'Content-Type: application/json' --data "$payload" https://pbe.grev.dad/api/auth/login)
           cat /tmp/icon-login.json
           test "$login_status" = 200
+
+          page_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/icon-dashboard.html --write-out '%{http_code}' --cookie /tmp/icon.cookies https://pbe.grev.dad/dashboard)
+          test "$page_status" = 200
+          grep -q 'dashboard-icon-mode' /tmp/icon-dashboard.html
+          grep -q 'dashboard-icon-background-colour' /tmp/icon-dashboard.html
+          echo 'Standard icon controls are deployed.'
+
           dashboard_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors --output /tmp/icon-dashboard.json --write-out '%{http_code}' --cookie /tmp/icon.cookies https://pbe.grev.dad/api/dashboard)
           test "$dashboard_status" = 200
           node <<'NODE'
