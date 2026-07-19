@@ -28,8 +28,20 @@ type LegacyDashboardSize = 'small' | 'medium' | 'wide' | 'large';
 type DashboardDensity = 'comfortable' | 'compact';
 type TileColour = 'default' | 'graphite' | 'blue' | 'cyan' | 'green' | 'amber' | 'red' | 'purple' | 'pink';
 type TilePresentation = 'action' | 'content';
+type TileBackgroundType = 'solid' | 'gradient' | 'media';
+type TileFontFamily = 'system' | 'display' | 'mono' | 'serif' | 'rounded';
 type Dimension = { width: number; height: number };
-type TilePlacement = Dimension & { featureId: string; x: number; y: number; colour?: TileColour };
+type TileAppearance = {
+  backgroundType: TileBackgroundType;
+  backgroundPrimary: string;
+  backgroundSecondary: string;
+  backgroundAngle: number;
+  backgroundMedia: string | null;
+  textColour: string;
+  fontFamily: TileFontFamily;
+  borderColour: string;
+};
+type TilePlacement = Dimension & Partial<TileAppearance> & { featureId: string; x: number; y: number; colour?: TileColour };
 
 type FeatureRow = {
   id: string;
@@ -56,6 +68,14 @@ type FeatureRow = {
   tile_width: number | null;
   tile_height: number | null;
   tile_colour: string | null;
+  background_type: string | null;
+  background_primary: string | null;
+  background_secondary: string | null;
+  background_angle: number | null;
+  background_media: string | null;
+  text_colour: string | null;
+  font_family: string | null;
+  border_colour: string | null;
   matched_groups: string;
 };
 
@@ -72,6 +92,21 @@ const ALL_DIMENSIONS = Array.from({ length: 4 }, (_, heightIndex) =>
 ).flat();
 const VALID_DIMENSIONS = new Set(ALL_DIMENSIONS);
 const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
+const VALID_BACKGROUND_TYPES = new Set<TileBackgroundType>(['solid','gradient','media']);
+const VALID_FONT_FAMILIES = new Set<TileFontFamily>(['system','display','mono','serif','rounded']);
+const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
+const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+={0,2}$/i;
+const MAX_TILE_MEDIA_BYTES = 2 * 1024 * 1024;
+const DEFAULT_TILE_APPEARANCE: TileAppearance = {
+  backgroundType: 'solid',
+  backgroundPrimary: '#11161d',
+  backgroundSecondary: '#5268aa',
+  backgroundAngle: 135,
+  backgroundMedia: null,
+  textColour: '#f4f7fb',
+  fontFamily: 'system',
+  borderColour: '#394657'
+};
 
 function b64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -162,6 +197,28 @@ function dimensionsFromCsv(value: string): string[] {
   return result.length ? result : ['2x1'];
 }
 
+function dataUrlByteLength(value: string): number {
+  const encoded = value.slice(value.indexOf(',') + 1);
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.floor(encoded.length * 3 / 4) - padding;
+}
+
+function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance | null {
+  const backgroundType = String(item.backgroundType ?? DEFAULT_TILE_APPEARANCE.backgroundType) as TileBackgroundType;
+  const backgroundPrimary = String(item.backgroundPrimary ?? DEFAULT_TILE_APPEARANCE.backgroundPrimary).toLowerCase();
+  const backgroundSecondary = String(item.backgroundSecondary ?? DEFAULT_TILE_APPEARANCE.backgroundSecondary).toLowerCase();
+  const backgroundAngle = Number(item.backgroundAngle ?? DEFAULT_TILE_APPEARANCE.backgroundAngle);
+  const backgroundMediaValue = item.backgroundMedia === null || item.backgroundMedia === undefined || item.backgroundMedia === '' ? null : String(item.backgroundMedia);
+  const textColour = String(item.textColour ?? DEFAULT_TILE_APPEARANCE.textColour).toLowerCase();
+  const fontFamily = String(item.fontFamily ?? DEFAULT_TILE_APPEARANCE.fontFamily) as TileFontFamily;
+  const borderColour = String(item.borderColour ?? DEFAULT_TILE_APPEARANCE.borderColour).toLowerCase();
+  if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour)) return null;
+  if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
+  if (backgroundMediaValue && (!IMAGE_DATA_URL.test(backgroundMediaValue) || dataUrlByteLength(backgroundMediaValue) > MAX_TILE_MEDIA_BYTES)) return null;
+  if (backgroundType === 'media' && !backgroundMediaValue) return null;
+  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour };
+}
+
 function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
   if (width === 1 && height === 1) return 'small';
   if (height === 1 && width <= 2) return 'medium';
@@ -196,6 +253,20 @@ function featureFromRow(row: FeatureRow) {
   const height = row.tile_height ?? row.default_height;
   const colourValue = String(row.tile_colour ?? 'default') as TileColour;
   const tileColour = VALID_TILE_COLOURS.has(colourValue) ? colourValue : 'default';
+  const backgroundTypeValue = String(row.background_type ?? DEFAULT_TILE_APPEARANCE.backgroundType) as TileBackgroundType;
+  const fontFamilyValue = String(row.font_family ?? DEFAULT_TILE_APPEARANCE.fontFamily) as TileFontFamily;
+  const backgroundType = VALID_BACKGROUND_TYPES.has(backgroundTypeValue) ? backgroundTypeValue : DEFAULT_TILE_APPEARANCE.backgroundType;
+  const fontFamily = VALID_FONT_FAMILIES.has(fontFamilyValue) ? fontFamilyValue : DEFAULT_TILE_APPEARANCE.fontFamily;
+  const appearance: TileAppearance = {
+    backgroundType,
+    backgroundPrimary: HEX_COLOUR.test(String(row.background_primary ?? '')) ? String(row.background_primary).toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundPrimary,
+    backgroundSecondary: HEX_COLOUR.test(String(row.background_secondary ?? '')) ? String(row.background_secondary).toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundSecondary,
+    backgroundAngle: Number.isInteger(row.background_angle) && Number(row.background_angle) >= 0 && Number(row.background_angle) <= 360 ? Number(row.background_angle) : DEFAULT_TILE_APPEARANCE.backgroundAngle,
+    backgroundMedia: typeof row.background_media === 'string' && row.background_media ? row.background_media : null,
+    textColour: HEX_COLOUR.test(String(row.text_colour ?? '')) ? String(row.text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.textColour,
+    fontFamily,
+    borderColour: HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour
+  };
   return {
     id: row.id,
     slug: row.slug,
@@ -222,6 +293,8 @@ function featureFromRow(row: FeatureRow) {
     height,
     dimension: dimensionKey(width, height),
     tileColour,
+    ...appearance,
+    appearance,
     accessGroups: row.matched_groups ? row.matched_groups.split(', ') : []
   };
 }
@@ -235,6 +308,14 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
       t.tile_width,
       t.tile_height,
       t.tile_colour,
+      t.background_type,
+      t.background_primary,
+      t.background_secondary,
+      t.background_angle,
+      t.background_media,
+      t.text_colour,
+      t.font_family,
+      t.border_colour,
       COALESCE((
         SELECT GROUP_CONCAT(g.name, ', ')
         FROM dashboard_feature_group_grants fg
@@ -270,7 +351,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
 
 async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
   const rows = await env.DB.prepare(`
-    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,'' AS matched_groups
+    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,'' AS matched_groups
     FROM dashboard_features f
     WHERE f.is_active=1 AND f.is_default=1 AND (
       f.audience='all'
@@ -365,15 +446,18 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
     const item = rawTile as Record<string, unknown>;
     const featureId = String(item.featureId ?? '').trim();
     const feature = available.get(featureId);
+    const appearance = tileAppearanceFromInput(item);
+    if (!appearance) return secureJson({ ok: false, message: 'Choose a valid tile background, text colour, font, border and media file.' }, { status: 400 });
     const tile: TilePlacement = {
       featureId,
       x: Number(item.x),
       y: Number(item.y),
       width: Number(item.width),
       height: Number(item.height),
-      colour: String(item.colour ?? 'default') as TileColour
+      colour: String(item.colour ?? 'default') as TileColour,
+      ...appearance
     };
-    if (!VALID_TILE_COLOURS.has(tile.colour ?? 'default')) return secureJson({ ok: false, message: 'Choose a valid tile colour.' }, { status: 400 });
+    if (!VALID_TILE_COLOURS.has(tile.colour ?? 'default')) return secureJson({ ok: false, message: 'Choose a valid legacy tile colour.' }, { status: 400 });
     if (!feature || seen.has(featureId) || !validPlacement(tile)) return secureJson({ ok: false, message: 'The dashboard contains an unavailable, duplicate, or out-of-bounds tile.' }, { status: 400 });
     const allowed = new Set(dimensionsFromCsv(feature.allowed_dimensions));
     if (!allowed.has(dimensionKey(tile.width, tile.height))) return secureJson({ ok: false, message: `${feature.name} does not support ${tile.width}×${tile.height}.` }, { status: 400 });
@@ -395,9 +479,9 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id)];
   tiles.forEach((tile, position) => {
     statements.push(env.DB.prepare(`
-      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,pinned_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', now, now));
+      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', tile.backgroundType, tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, now, now));
   });
   statements.push(env.DB.prepare(`
     INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at)
@@ -406,7 +490,7 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   `).bind(user.id, density, showDescriptions ? 1 : 0, tileGap, outerMargin, now, now));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
     crypto.randomUUID(), user.id, 'dashboard.grid_updated', 'user', user.id,
-    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default' })), density, showDescriptions, tileGap, outerMargin }), now
+    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default', backgroundType: tile.backgroundType, backgroundPrimary: tile.backgroundPrimary, backgroundSecondary: tile.backgroundSecondary, backgroundAngle: tile.backgroundAngle, hasBackgroundMedia: Boolean(tile.backgroundMedia), textColour: tile.textColour, fontFamily: tile.fontFamily, borderColour: tile.borderColour })), density, showDescriptions, tileGap, outerMargin }), now
   ));
   await env.DB.batch(statements);
   return secureJson(await dashboardPayload(env, user));
@@ -430,7 +514,7 @@ async function featureForUser(env: DashboardEnv, user: DashboardUser, slug: stri
 
 async function adminCatalogue(env: DashboardEnv) {
   const [features, grants, groups] = await Promise.all([
-    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
+    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
     env.DB.prepare(`SELECT feature_id,group_id FROM dashboard_feature_group_grants ORDER BY feature_id,group_id`).all<{ feature_id: string; group_id: string }>(),
     env.DB.prepare(`SELECT id,name,description FROM groups ORDER BY name`).all<{ id: string; name: string; description: string }>()
   ]);
