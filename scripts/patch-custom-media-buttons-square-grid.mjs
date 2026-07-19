@@ -199,7 +199,7 @@ patch('src/dashboard.ts', source => {
   );
   source = replaceOnce(
     source,
-    "       t.border_colour,\n       COALESCE((",
+    "t.border_colour,\n       COALESCE((",
     "       t.border_colour,\n       t.content_mode,\n       t.custom_title,\n       t.custom_icon,\n       t.media_fit,\n       t.media_overlay,\n       COALESCE((",
     'accessible feature custom columns'
   );
