@@ -1,0 +1,258 @@
+name: Verify Tile Appearance Integration
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --package-lock=false
+      - name: Apply the full migration chain to fresh local D1
+        run: |
+          rm -rf .wrangler/state
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+      - name: Start local Worker
+        run: |
+          npx wrangler dev --local --env pbe --ip 127.0.0.1 --port 8788 > /tmp/grev-dad-worker.log 2>&1 &
+          echo $! > /tmp/grev-dad-worker.pid
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8788/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/grev-dad-worker.log
+          exit 1
+      - name: Verify API persistence and media validation
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const base = 'http://127.0.0.1:8788';
+          let cookie = '';
+
+          async function request(path, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (cookie) headers.set('Cookie', cookie);
+            const response = await fetch(base + path, { ...options, headers });
+            const setCookie = response.headers.get('set-cookie');
+            if (setCookie) cookie = setCookie.split(';', 1)[0];
+            const text = await response.text();
+            let payload;
+            try { payload = JSON.parse(text); } catch { payload = { raw: text }; }
+            return { response, payload };
+          }
+
+          (async () => {
+            const signup = await request('/api/auth/signup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'appearance_test', displayName: 'Appearance Test', email: '', password: 'Testing.Password.123' })
+            });
+            assert.equal(signup.response.status, 201, JSON.stringify(signup.payload));
+            assert.ok(cookie.includes('grev_session='));
+
+            const onboarding = await request('/api/onboarding');
+            assert.equal(onboarding.response.status, 200, JSON.stringify(onboarding.payload));
+            const relationshipId = onboarding.payload.relationships[0].id;
+            const intentionId = onboarding.payload.intentions[0].id;
+            const relationship = await request('/api/onboarding/relationship', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ relationshipId })
+            });
+            assert.equal(relationship.response.status, 200, JSON.stringify(relationship.payload));
+            const intentions = await request('/api/onboarding/intentions', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentionIds: [intentionId] })
+            });
+            assert.equal(intentions.response.status, 200, JSON.stringify(intentions.payload));
+
+            const dashboard = await request('/api/dashboard');
+            assert.equal(dashboard.response.status, 200, JSON.stringify(dashboard.payload));
+            const feature = dashboard.payload.features.find(item => item.id === 'feature-profile') || dashboard.payload.features[0];
+            assert.ok(feature);
+
+            const preferences = { density: 'comfortable', showDescriptions: true, tileGap: 16, outerMargin: 24 };
+            const gradientTile = {
+              featureId: feature.id, x: 1, y: 2, width: 3, height: 2, colour: 'default',
+              backgroundType: 'gradient', backgroundPrimary: '#123c69', backgroundSecondary: '#2b8a9e', backgroundAngle: 135,
+              backgroundMedia: null, textColour: '#fff4cc', fontFamily: 'mono', borderColour: '#ff8800'
+            };
+            const savedGradient = await request('/api/dashboard/layout', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [gradientTile], preferences })
+            });
+            assert.equal(savedGradient.response.status, 200, JSON.stringify(savedGradient.payload));
+            let pinned = savedGradient.payload.pinnedTiles[0];
+            assert.equal(pinned.x, 1);
+            assert.equal(pinned.y, 2);
+            assert.equal(pinned.backgroundType, 'gradient');
+            assert.equal(pinned.backgroundPrimary, '#123c69');
+            assert.equal(pinned.backgroundSecondary, '#2b8a9e');
+            assert.equal(pinned.backgroundAngle, 135);
+            assert.equal(pinned.textColour, '#fff4cc');
+            assert.equal(pinned.fontFamily, 'mono');
+            assert.equal(pinned.borderColour, '#ff8800');
+
+            const reloadedGradient = await request('/api/dashboard');
+            assert.equal(reloadedGradient.response.status, 200);
+            pinned = reloadedGradient.payload.pinnedTiles[0];
+            assert.equal(pinned.backgroundType, 'gradient');
+            assert.equal(reloadedGradient.payload.preferences.tileGap, 16);
+            assert.equal(reloadedGradient.payload.preferences.outerMargin, 24);
+
+            const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            const mediaTile = { ...gradientTile, backgroundType: 'media', backgroundMedia: gif, textColour: '#ffffff', fontFamily: 'display', borderColour: '#00ffcc' };
+            const savedMedia = await request('/api/dashboard/layout', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [mediaTile], preferences })
+            });
+            assert.equal(savedMedia.response.status, 200, JSON.stringify(savedMedia.payload));
+            pinned = savedMedia.payload.pinnedTiles[0];
+            assert.equal(pinned.backgroundType, 'media');
+            assert.equal(pinned.backgroundMedia, gif);
+            assert.equal(pinned.fontFamily, 'display');
+            assert.equal(pinned.borderColour, '#00ffcc');
+
+            const spoofedPng = { ...mediaTile, backgroundMedia: gif.replace('data:image/gif', 'data:image/png') };
+            const spoofed = await request('/api/dashboard/layout', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [spoofedPng], preferences })
+            });
+            assert.equal(spoofed.response.status, 400, 'GIF bytes declared as PNG must be rejected');
+
+            const svg = { ...mediaTile, backgroundMedia: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' };
+            const rejectedSvg = await request('/api/dashboard/layout', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [svg], preferences })
+            });
+            assert.equal(rejectedSvg.response.status, 400, 'SVG must be rejected');
+
+            const oversizedBytes = Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), Buffer.alloc(2 * 1024 * 1024)]);
+            const oversized = { ...mediaTile, backgroundMedia: 'data:image/png;base64,' + oversizedBytes.toString('base64') };
+            const rejectedOversized = await request('/api/dashboard/layout', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [oversized], preferences })
+            });
+            assert.equal(rejectedOversized.response.status, 400, 'Media above 2 MB must be rejected');
+
+            const invalidFont = { ...gradientTile, fontFamily: 'remote-font' };
+            const rejectedFont = await request('/api/dashboard/layout', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tiles: [invalidFont], preferences })
+            });
+            assert.equal(rejectedFont.response.status, 400, 'Unknown fonts must be rejected');
+
+            console.log('API appearance persistence, GIF upload and media validation passed.');
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Install DOM test dependency
+        run: npm install --package-lock=false --no-save jsdom@26
+      - name: Verify exact grab offset and visual appearance controls
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const assert = require('node:assert/strict');
+          const { JSDOM } = require('jsdom');
+
+          (async () => {
+            const html = fs.readFileSync('public/dashboard.html', 'utf8');
+            const js = fs.readFileSync('public/dashboard.js', 'utf8');
+            const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only', pretendToBeVisual: true });
+            const { window } = dom;
+            window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+            window.HTMLElement.prototype.scrollIntoView = function () {};
+            window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+            window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+            const feature = {
+              id: 'feature-profile', slug: 'profile', name: 'My profile', description: '', category: 'Account', featureType: 'system', presentation: 'content', route: '/profile', iconText: 'ME', audience: 'all',
+              defaultDimension: '3x2', defaultWidth: 3, defaultHeight: 2, allowedDimensions: ['1x1','2x1','3x2','4x2'], isActive: true, isDefault: true, sortOrder: 1,
+              pinned: true, x: 0, y: 0, width: 3, height: 2, tileColour: 'default', accessGroups: [],
+              backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657'
+            };
+            const payload = {
+              ok: true, viewer: { id: 'u1', username: 'tester', displayName: 'Test User', isAdmin: false, isOwner: false },
+              grid: { columns: 6, dimensions: ['1x1','2x1','3x2','4x2'] }, preferences: { density: 'comfortable', showDescriptions: true, tileGap: 12, outerMargin: 0 },
+              capabilities: { canCustomize: true, isAdmin: false, isOwner: false }, features: [feature], pinnedTiles: [feature]
+            };
+            window.fetch = async url => ({ ok: true, json: async () => String(url).includes('/api/onboarding') ? { ok: true, progress: { relationshipComplete: true, intentionsComplete: true } } : payload });
+            window.eval(js);
+            await new Promise(resolve => setTimeout(resolve, 25));
+            window.document.querySelector('#customize-dashboard').click();
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const grid = window.document.querySelector('#dashboard-grid');
+            let tile = window.document.querySelector('.dashboard-tile.editing');
+            grid.getBoundingClientRect = () => ({ left: 0, top: 0, width: 600, height: 900, right: 600, bottom: 900, x: 0, y: 0, toJSON() {} });
+            tile.getBoundingClientRect = () => ({ left: 0, top: 0, width: 294, height: 244, right: 294, bottom: 244, x: 0, y: 0, toJSON() {} });
+
+            const transfer = { value: '', setData(type, value) { this.value = value; }, getData() { return this.value; }, setDragImage(element, x, y) { this.dragImage = { element, x, y }; }, effectAllowed: '', dropEffect: '' };
+            const dragStart = new window.Event('dragstart', { bubbles: true, cancelable: true });
+            Object.defineProperties(dragStart, { clientX: { value: 120 }, clientY: { value: 150 }, dataTransfer: { value: transfer } });
+            tile.dispatchEvent(dragStart);
+            assert.equal(transfer.dragImage.x, 120);
+            assert.equal(transfer.dragImage.y, 150);
+
+            const dragOver = new window.Event('dragover', { bubbles: true, cancelable: true });
+            Object.defineProperties(dragOver, { clientX: { value: 418 }, clientY: { value: 394 }, dataTransfer: { value: transfer } });
+            grid.dispatchEvent(dragOver);
+            const preview = window.document.querySelector('.dashboard-placement-preview');
+            assert.ok(preview, 'placement preview should be visible');
+            assert.equal(preview.style.gridColumn, '4 / span 3');
+            assert.equal(preview.style.gridRow, '3 / span 2');
+
+            const drop = new window.Event('drop', { bubbles: true, cancelable: true });
+            Object.defineProperties(drop, { clientX: { value: 418 }, clientY: { value: 394 }, dataTransfer: { value: transfer } });
+            grid.dispatchEvent(drop);
+            tile = window.document.querySelector('.dashboard-tile.editing');
+            assert.equal(tile.style.gridColumn, '4 / span 3');
+            assert.equal(tile.style.gridRow, '3 / span 2');
+
+            tile.querySelector('.dashboard-tile-settings').click();
+            assert.equal(window.document.querySelector('#dashboard-tile-settings-dialog').open, true);
+            const solidButtons = [...window.document.querySelectorAll('#dashboard-solid-palette .dashboard-appearance-choice')];
+            assert.equal(solidButtons.length, 9);
+            assert.ok(solidButtons.some(button => button.textContent.includes('Charcoal')));
+            const purple = solidButtons.find(button => button.textContent.includes('Purple'));
+            purple.click();
+            assert.equal(window.document.querySelector('#dashboard-appearance-name').textContent, 'Solid · Purple');
+
+            const gradientButtons = [...window.document.querySelectorAll('#dashboard-gradient-palette .dashboard-appearance-choice')];
+            assert.equal(gradientButtons.length, 8);
+            const ocean = gradientButtons.find(button => button.textContent.includes('Ocean'));
+            ocean.click();
+            tile = window.document.querySelector('.dashboard-tile.editing');
+            assert.match(tile.style.backgroundImage, /linear-gradient/);
+            assert.equal(window.document.querySelector('#dashboard-appearance-name').textContent, 'Gradient · Ocean');
+
+            const textColour = window.document.querySelector('#dashboard-text-colour');
+            textColour.value = '#00ff00';
+            textColour.dispatchEvent(new window.Event('input', { bubbles: true }));
+            const font = window.document.querySelector('#dashboard-font-family');
+            font.value = 'mono';
+            font.dispatchEvent(new window.Event('change', { bubbles: true }));
+            const border = window.document.querySelector('#dashboard-border-colour');
+            border.value = '#ff0000';
+            border.dispatchEvent(new window.Event('input', { bubbles: true }));
+            tile = window.document.querySelector('.dashboard-tile.editing');
+            assert.ok(tile.style.color === 'rgb(0, 255, 0)' || tile.style.color === '#00ff00');
+            assert.match(tile.style.fontFamily, /Cascadia|Consolas/);
+            assert.ok(tile.style.borderColor === 'rgb(255, 0, 0)' || tile.style.borderColor === '#ff0000');
+
+            const mediaInput = window.document.querySelector('#dashboard-background-media');
+            assert.equal(mediaInput.accept, 'image/png,image/jpeg,image/webp,image/gif');
+            console.log('Exact grab point, palette names, gradient and typography preview passed.');
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Final static and build checks
+        run: |
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+      - name: Show Worker log on failure
+        if: failure()
+        run: cat /tmp/grev-dad-worker.log || true
