@@ -130,6 +130,27 @@
       return null;
     };
 
+    const originalProfileMessage = profileMessage;
+    profileMessage = function(text, type = '') {
+      const profile = profileState.profile;
+      const safeText = profile && !profile.isSelf && !profile.card?.showUsername && /^Viewing @/.test(text)
+        ? 'Viewing member profile.'
+        : text;
+      return originalProfileMessage(safeText, type);
+    };
+
+    const statusMessage = document.querySelector('#profile-message');
+    if (statusMessage) {
+      const protectHiddenUsername = () => {
+        const profile = profileState.profile;
+        if (profile && !profile.isSelf && !profile.card?.showUsername && /^Viewing @/.test(statusMessage.textContent ?? '')) {
+          statusMessage.textContent = 'Viewing member profile.';
+        }
+      };
+      new MutationObserver(protectHiddenUsername).observe(statusMessage, { childList: true, characterData: true, subtree: true });
+      protectHiddenUsername();
+    }
+
     const backgroundType = document.querySelector('#profile-tile-background-type');
     backgroundType?.addEventListener('change', event => {
       const tile = selectedTile();
