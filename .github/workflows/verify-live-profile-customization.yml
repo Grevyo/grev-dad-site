@@ -1,0 +1,231 @@
+name: Verify Live Profile Customization
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-profile-customization-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Install browser test dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Verify visible card tiles and profile design controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = (condition, message) => { if (!condition) throw new Error(message); };
+          const base = 'https://pbe.grev.dad';
+          const password = process.env.LADMIN_BOOTSTRAP_PASSWORD;
+
+          async function json(response) {
+            const text = await response.text();
+            try { return JSON.parse(text); } catch { throw new Error(`Expected JSON from ${response.url()}: ${text.slice(0, 300)}`); }
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+            const page = await context.newPage();
+            let original = null;
+            let profileId = null;
+
+            const saveProfile = async payload => {
+              const response = await context.request.put(`${base}/api/profile`, { data: payload });
+              const body = await json(response);
+              assert(response.status() === 200 && body.ok && body.profile, `Profile save failed (${response.status()}): ${JSON.stringify(body)}`);
+              return body.profile;
+            };
+
+            try {
+              let ready = false;
+              for (let attempt = 1; attempt <= 36; attempt += 1) {
+                const login = await context.request.post(`${base}/api/auth/login`, {
+                  data: { identifier: 'LADMIN', password, rememberMe: false }
+                });
+                if (login.status() === 200) {
+                  const sessionResponse = await context.request.get(`${base}/api/auth/session`);
+                  if (sessionResponse.status() === 200) {
+                    const session = await json(sessionResponse);
+                    profileId = session.user?.id || null;
+                    if (profileId) {
+                      const profileResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`);
+                      if (profileResponse.status() === 200) {
+                        const payload = await json(profileResponse);
+                        if (payload.profile?.design && Array.isArray(payload.profile?.cardTiles)) {
+                          original = structuredClone(payload.profile);
+                          ready = true;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+                await new Promise(resolve => setTimeout(resolve, 10000));
+              }
+              assert(ready && original && profileId, 'The deployed profile customization API did not become ready.');
+              assert(original.cardTileGrid?.columns === 4 && original.cardTileGrid?.maxTiles === 4, 'Profile-card grid metadata is incomplete.');
+              assert(original.design.avatarSize === 132, 'The default 132px avatar size was not returned by the live API.');
+
+              const pageResponse = await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
+              assert(pageResponse?.status() === 200, 'The live profile page did not load.');
+              await page.locator('#profile-edit').waitFor({ state: 'visible' });
+
+              const bundledScript = await context.request.get(`${base}/profile-customization.js`);
+              assert(bundledScript.status() === 200, 'The bundled profile customization asset is unavailable.');
+              const bundledText = await bundledScript.text();
+              for (const marker of ['profile-card-empty-slot', 'profile-heading-copy-hidden', 'Default large', 'data-cover-visible']) {
+                assert(bundledText.includes(marker), `The deployed customization bundle is missing ${marker}.`);
+              }
+
+              await page.click('#profile-edit');
+              await page.locator('.profile-card-quick-controls').waitFor({ state: 'visible' });
+              for (const selector of [
+                '[data-quick-card-action="feature"]',
+                '[data-quick-card-action="link"]',
+                '[data-quick-card-action="custom"]',
+                '[data-quick-card-details]',
+                '[data-quick-profile-design]'
+              ]) {
+                await page.locator(selector).waitFor({ state: 'visible' });
+              }
+
+              const savedTileCount = original.cardTiles.length;
+              const expectedEmptySlots = Math.max(0, 4 - savedTileCount);
+              assert(await page.locator('.profile-card-empty-slot').count() === expectedEmptySlots,
+                `Expected ${expectedEmptySlots} visible empty card slots.`);
+
+              await page.click('[data-quick-profile-design]');
+              await page.locator('#profile-design-dialog').waitFor({ state: 'visible' });
+              for (const selector of [
+                '#design-page-background-type', '#design-page-media', '#design-page-font', '#design-content-width',
+                '#design-section-gap', '#design-grid-surface', '#design-card-width', '#design-card-alignment',
+                '#design-card-surface', '#design-cover-height', '#design-avatar-size', '#design-card-padding',
+                '#design-card-border', '#design-card-shadow', '#design-card-tile-gap', '#design-card-tile-row',
+                '#design-show-page-heading', '#design-show-grid-heading', '#design-show-cover', '#design-show-avatar',
+                '#design-show-headline', '#design-show-bio', '#design-show-location', '#design-show-website'
+              ]) {
+                assert(await page.locator(selector).count() === 1, `Missing profile design control ${selector}.`);
+              }
+              assert(await page.locator('#design-avatar-size option[value="132"]').count() === 1, 'The 132px avatar option is missing.');
+              await page.click('[data-profile-design-close]');
+
+              if (savedTileCount < 4) {
+                await page.click('[data-quick-card-action="custom"]');
+                await page.locator('#profile-card-tile-dialog').waitFor({ state: 'visible' });
+                assert(await page.locator('.profile-card-mini-tile').count() === savedTileCount + 1,
+                  'The direct Custom button did not add a working card tile.');
+                await page.click('[data-card-dialog-close]');
+              }
+              await page.click('#profile-cancel');
+              await page.waitForTimeout(100);
+              assert(await page.locator('.profile-card-mini-tile').count() === savedTileCount,
+                'Cancel did not restore the saved card-tile layout.');
+
+              const originalSave = {
+                card: original.card,
+                tiles: original.tiles,
+                preferences: original.preferences,
+                cardTiles: original.cardTiles,
+                design: original.design
+              };
+
+              const hiddenHeadingDesign = {
+                ...original.design,
+                showPageHeading: false,
+                showCover: false,
+                avatarSize: 132
+              };
+              await saveProfile({
+                card: original.card,
+                tiles: original.tiles,
+                preferences: original.preferences,
+                cardTiles: original.cardTiles,
+                design: hiddenHeadingDesign
+              });
+
+              await page.reload({ waitUntil: 'networkidle' });
+              await page.locator('#profile-edit').waitFor({ state: 'visible' });
+              assert(await page.locator('.profile-page-heading').isVisible(), 'Hiding heading copy hid the edit-action container.');
+              assert(await page.locator('.profile-page-heading>div:first-child').isHidden(), 'Heading copy was not hidden.');
+              assert(await page.locator('#profile-card').getAttribute('data-cover-visible') === 'false', 'Hidden cover state was not applied.');
+              const avatarMargin = await page.locator('#profile-avatar').evaluate(element => getComputedStyle(element).marginTop);
+              assert(avatarMargin === '0px', `Hidden cover left the avatar floating (${avatarMargin}).`);
+
+              const designOnlyResponse = await saveProfile({
+                card: original.card,
+                tiles: original.tiles,
+                preferences: original.preferences,
+                design: hiddenHeadingDesign
+              });
+              assert(JSON.stringify(designOnlyResponse.cardTiles) === JSON.stringify(original.cardTiles),
+                'A design save without cardTiles did not preserve the existing card tiles.');
+
+              const invalidResponse = await context.request.put(`${base}/api/profile`, {
+                data: {
+                  card: original.card,
+                  tiles: original.tiles,
+                  preferences: original.preferences,
+                  cardTiles: original.cardTiles,
+                  design: { ...original.design, avatarSize: 131 }
+                }
+              });
+              assert(invalidResponse.status() === 400, 'An invalid profile design was not rejected.');
+
+              const restored = await saveProfile(originalSave);
+              assert(JSON.stringify(restored.cardTiles) === JSON.stringify(original.cardTiles), 'Original card tiles were not restored exactly.');
+              assert(JSON.stringify(restored.design) === JSON.stringify(original.design), 'Original profile design was not restored exactly.');
+
+              const unauthenticated = await page.request.newContext?.();
+              const dashboardResponse = await context.request.get(`${base}/api/dashboard`);
+              assert(dashboardResponse.status() === 200, 'The existing dashboard API was affected.');
+
+              await page.reload({ waitUntil: 'networkidle' });
+              await page.locator('#profile-edit').waitFor({ state: 'visible' });
+              console.log(JSON.stringify({
+                ok: true,
+                profileId,
+                savedCardTiles: savedTileCount,
+                visibleEmptySlots: expectedEmptySlots,
+                designControlsVerified: 24,
+                originalDesignRestored: true,
+                dashboardCompatible: true
+              }, null, 2));
+            } finally {
+              if (original && profileId) {
+                try {
+                  await context.request.put(`${base}/api/profile`, {
+                    data: {
+                      card: original.card,
+                      tiles: original.tiles,
+                      preferences: original.preferences,
+                      cardTiles: original.cardTiles,
+                      design: original.design
+                    }
+                  });
+                } catch {}
+              }
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
