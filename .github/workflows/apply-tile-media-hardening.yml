@@ -1,0 +1,38 @@
+name: Apply Tile Media Hardening
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/harden-tile-media-validation.mjs
+      - run: |
+          npm install --package-lock=false
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+          grep -q "validImageDataUrl" src/dashboard.ts
+          grep -q "MAX_LAYOUT_MEDIA_BYTES" src/dashboard.ts
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/dashboard.ts
+          git commit -m "Validate tile media signatures and cap layout media"
+          git push origin HEAD:${{ github.head_ref }}
