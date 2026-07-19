@@ -1,0 +1,52 @@
+name: Apply Tile Appearance And Grab Offset
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply appearance and drag patch
+        run: node scripts/patch-tile-appearance-and-grab-offset.mjs
+      - name: Check browser JavaScript
+        run: node --check public/dashboard.js
+      - name: Install dependencies
+        run: npm install --package-lock=false
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Check Worker bundle
+        run: npx wrangler deploy --dry-run --env pbe
+      - name: Verify generated implementation
+        run: |
+          set -euo pipefail
+          git diff --check
+          grep -q "dragOffset" public/dashboard.js
+          grep -q "dashboard-gradient-palette" public/dashboard.html
+          grep -q "MAX_TILE_MEDIA_BYTES" src/dashboard.ts
+          grep -q "background_type" migrations/0015_tile_appearance_and_media.sql
+          grep -q "dashboard-appearance-choice" public/dashboard.css
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/dashboard.ts public/dashboard.js public/dashboard.css
+          git commit -m "Add exact tile grab positioning and per-user appearance controls"
+          git push origin HEAD:${{ github.head_ref }}
