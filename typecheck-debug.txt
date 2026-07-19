@@ -1,8 +1,0 @@
-
-> grev-dad@0.1.0 typecheck
-> tsc --noEmit
-
-src/dashboard.ts(98,38): error TS1135: Argument expression expected.
-src/dashboard.ts(98,39): error TS1135: Argument expression expected.
-src/dashboard.ts(98,86): error TS1005: ',' expected.
-src/dashboard.ts(99,1): error TS1137: Expression or comma expected.
