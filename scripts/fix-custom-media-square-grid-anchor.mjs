@@ -21,13 +21,23 @@ if (source.includes(resizeBefore)) {
   changed = true;
 }
 
-const serverBefore = `    "       t.border_colour,\\n       COALESCE((",`;
-const serverAfter = `    "t.border_colour,\\n       COALESCE((",`;
-if (source.includes(serverBefore)) {
-  source = source.replace(serverBefore, serverAfter);
+const oldServerBlock = `  source = replaceOnce(
+    source,
+    "t.border_colour,\\n       COALESCE((",
+    "       t.border_colour,\\n       t.content_mode,\\n       t.custom_title,\\n       t.custom_icon,\\n       t.media_fit,\\n       t.media_overlay,\\n       COALESCE((",
+    'accessible feature custom columns'
+  );`;
+const newServerBlock = `  source = replaceOnce(
+    source,
+    "       COALESCE((\\n         SELECT GROUP_CONCAT",
+    "       t.content_mode,\\n       t.custom_title,\\n       t.custom_icon,\\n       t.media_fit,\\n       t.media_overlay,\\n       COALESCE((\\n         SELECT GROUP_CONCAT",
+    'accessible feature custom columns'
+  );`;
+if (source.includes(oldServerBlock)) {
+  source = source.replace(oldServerBlock, newServerBlock);
   changed = true;
 }
 
-if (!changed && !source.includes(serverAfter)) throw new Error('No custom media patch anchors were available to correct.');
+if (!changed && !source.includes(newServerBlock)) throw new Error('No custom media patch anchors were available to correct.');
 fs.writeFileSync(path, source);
 console.log('Custom media patch anchors corrected.');
