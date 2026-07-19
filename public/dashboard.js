@@ -979,6 +979,7 @@ function packWorkingTiles() {
 }
 
 function loadDefaultWorkingTiles() {
+  dashboardState.iconUploads.clear();
   const defaults = (dashboardState.payload?.features ?? [])
     .filter(feature => feature.isDefault)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
@@ -1310,8 +1311,10 @@ dashboardElement('#dashboard-font-family')?.addEventListener('change', event => 
 });
 dashboardElement('#dashboard-icon-media')?.addEventListener('change', event => {
   const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  cancelIconUpload(tile.featureId);
   const file = event.currentTarget.files?.[0];
-  if (!tile || !file) return;
+  if (!file) return;
   const allowed = new Set(['image/png','image/jpeg','image/webp','image/gif']);
   if (!allowed.has(file.type)) {
     event.currentTarget.value = '';
@@ -1408,6 +1411,7 @@ dashboardElement('#dashboard-remove-media')?.addEventListener('click', () => {
 dashboardElement('#dashboard-reset-appearance')?.addEventListener('click', () => {
   const tile = workingTile(dashboardState.selectedId);
   if (!tile) return;
+  cancelIconUpload(tile.featureId);
   Object.assign(tile, DEFAULT_TILE_APPEARANCE);
   const input = dashboardElement('#dashboard-background-media');
   const iconInput = dashboardElement('#dashboard-icon-media');
