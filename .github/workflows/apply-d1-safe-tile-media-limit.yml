@@ -1,0 +1,39 @@
+name: Apply D1 Safe Tile Media Limit
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/tile-appearance-and-grab-offset' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/align-tile-media-with-d1-limit.mjs
+      - run: |
+          npm install --package-lock=false
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+          grep -q "MAX_TILE_MEDIA_BYTES = 1_400_000" src/dashboard.ts
+          grep -q "Maximum file size: 1.4 MB" public/dashboard.html
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/dashboard.ts public/dashboard.js public/dashboard.html
+          git commit -m "Keep tile media safely within D1 row limits"
+          git push origin HEAD:${{ github.head_ref }}
