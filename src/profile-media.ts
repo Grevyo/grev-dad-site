@@ -2,6 +2,18 @@ import { handleProfileRequest, type ProfileEnv } from './profile';
 
 type ProfileMediaSlot = 'avatar' | 'cover';
 type ProfileMediaRow = { media_slot: ProfileMediaSlot; media_data: string };
+type ProfilePayload = {
+  profile?: {
+    id?: unknown;
+    username?: string | null;
+    isSelf?: boolean;
+    card?: {
+      avatarMedia?: string | null;
+      coverMedia?: string | null;
+      showUsername?: boolean;
+    };
+  };
+};
 
 const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_MEDIA_BYTES = 1_400_000;
@@ -55,6 +67,7 @@ function optionalMedia(value: unknown): string | null | undefined {
 
 function responseWithPayload(response: Response, payload: unknown): Response {
   const headers = new Headers(response.headers);
+  headers.delete('Content-Length');
   headers.set('Content-Type', 'application/json; charset=utf-8');
   headers.set('Cache-Control', 'no-store');
   return new Response(JSON.stringify(payload), {
@@ -66,12 +79,7 @@ function responseWithPayload(response: Response, payload: unknown): Response {
 
 async function injectStoredCardMedia(response: Response, env: ProfileEnv): Promise<Response> {
   if (!response.ok) return response;
-  const payload = await response.json() as {
-    profile?: {
-      id?: unknown;
-      card?: { avatarMedia?: string | null; coverMedia?: string | null };
-    };
-  };
+  const payload = await response.json() as ProfilePayload;
   const profileId = typeof payload.profile?.id === 'string' ? payload.profile.id : null;
   if (!profileId || !payload.profile?.card) return responseWithPayload(response, payload);
 
@@ -83,6 +91,7 @@ async function injectStoredCardMedia(response: Response, env: ProfileEnv): Promi
   const media = new Map(rows.results.map(row => [row.media_slot, row.media_data]));
   payload.profile.card.avatarMedia = media.get('avatar') ?? payload.profile.card.avatarMedia ?? null;
   payload.profile.card.coverMedia = media.get('cover') ?? payload.profile.card.coverMedia ?? null;
+  if (!payload.profile.isSelf && payload.profile.card.showUsername === false) payload.profile.username = null;
   return responseWithPayload(response, payload);
 }
 
@@ -140,9 +149,12 @@ async function saveProfileWithSeparateCardMedia(request: Request, env: ProfileEn
       coverMedia: null
     }
   };
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.delete('Content-Length');
+  forwardedHeaders.set('Content-Type', 'application/json');
   const forwardedRequest = new Request(request.url, {
     method: request.method,
-    headers: request.headers,
+    headers: forwardedHeaders,
     body: JSON.stringify(forwardedBody),
     redirect: request.redirect
   });
@@ -150,12 +162,7 @@ async function saveProfileWithSeparateCardMedia(request: Request, env: ProfileEn
   const response = await handleProfileRequest(forwardedRequest, env);
   if (!response || !response.ok) return response ?? secureJson({ ok: false, message: 'Profile route unavailable.' }, 404);
 
-  const payload = await response.json() as {
-    profile?: {
-      id?: unknown;
-      card?: { avatarMedia?: string | null; coverMedia?: string | null };
-    };
-  };
+  const payload = await response.json() as ProfilePayload;
   const profileId = typeof payload.profile?.id === 'string' ? payload.profile.id : null;
   if (!profileId || !payload.profile?.card) return responseWithPayload(response, payload);
 
