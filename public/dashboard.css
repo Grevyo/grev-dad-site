@@ -185,16 +185,16 @@
   .dashboard-admin-grid{grid-template-columns:1fr}
 }
 @media(max-width:900px){
-  .dashboard-tile-grid{display:grid!important;grid-template-columns:1fr!important;grid-template-rows:none!important;padding:var(--dashboard-margin)}
-  .dashboard-tile,.dashboard-grid-cell{grid-column:1/-1!important;grid-row:auto!important;min-height:170px}
+  .dashboard-tile-grid{display:grid!important;padding:var(--dashboard-margin)}
   .dashboard-grid-cell{display:none}
+  .dashboard-tile{min-height:0}
   .dashboard-tile-edit-strip{grid-template-columns:1fr}
   .dashboard-tile-move,.dashboard-tile-resize{display:none}
-  .dashboard-tile[data-height="1"] .dashboard-tile-body{display:block}
-  .dashboard-tile[data-width="1"] .dashboard-tile-content{padding:16px}
-  .dashboard-tile[data-width="1"] .dashboard-tile-icon{width:42px;height:42px}
-  .dashboard-tile[data-width="1"] h2{font-size:1.35rem}
-  .dashboard-tile[data-width="1"][data-height="1"] .dashboard-access-label{display:inline}
+  .dashboard-tile[data-height="1"] .dashboard-tile-body{display:none}
+  .dashboard-tile[data-width="1"] .dashboard-tile-content{padding:12px}
+  .dashboard-tile[data-width="1"] .dashboard-tile-icon{width:32px;height:32px}
+  .dashboard-tile[data-width="1"] h2{font-size:1rem}
+  .dashboard-tile[data-width="1"][data-height="1"] .dashboard-access-label{display:none}
   .dashboard-editor-settings{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dashboard-editor-topline{flex-direction:column}
 }
@@ -258,10 +258,7 @@
   .dashboard-news-headline{font-size:1rem}
 }
 @media(max-width:900px){
-  .dashboard-action-tile{min-height:168px}
-  .dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-tile{grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:1fr;justify-items:stretch;text-align:left;padding:18px}
-  .dashboard-tile[data-presentation="action"][data-width="1"] .dashboard-action-arrow{display:inline}
-  .dashboard-content-tile{min-height:168px}
+  .dashboard-action-tile,.dashboard-content-tile{min-height:0}
 }
 
 .dashboard-tile-settings-dialog{width:min(620px,calc(100vw - 28px));padding:0;border:1px solid var(--line-strong);border-radius:0;background:#0b0f14;color:var(--text);box-shadow:12px 12px 0 #000}
@@ -328,3 +325,15 @@
 .dashboard-custom-content-controls>p{grid-column:1/-1;margin:0;color:var(--muted);font-size:.82rem;line-height:1.45}
 .dashboard-custom-media-options{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(max-width:760px){.dashboard-custom-content-controls,.dashboard-custom-media-options{grid-template-columns:1fr}}
+
+/* Mobile keeps the square-cell system instead of flattening tiles into full-width rectangles. */
+@media(max-width:900px){
+  .dashboard-tile-grid{margin-top:16px}
+  .dashboard-media-button-tile{padding:12px}
+  .dashboard-media-button-icon{min-width:34px;min-height:34px;padding:6px}
+  .dashboard-media-button-title{font-size:clamp(.9rem,8cqw,1.55rem)}
+}
+@media(max-width:420px){
+  .dashboard-shell{width:calc(100% - 12px)}
+  .dashboard-tile-grid{--dashboard-gap:8px}
+}

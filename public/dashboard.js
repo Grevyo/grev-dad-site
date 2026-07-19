@@ -1,4 +1,5 @@
 const GRID_COLUMNS = 8;
+const MOBILE_GRID_COLUMNS = 2;
 const TILE_COLOURS = new Set(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
 const TILE_SOLIDS = [
   { name: 'Charcoal', value: '#11161d' }, { name: 'Graphite', value: '#171b22' }, { name: 'Midnight blue', value: '#101a2a' },
@@ -185,10 +186,53 @@ function preferenceValue(selector, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function squareGridCellSize(element, gap, margin) {
+function activeGridColumns() {
+  return isSingleColumnFallback() ? MOBILE_GRID_COLUMNS : GRID_COLUMNS;
+}
+
+function responsiveGridSpacing(preferences) {
+  const rawGap = Number(preferences.tileGap ?? 12);
+  const rawMargin = Number(preferences.outerMargin ?? 0);
+  return isSingleColumnFallback()
+    ? { gap: Math.min(12, rawGap), margin: Math.min(8, rawMargin) }
+    : { gap: rawGap, margin: rawMargin };
+}
+
+function squareGridCellSize(element, gap, margin, columns = activeGridColumns()) {
   const measuredWidth = element.getBoundingClientRect().width || element.parentElement?.getBoundingClientRect().width || window.innerWidth;
-  const usableWidth = Math.max(1, measuredWidth - margin * 2 - gap * (GRID_COLUMNS - 1));
-  return Math.max(1, usableWidth / GRID_COLUMNS);
+  const usableWidth = Math.max(1, measuredWidth - margin * 2 - gap * (columns - 1));
+  return Math.max(1, usableWidth / columns);
+}
+
+function mobileTileDimension(tile) {
+  const sourceWidth = Math.max(1, Number(tile.width ?? 1));
+  const sourceHeight = Math.max(1, Number(tile.height ?? 1));
+  const width = sourceWidth === 1 ? 1 : MOBILE_GRID_COLUMNS;
+  const height = Math.max(1, Math.min(4, Math.ceil(width * sourceHeight / sourceWidth)));
+  return { width, height };
+}
+
+function packMobileTiles(tiles) {
+  const packed = [];
+  const occupied = [];
+  const sorted = [...tiles].sort((a, b) => Number(a.y) - Number(b.y) || Number(a.x) - Number(b.x));
+  for (const tile of sorted) {
+    const dimension = mobileTileDimension(tile);
+    let location = null;
+    for (let y = 0; y < 400 && !location; y += 1) {
+      for (let x = 0; x <= MOBILE_GRID_COLUMNS - dimension.width; x += 1) {
+        const candidate = { x, y, ...dimension };
+        if (!occupied.some(existing => overlaps(candidate, existing))) {
+          location = candidate;
+          break;
+        }
+      }
+    }
+    const placement = location ?? { x: 0, y: occupied.reduce((maximum, item) => Math.max(maximum, item.y + item.height), 0), ...dimension };
+    occupied.push(placement);
+    packed.push({ ...tile, ...placement });
+  }
+  return packed;
 }
 
 function gridMetrics() {
@@ -196,18 +240,18 @@ function gridMetrics() {
   if (!grid) return null;
   const rect = grid.getBoundingClientRect();
   const preferences = editorPreferences();
-  const gap = Number(preferences.tileGap ?? 12);
-  const margin = Number(preferences.outerMargin ?? 0);
-  const cellWidth = squareGridCellSize(grid, gap, margin);
+  const { gap, margin } = responsiveGridSpacing(preferences);
+  const columns = activeGridColumns();
+  const cellWidth = squareGridCellSize(grid, gap, margin, columns);
   const rowHeight = cellWidth;
-  return { grid, rect, gap, margin, rowHeight, cellWidth };
+  return { grid, rect, gap, margin, columns, rowHeight, cellWidth };
 }
 
 function pointerGridCell(event) {
   const metrics = gridMetrics();
   if (!metrics) return null;
   return {
-    x: Math.max(0, Math.min(GRID_COLUMNS - 1, Math.floor((event.clientX - metrics.rect.left - metrics.margin) / (metrics.cellWidth + metrics.gap)))),
+    x: Math.max(0, Math.min(metrics.columns - 1, Math.floor((event.clientX - metrics.rect.left - metrics.margin) / (metrics.cellWidth + metrics.gap)))),
     y: Math.max(0, Math.floor((event.clientY - metrics.rect.top - metrics.margin) / (metrics.rowHeight + metrics.gap)))
   };
 }
@@ -353,12 +397,12 @@ function currentPreferences() {
 }
 
 function applyGridSurface(element, preferences, rows) {
-  const gap = Number(preferences.tileGap ?? 12);
-  const margin = Number(preferences.outerMargin ?? 0);
+  const { gap, margin } = responsiveGridSpacing(preferences);
+  const columns = activeGridColumns();
   element.style.setProperty('--dashboard-gap', `${gap}px`);
   element.style.setProperty('--dashboard-margin', `${margin}px`);
-  element.style.gridTemplateColumns = `repeat(${GRID_COLUMNS}, minmax(0, 1fr))`;
-  element.style.setProperty('--tile-row-height', `${squareGridCellSize(element, gap, margin)}px`);
+  element.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+  element.style.setProperty('--tile-row-height', `${squareGridCellSize(element, gap, margin, columns)}px`);
   element.style.gridTemplateRows = `repeat(${rows}, var(--tile-row-height))`;
 }
 
@@ -597,8 +641,9 @@ function createDashboardTile(feature, preferences, editing = false) {
 }
 
 function addGridCells(grid, rows) {
+  const columns = activeGridColumns();
   for (let y = 0; y < rows; y += 1) {
-    for (let x = 0; x < GRID_COLUMNS; x += 1) {
+    for (let x = 0; x < columns; x += 1) {
       const cell = document.createElement('span');
       cell.className = 'dashboard-grid-cell';
       cell.style.gridColumn = String(x + 1);
@@ -620,11 +665,9 @@ function renderDashboardGrid() {
         return feature ? { ...feature, ...tile, id: feature.id, dimension: dimensionKey(tile.width, tile.height) } : null;
       }).filter(Boolean)
     : dashboardState.payload.pinnedTiles;
-  if (dashboardState.editing && isSingleColumnFallback()) {
-    tiles = [...tiles].sort((a, b) => a.y - b.y || a.x - b.x);
-  }
+  if (isSingleColumnFallback()) tiles = packMobileTiles(tiles);
 
-  const rows = dashboardRows(tiles, dashboardState.editing ? 3 : 1);
+  const rows = dashboardRows(tiles, dashboardState.editing ? 2 : 0);
   grid.className = `dashboard-tile-grid dashboard-grid ${preferences.density}${dashboardState.editing ? ' editing-grid' : ''}`;
   clearPlacementPreview();
   grid.replaceChildren();
@@ -634,12 +677,13 @@ function renderDashboardGrid() {
 
   empty.hidden = tiles.length > 0 || dashboardState.editing;
   const summary = dashboardElement('#dashboard-grid-summary');
-  if (summary) summary.textContent = `${GRID_COLUMNS} columns × ${rows} visible rows`;
+  const columns = activeGridColumns();
+  if (summary) summary.textContent = isSingleColumnFallback() ? `${columns}-column mobile grid × ${rows} rows` : `${columns} columns × ${rows} visible rows`;
 
   if (dashboardState.editing) {
     dashboardMessage(`Editing live preview · ${tiles.length} tile${tiles.length === 1 ? '' : 's'} · changes not yet saved`, 'success');
   } else {
-    dashboardMessage(`${tiles.length} pinned feature${tiles.length === 1 ? '' : 's'} · ${dashboardState.payload.features.length} available · ${GRID_COLUMNS}-column grid`, 'success');
+    dashboardMessage(`${tiles.length} pinned feature${tiles.length === 1 ? '' : 's'} · ${dashboardState.payload.features.length} available · ${columns}-column ${isSingleColumnFallback() ? 'mobile ' : ''}grid`, 'success');
   }
 }
 
