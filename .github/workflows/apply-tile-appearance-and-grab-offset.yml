@@ -33,7 +33,20 @@ jobs:
       - name: Install dependencies
         run: npm install --package-lock=false
       - name: Check TypeScript
-        run: npm run typecheck
+        run: |
+          set +e
+          npm run typecheck > typecheck-debug.txt 2>&1
+          status=$?
+          cat typecheck-debug.txt
+          if [ "$status" -ne 0 ]; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add typecheck-debug.txt
+            git commit -m "Capture tile appearance TypeScript errors"
+            git push origin HEAD:${{ github.head_ref }}
+            exit "$status"
+          fi
+          rm typecheck-debug.txt
       - name: Check Worker bundle
         run: npx wrangler deploy --dry-run --env pbe
       - name: Verify generated implementation
