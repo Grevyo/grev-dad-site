@@ -1,0 +1,123 @@
+name: Verify Live Profile Builder
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-profile-builder-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - name: Verify deployed profile card and tile builder
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+          ready=0
+
+          for attempt in $(seq 1 30); do
+            rm -f /tmp/profile.cookies
+            login_status=$(curl --silent --show-error --retry 2 --retry-delay 2 --retry-all-errors \
+              --output /tmp/profile-login.json \
+              --write-out '%{http_code}' \
+              --cookie-jar /tmp/profile.cookies \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --data "$payload" \
+              https://pbe.grev.dad/api/auth/login || true)
+
+            if [ "$login_status" = "200" ]; then
+              session_status=$(curl --silent --show-error --output /tmp/profile-session.json --write-out '%{http_code}' --cookie /tmp/profile.cookies https://pbe.grev.dad/api/auth/session || true)
+              if [ "$session_status" = "200" ]; then
+                profile_id=$(node -e 'const fs=require("node:fs");const p=JSON.parse(fs.readFileSync("/tmp/profile-session.json","utf8"));process.stdout.write(String(p.user?.id??""))')
+                if [ -n "$profile_id" ]; then
+                  api_status=$(curl --silent --show-error --output /tmp/profile-api.json --write-out '%{http_code}' --cookie /tmp/profile.cookies "https://pbe.grev.dad/api/profiles/$profile_id" || true)
+                  if [ "$api_status" = "200" ]; then
+                    ready=1
+                    break
+                  fi
+                fi
+              fi
+            fi
+
+            echo "PBE profile builder is not ready yet (attempt $attempt)."
+            sleep 10
+          done
+
+          if [ "$ready" != "1" ]; then
+            echo "The live PBE profile API did not become ready."
+            cat /tmp/profile-login.json 2>/dev/null || true
+            cat /tmp/profile-session.json 2>/dev/null || true
+            cat /tmp/profile-api.json 2>/dev/null || true
+            exit 1
+          fi
+
+          page_status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/profile-page.html \
+            --write-out '%{http_code}' \
+            --cookie /tmp/profile.cookies \
+            "https://pbe.grev.dad/profile/$profile_id")
+          test "$page_status" = "200"
+          grep -q 'id="profile-card"' /tmp/profile-page.html
+          grep -q 'id="profile-grid"' /tmp/profile-page.html
+          grep -q 'id="profile-card-dialog"' /tmp/profile-page.html
+          grep -q 'data-add-profile-tile="text"' /tmp/profile-page.html
+          grep -q 'data-add-profile-tile="media"' /tmp/profile-page.html
+          grep -q 'src="/profile-card.js"' /tmp/profile-page.html
+          grep -q 'src="/profile.js"' /tmp/profile-page.html
+
+          for asset in profile.css profile.js profile-card.js; do
+            status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+              --output "/tmp/$asset" \
+              --write-out '%{http_code}' \
+              "https://pbe.grev.dad/$asset")
+            test "$status" = "200"
+          done
+
+          grep -q '.profile-card' /tmp/profile.css
+          grep -q '.profile-grid' /tmp/profile.css
+          grep -q 'profileTileDefaults' /tmp/profile.js
+          grep -q 'validProfilePlacement' /tmp/profile-card.js
+          grep -q 'Viewing member profile.' /tmp/profile-card.js
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const session = JSON.parse(fs.readFileSync('/tmp/profile-session.json', 'utf8'));
+          const payload = JSON.parse(fs.readFileSync('/tmp/profile-api.json', 'utf8'));
+          const profile = payload.profile;
+          if (!payload.ok || !profile || profile.id !== session.user.id || profile.isSelf !== true) {
+            throw new Error('The authenticated profile response is incomplete.');
+          }
+          if (!profile.card || !Object.prototype.hasOwnProperty.call(profile.card, 'avatarMedia') || !Object.prototype.hasOwnProperty.call(profile.card, 'coverMedia')) {
+            throw new Error('The reusable profile card fields are missing.');
+          }
+          if (!Array.isArray(profile.tiles) || !profile.preferences || profile.grid?.columns !== 8 || profile.grid?.maxTileWidth !== 6 || profile.grid?.maxTileHeight !== 4) {
+            throw new Error('The profile tile builder grid or preferences are incomplete.');
+          }
+          console.log(JSON.stringify({
+            ok: true,
+            profileId: profile.id,
+            cardFields: Object.keys(profile.card).length,
+            tileCount: profile.tiles.length,
+            grid: profile.grid,
+            preferences: profile.preferences
+          }, null, 2));
+          NODE
+
+          unauthenticated_status=$(curl --silent --show-error --output /tmp/profile-unauthenticated.json --write-out '%{http_code}' "https://pbe.grev.dad/api/profiles/$profile_id")
+          test "$unauthenticated_status" = "401"
+
+          dashboard_status=$(curl --silent --show-error --output /tmp/profile-dashboard.json --write-out '%{http_code}' --cookie /tmp/profile.cookies https://pbe.grev.dad/api/dashboard)
+          test "$dashboard_status" = "200"
+
+          echo 'Live PBE profile card, profile grid, migration-backed API, assets and dashboard compatibility verified.'
