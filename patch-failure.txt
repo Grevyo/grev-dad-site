@@ -2,9 +2,9 @@ file:///home/runner/work/grev-dad-site/grev-dad-site/scripts/patch-custom-media-
   if (index < 0) throw new Error(`Missing patch anchor: ${label}`);
                        ^
 
-Error: Missing patch anchor: accessible feature custom columns
+Error: Missing patch anchor: save custom content columns
     at replaceOnce (file:///home/runner/work/grev-dad-site/grev-dad-site/scripts/patch-custom-media-buttons-square-grid.mjs:5:24)
-    at file:///home/runner/work/grev-dad-site/grev-dad-site/scripts/patch-custom-media-buttons-square-grid.mjs:200:12
+    at file:///home/runner/work/grev-dad-site/grev-dad-site/scripts/patch-custom-media-buttons-square-grid.mjs:212:12
     at patch (file:///home/runner/work/grev-dad-site/grev-dad-site/scripts/patch-custom-media-buttons-square-grid.mjs:18:17)
     at file:///home/runner/work/grev-dad-site/grev-dad-site/scripts/patch-custom-media-buttons-square-grid.mjs:155:1
     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
