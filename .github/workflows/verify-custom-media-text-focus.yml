@@ -1,0 +1,62 @@
+name: Verify Custom Media Text Focus
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/custom-media-buttons-square-grid'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false --no-save jsdom@26
+      - name: Verify title typing keeps focus and updates preview
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const assert = require('node:assert/strict');
+          const { JSDOM } = require('jsdom');
+          (async () => {
+            const html = fs.readFileSync('public/dashboard.html', 'utf8');
+            const js = fs.readFileSync('public/dashboard.js', 'utf8');
+            const dom = new JSDOM(html, { url: 'https://pbe.grev.dad/dashboard', runScripts: 'outside-only', pretendToBeVisual: true });
+            const { window } = dom;
+            window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+            window.HTMLElement.prototype.scrollIntoView = function () {};
+            window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+            window.HTMLDialogElement.prototype.close = function () { this.open = false; };
+            const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            const feature = { id:'feature-profile', slug:'profile', name:'My profile', description:'', category:'Account', featureType:'system', presentation:'content', route:'/profile', iconText:'ME', audience:'all', defaultDimension:'2x2', defaultWidth:2, defaultHeight:2, allowedDimensions:['2x2'], isActive:true, isDefault:true, sortOrder:1, pinned:true, x:0, y:0, width:2, height:2, tileColour:'default', accessGroups:[], backgroundType:'media', backgroundPrimary:'#11161d', backgroundSecondary:'#5268aa', backgroundAngle:135, backgroundMedia:gif, textColour:'#ffffff', fontFamily:'system', borderColour:'#394657', contentMode:'media-button', customTitle:'', customIcon:null, mediaFit:'cover', mediaOverlay:'dark' };
+            const payload = { ok:true, viewer:{id:'u1',username:'tester',displayName:'Test User',isAdmin:false,isOwner:false}, grid:{columns:8,dimensions:['2x2']}, preferences:{density:'comfortable',showDescriptions:true,tileGap:0,outerMargin:0}, capabilities:{canCustomize:true}, features:[{...feature,backgroundMedia:null}], pinnedTiles:[feature] };
+            window.fetch = async url => ({ ok:true, json:async()=>String(url).includes('/api/onboarding')?{ok:true,progress:{relationshipComplete:true,intentionsComplete:true}}:payload });
+            const grid = window.document.querySelector('#dashboard-grid');
+            grid.getBoundingClientRect = () => ({left:0,top:0,width:800,height:800,right:800,bottom:800,x:0,y:0,toJSON(){}});
+            window.eval(js);
+            await new Promise(resolve=>setTimeout(resolve,25));
+            window.document.querySelector('#customize-dashboard').click();
+            await new Promise(resolve=>setTimeout(resolve,10));
+            window.document.querySelector('.dashboard-tile-settings').click();
+            const input = window.document.querySelector('#dashboard-custom-title');
+            input.focus();
+            input.value = 'My animated button';
+            input.dispatchEvent(new window.Event('input',{bubbles:true}));
+            assert.equal(window.document.activeElement,input,'custom title input lost focus');
+            assert.equal(window.document.querySelector('.dashboard-media-button-title')?.textContent,'My animated button');
+            assert.equal(window.document.querySelector('#dashboard-custom-title'),input,'settings input was rebuilt');
+            console.log('Custom media title retained focus and updated the live tile preview.');
+          })().catch(error=>{console.error(error);process.exit(1);});
+          NODE
+      - run: |
+          node --check public/dashboard.js
+          npm run typecheck
+          git diff --check
