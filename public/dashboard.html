@@ -41,6 +41,25 @@
 <section class="dashboard-tile-settings-section" aria-labelledby="dashboard-content-settings-title">
 <div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-content-settings-title">Tile content</h3><span>Standard or fully custom</span></div>
 <label>Content mode<select id="dashboard-content-mode"><option value="standard">Standard feature tile</option><option value="media-button">Custom media button</option></select></label>
+<div id="dashboard-standard-icon-controls" class="dashboard-standard-icon-controls">
+<div class="dashboard-standard-icon-heading"><strong>Standard tile icon</strong><span>Change the coloured letters block or replace it with a picture.</span></div>
+<div class="dashboard-standard-icon-grid">
+<label>Icon type<select id="dashboard-icon-mode"><option value="text">Letters or short text</option><option value="image">Picture</option></select></label>
+<label id="dashboard-icon-label-control">Letters or short text<input id="dashboard-icon-label" type="text" maxlength="6" placeholder="Use feature default"></label>
+</div>
+<div class="dashboard-standard-icon-colours">
+<label class="dashboard-colour-input">Letter colour<input id="dashboard-icon-text-colour" type="color" value="#090b0f"></label>
+<label class="dashboard-colour-input">Icon background<input id="dashboard-icon-background-colour" type="color" value="#394657"></label>
+<label class="dashboard-colour-input">Icon border<input id="dashboard-icon-border-colour" type="color" value="#667181"></label>
+</div>
+<div id="dashboard-icon-media-controls" class="dashboard-standard-icon-media" hidden>
+<label class="dashboard-media-upload">Choose PNG, JPEG, WebP or animated GIF<input id="dashboard-icon-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+<label>Picture fit<select id="dashboard-icon-media-fit"><option value="cover">Fill icon (cover)</option><option value="contain">Show whole picture (contain)</option><option value="stretch">Stretch to icon</option></select></label>
+<div class="dashboard-media-actions"><span id="dashboard-icon-media-status">No icon picture selected.</span><button id="dashboard-remove-icon-media" type="button">Remove picture</button></div>
+<small>Maximum file size: 1.4 MB. The picture is stored privately with your dashboard layout.</small>
+</div>
+<button id="dashboard-reset-icon" type="button">Reset standard icon</button>
+</div>
 <div id="dashboard-custom-content-controls" class="dashboard-custom-content-controls" hidden>
 <p>Custom media mode removes the built-in tile content. The whole tile becomes the uploaded picture or GIF with only the optional title and icon below.</p>
 <label>Custom title <span class="optional">optional</span><input id="dashboard-custom-title" type="text" maxlength="80" placeholder="Leave empty for no title"></label>
