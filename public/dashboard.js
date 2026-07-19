@@ -416,24 +416,32 @@ function createDashboardTile(feature, preferences, editing = false) {
     const strip = document.createElement('div');
     strip.className = 'dashboard-tile-edit-strip';
 
-    const select = document.createElement('button');
-    select.type = 'button';
-    select.className = 'dashboard-tile-select';
-    select.textContent = 'SELECT';
-    select.setAttribute('aria-label', `Select ${feature.name} tile for editing`);
-    select.setAttribute('aria-pressed', String(dashboardState.selectedId === feature.id));
-    select.addEventListener('click', () => selectTile(feature.id));
+    let blockTileDrag = false;
+    const settings = document.createElement('button');
+    settings.type = 'button';
+    settings.className = 'dashboard-tile-settings';
+    settings.textContent = 'TILE SETTINGS';
+    settings.setAttribute('aria-label', `Open settings for ${feature.name}`);
+    settings.addEventListener('pointerdown', event => {
+      blockTileDrag = true;
+      event.stopPropagation();
+    });
+    settings.addEventListener('pointerup', () => { blockTileDrag = false; });
+    settings.addEventListener('pointercancel', () => { blockTileDrag = false; });
+    settings.addEventListener('dragstart', event => event.preventDefault());
+    settings.addEventListener('click', event => {
+      blockTileDrag = false;
+      event.stopPropagation();
+      openTileSettings(feature.id);
+    });
+    strip.append(settings);
+    article.append(strip);
 
-    const handle = document.createElement('button');
-    handle.type = 'button';
-    handle.className = 'dashboard-tile-move';
-    handle.textContent = isSingleColumnFallback() ? 'MOVE ON DESKTOP' : 'DRAG TO MOVE';
-    handle.title = isSingleColumnFallback() ? 'Open this editor on a wider screen to drag tiles' : `Drag ${feature.name} to another grid position`;
-    handle.disabled = isSingleColumnFallback();
-    handle.draggable = !isSingleColumnFallback();
-    handle.addEventListener('click', () => selectTile(feature.id));
-    handle.addEventListener('dragstart', event => {
-      if (isSingleColumnFallback()) {
+    article.draggable = !isSingleColumnFallback();
+    article.title = isSingleColumnFallback() ? 'Exact tile dragging requires a wider screen' : `Drag ${feature.name} to another grid position`;
+    article.addEventListener('dragstart', event => {
+      if (isSingleColumnFallback() || blockTileDrag || event.target.closest('button,select,input,a')) {
+        blockTileDrag = false;
         event.preventDefault();
         return;
       }
@@ -446,13 +454,11 @@ function createDashboardTile(feature, preferences, editing = false) {
       if (tile) showPlacementPreview(tile, true, 'CURRENT POSITION');
       renderSelectedControls();
     });
-    handle.addEventListener('dragend', () => {
+    article.addEventListener('dragend', () => {
       dashboardState.draggingId = null;
       article.classList.remove('dragging');
       clearPlacementPreview();
     });
-    strip.append(select, handle);
-    article.append(strip);
 
     const resize = document.createElement('button');
     resize.type = 'button';
@@ -521,6 +527,18 @@ function selectTile(featureId) {
   dashboardState.selectedId = featureId;
   renderSelectedControls();
   renderDashboardGrid();
+}
+
+function openTileSettings(featureId) {
+  selectTile(featureId);
+  const dialog = dashboardElement('#dashboard-tile-settings-dialog');
+  if (!dialog) return;
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeTileSettings() {
+  const dialog = dashboardElement('#dashboard-tile-settings-dialog');
+  if (dialog?.open) dialog.close();
 }
 
 function renderSelectedControls() {
@@ -693,8 +711,8 @@ function renderCatalogue() {
     sizes.textContent = `Sizes: ${feature.allowedDimensions.map(value => value.replace('x', '×')).join(', ')}`;
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = pinned ? 'Select tile' : 'Place tile';
-    button.addEventListener('click', () => pinned ? selectTile(feature.id) : addWorkingTile(feature));
+    button.textContent = pinned ? 'Tile settings' : 'Place tile';
+    button.addEventListener('click', () => pinned ? openTileSettings(feature.id) : addWorkingTile(feature));
     card.append(marker, title, description, sizes, button);
     catalogue.append(card);
   });
@@ -734,13 +752,14 @@ function openEditor() {
   dashboardElement('#customize-dashboard').hidden = true;
   dashboardElement('#dashboard-shell').classList.add('dashboard-editing');
   editorMessage(isSingleColumnFallback()
-    ? 'Single-column preview: select tiles, resize them, and change vertical order. Use a wider screen for exact column placement and dragging.'
-    : 'Select a tile, drag its MOVE strip, or change its preset size. The dashboard updates immediately.');
+    ? 'Single-column preview: use Tile settings to resize and change vertical order. Use a wider screen for exact dragging.'
+    : 'Grab any tile to move it, use Tile settings for exact controls, or drag its corner to resize.');
   renderEditor();
   dashboardElement('#dashboard-editor-toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeEditor(saved = false) {
+  closeTileSettings();
   clearPlacementPreview();
   dashboardState.draggingId = null;
   dashboardState.resizing = null;
@@ -835,8 +854,15 @@ dashboardElement('#dashboard-cancel-layout')?.addEventListener('click', () => cl
 dashboardElement('#dashboard-save-layout')?.addEventListener('click', saveDashboardLayout);
 dashboardElement('#dashboard-reset-layout')?.addEventListener('click', loadDefaultWorkingTiles);
 dashboardElement('#dashboard-pack-layout')?.addEventListener('click', packWorkingTiles);
+dashboardElement('#dashboard-close-tile-settings')?.addEventListener('click', closeTileSettings);
+dashboardElement('#dashboard-tile-settings-dialog')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeTileSettings();
+});
 dashboardElement('#dashboard-remove-selected')?.addEventListener('click', () => {
-  if (dashboardState.selectedId) removeWorkingTile(dashboardState.selectedId);
+  if (dashboardState.selectedId) {
+    removeWorkingTile(dashboardState.selectedId);
+    closeTileSettings();
+  }
 });
 dashboardElement('#dashboard-selected-dimension')?.addEventListener('change', event => {
   if (dashboardState.selectedId) resizeWorkingTile(dashboardState.selectedId, event.currentTarget.value);
@@ -870,7 +896,9 @@ dashboardElement('#dashboard-category-filter')?.addEventListener('change', event
   });
 });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && dashboardState.editing) closeEditor(false);
+  if (event.key !== 'Escape' || !dashboardState.editing) return;
+  if (dashboardElement('#dashboard-tile-settings-dialog')?.open) return;
+  closeEditor(false);
 });
 window.addEventListener('resize', () => {
   if (!dashboardState.editing) return;
