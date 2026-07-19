@@ -18,7 +18,7 @@ CREATE TABLE user_profile_design (
   card_alignment TEXT NOT NULL DEFAULT 'centre' CHECK (card_alignment IN ('left','centre')),
   card_surface TEXT NOT NULL DEFAULT 'gradient' CHECK (card_surface IN ('gradient','solid','cover')),
   cover_height INTEGER NOT NULL DEFAULT 180 CHECK (cover_height IN (0,120,180,240,320)),
-  avatar_size INTEGER NOT NULL DEFAULT 132 CHECK (avatar_size IN (72,96,120,144,168)),
+  avatar_size INTEGER NOT NULL DEFAULT 132 CHECK (avatar_size IN (72,96,120,132,144,168)),
   card_padding INTEGER NOT NULL DEFAULT 28 CHECK (card_padding IN (12,16,20,24,28,32,40,48)),
   card_shadow TEXT NOT NULL DEFAULT 'large' CHECK (card_shadow IN ('none','small','large')),
   card_border_width INTEGER NOT NULL DEFAULT 1 CHECK (card_border_width IN (0,1,2,4)),
