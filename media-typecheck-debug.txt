@@ -1,0 +1,6 @@
+
+> grev-dad@0.1.0 typecheck
+> tsc --noEmit
+
+src/dashboard.ts(212,19): error TS2532: Object is possibly 'undefined'.
+src/dashboard.ts(217,16): error TS2532: Object is possibly 'undefined'.
