@@ -209,12 +209,11 @@ patch('src/dashboard.ts', source => {
     2,
     'null custom column aliases'
   );
-  source = replaceOnce(
-    source,
-    "INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,pinned_at,updated_at)\n       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-    "INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,content_mode,custom_title,custom_icon,media_fit,media_overlay,pinned_at,updated_at)\n       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-    'save custom content columns'
-  );
+  {
+    const saveInsertPattern = /(INSERT INTO user_dashboard_tiles\([^\n]*border_colour),pinned_at,updated_at\)(\n\s*)VALUES\(\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?,\?\)/;
+    if (!saveInsertPattern.test(source)) throw new Error('Missing dashboard tile insert statement.');
+    source = source.replace(saveInsertPattern, '$1,content_mode,custom_title,custom_icon,media_fit,media_overlay,pinned_at,updated_at)$2VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+  }
   source = replaceOnce(
     source,
     "tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, now, now));",
