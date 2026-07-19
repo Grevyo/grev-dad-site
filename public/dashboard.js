@@ -39,6 +39,7 @@ const dashboardState = {
   placementPreview: null,
   resizing: null,
   selectedId: null,
+  iconUploads: new Map(),
   editing: false
 };
 
@@ -75,6 +76,10 @@ function featureById(id) {
 
 function workingTile(featureId) {
   return dashboardState.workingTiles.find(tile => tile.featureId === featureId) ?? null;
+}
+
+function cancelIconUpload(featureId) {
+  if (featureId) dashboardState.iconUploads.delete(featureId);
 }
 
 function validHex(value) {
@@ -918,6 +923,7 @@ function addWorkingTile(feature) {
 
 function removeWorkingTile(featureId) {
   const feature = featureById(featureId);
+  cancelIconUpload(featureId);
   dashboardState.workingTiles = dashboardState.workingTiles.filter(tile => tile.featureId !== featureId);
   dashboardState.selectedId = dashboardState.workingTiles[0]?.featureId ?? null;
   editorMessage(`${feature?.name ?? 'Tile'} removed from the working layout.`, 'success');
@@ -1072,6 +1078,7 @@ function renderEditor() {
 function openEditor() {
   if (!dashboardState.payload || dashboardState.editing) return;
   dashboardState.editing = true;
+  dashboardState.iconUploads.clear();
   dashboardState.workingTiles = clonePinnedTiles();
   dashboardState.selectedId = dashboardState.workingTiles[0]?.featureId ?? null;
   dashboardState.search = '';
@@ -1101,6 +1108,7 @@ function closeEditor(saved = false) {
   dashboardState.draggingId = null;
   dashboardState.dragOffset = null;
   dashboardState.resizing = null;
+  dashboardState.iconUploads.clear();
   dashboardState.editing = false;
   dashboardState.workingTiles = [];
   dashboardState.selectedId = null;
@@ -1212,6 +1220,7 @@ dashboardElement('#dashboard-icon-mode')?.addEventListener('change', event => {
   if (!tile || !TILE_ICON_MODES.has(value)) return;
   tile.iconMode = value;
   if (value === 'text') {
+    cancelIconUpload(tile.featureId);
     tile.iconMedia = null;
     const input = dashboardElement('#dashboard-icon-media');
     if (input) input.value = '';
@@ -1238,6 +1247,7 @@ dashboardElement('#dashboard-content-mode')?.addEventListener('change', event =>
   if (!tile || !TILE_CONTENT_MODES.has(value)) return;
   tile.contentMode = value;
   if (value === 'media-button') {
+    cancelIconUpload(tile.featureId);
     tile.iconMode = 'text';
     tile.iconMedia = null;
     const iconInput = dashboardElement('#dashboard-icon-media');
@@ -1313,19 +1323,31 @@ dashboardElement('#dashboard-icon-media')?.addEventListener('change', event => {
     editorMessage('Icon pictures and GIFs must be 1.4 MB or smaller.', 'error');
     return;
   }
+  const featureId = tile.featureId;
+  const uploadToken = Symbol(file.name);
+  dashboardState.iconUploads.set(featureId, uploadToken);
   const reader = new FileReader();
   reader.addEventListener('load', () => {
-    if (typeof reader.result !== 'string') return;
-    tile.iconMode = 'image';
-    tile.iconMedia = reader.result;
-    refreshAppearancePreview(tile, file.name + ' selected as the standard tile icon.');
+    const currentTile = workingTile(featureId);
+    if (typeof reader.result !== 'string'
+      || !currentTile
+      || dashboardState.iconUploads.get(featureId) !== uploadToken
+      || currentTile.contentMode !== 'standard'
+      || currentTile.iconMode !== 'image') return;
+    dashboardState.iconUploads.delete(featureId);
+    currentTile.iconMedia = reader.result;
+    refreshAppearancePreview(currentTile, file.name + ' selected as the standard tile icon.');
   });
-  reader.addEventListener('error', () => editorMessage('The icon picture or GIF could not be read.', 'error'));
+  reader.addEventListener('error', () => {
+    if (dashboardState.iconUploads.get(featureId) === uploadToken) dashboardState.iconUploads.delete(featureId);
+    editorMessage('The icon picture or GIF could not be read.', 'error');
+  });
   reader.readAsDataURL(file);
 });
 dashboardElement('#dashboard-remove-icon-media')?.addEventListener('click', () => {
   const tile = workingTile(dashboardState.selectedId);
   if (!tile) return;
+  cancelIconUpload(tile.featureId);
   tile.iconMedia = null;
   tile.iconMode = 'text';
   const input = dashboardElement('#dashboard-icon-media');
@@ -1335,6 +1357,7 @@ dashboardElement('#dashboard-remove-icon-media')?.addEventListener('click', () =
 dashboardElement('#dashboard-reset-icon')?.addEventListener('click', () => {
   const tile = workingTile(dashboardState.selectedId);
   if (!tile) return;
+  cancelIconUpload(tile.featureId);
   Object.assign(tile, {
     iconMode: DEFAULT_TILE_APPEARANCE.iconMode,
     iconLabel: DEFAULT_TILE_APPEARANCE.iconLabel,
