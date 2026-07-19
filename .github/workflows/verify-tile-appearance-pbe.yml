@@ -1,0 +1,88 @@
+name: Verify Tile Appearance PBE
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-tile-appearance-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Wait for PBE deployment and authenticate
+        env:
+          LADMIN_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$LADMIN_PASSWORD"
+          python3 - <<'PY' > login-payload.json
+          import json, os
+          print(json.dumps({"identifier":"LADMIN","password":os.environ["LADMIN_PASSWORD"],"rememberMe":False}))
+          PY
+          for attempt in $(seq 1 30); do
+            status=$(curl -sS -o login.json -w '%{http_code}' -c cookies.txt -H 'Content-Type: application/json' --data @login-payload.json https://pbe.grev.dad/api/auth/login || true)
+            if [ "$status" = "200" ]; then
+              curl -fsS -b cookies.txt https://pbe.grev.dad/api/dashboard -o dashboard-api.json
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard -o dashboard.html
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard.js -o dashboard.js
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard.css -o dashboard.css
+              if grep -q 'dragOffset' dashboard.js && grep -q 'dashboard-gradient-palette' dashboard.html && grep -q 'backgroundType' dashboard-api.json; then
+                exit 0
+              fi
+            fi
+            if [ "$attempt" = "30" ]; then
+              echo 'Expected PBE deployment did not become available.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Verify deployed API migration and appearance shape
+        run: |
+          python3 - <<'PY'
+          import json
+          payload = json.load(open('dashboard-api.json'))
+          assert payload.get('ok') is True
+          assert isinstance(payload.get('features'), list)
+          assert isinstance(payload.get('pinnedTiles'), list)
+          required = {'backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour'}
+          for tile in payload['pinnedTiles']:
+              missing = required.difference(tile)
+              assert not missing, f'missing pinned appearance fields: {missing}'
+          for feature in payload['features']:
+              assert 'hasBackgroundMedia' in feature
+              assert feature.get('backgroundMedia') is None
+          assert payload['grid']['columns'] == 6
+          print(json.dumps({
+              'features': len(payload['features']),
+              'pinnedTiles': len(payload['pinnedTiles']),
+              'appearanceFields': sorted(required),
+              'catalogueMediaSuppressed': True
+          }))
+          PY
+      - name: Verify deployed exact-grab and appearance controls
+        run: |
+          set -euo pipefail
+          grep -q 'dashboardState.dragOffset' dashboard.js
+          grep -q 'setDragImage(article, localX, localY)' dashboard.js
+          grep -q 'cell.x - offset.x' dashboard.js
+          grep -q 'cell.y - offset.y' dashboard.js
+          grep -q 'hasFlatAppearance' dashboard.js
+          grep -q 'MAX_TILE_MEDIA_BYTES = 1_400_000' dashboard.js
+          grep -q "name: 'Ocean'" dashboard.js
+          grep -q "name: 'Purple'" dashboard.js
+          grep -q 'dashboard-solid-palette' dashboard.html
+          grep -q 'dashboard-gradient-palette' dashboard.html
+          grep -q 'image/png,image/jpeg,image/webp,image/gif' dashboard.html
+          grep -q 'Maximum file size: 1.4 MB' dashboard.html
+          grep -q 'dashboard-text-colour' dashboard.html
+          grep -q 'dashboard-font-family' dashboard.html
+          grep -q 'dashboard-border-colour' dashboard.html
+          grep -q 'dashboard-appearance-choice' dashboard.css
+          grep -q 'dashboard-tile\[data-background-type="media"\]' dashboard.css
+          echo 'Live PBE exact grab and advanced tile appearance verified.'
