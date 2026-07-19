@@ -1,5 +1,6 @@
 import app from './index';
 import { handleDashboardRequest, type DashboardEnv } from './dashboard';
+import { handleProfileRequest, type ProfileEnv } from './profile';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -7,7 +8,10 @@ const DASHBOARD_ASSETS = new Set([
   '/dashboard.css',
   '/dashboard.js',
   '/admin-dashboard.js',
-  '/feature.js'
+  '/feature.js',
+  '/profile.css',
+  '/profile.js',
+  '/profile-card.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -52,6 +56,18 @@ export default {
       } catch {
         // The existing API handler returns the normal invalid-body response.
       }
+    }
+
+    try {
+      const profileResponse = await handleProfileRequest(request, env as unknown as ProfileEnv);
+      if (profileResponse) return profileResponse;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'UNKNOWN';
+      if (message === 'JSON_REQUIRED' || message === 'INVALID_BODY' || error instanceof SyntaxError) {
+        return workerJson({ ok: false, message: 'A valid JSON request body is required.' }, 400);
+      }
+      console.error('Profile request failed', error);
+      return workerJson({ ok: false, message: 'The profile request could not be completed.' }, 500);
     }
 
     try {
