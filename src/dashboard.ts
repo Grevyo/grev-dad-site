@@ -31,6 +31,7 @@ type TilePresentation = 'action' | 'content';
 type TileBackgroundType = 'solid' | 'gradient' | 'media';
 type TileFontFamily = 'system' | 'display' | 'mono' | 'serif' | 'rounded';
 type TileContentMode = 'standard' | 'media-button';
+type TileIconMode = 'text' | 'image';
 type TileMediaFit = 'cover' | 'contain' | 'stretch';
 type TileMediaOverlay = 'none' | 'dark' | 'light';
 type Dimension = { width: number; height: number };
@@ -48,6 +49,13 @@ type TileAppearance = {
   customIcon: string | null;
   mediaFit: TileMediaFit;
   mediaOverlay: TileMediaOverlay;
+  iconMode: TileIconMode;
+  iconLabel: string | null;
+  iconMedia: string | null;
+  iconTextColour: string;
+  iconBackgroundColour: string;
+  iconBorderColour: string;
+  iconMediaFit: TileMediaFit;
 };
 type TilePlacement = Dimension & Partial<TileAppearance> & { featureId: string; x: number; y: number; colour?: TileColour };
 
@@ -89,6 +97,13 @@ type FeatureRow = {
   custom_icon: string | null;
   media_fit: string | null;
   media_overlay: string | null;
+  icon_mode: string | null;
+  icon_label: string | null;
+  icon_media: string | null;
+  icon_text_colour: string | null;
+  icon_background_colour: string | null;
+  icon_border_colour: string | null;
+  icon_media_fit: string | null;
   matched_groups: string;
 };
 
@@ -109,6 +124,7 @@ const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cya
 const VALID_BACKGROUND_TYPES = new Set<TileBackgroundType>(['solid','gradient','media']);
 const VALID_FONT_FAMILIES = new Set<TileFontFamily>(['system','display','mono','serif','rounded']);
 const VALID_CONTENT_MODES = new Set<TileContentMode>(['standard','media-button']);
+const VALID_ICON_MODES = new Set<TileIconMode>(['text','image']);
 const VALID_MEDIA_FITS = new Set<TileMediaFit>(['cover','contain','stretch']);
 const VALID_MEDIA_OVERLAYS = new Set<TileMediaOverlay>(['none','dark','light']);
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
@@ -128,7 +144,14 @@ const DEFAULT_TILE_APPEARANCE: TileAppearance = {
   customTitle: null,
   customIcon: null,
   mediaFit: 'cover',
-  mediaOverlay: 'dark'
+  mediaOverlay: 'dark',
+  iconMode: 'text',
+  iconLabel: null,
+  iconMedia: null,
+  iconTextColour: '#090b0f',
+  iconBackgroundColour: '#f3f5f8',
+  iconBorderColour: '#667181',
+  iconMediaFit: 'cover'
 };
 const LEGACY_TILE_APPEARANCE: Record<TileColour, Pick<TileAppearance, 'backgroundPrimary' | 'borderColour'>> = {
   default: { backgroundPrimary: '#11161d', borderColour: '#394657' },
@@ -263,7 +286,7 @@ function validImageDataUrl(value: string): boolean {
 function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance | null {
   const colourValue = String(item.colour ?? 'default') as TileColour;
   const legacyColour = VALID_TILE_COLOURS.has(colourValue) ? colourValue : 'default';
-  const appearanceFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour'];
+  const appearanceFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour','iconMode','iconLabel','iconMedia','iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit'];
   const hasExplicitAppearance = appearanceFields.some(field => Object.prototype.hasOwnProperty.call(item, field));
   const defaults = hasExplicitAppearance ? DEFAULT_TILE_APPEARANCE : legacyAppearance(legacyColour);
   const backgroundType = String(item.backgroundType ?? defaults.backgroundType) as TileBackgroundType;
@@ -283,14 +306,25 @@ function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance 
   const customIcon = typeof customIconRaw === 'string' && customIconRaw.trim() ? customIconRaw.trim() : null;
   const mediaFit = String(item.mediaFit ?? defaults.mediaFit) as TileMediaFit;
   const mediaOverlay = String(item.mediaOverlay ?? defaults.mediaOverlay) as TileMediaOverlay;
-  if ((customTitle?.length ?? 0) > 80 || (customIcon?.length ?? 0) > 12) return null;
-  if (!VALID_CONTENT_MODES.has(contentMode) || !VALID_MEDIA_FITS.has(mediaFit) || !VALID_MEDIA_OVERLAYS.has(mediaOverlay)) return null;
-  if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour)) return null;
+  const iconMode = String(item.iconMode ?? defaults.iconMode) as TileIconMode;
+  const iconLabelRaw = item.iconLabel === null || item.iconLabel === undefined || item.iconLabel === '' ? null : item.iconLabel;
+  const iconMediaValue = item.iconMedia === null || item.iconMedia === undefined || item.iconMedia === '' ? null : String(item.iconMedia);
+  if (iconLabelRaw !== null && typeof iconLabelRaw !== 'string') return null;
+  const iconLabel = typeof iconLabelRaw === 'string' && iconLabelRaw.trim() ? iconLabelRaw.trim() : null;
+  const iconTextColour = String(item.iconTextColour ?? defaults.iconTextColour).toLowerCase();
+  const iconBackgroundColour = String(item.iconBackgroundColour ?? defaults.iconBackgroundColour).toLowerCase();
+  const iconBorderColour = String(item.iconBorderColour ?? defaults.iconBorderColour).toLowerCase();
+  const iconMediaFit = String(item.iconMediaFit ?? defaults.iconMediaFit) as TileMediaFit;
+  if ((customTitle?.length ?? 0) > 80 || (customIcon?.length ?? 0) > 12 || (iconLabel?.length ?? 0) > 6) return null;
+  if (!VALID_CONTENT_MODES.has(contentMode) || !VALID_ICON_MODES.has(iconMode) || !VALID_MEDIA_FITS.has(mediaFit) || !VALID_MEDIA_FITS.has(iconMediaFit) || !VALID_MEDIA_OVERLAYS.has(mediaOverlay)) return null;
+  if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour) || !HEX_COLOUR.test(iconTextColour) || !HEX_COLOUR.test(iconBackgroundColour) || !HEX_COLOUR.test(iconBorderColour)) return null;
   if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
   if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
+  if (iconMediaValue && !validImageDataUrl(iconMediaValue)) return null;
   if (backgroundType === 'media' && !backgroundMediaValue) return null;
   if (contentMode === 'media-button' && (backgroundType !== 'media' || !backgroundMediaValue)) return null;
-  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay };
+  if (iconMode === 'image' && !iconMediaValue) return null;
+  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay, iconMode, iconLabel, iconMedia: iconMediaValue, iconTextColour, iconBackgroundColour, iconBorderColour, iconMediaFit };
 }
 
 function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
@@ -344,7 +378,14 @@ function featureFromRow(row: FeatureRow) {
     customTitle: typeof row.custom_title === 'string' && row.custom_title.trim() ? row.custom_title.trim() : null,
     customIcon: typeof row.custom_icon === 'string' && row.custom_icon.trim() ? row.custom_icon.trim() : null,
     mediaFit: VALID_MEDIA_FITS.has(String(row.media_fit ?? '') as TileMediaFit) ? String(row.media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.mediaFit,
-    mediaOverlay: VALID_MEDIA_OVERLAYS.has(String(row.media_overlay ?? '') as TileMediaOverlay) ? String(row.media_overlay) as TileMediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay
+    mediaOverlay: VALID_MEDIA_OVERLAYS.has(String(row.media_overlay ?? '') as TileMediaOverlay) ? String(row.media_overlay) as TileMediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay,
+    iconMode: VALID_ICON_MODES.has(String(row.icon_mode ?? '') as TileIconMode) ? String(row.icon_mode) as TileIconMode : DEFAULT_TILE_APPEARANCE.iconMode,
+    iconLabel: typeof row.icon_label === 'string' && row.icon_label.trim() ? row.icon_label.trim().slice(0, 6) : null,
+    iconMedia: typeof row.icon_media === 'string' && row.icon_media ? row.icon_media : null,
+    iconTextColour: HEX_COLOUR.test(String(row.icon_text_colour ?? '')) ? String(row.icon_text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconTextColour,
+    iconBackgroundColour: HEX_COLOUR.test(String(row.icon_background_colour ?? '')) ? String(row.icon_background_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconBackgroundColour,
+    iconBorderColour: HEX_COLOUR.test(String(row.icon_border_colour ?? '')) ? String(row.icon_border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconBorderColour,
+    iconMediaFit: VALID_MEDIA_FITS.has(String(row.icon_media_fit ?? '') as TileMediaFit) ? String(row.icon_media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.iconMediaFit
   };
   return {
     id: row.id,
@@ -399,6 +440,13 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
        t.custom_icon,
        t.media_fit,
        t.media_overlay,
+       t.icon_mode,
+       t.icon_label,
+       t.icon_media,
+       t.icon_text_colour,
+       t.icon_background_colour,
+       t.icon_border_colour,
+       t.icon_media_fit,
       COALESCE((
         SELECT GROUP_CONCAT(g.name, ', ')
         FROM dashboard_feature_group_grants fg
@@ -434,7 +482,7 @@ async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promi
 
 async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
   const rows = await env.DB.prepare(`
-    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,'' AS matched_groups
+    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,NULL AS icon_mode,NULL AS icon_label,NULL AS icon_media,NULL AS icon_text_colour,NULL AS icon_background_colour,NULL AS icon_border_colour,NULL AS icon_media_fit,'' AS matched_groups
     FROM dashboard_features f
     WHERE f.is_active=1 AND f.is_default=1 AND (
       f.audience='all'
@@ -502,7 +550,9 @@ async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
   const features = hydratedFeatures.map(feature => ({
     ...feature,
     backgroundMedia: null,
-    hasBackgroundMedia: Boolean(feature.backgroundMedia)
+    hasBackgroundMedia: Boolean(feature.backgroundMedia),
+    iconMedia: null,
+    hasIconMedia: Boolean(feature.iconMedia)
   }));
   return {
     ok: true,
@@ -539,11 +589,10 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
     const featureId = String(item.featureId ?? '').trim();
     const feature = available.get(featureId);
     const appearance = tileAppearanceFromInput(item);
-    if (!appearance) return secureJson({ ok: false, message: 'Choose a valid tile background, text colour, font, border and media file.' }, { status: 400 });
-    if (appearance.backgroundMedia) {
-      totalMediaBytes += dataUrlByteLength(appearance.backgroundMedia);
-      if (totalMediaBytes > MAX_LAYOUT_MEDIA_BYTES) return secureJson({ ok: false, message: 'Tile pictures and GIFs may use up to 8 MB across one dashboard layout.' }, { status: 400 });
-    }
+    if (!appearance) return secureJson({ ok: false, message: 'Choose valid tile and icon colours, text, picture files and display modes.' }, { status: 400 });
+    if (appearance.backgroundMedia) totalMediaBytes += dataUrlByteLength(appearance.backgroundMedia);
+    if (appearance.iconMedia) totalMediaBytes += dataUrlByteLength(appearance.iconMedia);
+    if (totalMediaBytes > MAX_LAYOUT_MEDIA_BYTES) return secureJson({ ok: false, message: 'Tile backgrounds and icon pictures may use up to 8 MB across one dashboard layout.' }, { status: 400 });
     const tile: TilePlacement = {
       featureId,
       x: Number(item.x),
@@ -575,9 +624,9 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id)];
   tiles.forEach((tile, position) => {
     statements.push(env.DB.prepare(`
-      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,content_mode,custom_title,custom_icon,media_fit,media_overlay,pinned_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', tile.backgroundType, tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, tile.contentMode, tile.customTitle, tile.customIcon, tile.mediaFit, tile.mediaOverlay, now, now));
+      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,content_mode,custom_title,custom_icon,media_fit,media_overlay,icon_mode,icon_label,icon_media,icon_text_colour,icon_background_colour,icon_border_colour,icon_media_fit,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', tile.backgroundType, tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, tile.contentMode, tile.customTitle, tile.customIcon, tile.mediaFit, tile.mediaOverlay, tile.iconMode, tile.iconLabel, tile.iconMedia, tile.iconTextColour, tile.iconBackgroundColour, tile.iconBorderColour, tile.iconMediaFit, now, now));
   });
   statements.push(env.DB.prepare(`
     INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at)
@@ -586,7 +635,7 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   `).bind(user.id, density, showDescriptions ? 1 : 0, tileGap, outerMargin, now, now));
   statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
     crypto.randomUUID(), user.id, 'dashboard.grid_updated', 'user', user.id,
-    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default', backgroundType: tile.backgroundType, backgroundPrimary: tile.backgroundPrimary, backgroundSecondary: tile.backgroundSecondary, backgroundAngle: tile.backgroundAngle, hasBackgroundMedia: Boolean(tile.backgroundMedia), textColour: tile.textColour, fontFamily: tile.fontFamily, borderColour: tile.borderColour, contentMode: tile.contentMode, hasCustomTitle: Boolean(tile.customTitle), hasCustomIcon: Boolean(tile.customIcon), mediaFit: tile.mediaFit, mediaOverlay: tile.mediaOverlay })), density, showDescriptions, tileGap, outerMargin }), now
+    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default', backgroundType: tile.backgroundType, backgroundPrimary: tile.backgroundPrimary, backgroundSecondary: tile.backgroundSecondary, backgroundAngle: tile.backgroundAngle, hasBackgroundMedia: Boolean(tile.backgroundMedia), textColour: tile.textColour, fontFamily: tile.fontFamily, borderColour: tile.borderColour, contentMode: tile.contentMode, hasCustomTitle: Boolean(tile.customTitle), hasCustomIcon: Boolean(tile.customIcon), mediaFit: tile.mediaFit, mediaOverlay: tile.mediaOverlay, iconMode: tile.iconMode, iconLabel: tile.iconLabel, hasIconMedia: Boolean(tile.iconMedia), iconTextColour: tile.iconTextColour, iconBackgroundColour: tile.iconBackgroundColour, iconBorderColour: tile.iconBorderColour, iconMediaFit: tile.iconMediaFit })), density, showDescriptions, tileGap, outerMargin }), now
   ));
   await env.DB.batch(statements);
   return secureJson(await dashboardPayload(env, user));
@@ -610,7 +659,7 @@ async function featureForUser(env: DashboardEnv, user: DashboardUser, slug: stri
 
 async function adminCatalogue(env: DashboardEnv) {
   const [features, grants, groups] = await Promise.all([
-    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
+    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,NULL AS icon_mode,NULL AS icon_label,NULL AS icon_media,NULL AS icon_text_colour,NULL AS icon_background_colour,NULL AS icon_border_colour,NULL AS icon_media_fit,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
     env.DB.prepare(`SELECT feature_id,group_id FROM dashboard_feature_group_grants ORDER BY feature_id,group_id`).all<{ feature_id: string; group_id: string }>(),
     env.DB.prepare(`SELECT id,name,description FROM groups ORDER BY name`).all<{ id: string; name: string; description: string }>()
   ]);

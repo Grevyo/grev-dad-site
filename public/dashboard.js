@@ -24,9 +24,10 @@ const TILE_FONT_STACKS = {
   rounded: 'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'
 };
 const TILE_CONTENT_MODES = new Set(['standard','media-button']);
+const TILE_ICON_MODES = new Set(['text','image']);
 const TILE_MEDIA_FITS = new Set(['cover','contain','stretch']);
 const TILE_MEDIA_OVERLAYS = new Set(['none','dark','light']);
-const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657', contentMode: 'standard', customTitle: null, customIcon: null, mediaFit: 'cover', mediaOverlay: 'dark' });
+const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657', contentMode: 'standard', customTitle: null, customIcon: null, mediaFit: 'cover', mediaOverlay: 'dark', iconMode: 'text', iconLabel: null, iconMedia: null, iconTextColour: '#090b0f', iconBackgroundColour: '#f3f5f8', iconBorderColour: '#667181', iconMediaFit: 'cover' });
 const MAX_TILE_MEDIA_BYTES = 1_400_000;
 const dashboardState = {
   payload: null,
@@ -81,7 +82,7 @@ function validHex(value) {
 }
 
 function normalizedTileAppearance(source = {}) {
-  const flatFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay'];
+  const flatFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay','iconMode','iconLabel','iconMedia','iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit'];
   const hasFlatAppearance = flatFields.some(field => Object.prototype.hasOwnProperty.call(source, field));
   const appearance = hasFlatAppearance ? source : (source.appearance ?? source);
   return {
@@ -97,7 +98,14 @@ function normalizedTileAppearance(source = {}) {
     customTitle: typeof appearance.customTitle === 'string' && appearance.customTitle.trim() ? appearance.customTitle.trim().slice(0, 80) : null,
     customIcon: typeof appearance.customIcon === 'string' && appearance.customIcon.trim() ? appearance.customIcon.trim().slice(0, 12) : null,
     mediaFit: TILE_MEDIA_FITS.has(appearance.mediaFit) ? appearance.mediaFit : DEFAULT_TILE_APPEARANCE.mediaFit,
-    mediaOverlay: TILE_MEDIA_OVERLAYS.has(appearance.mediaOverlay) ? appearance.mediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay
+    mediaOverlay: TILE_MEDIA_OVERLAYS.has(appearance.mediaOverlay) ? appearance.mediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay,
+    iconMode: TILE_ICON_MODES.has(appearance.iconMode) ? appearance.iconMode : DEFAULT_TILE_APPEARANCE.iconMode,
+    iconLabel: typeof appearance.iconLabel === 'string' && appearance.iconLabel.trim() ? appearance.iconLabel.trim().slice(0, 6) : null,
+    iconMedia: typeof appearance.iconMedia === 'string' && appearance.iconMedia.startsWith('data:image/') ? appearance.iconMedia : null,
+    iconTextColour: validHex(appearance.iconTextColour) ? appearance.iconTextColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.iconTextColour,
+    iconBackgroundColour: validHex(appearance.iconBackgroundColour) ? appearance.iconBackgroundColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.iconBackgroundColour,
+    iconBorderColour: validHex(appearance.iconBorderColour) ? appearance.iconBorderColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.iconBorderColour,
+    iconMediaFit: TILE_MEDIA_FITS.has(appearance.iconMediaFit) ? appearance.iconMediaFit : DEFAULT_TILE_APPEARANCE.iconMediaFit
   };
 }
 
@@ -112,6 +120,10 @@ function applyTileAppearance(article, feature) {
   article.style.setProperty('--tile-custom-border', appearance.borderColour);
   article.style.setProperty('--tile-custom-font', TILE_FONT_STACKS[appearance.fontFamily]);
   article.style.setProperty('--tile-accent', appearance.borderColour);
+  article.style.setProperty('--tile-icon-text', appearance.iconTextColour);
+  article.style.setProperty('--tile-icon-bg', appearance.iconBackgroundColour);
+  article.style.setProperty('--tile-icon-border', appearance.iconBorderColour);
+  article.style.setProperty('--tile-icon-fit', appearance.iconMediaFit === 'stretch' ? 'fill' : appearance.iconMediaFit);
   article.style.borderColor = appearance.borderColour;
   article.style.color = appearance.textColour;
   article.style.fontFamily = TILE_FONT_STACKS[appearance.fontFamily];
@@ -423,11 +435,27 @@ function tileSurface(feature, editing, className) {
   return element;
 }
 
+function createStandardTileIcon(feature, className) {
+  const appearance = normalizedTileAppearance(feature);
+  const icon = document.createElement('span');
+  icon.className = `${className} dashboard-standard-icon`;
+  icon.dataset.iconMode = appearance.iconMode;
+  icon.setAttribute('aria-hidden', 'true');
+  if (appearance.iconMode === 'image' && appearance.iconMedia) {
+    const image = document.createElement('img');
+    image.src = appearance.iconMedia;
+    image.alt = '';
+    image.draggable = false;
+    icon.append(image);
+  } else {
+    icon.textContent = appearance.iconLabel ?? feature.iconText;
+  }
+  return icon;
+}
+
 function createActionTileContent(feature, editing = false) {
   const content = tileSurface(feature, editing, 'dashboard-action-tile');
-  const icon = document.createElement('span');
-  icon.className = 'dashboard-action-icon';
-  icon.textContent = feature.iconText;
+  const icon = createStandardTileIcon(feature, 'dashboard-action-icon');
   const title = document.createElement('strong');
   title.className = 'dashboard-action-title';
   title.textContent = feature.name;
@@ -486,9 +514,7 @@ function createNewsTileContent(feature, editing = false) {
   const label = document.createElement('span');
   label.className = 'dashboard-content-label';
   label.textContent = 'LATEST GREV NEWS';
-  const icon = document.createElement('span');
-  icon.className = 'dashboard-content-icon';
-  icon.textContent = feature.iconText;
+  const icon = createStandardTileIcon(feature, 'dashboard-content-icon');
   heading.append(label, icon);
   const headline = document.createElement('strong');
   headline.className = 'dashboard-news-headline';
@@ -507,9 +533,7 @@ function createGenericContentTile(feature, preferences, editing = false) {
   const label = document.createElement('span');
   label.className = 'dashboard-content-label';
   label.textContent = feature.category;
-  const icon = document.createElement('span');
-  icon.className = 'dashboard-content-icon';
-  icon.textContent = feature.iconText;
+  const icon = createStandardTileIcon(feature, 'dashboard-content-icon');
   heading.append(label, icon);
   const title = document.createElement('strong');
   title.className = 'dashboard-content-title';
@@ -742,7 +766,16 @@ function renderSelectedControls() {
 
 function setCustomContentVisibility(mode) {
   const controls = dashboardElement('#dashboard-custom-content-controls');
+  const standardIcon = dashboardElement('#dashboard-standard-icon-controls');
   if (controls) controls.hidden = mode !== 'media-button';
+  if (standardIcon) standardIcon.hidden = mode !== 'standard';
+}
+
+function setStandardIconVisibility(mode) {
+  const label = dashboardElement('#dashboard-icon-label-control');
+  const media = dashboardElement('#dashboard-icon-media-controls');
+  if (label) label.hidden = mode !== 'text';
+  if (media) media.hidden = mode !== 'image';
 }
 
 function setAppearanceModeVisibility(type) {
@@ -794,12 +827,29 @@ function renderAppearanceControls(tile) {
   const customIcon = dashboardElement('#dashboard-custom-icon');
   const mediaFit = dashboardElement('#dashboard-media-fit');
   const mediaOverlay = dashboardElement('#dashboard-media-overlay');
+  const iconMode = dashboardElement('#dashboard-icon-mode');
+  const iconLabel = dashboardElement('#dashboard-icon-label');
+  const iconTextColour = dashboardElement('#dashboard-icon-text-colour');
+  const iconBackgroundColour = dashboardElement('#dashboard-icon-background-colour');
+  const iconBorderColour = dashboardElement('#dashboard-icon-border-colour');
+  const iconMediaFit = dashboardElement('#dashboard-icon-media-fit');
   if (contentMode) contentMode.value = appearance.contentMode;
   if (customTitle) customTitle.value = appearance.customTitle ?? '';
   if (customIcon) customIcon.value = appearance.customIcon ?? '';
   if (mediaFit) mediaFit.value = appearance.mediaFit;
   if (mediaOverlay) mediaOverlay.value = appearance.mediaOverlay;
+  if (iconMode) iconMode.value = appearance.iconMode;
+  if (iconLabel) {
+    iconLabel.value = appearance.iconLabel ?? '';
+    const feature = featureById(tile.featureId);
+    iconLabel.placeholder = feature?.iconText ? `Use feature default (${feature.iconText})` : 'Use feature default';
+  }
+  if (iconTextColour) iconTextColour.value = appearance.iconTextColour;
+  if (iconBackgroundColour) iconBackgroundColour.value = appearance.iconBackgroundColour;
+  if (iconBorderColour) iconBorderColour.value = appearance.iconBorderColour;
+  if (iconMediaFit) iconMediaFit.value = appearance.iconMediaFit;
   setCustomContentVisibility(appearance.contentMode);
+  setStandardIconVisibility(appearance.iconMode);
   const type = dashboardElement('#dashboard-background-type');
   if (type) type.value = appearance.backgroundType;
   setAppearanceModeVisibility(appearance.backgroundType);
@@ -825,6 +875,10 @@ function renderAppearanceControls(tile) {
   if (mediaStatus) mediaStatus.textContent = appearance.backgroundMedia ? 'Picture or GIF selected and ready to save.' : 'No picture selected.';
   const removeMedia = dashboardElement('#dashboard-remove-media');
   if (removeMedia) removeMedia.disabled = !appearance.backgroundMedia;
+  const iconMediaStatus = dashboardElement('#dashboard-icon-media-status');
+  if (iconMediaStatus) iconMediaStatus.textContent = appearance.iconMedia ? 'Icon picture selected and ready to save.' : 'No icon picture selected.';
+  const removeIconMedia = dashboardElement('#dashboard-remove-icon-media');
+  if (removeIconMedia) removeIconMedia.disabled = !appearance.iconMedia;
 
   const solidPalette = dashboardElement('#dashboard-solid-palette');
   if (solidPalette) {
@@ -1149,6 +1203,27 @@ dashboardElement('#dashboard-remove-selected')?.addEventListener('click', () => 
 dashboardElement('#dashboard-selected-dimension')?.addEventListener('change', event => {
   if (dashboardState.selectedId) resizeWorkingTile(dashboardState.selectedId, event.currentTarget.value);
 });
+dashboardElement('#dashboard-icon-mode')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const value = String(event.currentTarget.value);
+  if (!tile || !TILE_ICON_MODES.has(value)) return;
+  tile.iconMode = value;
+  refreshAppearancePreview(tile, value === 'image' ? 'Picture icon selected. Upload a picture before saving.' : 'Letter icon selected.');
+});
+dashboardElement('#dashboard-icon-label')?.addEventListener('input', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  const value = String(event.currentTarget.value).slice(0, 6);
+  tile.iconLabel = value.trim() || null;
+  renderDashboardGrid();
+});
+dashboardElement('#dashboard-icon-media-fit')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const value = String(event.currentTarget.value);
+  if (!tile || !TILE_MEDIA_FITS.has(value)) return;
+  tile.iconMediaFit = value;
+  refreshAppearancePreview(tile);
+});
 dashboardElement('#dashboard-content-mode')?.addEventListener('change', event => {
   const tile = workingTile(dashboardState.selectedId);
   const value = String(event.currentTarget.value);
@@ -1186,7 +1261,7 @@ dashboardElement('#dashboard-background-type')?.addEventListener('change', event
   tile.backgroundType = value;
   refreshAppearancePreview(tile, (event.currentTarget.selectedOptions[0]?.textContent ?? value) + ' selected.');
 });
-[['#dashboard-background-primary','backgroundPrimary'],['#dashboard-gradient-primary','backgroundPrimary'],['#dashboard-background-secondary','backgroundSecondary'],['#dashboard-text-colour','textColour'],['#dashboard-border-colour','borderColour']].forEach(([selector, field]) => {
+[['#dashboard-background-primary','backgroundPrimary'],['#dashboard-gradient-primary','backgroundPrimary'],['#dashboard-background-secondary','backgroundSecondary'],['#dashboard-text-colour','textColour'],['#dashboard-border-colour','borderColour'],['#dashboard-icon-text-colour','iconTextColour'],['#dashboard-icon-background-colour','iconBackgroundColour'],['#dashboard-icon-border-colour','iconBorderColour']].forEach(([selector, field]) => {
   dashboardElement(selector)?.addEventListener('input', event => {
     const tile = workingTile(dashboardState.selectedId);
     const value = String(event.currentTarget.value).toLowerCase();
@@ -1210,6 +1285,56 @@ dashboardElement('#dashboard-font-family')?.addEventListener('change', event => 
   if (!tile || !Object.hasOwn(TILE_FONT_STACKS, value)) return;
   tile.fontFamily = value;
   refreshAppearancePreview(tile, (event.currentTarget.selectedOptions[0]?.textContent ?? value) + ' font selected.');
+});
+dashboardElement('#dashboard-icon-media')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const file = event.currentTarget.files?.[0];
+  if (!tile || !file) return;
+  const allowed = new Set(['image/png','image/jpeg','image/webp','image/gif']);
+  if (!allowed.has(file.type)) {
+    event.currentTarget.value = '';
+    editorMessage('Choose a PNG, JPEG, WebP or animated GIF for the icon.', 'error');
+    return;
+  }
+  if (file.size > MAX_TILE_MEDIA_BYTES) {
+    event.currentTarget.value = '';
+    editorMessage('Icon pictures and GIFs must be 1.4 MB or smaller.', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    if (typeof reader.result !== 'string') return;
+    tile.iconMode = 'image';
+    tile.iconMedia = reader.result;
+    refreshAppearancePreview(tile, file.name + ' selected as the standard tile icon.');
+  });
+  reader.addEventListener('error', () => editorMessage('The icon picture or GIF could not be read.', 'error'));
+  reader.readAsDataURL(file);
+});
+dashboardElement('#dashboard-remove-icon-media')?.addEventListener('click', () => {
+  const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  tile.iconMedia = null;
+  tile.iconMode = 'text';
+  const input = dashboardElement('#dashboard-icon-media');
+  if (input) input.value = '';
+  refreshAppearancePreview(tile, 'Icon picture removed. The letter icon is active again.');
+});
+dashboardElement('#dashboard-reset-icon')?.addEventListener('click', () => {
+  const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  Object.assign(tile, {
+    iconMode: DEFAULT_TILE_APPEARANCE.iconMode,
+    iconLabel: DEFAULT_TILE_APPEARANCE.iconLabel,
+    iconMedia: DEFAULT_TILE_APPEARANCE.iconMedia,
+    iconTextColour: DEFAULT_TILE_APPEARANCE.iconTextColour,
+    iconBackgroundColour: DEFAULT_TILE_APPEARANCE.iconBackgroundColour,
+    iconBorderColour: DEFAULT_TILE_APPEARANCE.iconBorderColour,
+    iconMediaFit: DEFAULT_TILE_APPEARANCE.iconMediaFit
+  });
+  const input = dashboardElement('#dashboard-icon-media');
+  if (input) input.value = '';
+  refreshAppearancePreview(tile, 'Standard tile icon reset.');
 });
 dashboardElement('#dashboard-background-media')?.addEventListener('change', event => {
   const tile = workingTile(dashboardState.selectedId);
@@ -1250,7 +1375,9 @@ dashboardElement('#dashboard-reset-appearance')?.addEventListener('click', () =>
   if (!tile) return;
   Object.assign(tile, DEFAULT_TILE_APPEARANCE);
   const input = dashboardElement('#dashboard-background-media');
+  const iconInput = dashboardElement('#dashboard-icon-media');
   if (input) input.value = '';
+  if (iconInput) iconInput.value = '';
   refreshAppearancePreview(tile, 'Tile appearance reset.');
 });
 document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
