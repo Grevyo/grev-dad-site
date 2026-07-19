@@ -95,8 +95,9 @@ const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cya
 const VALID_BACKGROUND_TYPES = new Set<TileBackgroundType>(['solid','gradient','media']);
 const VALID_FONT_FAMILIES = new Set<TileFontFamily>(['system','display','mono','serif','rounded']);
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
-const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/]+={0,2}$/i;
+const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_TILE_MEDIA_BYTES = 2 * 1024 * 1024;
+const MAX_LAYOUT_MEDIA_BYTES = 8 * 1024 * 1024;
 const DEFAULT_TILE_APPEARANCE: TileAppearance = {
   backgroundType: 'solid',
   backgroundPrimary: '#11161d',
@@ -203,6 +204,24 @@ function dataUrlByteLength(value: string): number {
   return Math.floor(encoded.length * 3 / 4) - padding;
 }
 
+function validImageDataUrl(value: string): boolean {
+  const match = value.match(IMAGE_DATA_URL);
+  if (!match || !match[1] || !match[2] || dataUrlByteLength(value) > MAX_TILE_MEDIA_BYTES) return false;
+  let binary = '';
+  try {
+    binary = atob(match[2].slice(0, 48));
+  } catch {
+    return false;
+  }
+  const bytes = Array.from(binary, character => character.charCodeAt(0));
+  const mime = match[1].toLowerCase();
+  if (mime === 'png') return bytes.slice(0, 8).join(',') === '137,80,78,71,13,10,26,10';
+  if (mime === 'jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mime === 'gif') return binary.startsWith('GIF87a') || binary.startsWith('GIF89a');
+  if (mime === 'webp') return binary.startsWith('RIFF') && binary.slice(8, 12) === 'WEBP';
+  return false;
+}
+
 function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance | null {
   const backgroundType = String(item.backgroundType ?? DEFAULT_TILE_APPEARANCE.backgroundType) as TileBackgroundType;
   const backgroundPrimary = String(item.backgroundPrimary ?? DEFAULT_TILE_APPEARANCE.backgroundPrimary).toLowerCase();
@@ -214,7 +233,7 @@ function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance 
   const borderColour = String(item.borderColour ?? DEFAULT_TILE_APPEARANCE.borderColour).toLowerCase();
   if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour)) return null;
   if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
-  if (backgroundMediaValue && (!IMAGE_DATA_URL.test(backgroundMediaValue) || dataUrlByteLength(backgroundMediaValue) > MAX_TILE_MEDIA_BYTES)) return null;
+  if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
   if (backgroundType === 'media' && !backgroundMediaValue) return null;
   return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour };
 }
@@ -440,6 +459,7 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
   const available = new Map(availableRows.map(row => [row.id, row]));
   const seen = new Set<string>();
   const tiles: TilePlacement[] = [];
+  let totalMediaBytes = 0;
 
   for (const rawTile of rawTiles) {
     if (!rawTile || typeof rawTile !== 'object' || Array.isArray(rawTile)) return secureJson({ ok: false, message: 'The dashboard layout is invalid.' }, { status: 400 });
@@ -448,6 +468,10 @@ async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUs
     const feature = available.get(featureId);
     const appearance = tileAppearanceFromInput(item);
     if (!appearance) return secureJson({ ok: false, message: 'Choose a valid tile background, text colour, font, border and media file.' }, { status: 400 });
+    if (appearance.backgroundMedia) {
+      totalMediaBytes += dataUrlByteLength(appearance.backgroundMedia);
+      if (totalMediaBytes > MAX_LAYOUT_MEDIA_BYTES) return secureJson({ ok: false, message: 'Tile pictures and GIFs may use up to 8 MB across one dashboard layout.' }, { status: 400 });
+    }
     const tile: TilePlacement = {
       featureId,
       x: Number(item.x),
