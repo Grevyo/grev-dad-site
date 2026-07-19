@@ -40,10 +40,30 @@ function invalidIntentionsResponse(): Response {
   return workerJson({ ok: false, message: 'Choose at least one intention.' }, 400);
 }
 
+async function bundledProfileCustomization(request: Request, env: AppEnv): Promise<Response> {
+  const assets = (env as unknown as DashboardEnv).ASSETS;
+  const baseUrl = new URL(request.url);
+  const hardeningUrl = new URL('/profile-customization-hardening.js', baseUrl);
+  const [baseResponse, hardeningResponse] = await Promise.all([
+    assets.fetch(request),
+    assets.fetch(new Request(hardeningUrl.toString(), request))
+  ]);
+  if (!baseResponse.ok) return baseResponse;
+  const content = `${await baseResponse.text()}\n${hardeningResponse.ok ? await hardeningResponse.text() : ''}`;
+  const headers = new Headers(baseResponse.headers);
+  headers.delete('Content-Length');
+  headers.set('Content-Type', 'application/javascript; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  return new Response(content, { status: baseResponse.status, headers });
+}
+
 export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
 
+    if (request.method === 'GET' && url.pathname === '/profile-customization.js') {
+      return bundledProfileCustomization(request, env);
+    }
     if (request.method === 'GET' && DASHBOARD_ASSETS.has(url.pathname)) {
       return (env as unknown as DashboardEnv).ASSETS.fetch(request);
     }
