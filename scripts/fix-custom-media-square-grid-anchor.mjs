@@ -21,23 +21,18 @@ if (source.includes(resizeBefore)) {
   changed = true;
 }
 
-const oldServerBlock = `  source = replaceOnce(
-    source,
-    "t.border_colour,\\n       COALESCE((",
-    "       t.border_colour,\\n       t.content_mode,\\n       t.custom_title,\\n       t.custom_icon,\\n       t.media_fit,\\n       t.media_overlay,\\n       COALESCE((",
-    'accessible feature custom columns'
-  );`;
-const newServerBlock = `  source = replaceOnce(
+const oldExactServerBlock = `  source = replaceOnce(
     source,
     "       COALESCE((\\n         SELECT GROUP_CONCAT",
     "       t.content_mode,\\n       t.custom_title,\\n       t.custom_icon,\\n       t.media_fit,\\n       t.media_overlay,\\n       COALESCE((\\n         SELECT GROUP_CONCAT",
     'accessible feature custom columns'
   );`;
-if (source.includes(oldServerBlock)) {
-  source = source.replace(oldServerBlock, newServerBlock);
+const regexServerBlock = `  {\n    const accessibleColumnsPattern = /(\\n\\s*t\\.border_colour,\\n)(\\s*COALESCE\\(\\()/;\n    if (!accessibleColumnsPattern.test(source)) throw new Error('Missing accessible feature custom column insertion point.');\n    source = source.replace(accessibleColumnsPattern, '$1       t.content_mode,\\n       t.custom_title,\\n       t.custom_icon,\\n       t.media_fit,\\n       t.media_overlay,\\n$2');\n  }`;
+if (source.includes(oldExactServerBlock)) {
+  source = source.replace(oldExactServerBlock, regexServerBlock);
   changed = true;
 }
 
-if (!changed && !source.includes(newServerBlock)) throw new Error('No custom media patch anchors were available to correct.');
+if (!changed && !source.includes('accessibleColumnsPattern')) throw new Error('No custom media patch anchors were available to correct.');
 fs.writeFileSync(path, source);
 console.log('Custom media patch anchors corrected.');
