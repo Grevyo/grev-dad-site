@@ -31,7 +31,7 @@ function tileAppearanceFromInput`,
 
 function validImageDataUrl(value: string): boolean {
   const match = value.match(IMAGE_DATA_URL);
-  if (!match || dataUrlByteLength(value) > MAX_TILE_MEDIA_BYTES) return false;
+  if (!match || !match[1] || !match[2] || dataUrlByteLength(value) > MAX_TILE_MEDIA_BYTES) return false;
   let binary = '';
   try {
     binary = atob(match[2].slice(0, 48));
