@@ -76,7 +76,8 @@ jobs:
             const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
             await page.route('**/api/onboarding', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, progress: { relationshipComplete: true, intentionsComplete: true } }) }));
             await page.route('**/api/dashboard', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) }));
-            await page.route('**/api/session', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, username: 'mobiletest', displayName: 'Mobile Test' }) }));
+            await page.route('**/api/auth/session', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, user: { id: 'u1', username: 'mobiletest', displayName: 'Mobile Test', isOwner: false, isAdmin: false, isVerified: true } }) }));
+            await page.route('**/api/bootstrap/owner-status', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ownerConfigured: true, eligible: false }) }));
             await page.goto('http://127.0.0.1:8000/dashboard.html', { waitUntil: 'networkidle' });
             await page.waitForSelector('.dashboard-tile');
 
@@ -102,8 +103,9 @@ jobs:
             });
             assert.equal(layout.viewport, 390);
             assert.ok(layout.scrollWidth <= 390, `horizontal overflow: ${layout.scrollWidth}`);
-            const columns = layout.gridColumns.split(' ').filter(Boolean).map(Number);
+            const columns = layout.gridColumns.split(' ').filter(Boolean).map(value => Number.parseFloat(value));
             assert.equal(columns.length, 2, layout.gridColumns);
+            assert.ok(columns.every(Number.isFinite), layout.gridColumns);
             assert.ok(Math.abs(columns[0] - columns[1]) < 1, layout.gridColumns);
             assert.equal(layout.summary.includes('2-column mobile grid'), true, layout.summary);
             assert.equal(layout.gap, '12px');
