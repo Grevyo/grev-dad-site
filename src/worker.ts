@@ -21,7 +21,8 @@ const DASHBOARD_ASSETS = new Set([
   '/profile-customization.js',
   '/profile-customization-hardening.js',
   '/profile-editor-unified.css',
-  '/profile-editor-unified.js'
+  '/profile-editor-unified.js',
+  '/profile-editor-unified-a11y.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -42,16 +43,16 @@ function invalidIntentionsResponse(): Response {
   return workerJson({ ok: false, message: 'Choose at least one intention.' }, 400);
 }
 
-async function bundledProfileCustomization(request: Request, env: AppEnv): Promise<Response> {
+async function bundledJavascript(request: Request, env: AppEnv, appendedPath: string): Promise<Response> {
   const assets = (env as unknown as DashboardEnv).ASSETS;
   const baseUrl = new URL(request.url);
-  const hardeningUrl = new URL('/profile-customization-hardening.js', baseUrl);
-  const [baseResponse, hardeningResponse] = await Promise.all([
+  const appendedUrl = new URL(appendedPath, baseUrl);
+  const [baseResponse, appendedResponse] = await Promise.all([
     assets.fetch(request),
-    assets.fetch(new Request(hardeningUrl.toString(), request))
+    assets.fetch(new Request(appendedUrl.toString(), request))
   ]);
   if (!baseResponse.ok) return baseResponse;
-  const content = `${await baseResponse.text()}\n${hardeningResponse.ok ? await hardeningResponse.text() : ''}`;
+  const content = `${await baseResponse.text()}\n${appendedResponse.ok ? await appendedResponse.text() : ''}`;
   const headers = new Headers(baseResponse.headers);
   headers.delete('Content-Length');
   headers.set('Content-Type', 'application/javascript; charset=utf-8');
@@ -64,7 +65,10 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') {
-      return bundledProfileCustomization(request, env);
+      return bundledJavascript(request, env, '/profile-customization-hardening.js');
+    }
+    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') {
+      return bundledJavascript(request, env, '/profile-editor-unified-a11y.js');
     }
     if (request.method === 'GET' && DASHBOARD_ASSETS.has(url.pathname)) {
       return (env as unknown as DashboardEnv).ASSETS.fetch(request);
