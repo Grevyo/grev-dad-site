@@ -18,7 +18,7 @@
 
 <section id="dashboard-editor-toolbar" class="dashboard-editor-toolbar" hidden aria-label="Dashboard editing controls">
 <div class="dashboard-editor-topline">
-<div><p class="eyebrow">Live dashboard editor</p><h2>Edit directly on your dashboard</h2><p>Grab and drag the tile itself to move it. Use Tile settings for exact size, colour and position controls, or drag the bottom-right corner to resize. Nothing is stored until you press Save dashboard.</p></div>
+<div><p class="eyebrow">Live dashboard editor</p><h2>Edit directly on your dashboard</h2><p>Grab each tile from the exact point you want to hold, then move it around the grid. Tile settings controls its size, background, text, font and border. Nothing is stored until you press Save dashboard.</p></div>
 <div class="dashboard-editor-actions"><button id="dashboard-pack-layout" type="button">Pack tiles</button><button id="dashboard-reset-layout" type="button">Load defaults</button><button id="dashboard-cancel-layout" type="button">Cancel</button><button id="dashboard-save-layout" class="primary" type="button">Save dashboard</button></div>
 </div>
 <div class="dashboard-editor-settings">
@@ -31,18 +31,52 @@
 <div class="dashboard-tile-settings-heading"><div><p class="eyebrow">Tile settings</p><h2 id="dashboard-tile-settings-title">Configure tile</h2></div><button id="dashboard-close-tile-settings" type="button" aria-label="Close tile settings">Close</button></div>
 <div id="dashboard-selected-controls" class="dashboard-selected-controls" hidden>
 <div class="dashboard-selected-identity"><small>Selected tile</small><strong id="dashboard-selected-name">—</strong></div>
+<section class="dashboard-tile-settings-section" aria-labelledby="dashboard-layout-settings-title">
+<div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-layout-settings-title">Layout</h3><span>Exact grid controls</span></div>
+<div class="dashboard-layout-controls">
 <label>Size<select id="dashboard-selected-dimension"></select></label>
-<label>Colour<select id="dashboard-selected-colour"><option value="default">Default charcoal</option><option value="graphite">Graphite</option><option value="blue">Blue</option><option value="cyan">Cyan</option><option value="green">Green</option><option value="amber">Amber</option><option value="red">Red</option><option value="purple">Purple</option><option value="pink">Pink</option></select></label>
 <div class="dashboard-selected-arrows" aria-label="Move selected tile"><button type="button" data-move-x="-1" data-move-y="0" title="Move left">←</button><button type="button" data-move-x="0" data-move-y="-1" title="Move up">↑</button><button type="button" data-move-x="0" data-move-y="1" title="Move down">↓</button><button type="button" data-move-x="1" data-move-y="0" title="Move right">→</button></div>
+</div>
+</section>
+<section class="dashboard-tile-settings-section" aria-labelledby="dashboard-appearance-settings-title">
+<div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-appearance-settings-title">Appearance</h3><span id="dashboard-appearance-name">Solid · Charcoal</span></div>
+<label>Background type<select id="dashboard-background-type"><option value="solid">Solid colour</option><option value="gradient">Multi-colour gradient</option><option value="media">Picture or animated GIF</option></select></label>
+<div id="dashboard-solid-controls" class="dashboard-appearance-mode">
+<strong>Solid colour</strong>
+<div id="dashboard-solid-palette" class="dashboard-appearance-palette" role="list" aria-label="Solid tile colours"></div>
+<label class="dashboard-colour-input">Custom colour<input id="dashboard-background-primary" type="color" value="#171c23"></label>
+</div>
+<div id="dashboard-gradient-controls" class="dashboard-appearance-mode" hidden>
+<strong>Gradient</strong>
+<div id="dashboard-gradient-palette" class="dashboard-appearance-palette dashboard-gradient-palette" role="list" aria-label="Tile gradient presets"></div>
+<div class="dashboard-gradient-controls">
+<label class="dashboard-colour-input">First colour<input id="dashboard-gradient-primary" type="color" value="#3157c9"></label>
+<label class="dashboard-colour-input">Second colour<input id="dashboard-background-secondary" type="color" value="#9b4dca"></label>
+<label>Angle <output id="dashboard-gradient-angle-value" for="dashboard-gradient-angle">135°</output><input id="dashboard-gradient-angle" type="range" min="0" max="360" step="5" value="135"></label>
+</div>
+</div>
+<div id="dashboard-media-controls" class="dashboard-appearance-mode" hidden>
+<strong>Picture or GIF background</strong>
+<label class="dashboard-media-upload">Choose PNG, JPEG, WebP or animated GIF<input id="dashboard-background-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+<div class="dashboard-media-actions"><span id="dashboard-media-status">No picture selected.</span><button id="dashboard-remove-media" type="button">Remove picture</button></div>
+<small>Maximum file size: 1.4 MB. The image is stored privately with your dashboard layout.</small>
+</div>
+<div class="dashboard-appearance-finish">
+<label class="dashboard-colour-input">Text colour<input id="dashboard-text-colour" type="color" value="#f4f7fb"></label>
+<label>Font<select id="dashboard-font-family"><option value="system">Grev.dad system</option><option value="display">Bold display</option><option value="mono">Monospace</option><option value="serif">Serif</option><option value="rounded">Rounded</option></select></label>
+<label class="dashboard-colour-input">Border colour<input id="dashboard-border-colour" type="color" value="#526074"></label>
+<button id="dashboard-reset-appearance" type="button">Reset appearance</button>
+</div>
+</section>
 <button id="dashboard-remove-selected" class="danger-action" type="button">Remove tile</button>
 </div>
 </dialog>
-<p id="dashboard-editor-message" class="dashboard-editor-message" role="status">Drag a tile to move it, drag its corner to resize it, or use the selected-tile controls.</p>
+<p id="dashboard-editor-message" class="dashboard-editor-message" role="status">Grab a tile to move it, drag its corner to resize it, or open Tile settings for appearance controls.</p>
 </section>
 
 <section id="dashboard-workspace" class="dashboard-workspace">
 <div class="dashboard-grid-region">
-<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>Grab the whole tile to move it. Use Tile settings for exact controls. Drag the bottom-right corner to resize.</span></div><strong id="dashboard-grid-summary">6 columns</strong></div>
+<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>The placement highlight keeps the exact point where you grabbed the tile. Open Tile settings for colours, gradients, pictures, fonts and borders.</span></div><strong id="dashboard-grid-summary">6 columns</strong></div>
 <section id="dashboard-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
 <section id="dashboard-empty" class="dashboard-empty" hidden><h2>Your dashboard is empty</h2><p>Open Customize dashboard and place any features currently available to your account.</p></section>
 </div>

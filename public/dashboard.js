@@ -1,11 +1,36 @@
 const GRID_COLUMNS = 6;
 const TILE_COLOURS = new Set(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
+const TILE_SOLIDS = [
+  { name: 'Charcoal', value: '#11161d' }, { name: 'Graphite', value: '#171b22' }, { name: 'Midnight blue', value: '#101a2a' },
+  { name: 'Deep cyan', value: '#0e2023' }, { name: 'Forest', value: '#112319' }, { name: 'Amber', value: '#2a2010' },
+  { name: 'Crimson', value: '#291417' }, { name: 'Purple', value: '#21172f' }, { name: 'Pink', value: '#2b1624' }
+];
+const TILE_GRADIENTS = [
+  { name: 'Ocean', primary: '#123c69', secondary: '#2b8a9e', angle: 135 },
+  { name: 'Sunset', primary: '#9b2c2c', secondary: '#d97706', angle: 135 },
+  { name: 'Aurora', primary: '#0f766e', secondary: '#7c3aed', angle: 125 },
+  { name: 'Purple haze', primary: '#312e81', secondary: '#a855f7', angle: 145 },
+  { name: 'Fire', primary: '#7f1d1d', secondary: '#f97316', angle: 115 },
+  { name: 'Neon night', primary: '#0f172a', secondary: '#2563eb', angle: 160 },
+  { name: 'Mono steel', primary: '#111827', secondary: '#64748b', angle: 135 },
+  { name: 'Grev', primary: '#151a22', secondary: '#5268aa', angle: 135 }
+];
+const TILE_FONT_STACKS = {
+  system: 'Inter,Segoe UI,Arial,sans-serif',
+  display: 'Impact,Haettenschweiler,Arial Narrow Bold,sans-serif',
+  mono: 'Cascadia Code,Consolas,Monaco,monospace',
+  serif: 'Georgia,Times New Roman,serif',
+  rounded: 'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'
+};
+const DEFAULT_TILE_APPEARANCE = Object.freeze({ backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#5268aa', backgroundAngle: 135, backgroundMedia: null, textColour: '#f4f7fb', fontFamily: 'system', borderColour: '#394657' });
+const MAX_TILE_MEDIA_BYTES = 1_400_000;
 const dashboardState = {
   payload: null,
   workingTiles: [],
   search: '',
   category: 'all',
   draggingId: null,
+  dragOffset: null,
   placementPreview: null,
   resizing: null,
   selectedId: null,
@@ -45,6 +70,52 @@ function featureById(id) {
 
 function workingTile(featureId) {
   return dashboardState.workingTiles.find(tile => tile.featureId === featureId) ?? null;
+}
+
+function validHex(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value ?? ''));
+}
+
+function normalizedTileAppearance(source = {}) {
+  const flatFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour'];
+  const hasFlatAppearance = flatFields.some(field => Object.prototype.hasOwnProperty.call(source, field));
+  const appearance = hasFlatAppearance ? source : (source.appearance ?? source);
+  return {
+    backgroundType: ['solid','gradient','media'].includes(appearance.backgroundType) ? appearance.backgroundType : DEFAULT_TILE_APPEARANCE.backgroundType,
+    backgroundPrimary: validHex(appearance.backgroundPrimary) ? appearance.backgroundPrimary.toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundPrimary,
+    backgroundSecondary: validHex(appearance.backgroundSecondary) ? appearance.backgroundSecondary.toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundSecondary,
+    backgroundAngle: Number.isInteger(Number(appearance.backgroundAngle)) ? Math.max(0, Math.min(360, Number(appearance.backgroundAngle))) : DEFAULT_TILE_APPEARANCE.backgroundAngle,
+    backgroundMedia: typeof appearance.backgroundMedia === 'string' && appearance.backgroundMedia.startsWith('data:image/') ? appearance.backgroundMedia : null,
+    textColour: validHex(appearance.textColour) ? appearance.textColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.textColour,
+    fontFamily: Object.hasOwn(TILE_FONT_STACKS, appearance.fontFamily) ? appearance.fontFamily : DEFAULT_TILE_APPEARANCE.fontFamily,
+    borderColour: validHex(appearance.borderColour) ? appearance.borderColour.toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour
+  };
+}
+
+function applyTileAppearance(article, feature) {
+  const appearance = normalizedTileAppearance(feature);
+  article.dataset.backgroundType = appearance.backgroundType;
+  article.dataset.customAppearance = 'true';
+  article.style.setProperty('--tile-custom-text', appearance.textColour);
+  article.style.setProperty('--tile-custom-border', appearance.borderColour);
+  article.style.setProperty('--tile-custom-font', TILE_FONT_STACKS[appearance.fontFamily]);
+  article.style.setProperty('--tile-accent', appearance.borderColour);
+  article.style.borderColor = appearance.borderColour;
+  article.style.color = appearance.textColour;
+  article.style.fontFamily = TILE_FONT_STACKS[appearance.fontFamily];
+  article.style.backgroundSize = 'cover';
+  article.style.backgroundPosition = 'center';
+  article.style.backgroundRepeat = 'no-repeat';
+  if (appearance.backgroundType === 'gradient') {
+    article.style.backgroundImage = 'linear-gradient(' + appearance.backgroundAngle + 'deg, ' + appearance.backgroundPrimary + ', ' + appearance.backgroundSecondary + ')';
+    article.style.backgroundColor = appearance.backgroundPrimary;
+  } else if (appearance.backgroundType === 'media' && appearance.backgroundMedia) {
+    article.style.backgroundImage = 'url(' + JSON.stringify(appearance.backgroundMedia) + ')';
+    article.style.backgroundColor = appearance.backgroundPrimary;
+  } else {
+    article.style.backgroundImage = 'none';
+    article.style.backgroundColor = appearance.backgroundPrimary;
+  }
 }
 
 function tileRoute(feature) {
@@ -87,7 +158,8 @@ function clonePinnedTiles() {
     y: Number(feature.y ?? 0),
     width: Number(feature.width ?? feature.defaultWidth ?? 2),
     height: Number(feature.height ?? feature.defaultHeight ?? 1),
-    colour: TILE_COLOURS.has(feature.tileColour) ? feature.tileColour : 'default'
+    colour: TILE_COLOURS.has(feature.tileColour) ? feature.tileColour : 'default',
+    ...normalizedTileAppearance(feature)
   }));
 }
 
@@ -411,6 +483,7 @@ function createDashboardTile(feature, preferences, editing = false) {
   article.dataset.presentation = feature.presentation === 'content' ? 'content' : 'action';
   article.style.gridColumn = `${Number(feature.x) + 1} / span ${feature.width}`;
   article.style.gridRow = `${Number(feature.y) + 1} / span ${feature.height}`;
+  applyTileAppearance(article, feature);
 
   if (editing) {
     const strip = document.createElement('div');
@@ -446,6 +519,15 @@ function createDashboardTile(feature, preferences, editing = false) {
         return;
       }
       const tile = workingTile(feature.id);
+      const metrics = gridMetrics();
+      const rect = article.getBoundingClientRect();
+      const localX = Math.max(0, Math.min(Math.max(0, rect.width - 1), Number(event.clientX || rect.left) - rect.left));
+      const localY = Math.max(0, Math.min(Math.max(0, rect.height - 1), Number(event.clientY || rect.top) - rect.top));
+      dashboardState.dragOffset = tile && metrics ? {
+        x: Math.max(0, Math.min(tile.width - 1, Math.floor(localX / (metrics.cellWidth + metrics.gap)))),
+        y: Math.max(0, Math.min(tile.height - 1, Math.floor(localY / (metrics.rowHeight + metrics.gap))))
+      } : { x: 0, y: 0 };
+      if (event.dataTransfer?.setDragImage) event.dataTransfer.setDragImage(article, localX, localY);
       dashboardState.draggingId = feature.id;
       dashboardState.selectedId = feature.id;
       article.classList.add('dragging');
@@ -456,6 +538,7 @@ function createDashboardTile(feature, preferences, editing = false) {
     });
     article.addEventListener('dragend', () => {
       dashboardState.draggingId = null;
+      dashboardState.dragOffset = null;
       article.classList.remove('dragging');
       clearPlacementPreview();
     });
@@ -561,13 +644,102 @@ function renderSelectedControls() {
     option.selected = dimensionKey(tile.width, tile.height) === value;
     size.append(option);
   });
-  const colour = dashboardElement('#dashboard-selected-colour');
-  if (colour) colour.value = TILE_COLOURS.has(tile.colour) ? tile.colour : 'default';
+  renderAppearanceControls(tile);
   document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
     const horizontal = Number(button.dataset.moveX) !== 0;
     button.disabled = isSingleColumnFallback() && horizontal;
     button.title = button.disabled ? 'Horizontal placement requires a wider screen' : button.title;
   });
+}
+
+function setAppearanceModeVisibility(type) {
+  const solid = dashboardElement('#dashboard-solid-controls');
+  const gradient = dashboardElement('#dashboard-gradient-controls');
+  const media = dashboardElement('#dashboard-media-controls');
+  if (solid) solid.hidden = type !== 'solid';
+  if (gradient) gradient.hidden = type !== 'gradient';
+  if (media) media.hidden = type !== 'media';
+}
+
+function appearanceName(tile) {
+  const appearance = normalizedTileAppearance(tile);
+  if (appearance.backgroundType === 'media') return appearance.backgroundMedia ? 'Picture or animated GIF' : 'Picture or GIF not selected';
+  if (appearance.backgroundType === 'gradient') {
+    const preset = TILE_GRADIENTS.find(item => item.primary === appearance.backgroundPrimary && item.secondary === appearance.backgroundSecondary && item.angle === appearance.backgroundAngle);
+    return 'Gradient · ' + (preset?.name ?? 'Custom');
+  }
+  const preset = TILE_SOLIDS.find(item => item.value === appearance.backgroundPrimary);
+  return 'Solid · ' + (preset?.name ?? appearance.backgroundPrimary.toUpperCase());
+}
+
+function paletteButton(label, background, selected, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'dashboard-appearance-choice' + (selected ? ' selected' : '');
+  button.setAttribute('aria-pressed', String(selected));
+  const swatch = document.createElement('span');
+  swatch.className = 'dashboard-appearance-swatch';
+  swatch.style.background = background;
+  const name = document.createElement('span');
+  name.textContent = label;
+  button.append(swatch, name);
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function refreshAppearancePreview(tile, message = '') {
+  if (message) editorMessage(message, 'success');
+  renderDashboardGrid();
+  renderSelectedControls();
+}
+
+function renderAppearanceControls(tile) {
+  const appearance = normalizedTileAppearance(tile);
+  Object.assign(tile, appearance);
+  const type = dashboardElement('#dashboard-background-type');
+  if (type) type.value = appearance.backgroundType;
+  setAppearanceModeVisibility(appearance.backgroundType);
+  const primary = dashboardElement('#dashboard-background-primary');
+  const gradientPrimary = dashboardElement('#dashboard-gradient-primary');
+  const secondary = dashboardElement('#dashboard-background-secondary');
+  const angle = dashboardElement('#dashboard-gradient-angle');
+  const angleValue = dashboardElement('#dashboard-gradient-angle-value');
+  const text = dashboardElement('#dashboard-text-colour');
+  const font = dashboardElement('#dashboard-font-family');
+  const border = dashboardElement('#dashboard-border-colour');
+  if (primary) primary.value = appearance.backgroundPrimary;
+  if (gradientPrimary) gradientPrimary.value = appearance.backgroundPrimary;
+  if (secondary) secondary.value = appearance.backgroundSecondary;
+  if (angle) angle.value = String(appearance.backgroundAngle);
+  if (angleValue) angleValue.textContent = String(appearance.backgroundAngle) + '°';
+  if (text) text.value = appearance.textColour;
+  if (font) font.value = appearance.fontFamily;
+  if (border) border.value = appearance.borderColour;
+  const appearanceLabel = dashboardElement('#dashboard-appearance-name');
+  if (appearanceLabel) appearanceLabel.textContent = appearanceName(tile);
+  const mediaStatus = dashboardElement('#dashboard-media-status');
+  if (mediaStatus) mediaStatus.textContent = appearance.backgroundMedia ? 'Picture or GIF selected and ready to save.' : 'No picture selected.';
+  const removeMedia = dashboardElement('#dashboard-remove-media');
+  if (removeMedia) removeMedia.disabled = !appearance.backgroundMedia;
+
+  const solidPalette = dashboardElement('#dashboard-solid-palette');
+  if (solidPalette) {
+    solidPalette.replaceChildren(...TILE_SOLIDS.map(item => paletteButton(item.name, item.value, appearance.backgroundType === 'solid' && appearance.backgroundPrimary === item.value, () => {
+      tile.backgroundType = 'solid';
+      tile.backgroundPrimary = item.value;
+      refreshAppearancePreview(tile, item.name + ' background selected.');
+    })));
+  }
+  const gradientPalette = dashboardElement('#dashboard-gradient-palette');
+  if (gradientPalette) {
+    gradientPalette.replaceChildren(...TILE_GRADIENTS.map(item => paletteButton(item.name, 'linear-gradient(' + item.angle + 'deg,' + item.primary + ',' + item.secondary + ')', appearance.backgroundType === 'gradient' && appearance.backgroundPrimary === item.primary && appearance.backgroundSecondary === item.secondary && appearance.backgroundAngle === item.angle, () => {
+      tile.backgroundType = 'gradient';
+      tile.backgroundPrimary = item.primary;
+      tile.backgroundSecondary = item.secondary;
+      tile.backgroundAngle = item.angle;
+      refreshAppearancePreview(tile, item.name + ' gradient selected.');
+    })));
+  }
 }
 
 function addWorkingTile(feature) {
@@ -577,7 +749,7 @@ function addWorkingTile(feature) {
   }
   const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
   const placement = firstFreePlacement(dimension.width, dimension.height);
-  dashboardState.workingTiles.push({ featureId: feature.id, ...placement, colour: 'default' });
+  dashboardState.workingTiles.push({ featureId: feature.id, ...placement, colour: 'default', ...DEFAULT_TILE_APPEARANCE });
   dashboardState.selectedId = feature.id;
   editorMessage(`${feature.name} placed at column ${placement.x + 1}, row ${placement.y + 1}.`, 'success');
   renderEditor();
@@ -647,7 +819,7 @@ function loadDefaultWorkingTiles() {
   defaults.forEach(feature => {
     const dimension = parseDimension(feature.defaultDimension) ?? { width: 2, height: 1 };
     const placement = firstFreePlacement(dimension.width, dimension.height, null, tiles);
-    tiles.push({ featureId: feature.id, ...placement, colour: 'default' });
+    tiles.push({ featureId: feature.id, ...placement, colour: 'default', ...DEFAULT_TILE_APPEARANCE });
   });
   dashboardState.workingTiles = tiles;
   dashboardState.selectedId = tiles[0]?.featureId ?? null;
@@ -662,7 +834,11 @@ function loadDefaultWorkingTiles() {
 function dropCoordinates(event, tile) {
   const cell = pointerGridCell(event);
   if (!cell) return null;
-  return { x: Math.max(0, Math.min(GRID_COLUMNS - tile.width, cell.x)), y: cell.y };
+  const offset = dashboardState.dragOffset ?? { x: 0, y: 0 };
+  return {
+    x: Math.max(0, Math.min(GRID_COLUMNS - tile.width, cell.x - offset.x)),
+    y: Math.max(0, cell.y - offset.y)
+  };
 }
 
 function renderCatalogueTools() {
@@ -762,6 +938,7 @@ function closeEditor(saved = false) {
   closeTileSettings();
   clearPlacementPreview();
   dashboardState.draggingId = null;
+  dashboardState.dragOffset = null;
   dashboardState.resizing = null;
   dashboardState.editing = false;
   dashboardState.workingTiles = [];
@@ -843,6 +1020,7 @@ dashboardGrid?.addEventListener('drop', event => {
   }
   Object.assign(tile, candidate);
   dashboardState.draggingId = null;
+  dashboardState.dragOffset = null;
   dashboardState.selectedId = featureId;
   editorMessage(`Moved to column ${tile.x + 1}, row ${tile.y + 1}. Blank cells were left in place.`, 'success');
   renderEditor();
@@ -867,14 +1045,79 @@ dashboardElement('#dashboard-remove-selected')?.addEventListener('click', () => 
 dashboardElement('#dashboard-selected-dimension')?.addEventListener('change', event => {
   if (dashboardState.selectedId) resizeWorkingTile(dashboardState.selectedId, event.currentTarget.value);
 });
-dashboardElement('#dashboard-selected-colour')?.addEventListener('change', event => {
+dashboardElement('#dashboard-background-type')?.addEventListener('change', event => {
   const tile = workingTile(dashboardState.selectedId);
-  const colour = String(event.currentTarget.value);
-  if (!tile || !TILE_COLOURS.has(colour)) return;
-  tile.colour = colour;
-  editorMessage(`${featureById(tile.featureId)?.name ?? 'Tile'} colour changed to ${event.currentTarget.selectedOptions[0]?.textContent ?? colour}.`, 'success');
-  renderDashboardGrid();
-  renderSelectedControls();
+  const value = String(event.currentTarget.value);
+  if (!tile || !['solid','gradient','media'].includes(value)) return;
+  tile.backgroundType = value;
+  refreshAppearancePreview(tile, (event.currentTarget.selectedOptions[0]?.textContent ?? value) + ' selected.');
+});
+[['#dashboard-background-primary','backgroundPrimary'],['#dashboard-gradient-primary','backgroundPrimary'],['#dashboard-background-secondary','backgroundSecondary'],['#dashboard-text-colour','textColour'],['#dashboard-border-colour','borderColour']].forEach(([selector, field]) => {
+  dashboardElement(selector)?.addEventListener('input', event => {
+    const tile = workingTile(dashboardState.selectedId);
+    const value = String(event.currentTarget.value).toLowerCase();
+    if (!tile || !validHex(value)) return;
+    tile[field] = value;
+    if (field === 'backgroundPrimary' && selector === '#dashboard-background-primary') tile.backgroundType = 'solid';
+    if ((field === 'backgroundPrimary' && selector === '#dashboard-gradient-primary') || field === 'backgroundSecondary') tile.backgroundType = 'gradient';
+    refreshAppearancePreview(tile);
+  });
+});
+dashboardElement('#dashboard-gradient-angle')?.addEventListener('input', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  tile.backgroundType = 'gradient';
+  tile.backgroundAngle = Math.max(0, Math.min(360, Number(event.currentTarget.value)));
+  refreshAppearancePreview(tile);
+});
+dashboardElement('#dashboard-font-family')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const value = String(event.currentTarget.value);
+  if (!tile || !Object.hasOwn(TILE_FONT_STACKS, value)) return;
+  tile.fontFamily = value;
+  refreshAppearancePreview(tile, (event.currentTarget.selectedOptions[0]?.textContent ?? value) + ' font selected.');
+});
+dashboardElement('#dashboard-background-media')?.addEventListener('change', event => {
+  const tile = workingTile(dashboardState.selectedId);
+  const file = event.currentTarget.files?.[0];
+  if (!tile || !file) return;
+  const allowed = new Set(['image/png','image/jpeg','image/webp','image/gif']);
+  if (!allowed.has(file.type)) {
+    event.currentTarget.value = '';
+    editorMessage('Choose a PNG, JPEG, WebP or animated GIF.', 'error');
+    return;
+  }
+  if (file.size > MAX_TILE_MEDIA_BYTES) {
+    event.currentTarget.value = '';
+    editorMessage('Tile pictures and GIFs must be 1.4 MB or smaller.', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    if (typeof reader.result !== 'string') return;
+    tile.backgroundType = 'media';
+    tile.backgroundMedia = reader.result;
+    refreshAppearancePreview(tile, file.name + ' selected as the tile background.');
+  });
+  reader.addEventListener('error', () => editorMessage('The picture or GIF could not be read.', 'error'));
+  reader.readAsDataURL(file);
+});
+dashboardElement('#dashboard-remove-media')?.addEventListener('click', () => {
+  const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  tile.backgroundMedia = null;
+  tile.backgroundType = 'solid';
+  const input = dashboardElement('#dashboard-background-media');
+  if (input) input.value = '';
+  refreshAppearancePreview(tile, 'Tile picture removed.');
+});
+dashboardElement('#dashboard-reset-appearance')?.addEventListener('click', () => {
+  const tile = workingTile(dashboardState.selectedId);
+  if (!tile) return;
+  Object.assign(tile, DEFAULT_TILE_APPEARANCE);
+  const input = dashboardElement('#dashboard-background-media');
+  if (input) input.value = '';
+  refreshAppearancePreview(tile, 'Tile appearance reset.');
 });
 document.querySelectorAll('[data-move-x][data-move-y]').forEach(button => {
   button.addEventListener('click', () => {
