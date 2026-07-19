@@ -1232,6 +1232,7 @@ dashboardElement('#dashboard-content-mode')?.addEventListener('change', event =>
   const value = String(event.currentTarget.value);
   if (!tile || !TILE_CONTENT_MODES.has(value)) return;
   tile.contentMode = value;
+  if (value === 'media-button' && tile.iconMode === 'image' && !tile.iconMedia) tile.iconMode = 'text';
   if (value === 'media-button') {
     tile.backgroundType = 'media';
   } else if (tile.backgroundType === 'media' && !tile.backgroundMedia) {

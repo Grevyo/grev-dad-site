@@ -164,6 +164,10 @@ const LEGACY_TILE_APPEARANCE: Record<TileColour, Pick<TileAppearance, 'backgroun
   purple: { backgroundPrimary: '#21172f', borderColour: '#60457f' },
   pink: { backgroundPrimary: '#2b1624', borderColour: '#7c3b65' }
 };
+const LEGACY_ICON_BORDERS: Record<TileColour, string> = {
+  default: '#667181', graphite: '#687789', blue: '#5c82b8', cyan: '#4e9ca5', green: '#58936c',
+  amber: '#aa813d', red: '#a95461', purple: '#8765aa', pink: '#a9588a'
+};
 
 function legacyAppearance(colour: TileColour): TileAppearance {
   const legacy = LEGACY_TILE_APPEARANCE[colour];
@@ -365,6 +369,7 @@ function featureFromRow(row: FeatureRow) {
   const fontFamilyValue = String(row.font_family ?? DEFAULT_TILE_APPEARANCE.fontFamily) as TileFontFamily;
   const backgroundType = VALID_BACKGROUND_TYPES.has(backgroundTypeValue) ? backgroundTypeValue : DEFAULT_TILE_APPEARANCE.backgroundType;
   const fontFamily = VALID_FONT_FAMILIES.has(fontFamilyValue) ? fontFamilyValue : DEFAULT_TILE_APPEARANCE.fontFamily;
+  const borderColour = HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour;
   const appearance: TileAppearance = {
     backgroundType,
     backgroundPrimary: HEX_COLOUR.test(String(row.background_primary ?? '')) ? String(row.background_primary).toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundPrimary,
@@ -373,7 +378,7 @@ function featureFromRow(row: FeatureRow) {
     backgroundMedia: typeof row.background_media === 'string' && row.background_media ? row.background_media : null,
     textColour: HEX_COLOUR.test(String(row.text_colour ?? '')) ? String(row.text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.textColour,
     fontFamily,
-    borderColour: HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour,
+    borderColour,
     contentMode: VALID_CONTENT_MODES.has(String(row.content_mode ?? '') as TileContentMode) ? String(row.content_mode) as TileContentMode : DEFAULT_TILE_APPEARANCE.contentMode,
     customTitle: typeof row.custom_title === 'string' && row.custom_title.trim() ? row.custom_title.trim() : null,
     customIcon: typeof row.custom_icon === 'string' && row.custom_icon.trim() ? row.custom_icon.trim() : null,
@@ -383,8 +388,8 @@ function featureFromRow(row: FeatureRow) {
     iconLabel: typeof row.icon_label === 'string' && row.icon_label.trim() ? row.icon_label.trim().slice(0, 6) : null,
     iconMedia: typeof row.icon_media === 'string' && row.icon_media ? row.icon_media : null,
     iconTextColour: HEX_COLOUR.test(String(row.icon_text_colour ?? '')) ? String(row.icon_text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconTextColour,
-    iconBackgroundColour: HEX_COLOUR.test(String(row.icon_background_colour ?? '')) ? String(row.icon_background_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconBackgroundColour,
-    iconBorderColour: HEX_COLOUR.test(String(row.icon_border_colour ?? '')) ? String(row.icon_border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconBorderColour,
+    iconBackgroundColour: HEX_COLOUR.test(String(row.icon_background_colour ?? '')) ? String(row.icon_background_colour).toLowerCase() : borderColour,
+    iconBorderColour: HEX_COLOUR.test(String(row.icon_border_colour ?? '')) ? String(row.icon_border_colour).toLowerCase() : LEGACY_ICON_BORDERS[tileColour],
     iconMediaFit: VALID_MEDIA_FITS.has(String(row.icon_media_fit ?? '') as TileMediaFit) ? String(row.icon_media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.iconMediaFit
   };
   return {
