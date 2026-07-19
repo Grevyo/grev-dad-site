@@ -1111,9 +1111,9 @@ dashboardElement('#dashboard-content-mode')?.addEventListener('change', event =>
   dashboardElement(selector)?.addEventListener('input', event => {
     const tile = workingTile(dashboardState.selectedId);
     if (!tile) return;
-    const value = String(event.currentTarget.value).slice(0, Number(maximum)).trim();
+    const value = String(event.currentTarget.value).slice(0, Number(maximum));
     tile[field] = value || null;
-    refreshAppearancePreview(tile);
+    renderDashboardGrid();
   });
 });
 [['#dashboard-media-fit','mediaFit',TILE_MEDIA_FITS],['#dashboard-media-overlay','mediaOverlay',TILE_MEDIA_OVERLAYS]].forEach(([selector, field, allowed]) => {
