@@ -1123,6 +1123,10 @@ function closeEditor(saved = false) {
 }
 
 async function saveDashboardLayout() {
+  if (dashboardState.iconUploads.size > 0) {
+    editorMessage('Wait for the selected icon picture to finish loading before saving.', 'error');
+    return;
+  }
   const preferences = editorPreferences();
   editorMessage('Saving dashboard…');
   try {
