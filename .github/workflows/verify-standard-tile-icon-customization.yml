@@ -26,7 +26,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Verify browser editor
         run: |
-          python3 -m http.server 8000 --directory public >/tmp/icon-static.log 2>&1 &
+          python3 -m http.server 8000 --directory public >standard-icon-artifacts-static.log 2>&1 &
           for attempt in $(seq 1 20); do
             curl -fsS http://127.0.0.1:8000/dashboard.html >/dev/null && break
             sleep 1
@@ -53,73 +53,80 @@ jobs:
           const payload = {ok:true,viewer:{id:'u1',username:'iconuser',displayName:'Icon User',isAdmin:false,isOwner:false},grid:{columns:8,dimensions:['1x1','2x1','2x2']},features:tiles.map(t=>({...t,iconMedia:null,hasIconMedia:Boolean(t.iconMedia),backgroundMedia:null,hasBackgroundMedia:false})),pinnedTiles:tiles,preferences:{density:'comfortable',showDescriptions:true,tileGap:12,outerMargin:0},capabilities:{canCustomize:true,isAdmin:false,isOwner:false}};
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const page=await browser.newPage({viewport:{width:390,height:844}});
-            await page.route('**/api/onboarding',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,progress:{relationshipComplete:true,intentionsComplete:true}})}));
-            await page.route('**/api/dashboard',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)}));
-            await page.route('**/api/auth/session',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({authenticated:true,user:{id:'u1',username:'iconuser',displayName:'Icon User',isOwner:false,isAdmin:false,isVerified:true}})}));
-            await page.route('**/api/bootstrap/owner-status',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ownerConfigured:true,eligible:false})}));
-            await page.goto('http://127.0.0.1:8000/dashboard.html',{waitUntil:'networkidle'});
-            await page.waitForSelector('[data-feature-id="tile-action"] .dashboard-standard-icon');
-            const initialImage = page.locator('[data-feature-id="tile-content"] .dashboard-standard-icon img');
-            assert.equal(await initialImage.count(),1);
-            assert.equal(await initialImage.evaluate(img=>getComputedStyle(img).objectFit),'contain');
+            try {
+              const page=await browser.newPage({viewport:{width:390,height:844}});
+              await page.route('**/api/onboarding',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,progress:{relationshipComplete:true,intentionsComplete:true}})}));
+              await page.route('**/api/dashboard',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)}));
+              await page.route('**/api/auth/session',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({authenticated:true,user:{id:'u1',username:'iconuser',displayName:'Icon User',isOwner:false,isAdmin:false,isVerified:true}})}));
+              await page.route('**/api/bootstrap/owner-status',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ownerConfigured:true,eligible:false})}));
+              await page.goto('http://127.0.0.1:8000/dashboard.html',{waitUntil:'networkidle'});
+              await page.waitForSelector('[data-feature-id="tile-action"] .dashboard-standard-icon');
+              const initialImage = page.locator('[data-feature-id="tile-content"] .dashboard-standard-icon img');
+              assert.equal(await initialImage.count(),1);
+              assert.equal(await initialImage.evaluate(img=>getComputedStyle(img).objectFit),'contain');
 
-            await page.click('#customize-dashboard');
-            await page.locator('[data-feature-id="tile-action"] .dashboard-tile-settings').click();
-            await page.waitForSelector('#dashboard-tile-settings-dialog[open]');
-            assert.equal(await page.locator('#dashboard-standard-icon-controls').isVisible(),true);
-            assert.equal(await page.locator('#dashboard-custom-content-controls').isVisible(),false);
-            await page.fill('#dashboard-icon-label','ZX');
-            const setColour = async (selector,value) => page.locator(selector).evaluate((input,value)=>{input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));},value);
-            await setColour('#dashboard-icon-text-colour','#ffffff');
-            await setColour('#dashboard-icon-background-colour','#123456');
-            await setColour('#dashboard-icon-border-colour','#abcdef');
-            const edited = await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon').evaluate(icon=>({text:icon.textContent,colour:getComputedStyle(icon).color,background:getComputedStyle(icon).backgroundColor,border:getComputedStyle(icon).borderColor}));
-            assert.equal(edited.text,'ZX');
-            assert.equal(edited.colour,'rgb(255, 255, 255)');
-            assert.equal(edited.background,'rgb(18, 52, 86)');
-            assert.equal(edited.border,'rgb(171, 205, 239)');
+              await page.click('#customize-dashboard');
+              await page.locator('[data-feature-id="tile-action"] .dashboard-tile-settings').click();
+              await page.waitForSelector('#dashboard-tile-settings-dialog[open]');
+              assert.equal(await page.locator('#dashboard-standard-icon-controls').isVisible(),true);
+              assert.equal(await page.locator('#dashboard-custom-content-controls').isVisible(),false);
+              await page.fill('#dashboard-icon-label','ZX');
+              const setColour = async (selector,value) => page.locator(selector).evaluate((input,value)=>{input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));},value);
+              await setColour('#dashboard-icon-text-colour','#ffffff');
+              await setColour('#dashboard-icon-background-colour','#123456');
+              await setColour('#dashboard-icon-border-colour','#abcdef');
+              const edited = await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon').evaluate(icon=>({text:icon.textContent,colour:getComputedStyle(icon).color,background:getComputedStyle(icon).backgroundColor,border:getComputedStyle(icon).borderColor}));
+              assert.equal(edited.text,'ZX');
+              assert.equal(edited.colour,'rgb(255, 255, 255)');
+              assert.equal(edited.background,'rgb(18, 52, 86)');
+              assert.equal(edited.border,'rgb(171, 205, 239)');
 
-            await page.selectOption('#dashboard-icon-mode','image');
-            assert.equal(await page.locator('#dashboard-icon-media-controls').isVisible(),true);
-            assert.equal(await page.locator('#dashboard-icon-label-control').isVisible(),false);
-            await page.setInputFiles('#dashboard-icon-media',{name:'icon.png',mimeType:'image/png',buffer:tinyPng});
-            await page.selectOption('#dashboard-icon-media-fit','contain');
-            const uploaded = page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon img');
-            await uploaded.waitFor();
-            assert.equal(await uploaded.evaluate(img=>getComputedStyle(img).objectFit),'contain');
-            await page.click('#dashboard-remove-icon-media');
-            assert.equal(await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon img').count(),0);
-            assert.equal(await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon').textContent(),'ZX');
+              await page.selectOption('#dashboard-icon-mode','image');
+              assert.equal(await page.locator('#dashboard-icon-media-controls').isVisible(),true);
+              assert.equal(await page.locator('#dashboard-icon-label-control').isVisible(),false);
+              await page.setInputFiles('#dashboard-icon-media',{name:'icon.png',mimeType:'image/png',buffer:tinyPng});
+              await page.selectOption('#dashboard-icon-media-fit','contain');
+              const uploaded = page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon img');
+              await uploaded.waitFor();
+              assert.equal(await uploaded.evaluate(img=>getComputedStyle(img).objectFit),'contain');
+              await page.click('#dashboard-remove-icon-media');
+              assert.equal(await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon img').count(),0);
+              assert.equal(await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon').textContent(),'ZX');
 
-            await page.click('#dashboard-reset-icon');
-            const reset = await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon').evaluate(icon=>({text:icon.textContent,background:getComputedStyle(icon).backgroundColor,border:getComputedStyle(icon).borderColor}));
-            assert.equal(reset.text,'GD');
-            assert.equal(reset.background,'rgb(243, 245, 248)');
-            assert.equal(reset.border,'rgb(102, 113, 129)');
+              await page.click('#dashboard-reset-icon');
+              const reset = await page.locator('[data-feature-id="tile-action"] .dashboard-standard-icon').evaluate(icon=>({text:icon.textContent,background:getComputedStyle(icon).backgroundColor,border:getComputedStyle(icon).borderColor}));
+              assert.equal(reset.text,'GD');
+              assert.equal(reset.background,'rgb(243, 245, 248)');
+              assert.equal(reset.border,'rgb(102, 113, 129)');
 
-            await page.selectOption('#dashboard-content-mode','media-button');
-            assert.equal(await page.locator('#dashboard-standard-icon-controls').isVisible(),false);
-            assert.equal(await page.locator('#dashboard-custom-content-controls').isVisible(),true);
-            await page.selectOption('#dashboard-content-mode','standard');
-            assert.equal(await page.locator('#dashboard-standard-icon-controls').isVisible(),true);
+              await page.selectOption('#dashboard-content-mode','media-button');
+              assert.equal(await page.locator('#dashboard-standard-icon-controls').isVisible(),false);
+              assert.equal(await page.locator('#dashboard-custom-content-controls').isVisible(),true);
+              await page.selectOption('#dashboard-content-mode','standard');
+              assert.equal(await page.locator('#dashboard-standard-icon-controls').isVisible(),true);
 
-            const dialogBox=await page.locator('#dashboard-tile-settings-dialog').boundingBox();
-            assert.ok(dialogBox.x>=0 && dialogBox.x+dialogBox.width<=390.5,JSON.stringify(dialogBox));
-            assert.ok(document===undefined);
-          })().catch(async error=>{console.error(error);process.exitCode=1;});
+              const dialogBox=await page.locator('#dashboard-tile-settings-dialog').boundingBox();
+              assert.ok(dialogBox && dialogBox.x>=0 && dialogBox.x+dialogBox.width<=390.5,JSON.stringify(dialogBox));
+              assert.ok(dialogBox && dialogBox.y>=0 && dialogBox.y+dialogBox.height<=844.5,JSON.stringify(dialogBox));
+              const overflow=await page.evaluate(()=>({scrollWidth:document.documentElement.scrollWidth,viewport:innerWidth}));
+              assert.ok(overflow.scrollWidth<=overflow.viewport,JSON.stringify(overflow));
+              await page.screenshot({path:'standard-icon-artifacts/standard-icon-settings-mobile.png',fullPage:true});
+            } finally {
+              await browser.close();
+            }
+          })().catch(error=>{console.error(error);process.exit(1);});
           NODE
       - name: Apply local migrations
         run: npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
       - name: Start local Worker
         run: |
-          npx wrangler dev --local --env pbe --port 8789 >/tmp/icon-worker.log 2>&1 &
-          echo $! >/tmp/icon-worker.pid
+          npx wrangler dev --local --env pbe --port 8789 >standard-icon-artifacts-worker.log 2>&1 &
+          echo $! >standard-icon-artifacts-worker.pid
           for attempt in $(seq 1 45); do
             curl -fsS http://127.0.0.1:8789/ >/dev/null && exit 0
             sleep 1
           done
-          cat /tmp/icon-worker.log
+          cat standard-icon-artifacts-worker.log
           exit 1
       - name: Verify D1 persistence and validation
         run: |
@@ -154,7 +161,7 @@ jobs:
           const tile=payload.pinnedTiles[0];
           if(tile.iconMode!=='text'||tile.iconLabel!=='ZX'||tile.iconTextColour!=='#ffffff'||tile.iconBackgroundColour!=='#123456'||tile.iconBorderColour!=='#abcdef') throw new Error('Text icon did not persist: '+JSON.stringify(tile));
           NODE
-          invalid_status=$(curl -sS -o /tmp/invalid-image.json -w '%{http_code}' -b /tmp/icon.cookies -H 'Content-Type: application/json' --data-binary @/tmp/invalid-image-layout.json http://127.0.0.1:8789/api/dashboard/layout)
+          invalid_status=$(curl -sS -o standard-icon-artifacts/invalid-image-response.json -w '%{http_code}' -b /tmp/icon.cookies -H 'Content-Type: application/json' --data-binary @/tmp/invalid-image-layout.json http://127.0.0.1:8789/api/dashboard/layout)
           test "$invalid_status" = 400
           curl -fsS -b /tmp/icon.cookies -H 'Content-Type: application/json' --data-binary @/tmp/image-layout.json http://127.0.0.1:8789/api/dashboard/layout >/tmp/image-save.json
           curl -fsS -b /tmp/icon.cookies http://127.0.0.1:8789/api/dashboard >/tmp/image-reload.json
@@ -177,6 +184,7 @@ jobs:
         with:
           name: standard-tile-icon-verification
           path: |
-            /tmp/icon-worker.log
-            /tmp/invalid-image.json
+            standard-icon-artifacts
+            standard-icon-artifacts-static.log
+            standard-icon-artifacts-worker.log
           if-no-files-found: warn
