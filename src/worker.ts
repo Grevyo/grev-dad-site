@@ -3,7 +3,7 @@ import { handleDashboardRequest, type DashboardEnv } from './dashboard';
 import { type ProfileEnv } from './profile';
 import { handleProfileMediaRequest } from './profile-media';
 import { handleProfileCardTilesRequest } from './profile-card-tiles';
-import { handleProfileCustomizationRequest } from './profile-customization';
+import { handleProfileCustomizationHardeningRequest } from './profile-customization-hardening';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -18,7 +18,8 @@ const DASHBOARD_ASSETS = new Set([
   '/profile-card-tiles.css',
   '/profile-card-tiles.js',
   '/profile-customization.css',
-  '/profile-customization.js'
+  '/profile-customization.js',
+  '/profile-customization-hardening.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -66,7 +67,7 @@ export default {
     }
 
     try {
-      const customizationResponse = await handleProfileCustomizationRequest(request, env as unknown as ProfileEnv);
+      const customizationResponse = await handleProfileCustomizationHardeningRequest(request, env as unknown as ProfileEnv);
       if (customizationResponse) return customizationResponse;
       const cardTileResponse = await handleProfileCardTilesRequest(request, env as unknown as ProfileEnv);
       if (cardTileResponse) return cardTileResponse;
