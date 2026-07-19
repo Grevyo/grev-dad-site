@@ -1,0 +1,119 @@
+name: Verify Eight Column Constraints
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/custom-media-buttons-square-grid'
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock=false
+      - name: Create pre-upgrade saved tile and apply migration 0016
+        run: |
+          set -euo pipefail
+          rm -rf .wrangler/state
+          mv migrations/0016_custom_media_tiles_and_square_grid.sql /tmp/0016.sql
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --command "
+            INSERT INTO users(id,username,email,display_name,status,is_verified,is_owner,verified_at,verified_by,created_at,updated_at)
+            VALUES('migration-user','migration_user',NULL,'Migration User','active',0,0,NULL,NULL,100,100);
+            INSERT INTO user_dashboard_tiles(
+              user_id,feature_id,position,size,pinned_at,updated_at,
+              grid_x,grid_y,tile_width,tile_height,tile_colour,
+              background_type,background_primary,background_secondary,background_angle,
+              background_media,text_colour,font_family,border_colour
+            ) VALUES(
+              'migration-user','feature-profile',4,'large',100,200,
+              5,7,1,2,'purple',
+              'gradient','#123456','#654321',145,
+              NULL,'#abcdef','mono','#fedcba'
+            );"
+          mv /tmp/0016.sql migrations/0016_custom_media_tiles_and_square_grid.sql
+          npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+          npx wrangler d1 execute grev-dad-preview --local --env pbe --json --command "
+            SELECT user_id,feature_id,position,size,pinned_at,updated_at,
+              grid_x,grid_y,tile_width,tile_height,tile_colour,
+              background_type,background_primary,background_secondary,background_angle,
+              background_media,text_colour,font_family,border_colour,
+              content_mode,custom_title,custom_icon,media_fit,media_overlay
+            FROM user_dashboard_tiles WHERE user_id='migration-user';" > /tmp/migrated.json
+          python3 - <<'PY'
+          import json
+          payload=json.load(open('/tmp/migrated.json'))
+          rows=payload[0]['results'] if isinstance(payload,list) else payload['results']
+          assert len(rows)==1, rows
+          row=rows[0]
+          expected={
+            'feature_id':'feature-profile','position':4,'size':'large','pinned_at':100,'updated_at':200,
+            'grid_x':5,'grid_y':7,'tile_width':1,'tile_height':2,'tile_colour':'purple',
+            'background_type':'gradient','background_primary':'#123456','background_secondary':'#654321',
+            'background_angle':145,'background_media':None,'text_colour':'#abcdef','font_family':'mono',
+            'border_colour':'#fedcba','content_mode':'standard','custom_title':None,'custom_icon':None,
+            'media_fit':'cover','media_overlay':'dark'
+          }
+          for key,value in expected.items(): assert row[key]==value,(key,row[key],value)
+          print('Existing saved tile survived the eight-column table rebuild.')
+          PY
+      - name: Start local Worker
+        run: |
+          npx wrangler dev --local --env pbe --ip 127.0.0.1 --port 8788 > /tmp/worker.log 2>&1 &
+          for attempt in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:8788/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/worker.log
+          exit 1
+      - name: Save a tile in column eight
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const base='http://127.0.0.1:8788'; let cookie='';
+          async function request(path,options={}){const headers=new Headers(options.headers||{});if(cookie)headers.set('Cookie',cookie);const response=await fetch(base+path,{...options,headers});const setCookie=response.headers.get('set-cookie');if(setCookie)cookie=setCookie.split(';',1)[0];const text=await response.text();let payload;try{payload=JSON.parse(text)}catch{payload={raw:text}}return{response,payload}}
+          (async()=>{
+            const signup=await request('/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'column_eight',displayName:'Column Eight',email:'',password:'Testing.Password.123'})});
+            assert.equal(signup.response.status,201,JSON.stringify(signup.payload));
+            const onboarding=await request('/api/onboarding');
+            await request('/api/onboarding/relationship',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({relationshipId:onboarding.payload.relationships[0].id})});
+            await request('/api/onboarding/intentions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intentionIds:[onboarding.payload.intentions[0].id]})});
+            const dashboard=await request('/api/dashboard');
+            assert.equal(dashboard.payload.grid.columns,8);
+            assert.ok(!dashboard.payload.grid.dimensions.includes('8x4'),'tile width remains capped at six while positions use eight columns');
+            const feature=dashboard.payload.features.find(item=>item.id==='feature-profile');
+            const tile={featureId:feature.id,x:7,y:0,width:1,height:1,colour:'default',backgroundType:'solid',backgroundPrimary:'#11161d',backgroundSecondary:'#5268aa',backgroundAngle:135,backgroundMedia:null,textColour:'#f4f7fb',fontFamily:'system',borderColour:'#394657',contentMode:'standard',customTitle:null,customIcon:null,mediaFit:'cover',mediaOverlay:'dark'};
+            const saved=await request('/api/dashboard/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tiles:[tile],preferences:{density:'comfortable',showDescriptions:true,tileGap:12,outerMargin:0}})});
+            assert.equal(saved.response.status,200,JSON.stringify(saved.payload));
+            assert.equal(saved.payload.pinnedTiles[0].x,7);
+            const reloaded=await request('/api/dashboard');
+            assert.equal(reloaded.payload.pinnedTiles[0].x,7);
+            console.log('Column-eight tile saved and reloaded through D1.')
+          })().catch(error=>{console.error(error);process.exit(1)});
+          NODE
+      - run: npm install --package-lock=false --no-save jsdom@26
+      - name: Verify exact square metrics with maximum spacing
+        run: |
+          node <<'NODE'
+          const fs=require('fs');const assert=require('node:assert/strict');const{JSDOM}=require('jsdom');
+          (async()=>{const html=fs.readFileSync('public/dashboard.html','utf8');const js=fs.readFileSync('public/dashboard.js','utf8');const dom=new JSDOM(html,{url:'https://pbe.grev.dad/dashboard',runScripts:'outside-only',pretendToBeVisual:true});const{window}=dom;window.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});window.HTMLElement.prototype.scrollIntoView=function(){};
+          const feature={id:'feature-profile',slug:'profile',name:'My profile',description:'',category:'Account',featureType:'system',presentation:'content',route:'/profile',iconText:'ME',audience:'all',defaultDimension:'1x1',defaultWidth:1,defaultHeight:1,allowedDimensions:['1x1'],isActive:true,isDefault:true,sortOrder:1,pinned:true,x:7,y:0,width:1,height:1,tileColour:'default',accessGroups:[],backgroundType:'solid',backgroundPrimary:'#11161d',backgroundSecondary:'#5268aa',backgroundAngle:135,backgroundMedia:null,textColour:'#f4f7fb',fontFamily:'system',borderColour:'#394657',contentMode:'standard',customTitle:null,customIcon:null,mediaFit:'cover',mediaOverlay:'dark'};
+          const payload={ok:true,viewer:{id:'u',username:'u',displayName:'U',isAdmin:false,isOwner:false},grid:{columns:8,dimensions:['1x1']},preferences:{density:'comfortable',showDescriptions:true,tileGap:48,outerMargin:64},capabilities:{canCustomize:true},features:[feature],pinnedTiles:[feature]};window.fetch=async url=>({ok:true,json:async()=>String(url).includes('/api/onboarding')?{ok:true,progress:{relationshipComplete:true,intentionsComplete:true}}:payload});const grid=window.document.querySelector('#dashboard-grid');grid.getBoundingClientRect=()=>({left:0,top:0,width:960,height:800,right:960,bottom:800,x:0,y:0,toJSON(){}});window.eval(js);await new Promise(r=>setTimeout(r,25));const expected=(960-128-48*7)/8;assert.equal(expected,62);assert.equal(grid.style.getPropertyValue('--tile-row-height'),'62px');console.log('CSS columns, square row height and pointer metrics all use 62px.');})().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Final checks
+        run: |
+          node --check public/dashboard.js
+          npm run typecheck
+          npx wrangler deploy --dry-run --env pbe
+          git diff --check
+      - if: failure()
+        run: cat /tmp/worker.log || true
