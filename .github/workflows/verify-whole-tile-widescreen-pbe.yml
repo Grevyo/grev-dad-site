@@ -1,0 +1,58 @@
+name: Verify Whole Tile Widescreen PBE
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-whole-tile-widescreen-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Wait for merged PBE deployment and authenticate
+        env:
+          LADMIN_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$LADMIN_PASSWORD"
+          rm -f cookies.txt
+          for attempt in $(seq 1 24); do
+            login_status=$(curl -sS -o login.json -w '%{http_code}' -c cookies.txt \
+              -H 'Content-Type: application/json' \
+              --data "{\"identifier\":\"LADMIN\",\"password\":$(printf '%s' "$LADMIN_PASSWORD" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'),\"rememberMe\":false}" \
+              https://pbe.grev.dad/api/auth/login || true)
+            if [ "$login_status" = "200" ]; then
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard -o dashboard.html
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard.js -o dashboard.js
+              curl -fsS -b cookies.txt https://pbe.grev.dad/dashboard.css -o dashboard.css
+              if grep -q 'blockTileDrag' dashboard.js && grep -q 'dashboard-tile-settings-dialog' dashboard.html && grep -q '177.7778vh' dashboard.css; then
+                break
+              fi
+            fi
+            if [ "$attempt" = "24" ]; then
+              echo 'Merged PBE deployment did not expose the expected dashboard files in time.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Verify deployed whole-tile editor and page-only widescreen layout
+        run: |
+          set -euo pipefail
+          grep -q 'article.draggable = !isSingleColumnFallback' dashboard.js
+          grep -q 'blockTileDrag' dashboard.js
+          grep -q 'TILE SETTINGS' dashboard.js
+          grep -q 'openTileSettings' dashboard.js
+          grep -q 'dashboard-tile-settings-dialog' dashboard.html
+          grep -q 'Grab and drag the tile itself' dashboard.html
+          grep -q '177.7778vh' dashboard.css
+          grep -q '@media(max-height:686px) and (min-width:901px)' dashboard.css
+          grep -q '.dashboard-tile.editing{border-color:#64728a;box-shadow:4px 4px 0 #030508;cursor:grab}' dashboard.css
+          ! grep -q 'DRAG TO MOVE' dashboard.js
+          ! grep -q 'aspect-ratio:16/9' dashboard.css
+          echo 'Live PBE whole-tile drag, Tile settings and page-only widescreen layout verified.'
