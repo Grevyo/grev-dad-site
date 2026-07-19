@@ -1211,7 +1211,12 @@ dashboardElement('#dashboard-icon-mode')?.addEventListener('change', event => {
   const value = String(event.currentTarget.value);
   if (!tile || !TILE_ICON_MODES.has(value)) return;
   tile.iconMode = value;
-  refreshAppearancePreview(tile, value === 'image' ? 'Picture icon selected. Upload a picture before saving.' : 'Letter icon selected.');
+  if (value === 'text') {
+    tile.iconMedia = null;
+    const input = dashboardElement('#dashboard-icon-media');
+    if (input) input.value = '';
+  }
+  refreshAppearancePreview(tile, value === 'image' ? 'Picture icon selected. Upload a picture before saving.' : 'Letter icon selected. Any inactive icon picture was removed.');
 });
 dashboardElement('#dashboard-icon-label')?.addEventListener('input', event => {
   const tile = workingTile(dashboardState.selectedId);

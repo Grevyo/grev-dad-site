@@ -312,7 +312,7 @@ function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance 
   const mediaOverlay = String(item.mediaOverlay ?? defaults.mediaOverlay) as TileMediaOverlay;
   const iconMode = String(item.iconMode ?? defaults.iconMode) as TileIconMode;
   const iconLabelRaw = item.iconLabel === null || item.iconLabel === undefined || item.iconLabel === '' ? null : item.iconLabel;
-  const iconMediaValue = item.iconMedia === null || item.iconMedia === undefined || item.iconMedia === '' ? null : String(item.iconMedia);
+  const submittedIconMedia = item.iconMedia === null || item.iconMedia === undefined || item.iconMedia === '' ? null : String(item.iconMedia);
   if (iconLabelRaw !== null && typeof iconLabelRaw !== 'string') return null;
   const iconLabel = typeof iconLabelRaw === 'string' && iconLabelRaw.trim() ? iconLabelRaw.trim() : null;
   const iconTextColour = String(item.iconTextColour ?? defaults.iconTextColour).toLowerCase();
@@ -324,11 +324,12 @@ function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance 
   if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour) || !HEX_COLOUR.test(iconTextColour) || !HEX_COLOUR.test(iconBackgroundColour) || !HEX_COLOUR.test(iconBorderColour)) return null;
   if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
   if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
-  if (iconMediaValue && !validImageDataUrl(iconMediaValue)) return null;
+  if (submittedIconMedia && !validImageDataUrl(submittedIconMedia)) return null;
+  const iconMedia = iconMode === 'image' ? submittedIconMedia : null;
   if (backgroundType === 'media' && !backgroundMediaValue) return null;
   if (contentMode === 'media-button' && (backgroundType !== 'media' || !backgroundMediaValue)) return null;
-  if (iconMode === 'image' && !iconMediaValue) return null;
-  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay, iconMode, iconLabel, iconMedia: iconMediaValue, iconTextColour, iconBackgroundColour, iconBorderColour, iconMediaFit };
+  if (iconMode === 'image' && !iconMedia) return null;
+  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay, iconMode, iconLabel, iconMedia, iconTextColour, iconBackgroundColour, iconBorderColour, iconMediaFit };
 }
 
 function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
