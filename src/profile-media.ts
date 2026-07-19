@@ -15,6 +15,8 @@ type ProfilePayload = {
   };
 };
 
+const COOKIE = 'grev_session';
+const encoder = new TextEncoder();
 const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_MEDIA_BYTES = 1_400_000;
 const MAX_PROFILE_MEDIA_BYTES = 8 * 1024 * 1024;
@@ -31,6 +33,39 @@ function secureJson(value: unknown, status = 200): Response {
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
     }
   });
+}
+
+function parseCookies(request: Request): Record<string, string> {
+  return Object.fromEntries((request.headers.get('Cookie') ?? '')
+    .split(';')
+    .map(value => value.trim())
+    .filter(Boolean)
+    .map(value => {
+      const index = value.indexOf('=');
+      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
+    })
+    .filter(([key]) => Boolean(key)));
+}
+
+function b64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
+async function sha256(value: string): Promise<string> {
+  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
+}
+
+async function profileUserId(request: Request, env: ProfileEnv): Promise<string | null> {
+  const token = parseCookies(request)[COOKIE];
+  if (!token) return null;
+  const now = Math.floor(Date.now() / 1000);
+  const row = await env.DB.prepare(`
+    SELECT u.id
+    FROM sessions s
+    JOIN users u ON u.id=s.user_id
+    WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'
+  `).bind(await sha256(token), now).first<{ id: string }>();
+  return row?.id ?? null;
 }
 
 function dataUrlByteLength(value: string): number {
@@ -137,8 +172,32 @@ async function saveProfileWithSeparateCardMedia(request: Request, env: ProfileEn
     }
   }
 
+  if (Array.isArray(data.cardTiles)) {
+    for (const tileValue of data.cardTiles) {
+      if (!tileValue || typeof tileValue !== 'object' || Array.isArray(tileValue)) continue;
+      const tile = tileValue as Record<string, unknown>;
+      for (const mediaValue of [tile.backgroundMedia, tile.iconMedia]) {
+        if (typeof mediaValue !== 'string' || !mediaValue) continue;
+        if (!validImageDataUrl(mediaValue)) {
+          return secureJson({ ok: false, message: 'Choose valid PNG, JPEG, WebP or animated GIF card-tile pictures no larger than 1.4 MB each.' }, 400);
+        }
+        totalMediaBytes += dataUrlByteLength(mediaValue);
+      }
+    }
+  } else {
+    const userId = await profileUserId(request, env);
+    if (userId) {
+      const rows = await env.DB.prepare(`
+        SELECT media_data
+        FROM user_profile_card_tile_media
+        WHERE user_id=?
+      `).bind(userId).all<{ media_data: string }>();
+      totalMediaBytes += rows.results.reduce((total, row) => total + dataUrlByteLength(row.media_data), 0);
+    }
+  }
+
   if (totalMediaBytes > MAX_PROFILE_MEDIA_BYTES) {
-    return secureJson({ ok: false, message: 'Profile pictures and tile media may use up to 8 MB in total.' }, 400);
+    return secureJson({ ok: false, message: 'Profile pictures and all profile tile media may use up to 8 MB in total.' }, 400);
   }
 
   const forwardedBody = {
