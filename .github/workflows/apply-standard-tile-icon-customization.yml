@@ -16,7 +16,7 @@ jobs:
   patch:
     if: github.head_ref == 'agent/standard-tile-icon-customization' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 21
     steps:
       - uses: actions/checkout@v4
         with:
