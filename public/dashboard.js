@@ -77,7 +77,9 @@ function validHex(value) {
 }
 
 function normalizedTileAppearance(source = {}) {
-  const appearance = source.appearance ?? source;
+  const flatFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour'];
+  const hasFlatAppearance = flatFields.some(field => Object.prototype.hasOwnProperty.call(source, field));
+  const appearance = hasFlatAppearance ? source : (source.appearance ?? source);
   return {
     backgroundType: ['solid','gradient','media'].includes(appearance.backgroundType) ? appearance.backgroundType : DEFAULT_TILE_APPEARANCE.backgroundType,
     backgroundPrimary: validHex(appearance.backgroundPrimary) ? appearance.backgroundPrimary.toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundPrimary,

@@ -108,6 +108,22 @@ const DEFAULT_TILE_APPEARANCE: TileAppearance = {
   fontFamily: 'system',
   borderColour: '#394657'
 };
+const LEGACY_TILE_APPEARANCE: Record<TileColour, Pick<TileAppearance, 'backgroundPrimary' | 'borderColour'>> = {
+  default: { backgroundPrimary: '#11161d', borderColour: '#394657' },
+  graphite: { backgroundPrimary: '#171b22', borderColour: '#3e4856' },
+  blue: { backgroundPrimary: '#101a2a', borderColour: '#365987' },
+  cyan: { backgroundPrimary: '#0e2023', borderColour: '#2f6c73' },
+  green: { backgroundPrimary: '#112319', borderColour: '#376c4b' },
+  amber: { backgroundPrimary: '#2a2010', borderColour: '#7b5b26' },
+  red: { backgroundPrimary: '#291417', borderColour: '#793842' },
+  purple: { backgroundPrimary: '#21172f', borderColour: '#60457f' },
+  pink: { backgroundPrimary: '#2b1624', borderColour: '#7c3b65' }
+};
+
+function legacyAppearance(colour: TileColour): TileAppearance {
+  const legacy = LEGACY_TILE_APPEARANCE[colour];
+  return { ...DEFAULT_TILE_APPEARANCE, ...legacy };
+}
 
 function b64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -223,14 +239,19 @@ function validImageDataUrl(value: string): boolean {
 }
 
 function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance | null {
-  const backgroundType = String(item.backgroundType ?? DEFAULT_TILE_APPEARANCE.backgroundType) as TileBackgroundType;
-  const backgroundPrimary = String(item.backgroundPrimary ?? DEFAULT_TILE_APPEARANCE.backgroundPrimary).toLowerCase();
-  const backgroundSecondary = String(item.backgroundSecondary ?? DEFAULT_TILE_APPEARANCE.backgroundSecondary).toLowerCase();
-  const backgroundAngle = Number(item.backgroundAngle ?? DEFAULT_TILE_APPEARANCE.backgroundAngle);
+  const colourValue = String(item.colour ?? 'default') as TileColour;
+  const legacyColour = VALID_TILE_COLOURS.has(colourValue) ? colourValue : 'default';
+  const appearanceFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour'];
+  const hasExplicitAppearance = appearanceFields.some(field => Object.prototype.hasOwnProperty.call(item, field));
+  const defaults = hasExplicitAppearance ? DEFAULT_TILE_APPEARANCE : legacyAppearance(legacyColour);
+  const backgroundType = String(item.backgroundType ?? defaults.backgroundType) as TileBackgroundType;
+  const backgroundPrimary = String(item.backgroundPrimary ?? defaults.backgroundPrimary).toLowerCase();
+  const backgroundSecondary = String(item.backgroundSecondary ?? defaults.backgroundSecondary).toLowerCase();
+  const backgroundAngle = Number(item.backgroundAngle ?? defaults.backgroundAngle);
   const backgroundMediaValue = item.backgroundMedia === null || item.backgroundMedia === undefined || item.backgroundMedia === '' ? null : String(item.backgroundMedia);
-  const textColour = String(item.textColour ?? DEFAULT_TILE_APPEARANCE.textColour).toLowerCase();
-  const fontFamily = String(item.fontFamily ?? DEFAULT_TILE_APPEARANCE.fontFamily) as TileFontFamily;
-  const borderColour = String(item.borderColour ?? DEFAULT_TILE_APPEARANCE.borderColour).toLowerCase();
+  const textColour = String(item.textColour ?? defaults.textColour).toLowerCase();
+  const fontFamily = String(item.fontFamily ?? defaults.fontFamily) as TileFontFamily;
+  const borderColour = String(item.borderColour ?? defaults.borderColour).toLowerCase();
   if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour)) return null;
   if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
   if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
@@ -313,7 +334,6 @@ function featureFromRow(row: FeatureRow) {
     dimension: dimensionKey(width, height),
     tileColour,
     ...appearance,
-    appearance,
     accessGroups: row.matched_groups ? row.matched_groups.split(', ') : []
   };
 }
@@ -431,13 +451,21 @@ async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
       updated_at: number;
     }>()
   ]);
-  const features = rows.map(featureFromRow);
+  const hydratedFeatures = rows.map(featureFromRow);
+  const pinnedTiles = hydratedFeatures
+    .filter(feature => feature.pinned)
+    .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+  const features = hydratedFeatures.map(feature => ({
+    ...feature,
+    backgroundMedia: null,
+    hasBackgroundMedia: Boolean(feature.backgroundMedia)
+  }));
   return {
     ok: true,
     viewer: { id: user.id, username: user.username, displayName: user.displayName, isAdmin: user.isAdmin, isOwner: user.isOwner },
     grid: { columns: GRID_COLUMNS, maxY: MAX_GRID_Y, dimensions: ALL_DIMENSIONS },
     features,
-    pinnedTiles: features.filter(feature => feature.pinned).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0)),
+    pinnedTiles,
     preferences: {
       density: preferences?.density ?? 'comfortable',
       showDescriptions: Boolean(preferences?.show_descriptions ?? 1),
