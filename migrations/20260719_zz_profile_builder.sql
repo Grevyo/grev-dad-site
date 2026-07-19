@@ -6,8 +6,6 @@ CREATE TABLE user_profiles (
   bio TEXT,
   location TEXT,
   website_url TEXT,
-  avatar_media TEXT,
-  cover_media TEXT,
   background_primary TEXT NOT NULL DEFAULT '#11161d',
   background_secondary TEXT NOT NULL DEFAULT '#3157c9',
   background_angle INTEGER NOT NULL DEFAULT 135 CHECK (background_angle BETWEEN 0 AND 360),
@@ -17,6 +15,14 @@ CREATE TABLE user_profiles (
   show_status INTEGER NOT NULL DEFAULT 1 CHECK (show_status IN (0,1)),
   show_member_since INTEGER NOT NULL DEFAULT 1 CHECK (show_member_since IN (0,1)),
   updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE user_profile_media (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  media_slot TEXT NOT NULL CHECK (media_slot IN ('avatar','cover')),
+  media_data TEXT NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(user_id,media_slot)
 );
 
 CREATE TABLE user_profile_preferences (
