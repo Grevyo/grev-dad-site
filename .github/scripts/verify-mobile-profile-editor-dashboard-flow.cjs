@@ -27,9 +27,11 @@ async function fetchText(url) {
     deviceScaleFactor: 3
   });
   const page = await context.newPage();
+  page.setDefaultTimeout(10_000);
+  page.setDefaultNavigationTimeout(20_000);
   try {
     let profileId = null;
-    for (let attempt = 0; attempt < 24; attempt += 1) {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
       const login = await context.request.post(`${base}/api/auth/login`, {
         data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
       });
@@ -41,7 +43,7 @@ async function fetchText(url) {
           if (profileId) break;
         }
       }
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
     assert(profileId, 'Could not create a valid PBE session.');
     checkpoint('PBE authenticated');
@@ -59,6 +61,7 @@ async function fetchText(url) {
 
     const dashboardResponse = await page.goto(`${base}/dashboard`, { waitUntil: 'networkidle' });
     assert(dashboardResponse?.status() === 200, 'Dashboard did not load.');
+    checkpoint('dashboard loaded');
     await page.locator('#customize-dashboard').click();
     assert(await page.locator('#dashboard-editor-toolbar').isVisible(), 'Dashboard editor toolbar did not open inline.');
     const dashboardFlow = await page.evaluate(() => ({
@@ -95,6 +98,7 @@ async function fetchText(url) {
 
     const profileResponse = await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
     assert(profileResponse?.status() === 200, 'Profile page did not load.');
+    checkpoint('branch profile UI loaded over PBE');
     const initialOrder = await page.evaluate(() => {
       const toolbar = document.querySelector('#profile-editor-toolbar');
       const card = document.querySelector('#profile-card');
