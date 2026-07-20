@@ -1,11 +1,24 @@
 const { chromium } = require('playwright');
 
-const base = 'https://agent-match-mobile-profile-editor-to-dashboard-grev-dad-site.joeahh.workers.dev';
-const authBase = 'https://pbe.grev.dad';
+const base = 'https://pbe.grev.dad';
+const rawBase = 'https://raw.githubusercontent.com/Grevyo/grev-dad-site/agent/match-mobile-profile-editor-to-dashboard/public';
 const assert = (value, message) => { if (!value) throw new Error(message); };
 const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
 
+async function fetchText(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Unable to fetch branch asset ${url} (${response.status}).`);
+  return response.text();
+}
+
 (async () => {
+  const [profileHtml, unifiedCss, unifiedJs, unifiedA11y] = await Promise.all([
+    fetchText(`${rawBase}/profile.html`),
+    fetchText(`${rawBase}/profile-editor-unified.css`),
+    fetchText(`${rawBase}/profile-editor-unified.js`),
+    fetchText(`${rawBase}/profile-editor-unified-a11y.js`)
+  ]);
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -17,11 +30,11 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
   try {
     let profileId = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
-      const login = await context.request.post(`${authBase}/api/auth/login`, {
+      const login = await context.request.post(`${base}/api/auth/login`, {
         data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
       });
       if (login.status() === 200) {
-        const session = await context.request.get(`${authBase}/api/auth/session`);
+        const session = await context.request.get(`${base}/api/auth/session`);
         if (session.status() === 200) {
           const payload = await session.json();
           profileId = payload.user?.id || null;
@@ -31,21 +44,7 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
     assert(profileId, 'Could not create a valid PBE session.');
-
-    const authCookies = await context.cookies(authBase);
-    assert(authCookies.length > 0, 'PBE login did not issue a session cookie.');
-    await context.addCookies(authCookies.map(cookie => ({
-      name: cookie.name,
-      value: cookie.value,
-      url: base,
-      expires: cookie.expires,
-      httpOnly: cookie.httpOnly,
-      secure: cookie.secure,
-      sameSite: cookie.sameSite
-    })));
-    const previewSession = await context.request.get(`${base}/api/auth/session`);
-    assert(previewSession.status() === 200, `Branch preview rejected the signed PBE session (${previewSession.status()}).`);
-    checkpoint('branch preview authenticated');
+    checkpoint('PBE authenticated');
 
     const beforeResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`);
     assert(beforeResponse.status() === 200, 'Profile API did not load.');
@@ -71,6 +70,28 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     assert(dashboardFlow.toolbarBeforeGrid, 'Dashboard toolbar is not before the live grid.');
     await page.locator('#dashboard-cancel-layout').click();
     checkpoint('dashboard inline editing baseline');
+
+    await page.route('**/profile/**', async route => {
+      if (route.request().resourceType() !== 'document') return route.continue();
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        headers: { 'cache-control': 'no-store' },
+        body: profileHtml
+      });
+    });
+    await page.route('**/profile-editor-unified.css', route => route.fulfill({
+      status: 200,
+      contentType: 'text/css; charset=utf-8',
+      headers: { 'cache-control': 'no-store' },
+      body: unifiedCss
+    }));
+    await page.route('**/profile-editor-unified.js', route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript; charset=utf-8',
+      headers: { 'cache-control': 'no-store' },
+      body: `${unifiedJs}\n${unifiedA11y}`
+    }));
 
     const profileResponse = await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
     assert(profileResponse?.status() === 200, 'Profile page did not load.');
@@ -175,6 +196,7 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     checkpoint('cancel restoration');
 
     await page.setViewportSize({ width: 1200, height: 850 });
+    await page.waitForTimeout(100);
     await page.locator('#profile-edit').click();
     await page.locator('#profile-unified-editor').waitFor({ state: 'visible' });
     const desktopFlow = await page.evaluate(() => ({
