@@ -1,6 +1,5 @@
 (() => {
   const $ = selector => document.querySelector(selector);
-  const mobile = matchMedia('(max-width:820px)');
 
   function tabName(button) {
     return button?.dataset.unifiedTab || 'card';
@@ -61,27 +60,15 @@
   function updateViewportMetrics() {
     const visibleHeight = Math.max(240, Math.round(window.visualViewport?.height || window.innerHeight));
     document.documentElement.style.setProperty('--profile-visible-height', `${visibleHeight}px`);
-    document.documentElement.style.setProperty('--profile-editor-bottom-offset', '0px');
-  }
-
-  function releaseLegacyPageLock() {
-    document.body.classList.remove('profile-mobile-editor-scroll-locked', 'profile-unified-previewing');
-  }
-
-  function hideLegacyPreview(editor) {
-    const button = editor.querySelector('[data-unified-preview]');
-    if (button) {
-      button.hidden = true;
-      button.setAttribute('aria-expanded', 'true');
-    }
-    editor.classList.remove('is-collapsed');
   }
 
   function configureFocus(editor) {
-    if (editor.dataset.inlineFocusReady === 'true') return;
-    editor.dataset.inlineFocusReady = 'true';
+    if (editor.dataset.popupFocusReady === 'true') return;
+    editor.dataset.popupFocusReady = 'true';
     editor.addEventListener('focusin', event => {
-      if (!mobile.matches || !(event.target instanceof HTMLElement)) return;
+      if (!(event.target instanceof HTMLElement)) return;
+      const body = editor.querySelector('.profile-unified-body');
+      if (!body?.contains(event.target)) return;
       requestAnimationFrame(() => event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
     });
   }
@@ -90,10 +77,9 @@
     const editor = $('#profile-unified-editor');
     if (!editor) return false;
     configureTabs(editor);
-    hideLegacyPreview(editor);
     configureFocus(editor);
     updateViewportMetrics();
-    releaseLegacyPageLock();
+    document.body.classList.remove('profile-mobile-editor-scroll-locked', 'profile-unified-previewing');
     return true;
   }
 
@@ -103,19 +89,8 @@
   }
 
   window.visualViewport?.addEventListener('resize', updateViewportMetrics);
-  window.addEventListener('resize', () => {
-    updateViewportMetrics();
-    const editor = $('#profile-unified-editor');
-    if (editor) hideLegacyPreview(editor);
-    releaseLegacyPageLock();
-  });
+  window.addEventListener('resize', updateViewportMetrics);
   window.addEventListener('orientationchange', updateViewportMetrics);
-  window.addEventListener('pagehide', releaseLegacyPageLock);
-  mobile.addEventListener('change', () => {
-    const editor = $('#profile-unified-editor');
-    if (editor) hideLegacyPreview(editor);
-    releaseLegacyPageLock();
-  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialise, { once: true });
   else initialise();
