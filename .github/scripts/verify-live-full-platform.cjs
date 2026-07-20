@@ -13,7 +13,7 @@ async function publicAssetsReady() {
     fetch(`${base}/app.js?verify=${token}`).then(r => r.text()),
     fetch(`${base}/dashboard.js?verify=${token}`).then(r => r.text())
   ]);
-  return hub.includes('hub-root') && chat.includes('grev-chat-panel') && chat.includes('profile-card-xp') &&
+  return hub.includes('Personal work with completion') && chat.includes('grev-chat-panel') && chat.includes('profile-card-xp') &&
     advanced.includes('dashboardState.editing=true') && appBundle.includes('grev-chat-launcher') &&
     dashboardBundle.includes('dashboard-advanced-tools');
 }
@@ -33,7 +33,7 @@ async function api(request, method, path, data) {
 
 (async () => {
   let ready = false;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     if (await publicAssetsReady()) { ready = true; break; }
     await sleep(10000);
   }
