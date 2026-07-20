@@ -27,28 +27,38 @@
     activeTab: 'card',
     sourcesMounted: false,
     toolbarObserver: null,
-    bodyObserver: null
+    bodyObserver: null,
+    backdropPointerDown: false
   };
 
   const $ = selector => document.querySelector(selector);
-  const mobileLayout = matchMedia('(max-width:820px)');
+
+  function requestCancel() {
+    const cancel = $('#profile-cancel');
+    if (cancel) cancel.click();
+    else closePanel();
+  }
+
+  function pointerIsOutsideDialog(dialog, event) {
+    const rect = dialog.getBoundingClientRect();
+    return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+  }
 
   function createPanel() {
     if ($('#profile-unified-editor')) return $('#profile-unified-editor');
 
-    const panel = document.createElement('aside');
+    const panel = document.createElement('dialog');
     panel.id = 'profile-unified-editor';
-    panel.className = 'profile-unified-editor';
-    panel.hidden = true;
-    panel.setAttribute('aria-label', 'Profile editor');
+    panel.className = 'profile-unified-editor profile-settings-dialog';
+    panel.setAttribute('aria-labelledby', 'profile-unified-title');
     panel.innerHTML = `
-      <header class="profile-unified-header">
+      <header class="profile-unified-header profile-dialog-heading">
         <div>
           <p class="eyebrow">Profile editor</p>
-          <h2 data-unified-title>Profile card</h2>
+          <h2 id="profile-unified-title" data-unified-title>Profile card</h2>
           <p data-unified-description>Name, bio, pictures, colours and visible details.</p>
         </div>
-        <button type="button" class="profile-unified-preview" data-unified-preview aria-expanded="true">Preview</button>
+        <button type="button" data-unified-close>Close</button>
       </header>
       <nav class="profile-unified-tabs" aria-label="Profile editor sections">
         <button type="button" data-unified-tab="card"><strong>Card</strong><span>Identity & pictures</span></button>
@@ -70,7 +80,7 @@
           <div data-unified-slot="page"></div>
         </section>
         <section class="profile-unified-section" data-unified-section="profileTiles" hidden>
-          <div class="profile-unified-section-intro"><strong>Profile tile grid</strong><span>Add content, control spacing, or select a tile on the preview to edit it.</span></div>
+          <div class="profile-unified-section-intro"><strong>Profile tile grid</strong><span>Add content, control spacing, or select a tile to edit it.</span></div>
           <div class="profile-unified-grid-actions"><button type="button" data-unified-pack>Pack profile tiles</button></div>
           <div data-unified-slot="profileTiles"></div>
         </section>
@@ -83,9 +93,7 @@
         </div>
       </footer>`;
 
-    const toolbar = $('#profile-editor-toolbar');
-    if (toolbar) toolbar.insertAdjacentElement('afterend', panel);
-    else document.body.append(panel);
+    document.body.append(panel);
 
     state.panel = panel;
     state.body = panel.querySelector('.profile-unified-body');
@@ -93,16 +101,25 @@
     state.title = panel.querySelector('[data-unified-title]');
     state.description = panel.querySelector('[data-unified-description]');
 
-    panel.querySelectorAll('[data-unified-tab]').forEach(button => {
+    panel.querySelectorAll('.profile-unified-tabs [data-unified-tab]').forEach(button => {
       button.addEventListener('click', () => selectTab(button.dataset.unifiedTab));
     });
-    panel.querySelector('[data-unified-cancel]').addEventListener('click', () => $('#profile-cancel')?.click());
+    panel.querySelector('[data-unified-close]').addEventListener('click', requestCancel);
+    panel.querySelector('[data-unified-cancel]').addEventListener('click', requestCancel);
     panel.querySelector('[data-unified-save]').addEventListener('click', () => $('#profile-save')?.click());
     panel.querySelector('[data-unified-pack]').addEventListener('click', () => $('#profile-pack')?.click());
-    panel.querySelector('[data-unified-preview]').addEventListener('click', event => {
-      const collapsed = panel.classList.toggle('is-collapsed');
-      event.currentTarget.textContent = collapsed ? 'Edit' : 'Preview';
-      event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+
+    panel.addEventListener('cancel', event => {
+      event.preventDefault();
+      requestCancel();
+    });
+    panel.addEventListener('pointerdown', event => {
+      state.backdropPointerDown = event.target === panel && pointerIsOutsideDialog(panel, event);
+    });
+    panel.addEventListener('pointerup', event => {
+      const shouldCancel = state.backdropPointerDown && event.target === panel && pointerIsOutsideDialog(panel, event);
+      state.backdropPointerDown = false;
+      if (shouldCancel) requestCancel();
     });
 
     return panel;
@@ -145,20 +162,17 @@
     if (target) target.append(dialog);
   }
 
-  function moveSource(element, tab, before = null) {
+  function moveSource(element, tab) {
     const target = slot(tab);
     if (!element || !target || element.dataset.unifiedEditorMoved === 'true') return;
     element.dataset.unifiedEditorMoved = 'true';
-    if (before) target.insertBefore(element, before);
-    else target.append(element);
+    target.append(element);
   }
 
   function placeEditorMessage() {
     const message = $('#profile-editor-message');
-    const toolbar = $('#profile-editor-toolbar');
     const messageSlot = state.panel?.querySelector('[data-unified-message-slot]');
-    const destination = mobileLayout.matches ? toolbar : messageSlot;
-    if (message && destination && message.parentElement !== destination) destination.append(message);
+    if (message && messageSlot && message.parentElement !== messageSlot) messageSlot.append(message);
   }
 
   function stopSourceObserver() {
@@ -217,32 +231,28 @@
     });
 
     ensureTabSource(tab);
-    state.body?.scrollTo({ top: 0, behavior: 'instant' });
+    if (state.body) state.body.scrollTop = 0;
   }
 
   function openPanel(tab = state.activeTab) {
     if (!state.panel) return;
-    const wasHidden = state.panel.hidden;
-    state.panel.hidden = false;
-    state.panel.classList.remove('is-collapsed');
-    const previewButton = state.panel.querySelector('[data-unified-preview]');
-    if (previewButton) {
-      previewButton.textContent = 'Preview';
-      previewButton.setAttribute('aria-expanded', 'true');
-    }
     document.body.classList.add('profile-unified-editing');
-    selectTab(tab);
-    if (wasHidden && mobileLayout.matches) {
-      requestAnimationFrame(() => $('#profile-editor-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    if (!state.panel.open) {
+      try {
+        state.panel.showModal();
+      } catch {
+        state.panel.setAttribute('open', '');
+      }
     }
+    selectTab(tab);
   }
 
   function closePanel() {
     if (!state.panel) return;
-    state.panel.hidden = true;
-    state.panel.classList.remove('is-collapsed');
-    document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing');
+    document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing', 'profile-mobile-editor-scroll-locked');
     state.panel.querySelectorAll('dialog[open]').forEach(dialog => dialog.removeAttribute('open'));
+    if (state.panel.open) state.panel.close();
+    else state.panel.removeAttribute('open');
   }
 
   function editingIsActive() {
@@ -304,7 +314,6 @@
     installDialogObserver();
     installToolbarObserver();
     installActionRouting();
-    mobileLayout.addEventListener('change', placeEditorMessage);
     syncEditorState();
   }
 
