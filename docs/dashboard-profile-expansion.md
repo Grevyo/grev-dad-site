@@ -62,6 +62,17 @@ This programme expands the existing Dashboard and Profile foundations without cr
    - Use in member directory, groups, comments/activity, admin account views and identity popovers.
    - Card fields respect viewer-specific privacy.
 
+## Shared persisted foundations
+
+- `dashboard_pages`: personal or group-owned page metadata.
+- `dashboard_page_members`: optional page-level access beyond the owning group.
+- `dashboard_page_tiles`: page-scoped placement, appearance, live provider and action configuration.
+- `profile_modules`: homepage module content and placement.
+- `profile_visibility_rules`: field/module/media visibility policies.
+- `profile_interactions`: guestbook entries, comments and reactions.
+- `profile_theme`: selected theme and custom overrides.
+- One server-filtered identity-card payload reused across the site.
+
 ## Delivery order
 
 1. Shared schema foundations, page ownership, visibility policy and editor history.
