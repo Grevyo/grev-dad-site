@@ -1,0 +1,43 @@
+name: Record Dashboard Editor Diagnostic
+on:
+  push:
+    branches: [agent/full-dashboard-profile-upgrade]
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/full-dashboard-profile-upgrade
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Diagnose editor state
+        run: |
+          set +e
+          mkdir -p .github/verification
+          LOG=.github/verification/dashboard-editor-diagnostic.txt
+          : > "$LOG"
+          npm install >> "$LOG" 2>&1
+          npm install --no-save playwright@1.55.0 >> "$LOG" 2>&1
+          npx playwright install --with-deps chromium >> "$LOG" 2>&1
+          rm -rf .wrangler/state
+          npx wrangler d1 migrations apply grev-dad-dev --local >> "$LOG" 2>&1
+          npx wrangler dev --local --port 8787 > /tmp/editor-diagnostic-wrangler.log 2>&1 &
+          server_pid=$!
+          for attempt in $(seq 1 90); do if curl --fail --silent http://127.0.0.1:8787/api/health >/dev/null; then break; fi; sleep 1; done
+          timeout --signal=INT 180s node .github/scripts/diagnose-dashboard-editor.cjs >> "$LOG" 2>&1
+          browser_status=$?
+          kill "$server_pid" 2>/dev/null || true
+          wait "$server_pid" 2>/dev/null || true
+          echo "BROWSER_STATUS=$browser_status" >> "$LOG"
+          git rm .github/workflows/record-dashboard-editor-diagnostic.yml .github/scripts/diagnose-dashboard-editor.cjs
+          git rm -f .github/verification/run-editor-diagnostic.trigger
+          git config user.name "grev-dad-verification-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f "$LOG"
+          git commit -m "Record dashboard editor diagnostic"
+          git push origin HEAD:agent/full-dashboard-profile-upgrade
