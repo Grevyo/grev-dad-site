@@ -1,0 +1,133 @@
+name: Apply Experience Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'agent/dashboard-profile-experience-foundation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Apply review fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          experience = Path('src/experience.ts')
+          text = experience.read_text()
+          text = text.replace(
+          """  const tiles: Record<string, unknown>[] = [];
+            const seen = new Set<string>();""",
+          """  const tiles: Record<string, unknown>[] = [];
+            const seen = new Set<string>();
+            const allowedTileFields = new Set([
+              'colour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay',
+              'iconMode','iconLabel','iconMedia','iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit',
+              'backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','borderColour','fontFamily'
+            ]);""")
+          text = text.replace(
+          """    seen.add(featureId);
+              tiles.push(structuredClone(tile));""",
+          """    seen.add(featureId);
+              const normalizedTile: Record<string, unknown> = { featureId, x, y, width, height };
+              for (const field of allowedTileFields) {
+                const fieldValue = tile[field];
+                if (fieldValue === null || ['string','number','boolean'].includes(typeof fieldValue)) normalizedTile[field] = fieldValue;
+              }
+              tiles.push(normalizedTile);""")
+          text = text.replace("""      OR ?=1
+                OR (p.group_id IS NOT NULL""", """      OR (?=1 AND p.group_id IS NOT NULL)
+                OR (p.group_id IS NOT NULL""")
+          text = text.replace("""      WHERE p.owner_user_id=? OR ?=1 OR (
+                p.group_id IS NOT NULL""", """      WHERE p.owner_user_id=? OR (?=1 AND p.group_id IS NOT NULL) OR (
+                p.group_id IS NOT NULL""")
+          text = text.replace("""    canEdit: row.owner_user_id === user.id || user.isAdmin,""", """    canEdit: row.owner_user_id === user.id || (Boolean(row.group_id) && user.isAdmin),""")
+          experience.write_text(text)
+
+          dashboard = Path('public/dashboard-experience.js')
+          text = dashboard.read_text()
+          text = text.replace("featureId: tile.featureId,", "featureId: tile.featureId ?? tile.id,")
+          text = text.replace(
+          """    pageManagerMessage('Creating page…');
+              try {
+                experience.pagesPayload = await experienceFetch('/api/experience/dashboard/pages', {""",
+          """    pageManagerMessage('Creating page…');
+              if (experience.activePageId === 'home') saveHomeSnapshot();
+              try {
+                experience.pagesPayload = await experienceFetch('/api/experience/dashboard/pages', {""")
+          dashboard.write_text(text)
+
+          privacy = Path('src/profile-privacy-hardening.ts')
+          text = privacy.read_text()
+          text = text.replace(
+          """    if (!canView(fields.get('username'), isSelf, viewer, sharedGroups)) card.showUsername = false;
+              if (!canView(fields.get('status'), isSelf, viewer, sharedGroups)) card.showStatus = false;
+              if (!canView(fields.get('memberSince'), isSelf, viewer, sharedGroups)) card.showMemberSince = false;""",
+          """    if (!canView(fields.get('username'), isSelf, viewer, sharedGroups)) { card.showUsername = false; profile.username = null; }
+              if (!canView(fields.get('status'), isSelf, viewer, sharedGroups)) {
+                card.showStatus = false;
+                profile.isVerified = null;
+                profile.isOwner = null;
+                profile.isAdmin = null;
+              }
+              if (!canView(fields.get('memberSince'), isSelf, viewer, sharedGroups)) { card.showMemberSince = false; profile.createdAt = null; }""")
+          privacy.write_text(text)
+
+          profile = Path('public/profile-experience.js')
+          text = profile.read_text()
+          old = """    button.addEventListener('click', showPrivacyTab);
+              button.addEventListener('keydown', event => {
+                if (event.key === 'ArrowLeft') { event.preventDefault(); nav.querySelector('[data-unified-tab=\"profileTiles\"]')?.click(); nav.querySelector('[data-unified-tab=\"profileTiles\"]')?.focus(); }
+                if (event.key === 'ArrowRight') { event.preventDefault(); nav.querySelector('[data-unified-tab=\"card\"]')?.click(); nav.querySelector('[data-unified-tab=\"card\"]')?.focus(); }
+              });
+              nav.append(button);"""
+          new = """    button.addEventListener('click', showPrivacyTab);
+              nav.append(button);
+              if (nav.dataset.experienceKeyboardReady !== 'true') {
+                nav.dataset.experienceKeyboardReady = 'true';
+                nav.addEventListener('keydown', event => {
+                  if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+                  const buttons = [...nav.querySelectorAll('[data-unified-tab]')];
+                  const current = buttons.indexOf(document.activeElement);
+                  if (current < 0) return;
+                  event.preventDefault();
+                  event.stopImmediatePropagation();
+                  let next = current;
+                  if (event.key === 'ArrowLeft') next = (current - 1 + buttons.length) % buttons.length;
+                  if (event.key === 'ArrowRight') next = (current + 1) % buttons.length;
+                  if (event.key === 'Home') next = 0;
+                  if (event.key === 'End') next = buttons.length - 1;
+                  buttons[next].click();
+                  buttons[next].focus();
+                }, true);
+              }"""
+          if old not in text:
+              raise SystemExit('Privacy keyboard block not found')
+          profile.write_text(text.replace(old, new))
+          PY
+      - name: Confirm changes
+        run: |
+          grep -q "allowedTileFields" src/experience.ts
+          grep -q "tile.featureId ?? tile.id" public/dashboard-experience.js
+          grep -q "profile.username = null" src/profile-privacy-hardening.ts
+          grep -q "experienceKeyboardReady" public/profile-experience.js
+      - name: Commit fixes
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "grev-dad-review-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/experience.ts src/profile-privacy-hardening.ts public/dashboard-experience.js public/profile-experience.js
+          git commit -m "Address dashboard and profile experience review"
+          git push origin HEAD:${{ github.head_ref }}
