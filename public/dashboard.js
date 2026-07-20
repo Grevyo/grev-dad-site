@@ -1100,7 +1100,6 @@ function openEditor() {
     ? 'Single-column preview: use Tile settings to resize and change vertical order. Use a wider screen for exact dragging.'
     : 'Grab any tile to move it, use Tile settings for exact controls, or drag its corner to resize.');
   renderEditor();
-  dashboardElement('#dashboard-editor-toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeEditor(saved = false) {
@@ -1201,7 +1200,7 @@ dashboardGrid?.addEventListener('drop', event => {
 });
 
 
-dashboardElement('#customize-dashboard')?.addEventListener('click', openEditor);
+dashboardElement('#customize-dashboard')?.addEventListener('click', event => { event.preventDefault(); requestAnimationFrame(() => openEditor()); });
 dashboardElement('#dashboard-cancel-layout')?.addEventListener('click', () => closeEditor(false));
 dashboardElement('#dashboard-save-layout')?.addEventListener('click', saveDashboardLayout);
 dashboardElement('#dashboard-reset-layout')?.addEventListener('click', loadDefaultWorkingTiles);

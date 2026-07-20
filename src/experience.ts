@@ -35,6 +35,7 @@ type PageRow = {
   layout_json: string;
   created_by: string;
   updated_at: number;
+  collaborator_permission: 'view' | 'edit' | 'manage' | null;
 };
 type Visibility = 'all' | 'verified' | 'groups' | 'private';
 
@@ -192,17 +193,19 @@ async function groupsForUser(env: ExperienceEnv, userId: string): Promise<GroupR
 
 async function pageAccess(env: ExperienceEnv, user: ExperienceUser, pageId: string): Promise<PageRow | null> {
   return env.DB.prepare(`
-    SELECT p.id,p.owner_user_id,p.group_id,g.name AS group_name,p.name,p.slug,p.layout_json,p.created_by,p.updated_at
+    SELECT p.id,p.owner_user_id,p.group_id,g.name AS group_name,p.name,p.slug,p.layout_json,p.created_by,p.updated_at,c.permission AS collaborator_permission
     FROM dashboard_pages p
     LEFT JOIN groups g ON g.id=p.group_id
+    LEFT JOIN dashboard_page_collaborators c ON c.page_id=p.id AND c.user_id=?
     WHERE p.id=? AND (
       p.owner_user_id=?
       OR (?=1 AND p.group_id IS NOT NULL)
+      OR c.user_id IS NOT NULL
       OR (p.group_id IS NOT NULL AND EXISTS(
         SELECT 1 FROM group_memberships gm WHERE gm.group_id=p.group_id AND gm.user_id=?
       ))
     )
-  `).bind(pageId, user.id, user.isAdmin ? 1 : 0, user.id).first<PageRow>();
+  `).bind(user.id, pageId, user.id, user.isAdmin ? 1 : 0, user.id).first<PageRow>();
 }
 
 function pageJson(row: PageRow, user: ExperienceUser) {
@@ -214,7 +217,9 @@ function pageJson(row: PageRow, user: ExperienceUser) {
     groupId: row.group_id,
     groupName: row.group_name,
     layout: parseLayout(row.layout_json),
-    canEdit: row.owner_user_id === user.id || (Boolean(row.group_id) && user.isAdmin),
+    canEdit: row.owner_user_id === user.id || (Boolean(row.group_id) && user.isAdmin) || ['edit','manage'].includes(row.collaborator_permission ?? ''),
+    canManage: row.owner_user_id === user.id || (Boolean(row.group_id) && user.isAdmin) || row.collaborator_permission === 'manage',
+    collaboratorPermission: row.collaborator_permission,
     updatedAt: row.updated_at
   };
 }
@@ -222,16 +227,17 @@ function pageJson(row: PageRow, user: ExperienceUser) {
 async function dashboardPagesPayload(env: ExperienceEnv, user: ExperienceUser) {
   const [pageRows, groups, state] = await Promise.all([
     env.DB.prepare(`
-      SELECT p.id,p.owner_user_id,p.group_id,g.name AS group_name,p.name,p.slug,p.layout_json,p.created_by,p.updated_at
+      SELECT p.id,p.owner_user_id,p.group_id,g.name AS group_name,p.name,p.slug,p.layout_json,p.created_by,p.updated_at,c.permission AS collaborator_permission
       FROM dashboard_pages p
       LEFT JOIN groups g ON g.id=p.group_id
-      WHERE p.owner_user_id=? OR (?=1 AND p.group_id IS NOT NULL) OR (
+      LEFT JOIN dashboard_page_collaborators c ON c.page_id=p.id AND c.user_id=?
+      WHERE p.owner_user_id=? OR (?=1 AND p.group_id IS NOT NULL) OR c.user_id IS NOT NULL OR (
         p.group_id IS NOT NULL AND EXISTS(
           SELECT 1 FROM group_memberships gm WHERE gm.group_id=p.group_id AND gm.user_id=?
         )
       )
       ORDER BY CASE WHEN p.owner_user_id=? THEN 0 ELSE 1 END,COALESCE(g.name,''),p.name
-    `).bind(user.id, user.isAdmin ? 1 : 0, user.id, user.id).all<PageRow>(),
+    `).bind(user.id, user.id, user.isAdmin ? 1 : 0, user.id, user.id).all<PageRow>(),
     groupsForUser(env, user.id),
     env.DB.prepare(`SELECT active_page_id FROM user_dashboard_page_state WHERE user_id=?`).bind(user.id).first<{ active_page_id: string | null }>()
   ]);
@@ -284,7 +290,7 @@ async function createDashboardPage(request: Request, env: ExperienceEnv, user: E
 async function updateDashboardPage(request: Request, env: ExperienceEnv, user: ExperienceUser, pageId: string): Promise<Response> {
   const page = await pageAccess(env, user, pageId);
   if (!page) return secureJson({ ok: false, message: 'Dashboard page not found.' }, 404);
-  if (page.owner_user_id !== user.id && !user.isAdmin) return secureJson({ ok: false, message: 'You cannot edit this group dashboard page.' }, 403);
+  if (page.owner_user_id !== user.id && !user.isAdmin && page.collaborator_permission !== 'manage') return secureJson({ ok: false, message: 'Page manager access is required to rename this dashboard page.' }, 403);
   const body = await readJson(request);
   const name = String(body.name ?? page.name).trim().slice(0, 60);
   const normalized = normalizedLayout(body.layout ?? parseLayout(page.layout_json));
