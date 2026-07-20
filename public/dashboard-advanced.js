@@ -46,8 +46,36 @@
   function ensureVersionDialog(){let dialog=dashboardElement('#dashboard-version-dialog');if(dialog)return dialog;dialog=document.createElement('dialog');dialog.id='dashboard-version-dialog';dialog.className='dashboard-version-dialog';dialog.innerHTML='<header><div><p class="eyebrow">Layout history</p><h2>Dashboard versions</h2><p>Save named checkpoints or restore an earlier layout.</p></div><button data-version-close type="button">Close</button></header><div class="dashboard-version-create"><input id="dashboard-version-name" maxlength="80" placeholder="Before redesign"><button id="dashboard-save-version" type="button">Save current version</button></div><div id="dashboard-version-list" class="dashboard-version-list"></div>';document.body.append(dialog);dialog.querySelector('[data-version-close]').addEventListener('click',()=>dialog.close());dialog.querySelector('#dashboard-save-version').addEventListener('click',async()=>{const input=dialog.querySelector('#dashboard-version-name');await saveVersion(input.value.trim()||`Version ${new Date().toLocaleString()}`);input.value='';});return dialog;}
   async function openVersions(){const dialog=ensureVersionDialog();const payload=await api(`/api/dashboard/versions/${encodeURIComponent(pageKey())}/${advanced.mode}`);advanced.versions=payload.versions;renderVersions();if(!dialog.open)dialog.showModal();}
   function renderVersions(){const list=dashboardElement('#dashboard-version-list');if(!list)return;if(!advanced.versions.length){list.innerHTML='<p>No saved versions yet.</p>';return;}list.replaceChildren(...advanced.versions.map(version=>{const article=document.createElement('article');article.innerHTML='<div><strong></strong><span></span></div>';article.querySelector('strong').textContent=version.name;article.querySelector('span').textContent=new Date(version.createdAt*1000).toLocaleString();const restore=document.createElement('button');restore.type='button';restore.textContent='Restore';restore.addEventListener('click',async()=>{const payload=await api(`/api/dashboard/versions/${version.id}/restore`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});dashboardState.workingTiles=hydrate(payload.layout);applyEditorPreferences(payload.layout.preferences);register(dashboardState.workingTiles);renderEditor();editorMessage(`Restored ${version.name}. Save layout to keep it.`,'success');dashboardElement('#dashboard-version-dialog').close();});article.append(restore);return article;}));}
-  const baseOpenEditor=openEditor;
-  openEditor=function advancedOpenEditor(){baseOpenEditor();ensureToolbar();advanced.selected=dashboardState.selectedId?new Set([dashboardState.selectedId]):new Set();register(dashboardState.workingTiles);decorateSelection();updateActions();checkDraft();};
+  openEditor=function advancedOpenEditor(){
+    if(!dashboardState.payload||dashboardState.editing)return;
+    const customize=dashboardElement('#customize-dashboard');
+    if(customize?.disabled){dashboardMessage(customize.title||'This dashboard page is read-only.','error');return;}
+    dashboardState.editing=true;
+    dashboardState.iconUploads.clear();
+    dashboardState.workingTiles=clonePinnedTiles();
+    dashboardState.selectedId=dashboardState.workingTiles[0]?.featureId??null;
+    dashboardState.search='';
+    dashboardState.category='all';
+    dashboardElement('#dashboard-density').value=dashboardState.payload.preferences.density;
+    dashboardElement('#dashboard-tile-gap').value=String(dashboardState.payload.preferences.tileGap);
+    dashboardElement('#dashboard-outer-margin').value=String(dashboardState.payload.preferences.outerMargin);
+    dashboardElement('#dashboard-show-descriptions').checked=dashboardState.payload.preferences.showDescriptions;
+    dashboardElement('#dashboard-feature-search').value='';
+    dashboardElement('#dashboard-editor-toolbar').hidden=false;
+    dashboardElement('#dashboard-editor-catalogue-panel').hidden=false;
+    dashboardElement('#dashboard-grid-heading').hidden=false;
+    customize.hidden=true;
+    dashboardElement('#dashboard-shell').classList.add('dashboard-editing');
+    editorMessage(isSingleColumnFallback()?'Single-column preview: use Tile settings to resize and change vertical order. Use a wider screen for exact dragging.':'Grab any tile to move it, use Tile settings for exact controls, or drag its corner to resize.');
+    advanced.selected=dashboardState.selectedId?new Set([dashboardState.selectedId]):new Set();
+    register(dashboardState.workingTiles);
+    renderEditor();
+    ensureToolbar();
+    decorateSelection();
+    updateActions();
+    document.dispatchEvent(new CustomEvent('dashboard:editor-opened'));
+    checkDraft();
+  };
   const baseRenderEditor=renderEditor;
   renderEditor=function advancedRenderEditor(){baseRenderEditor();ensureToolbar();register(dashboardState.workingTiles);requestAnimationFrame(()=>{decorateSelection();updateActions();document.querySelector('#dashboard-grid')?.classList.add('snap-grid-active');});scheduleDraft();};
   function install(){
@@ -55,7 +83,7 @@
     dashboardElement('#dashboard-save-layout')?.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();saveMode();},true);
     document.addEventListener('click',event=>{const tab=event.target.closest('.dashboard-page-tab');if(tab)setTimeout(()=>loadMode({silent:true}),80);},true);
     document.addEventListener('keydown',event=>{if(!dashboardState.editing)return;if(event.key==='Delete'&&selectedTiles().length){event.preventDefault();deleteSelected();return;}if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)||event.target.matches('input,textarea,select'))return;if(event.ctrlKey||event.metaKey||advanced.multi){event.preventDefault();moveSelected(event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:0,event.key==='ArrowUp'?-1:event.key==='ArrowDown'?1:0);}},true);
-    const observer=new MutationObserver(()=>{if(dashboardState.editing){decorateSelection();updateActions();}});observer.observe(document.documentElement,{childList:true,subtree:true});
+    let observerQueued=false;const observer=new MutationObserver(()=>{if(!dashboardState.editing||observerQueued)return;observerQueued=true;requestAnimationFrame(()=>{observerQueued=false;if(dashboardState.editing){decorateSelection();updateActions();}});});observer.observe(document.documentElement,{childList:true,subtree:true});
     loadMode({silent:true});
   }
   const MODES=new Set(['desktop','mobile']);

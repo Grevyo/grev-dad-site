@@ -555,6 +555,11 @@
   };
 
   function installEventRouting() {
+    document.addEventListener('dashboard:editor-opened', () => {
+      experience.history = [];
+      experience.historyIndex = -1;
+      captureHistory(true);
+    });
     dashboardElement('#dashboard-save-layout')?.addEventListener('click', event => {
       if (experience.activePageId === 'home') return;
       event.preventDefault();
