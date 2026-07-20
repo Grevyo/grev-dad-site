@@ -1,6 +1,6 @@
 :root{--profile-visible-height:100dvh}
 body.profile-unified-editing{overflow:hidden}
-.profile-unified-editor{width:min(920px,calc(100vw - 28px));height:min(820px,calc(var(--profile-visible-height,100dvh) - 32px));max-height:calc(var(--profile-visible-height,100dvh) - 32px);margin:auto;padding:0;border:1px solid var(--line-strong);border-radius:0;background:#0b0f14;color:var(--text);box-shadow:12px 12px 0 #000;overflow:hidden;grid-template-rows:auto auto minmax(0,1fr) auto}
+.profile-unified-editor{width:min(1320px,calc(100vw - 48px));height:min(940px,calc(var(--profile-visible-height,100dvh) - 40px));max-height:calc(var(--profile-visible-height,100dvh) - 40px);margin:auto;padding:0;border:1px solid var(--line-strong);border-radius:0;background:#0b0f14;color:var(--text);box-shadow:12px 12px 0 #000;overflow:hidden;grid-template-rows:auto auto minmax(0,1fr) auto}
 .profile-unified-editor[open]{display:grid}
 .profile-unified-editor::backdrop{background:rgba(3,5,8,.72);backdrop-filter:blur(3px)}
 .profile-unified-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:20px;border-bottom:1px solid var(--line-strong);background:#0b1016}

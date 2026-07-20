@@ -157,9 +157,9 @@
       dialog.setAttribute('open', '');
       openPanel(tab);
       queueMicrotask(() => {
-        dialog.scrollTop = 0;
-        dialog.querySelector('input:not([type="file"]),textarea,select')?.focus({ preventScroll: true });
-      });
+      dialog.scrollTop = 0;
+      if (state.body) state.body.scrollTop = 0;
+    });
     };
     dialog.show = dialog.showModal;
     dialog.close = returnValue => {
