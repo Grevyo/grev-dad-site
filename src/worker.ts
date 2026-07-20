@@ -10,6 +10,7 @@ type AppEnv = Parameters<typeof app.fetch>[1];
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css',
   '/dashboard.js',
+  '/dashboard-editor-history.js',
   '/admin-dashboard.js',
   '/feature.js',
   '/profile.css',
@@ -64,6 +65,9 @@ export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
 
+    if (request.method === 'GET' && url.pathname === '/dashboard.js') {
+      return bundledJavascript(request, env, '/dashboard-editor-history.js');
+    }
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') {
       return bundledJavascript(request, env, '/profile-customization-hardening.js');
     }
