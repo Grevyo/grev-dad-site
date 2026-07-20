@@ -13,8 +13,8 @@
     sourcesMounted: false,
     toolbarObserver: null,
     sourceObserver: null,
-    backdropPointerDown: false,
-    previewRecords: new Map()
+    tileObservers: [],
+    backdropPointerDown: false
   };
 
   const $ = selector => document.querySelector(selector);
@@ -28,6 +28,14 @@
   function pointerOutside(dialog, event) {
     const rect = dialog.getBoundingClientRect();
     return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+  }
+
+  function existingTilesMarkup(kind, title, description) {
+    return `
+      <section class="profile-unified-existing-tiles" data-unified-existing="${kind}">
+        <div class="profile-unified-existing-heading"><div><strong>${title}</strong><span>${description}</span></div><span data-unified-existing-count>0</span></div>
+        <div class="profile-unified-existing-list" data-unified-existing-list="${kind}"></div>
+      </section>`;
   }
 
   function createPanel() {
@@ -60,8 +68,8 @@
         </section>
         <section class="profile-unified-section" data-unified-section="cardTiles" hidden>
           <div class="profile-unified-section-intro"><strong>Mini tiles</strong><span>Add a site shortcut, external link or completely custom tile.</span></div>
+          ${existingTilesMarkup('cardTiles', 'Your card tiles', 'Select an existing mini tile to edit or remove it.')}
           <div data-unified-slot="cardTiles"></div>
-          <div class="profile-unified-live-preview" data-unified-preview-slot="cardTiles"></div>
         </section>
         <section class="profile-unified-section" data-unified-section="page" hidden>
           <div class="profile-unified-section-intro"><strong>Whole profile design</strong><span>Change the page canvas, card layout and lower-grid presentation.</span></div>
@@ -69,9 +77,9 @@
         </section>
         <section class="profile-unified-section" data-unified-section="profileTiles" hidden>
           <div class="profile-unified-section-intro"><strong>Profile tile grid</strong><span>Add content, control spacing, or select a tile to edit it.</span></div>
+          ${existingTilesMarkup('profileTiles', 'Your profile tiles', 'Select an existing lower tile to edit, resize or remove it.')}
           <div class="profile-unified-grid-actions" data-unified-pack-slot></div>
           <div data-unified-slot="profileTiles"></div>
-          <div class="profile-unified-live-preview" data-unified-preview-slot="profileTiles"></div>
         </section>
       </div>
       <footer class="profile-unified-footer">
@@ -91,7 +99,6 @@
       event.preventDefault();
       requestCancel();
     });
-    panel.addEventListener('close', restoreLivePreviews);
     panel.addEventListener('pointerdown', event => {
       state.backdropPointerDown = event.target === panel && pointerOutside(panel, event);
     });
@@ -115,10 +122,6 @@
     return state.panel?.querySelector(`[data-unified-slot="${name}"]`) || null;
   }
 
-  function previewSlot(name) {
-    return state.panel?.querySelector(`[data-unified-preview-slot="${name}"]`) || null;
-  }
-
   function mountOriginalActions() {
     if (!state.panel) return;
     const pack = $('#profile-pack');
@@ -139,28 +142,6 @@
       save.dataset.unifiedSave = '';
       saveSlot.append(save);
     }
-  }
-
-  function moveLivePreview(key, element) {
-    const target = previewSlot(key);
-    if (!element || !target || state.previewRecords.has(key)) return;
-    const marker = document.createComment(`profile-${key}-preview`);
-    element.parentNode?.insertBefore(marker, element);
-    state.previewRecords.set(key, { element, marker });
-    target.append(element);
-  }
-
-  function mountLivePreviews() {
-    if (!state.panel?.open) return;
-    moveLivePreview('cardTiles', $('.profile-card-tile-area'));
-    moveLivePreview('profileTiles', $('.profile-grid-region'));
-  }
-
-  function restoreLivePreviews() {
-    for (const { element, marker } of state.previewRecords.values()) {
-      if (marker.parentNode) marker.parentNode.replaceChild(element, marker);
-    }
-    state.previewRecords.clear();
   }
 
   function prepareDialog(dialog, tab) {
@@ -198,6 +179,80 @@
     target.append(element);
   }
 
+  function tileText(element, selectors, fallback) {
+    for (const selector of selectors) {
+      const value = element.querySelector(selector)?.textContent?.trim();
+      if (value) return value;
+    }
+    return fallback;
+  }
+
+  function originalSettingsButton(kind, tileId) {
+    const escapedId = CSS.escape(tileId);
+    if (kind === 'cardTiles') {
+      return document.querySelector(`.profile-card-mini-tile[data-tile-id="${escapedId}"] .profile-card-mini-settings`);
+    }
+    return document.querySelector(`#profile-grid .profile-tile[data-tile-id="${escapedId}"] .profile-tile-settings-button`);
+  }
+
+  function existingTileButton(kind, element, index) {
+    const tileId = element.dataset.tileId;
+    const cardTile = kind === 'cardTiles';
+    const title = tileText(element, cardTile ? ['.profile-card-mini-title', '.profile-card-mini-media-title'] : ['h2'], cardTile ? `Card tile ${index + 1}` : `Profile tile ${index + 1}`);
+    const detail = tileText(element, cardTile ? ['.profile-card-mini-kind', '.profile-card-mini-description'] : ['.profile-tile-kind'], cardTile ? 'Card tile' : 'Profile tile');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'profile-unified-existing-tile';
+    button.dataset.tileId = tileId;
+    button.innerHTML = `<span><strong></strong><small></small></span><b>Edit tile</b>`;
+    button.querySelector('strong').textContent = title;
+    button.querySelector('small').textContent = detail;
+    button.addEventListener('click', () => {
+      const settings = originalSettingsButton(kind, tileId);
+      if (!settings) {
+        refreshExistingTileLists();
+        return;
+      }
+      settings.click();
+      openPanel(kind);
+    });
+    return button;
+  }
+
+  function renderExistingTileList(kind, elements) {
+    const section = state.panel?.querySelector(`[data-unified-existing="${kind}"]`);
+    const list = section?.querySelector(`[data-unified-existing-list="${kind}"]`);
+    const count = section?.querySelector('[data-unified-existing-count]');
+    if (!section || !list || !count) return;
+    count.textContent = String(elements.length);
+    if (!elements.length) {
+      const empty = document.createElement('p');
+      empty.className = 'profile-unified-existing-empty';
+      empty.textContent = kind === 'cardTiles' ? 'No card tiles yet. Add one below.' : 'No profile tiles yet. Add one below.';
+      list.replaceChildren(empty);
+      return;
+    }
+    list.replaceChildren(...elements.map((element, index) => existingTileButton(kind, element, index)));
+  }
+
+  function refreshExistingTileLists() {
+    if (!state.panel) return;
+    const cardTiles = [...document.querySelectorAll('#profile-card .profile-card-mini-tile[data-tile-id]')];
+    const profileTiles = [...document.querySelectorAll('#profile-grid .profile-tile[data-tile-id]')];
+    renderExistingTileList('cardTiles', cardTiles);
+    renderExistingTileList('profileTiles', profileTiles);
+  }
+
+  function installTileObservers() {
+    if (state.tileObservers.length) return;
+    for (const root of [$('#profile-card'), $('#profile-grid')]) {
+      if (!root) continue;
+      const observer = new MutationObserver(() => queueMicrotask(refreshExistingTileLists));
+      observer.observe(root, { childList: true, subtree: true, characterData: true });
+      state.tileObservers.push(observer);
+    }
+  }
+
   function mountSources() {
     if (!state.panel) return;
     mountOriginalActions();
@@ -212,7 +267,9 @@
     const message = $('#profile-editor-message');
     const messageSlot = state.panel.querySelector('[data-unified-message-slot]');
     if (message && messageSlot && message.parentElement !== messageSlot) messageSlot.append(message);
-    if (state.panel.open) mountLivePreviews();
+
+    refreshExistingTileLists();
+    installTileObservers();
 
     state.sourcesMounted = Boolean(
       $('#profile-card-dialog') &&
@@ -260,6 +317,7 @@
     });
 
     ensureTabSource(tab);
+    refreshExistingTileLists();
     if (state.body) state.body.scrollTop = 0;
   }
 
@@ -273,14 +331,11 @@
         state.panel.setAttribute('open', '');
       }
     }
-    mountLivePreviews();
-    queueMicrotask(mountLivePreviews);
     selectTab(tab);
   }
 
   function closePanel() {
     if (!state.panel) return;
-    restoreLivePreviews();
     document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing', 'profile-mobile-editor-scroll-locked');
     state.panel.querySelectorAll('dialog[open]').forEach(dialog => dialog.removeAttribute('open'));
     if (state.panel.open) state.panel.close();
