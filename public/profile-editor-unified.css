@@ -69,7 +69,6 @@ body.profile-unified-editing{overflow:hidden}
 .profile-unified-editor #profile-catalogue button{min-height:64px;background:#121923}
 body.profile-unified-editing #profile-editor-toolbar{display:none!important}
 body.profile-unified-editing .profile-workspace.editing{display:block}
-body.profile-unified-editing .profile-shell{width:min(calc(100vw - 24px),177.7778vh)!important;margin:auto!important}
 body.profile-unified-editing .profile-card-quick-controls{display:none!important}
 @media(max-width:720px){
   .profile-unified-editor{width:calc(100vw - 16px);height:calc(var(--profile-visible-height,100dvh) - 16px);max-height:calc(var(--profile-visible-height,100dvh) - 16px);box-shadow:6px 6px 0 #000}
