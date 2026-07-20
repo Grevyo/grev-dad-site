@@ -72,7 +72,10 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     assert(!(await page.locator('#dashboard-undo-layout').isDisabled()), 'Paste style did not create an undo entry.');
     checkpoint(`copy and paste style${targetBefore === targetAfter ? ' (styles already matched)' : ''}`);
 
+    const contentMode = page.locator('#dashboard-content-mode');
+    await contentMode.selectOption('media-button');
     const titleInput = page.locator('#dashboard-custom-title');
+    await titleInput.waitFor({ state: 'visible' });
     await titleInput.fill('History verification text');
     const messageBeforeTextUndo = await page.locator('#dashboard-editor-message').textContent();
     await titleInput.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
