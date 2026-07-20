@@ -31,7 +31,6 @@
   };
 
   const $ = selector => document.querySelector(selector);
-  const $$ = selector => [...document.querySelectorAll(selector)];
 
   function createPanel() {
     if ($('#profile-unified-editor')) return $('#profile-unified-editor');
@@ -83,7 +82,10 @@
         </div>
       </footer>`;
 
-    document.body.append(panel);
+    const toolbar = $('#profile-editor-toolbar');
+    if (toolbar) toolbar.insertAdjacentElement('afterend', panel);
+    else document.body.append(panel);
+
     state.panel = panel;
     state.body = panel.querySelector('.profile-unified-body');
     state.footer = panel.querySelector('.profile-unified-footer');
@@ -208,6 +210,7 @@
 
   function openPanel(tab = state.activeTab) {
     if (!state.panel) return;
+    const wasHidden = state.panel.hidden;
     state.panel.hidden = false;
     state.panel.classList.remove('is-collapsed');
     const previewButton = state.panel.querySelector('[data-unified-preview]');
@@ -217,13 +220,16 @@
     }
     document.body.classList.add('profile-unified-editing');
     selectTab(tab);
+    if (wasHidden && matchMedia('(max-width:820px)').matches) {
+      requestAnimationFrame(() => $('#profile-editor-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
   }
 
   function closePanel() {
     if (!state.panel) return;
     state.panel.hidden = true;
     state.panel.classList.remove('is-collapsed');
-    document.body.classList.remove('profile-unified-editing');
+    document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing');
     state.panel.querySelectorAll('dialog[open]').forEach(dialog => dialog.removeAttribute('open'));
   }
 
