@@ -17,7 +17,6 @@ jobs:
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
       - name: Install Chromium
         run: |
           set -euo pipefail
@@ -25,4 +24,9 @@ jobs:
           npm install --no-save playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
       - name: Verify real PBE mobile profile editor scrolling
-        run: node .github/scripts/verify-live-mobile-profile-editor-scroll.cjs
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/Grevyo/grev-dad-site/agent/verify-mobile-profile-editor-scroll-pbe/.github/scripts/verify-live-mobile-profile-editor-scroll.cjs \
+            --output verify-live-mobile-profile-editor-scroll.cjs
+          node verify-live-mobile-profile-editor-scroll.cjs
