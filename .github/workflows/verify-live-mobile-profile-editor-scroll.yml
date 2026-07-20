@@ -1,0 +1,28 @@
+name: Verify Live Mobile Profile Editor Scroll
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-mobile-profile-editor-scroll-pbe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Chromium
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Verify real PBE mobile profile editor scrolling
+        run: node .github/scripts/verify-live-mobile-profile-editor-scroll.cjs
