@@ -13,7 +13,7 @@ jobs:
   verify:
     if: github.head_ref == 'agent/match-mobile-profile-editor-to-dashboard'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 6
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
     steps:
@@ -29,4 +29,4 @@ jobs:
           curl --fail --silent --show-error --location \
             https://raw.githubusercontent.com/Grevyo/grev-dad-site/agent/match-mobile-profile-editor-to-dashboard/.github/scripts/verify-mobile-profile-editor-dashboard-flow.cjs \
             --output verify-mobile-profile-editor-dashboard-flow.cjs
-          node verify-mobile-profile-editor-dashboard-flow.cjs
+          timeout --signal=INT 120s node verify-mobile-profile-editor-dashboard-flow.cjs
