@@ -6,7 +6,7 @@ const assert = (value, message) => { if (!value) throw new Error(message); };
 const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
 
 async function fetchText(url) {
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!response.ok) throw new Error(`Unable to fetch branch asset ${url} (${response.status}).`);
   return response.text();
 }
@@ -18,6 +18,7 @@ async function fetchText(url) {
     fetchText(`${rawBase}/profile-editor-unified.js`),
     fetchText(`${rawBase}/profile-editor-unified-a11y.js`)
   ]);
+  checkpoint('branch UI assets fetched');
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -31,24 +32,25 @@ async function fetchText(url) {
   page.setDefaultNavigationTimeout(20_000);
   try {
     let profileId = null;
-    for (let attempt = 0; attempt < 12; attempt += 1) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
       const login = await context.request.post(`${base}/api/auth/login`, {
-        data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
+        data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false },
+        timeout: 10_000
       });
       if (login.status() === 200) {
-        const session = await context.request.get(`${base}/api/auth/session`);
+        const session = await context.request.get(`${base}/api/auth/session`, { timeout: 10_000 });
         if (session.status() === 200) {
           const payload = await session.json();
           profileId = payload.user?.id || null;
           if (profileId) break;
         }
       }
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
     assert(profileId, 'Could not create a valid PBE session.');
     checkpoint('PBE authenticated');
 
-    const beforeResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`);
+    const beforeResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`, { timeout: 10_000 });
     assert(beforeResponse.status() === 200, 'Profile API did not load.');
     const before = (await beforeResponse.json()).profile;
     const beforeSnapshot = JSON.stringify({
@@ -186,7 +188,7 @@ async function fetchText(url) {
     assert(await page.locator('#profile-editor-toolbar').isHidden(), 'Profile editor toolbar remained visible after Cancel.');
     assert(!await page.evaluate(() => document.body.classList.contains('profile-unified-editing')), 'Editing body class remained after Cancel.');
 
-    const afterResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`);
+    const afterResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`, { timeout: 10_000 });
     assert(afterResponse.status() === 200, 'Profile API did not reload after Cancel.');
     const after = (await afterResponse.json()).profile;
     const afterSnapshot = JSON.stringify({
