@@ -1,15 +1,17 @@
 name: Verify Full Platform Upgrade
 
 on:
-  pull_request:
-    branches: [pbe]
-    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - agent/full-dashboard-profile-upgrade
+
+permissions:
+  contents: read
 
 jobs:
   verify:
-    if: github.head_ref == 'agent/full-dashboard-profile-upgrade'
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,19 +20,7 @@ jobs:
       - name: Install
         run: npm install
       - name: TypeScript
-        id: typecheck
-        run: |
-          set +e
-          npm run typecheck > typecheck.log 2>&1
-          status=$?
-          cat typecheck.log
-          exit $status
-      - name: Upload typecheck output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-platform-typecheck
-          path: typecheck.log
+        run: npm run typecheck
       - name: Browser syntax
         run: |
           node --check public/hub.js
@@ -41,15 +31,4 @@ jobs:
           node --check public/site-platform.js
           node --check public/chat-ui.js
       - name: Fresh migrations
-        run: |
-          set +e
-          npx wrangler d1 migrations apply grev-dad-dev --local > migration.log 2>&1
-          status=$?
-          cat migration.log
-          exit $status
-      - name: Upload migration output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-platform-migrations
-          path: migration.log
+        run: npx wrangler d1 migrations apply grev-dad-dev --local
