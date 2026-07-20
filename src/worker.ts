@@ -4,12 +4,16 @@ import { type ProfileEnv } from './profile';
 import { handleProfileMediaRequest } from './profile-media';
 import { handleProfileCardTilesRequest } from './profile-card-tiles';
 import { handleProfileCustomizationHardeningRequest } from './profile-customization-hardening';
+import { handleExperienceRequest, type ExperienceEnv } from './experience';
+import { applyProfilePrivacy } from './profile-privacy-hardening';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css',
   '/dashboard.js',
+  '/dashboard-experience.css',
+  '/dashboard-experience.js',
   '/admin-dashboard.js',
   '/feature.js',
   '/profile.css',
@@ -22,7 +26,11 @@ const DASHBOARD_ASSETS = new Set([
   '/profile-customization-hardening.js',
   '/profile-editor-unified.css',
   '/profile-editor-unified.js',
-  '/profile-editor-unified-a11y.js'
+  '/profile-editor-unified-a11y.js',
+  '/profile-experience.css',
+  '/profile-experience.js',
+  '/profile-card-popover.css',
+  '/profile-card-popover.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -43,19 +51,30 @@ function invalidIntentionsResponse(): Response {
   return workerJson({ ok: false, message: 'Choose at least one intention.' }, 400);
 }
 
-async function bundledJavascript(request: Request, env: AppEnv, appendedPath: string): Promise<Response> {
+async function bundledAsset(
+  request: Request,
+  env: AppEnv,
+  appendedPaths: string[],
+  contentType: string
+): Promise<Response> {
   const assets = (env as unknown as DashboardEnv).ASSETS;
   const baseUrl = new URL(request.url);
-  const appendedUrl = new URL(appendedPath, baseUrl);
-  const [baseResponse, appendedResponse] = await Promise.all([
+  const responses = await Promise.all([
     assets.fetch(request),
-    assets.fetch(new Request(appendedUrl.toString(), request))
+    ...appendedPaths.map(path => {
+      const appendedUrl = new URL(path, baseUrl);
+      return assets.fetch(new Request(appendedUrl.toString(), request));
+    })
   ]);
-  if (!baseResponse.ok) return baseResponse;
-  const content = `${await baseResponse.text()}\n${appendedResponse.ok ? await appendedResponse.text() : ''}`;
+  const [baseResponse, ...appendedResponses] = responses;
+  if (!baseResponse?.ok) return baseResponse;
+  const content = [
+    await baseResponse.text(),
+    ...await Promise.all(appendedResponses.filter(response => response.ok).map(response => response.text()))
+  ].join('\n');
   const headers = new Headers(baseResponse.headers);
   headers.delete('Content-Length');
-  headers.set('Content-Type', 'application/javascript; charset=utf-8');
+  headers.set('Content-Type', contentType);
   headers.set('Cache-Control', 'no-store');
   return new Response(content, { status: baseResponse.status, headers });
 }
@@ -65,10 +84,19 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') {
-      return bundledJavascript(request, env, '/profile-customization-hardening.js');
+      return bundledAsset(request, env, ['/profile-customization-hardening.js'], 'application/javascript; charset=utf-8');
+    }
+    if (request.method === 'GET' && url.pathname === '/dashboard.js') {
+      return bundledAsset(request, env, ['/dashboard-experience.js', '/profile-card-popover.js'], 'application/javascript; charset=utf-8');
+    }
+    if (request.method === 'GET' && url.pathname === '/dashboard.css') {
+      return bundledAsset(request, env, ['/dashboard-experience.css', '/profile-card-popover.css'], 'text/css; charset=utf-8');
     }
     if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') {
-      return bundledJavascript(request, env, '/profile-editor-unified-a11y.js');
+      return bundledAsset(request, env, ['/profile-editor-unified-a11y.js', '/profile-experience.js', '/profile-card-popover.js'], 'application/javascript; charset=utf-8');
+    }
+    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.css') {
+      return bundledAsset(request, env, ['/profile-experience.css', '/profile-card-popover.css'], 'text/css; charset=utf-8');
     }
     if (request.method === 'GET' && DASHBOARD_ASSETS.has(url.pathname)) {
       return (env as unknown as DashboardEnv).ASSETS.fetch(request);
@@ -84,7 +112,6 @@ export default {
               .map(value => value.trim())
               .filter(Boolean)
           )];
-
           if (normalized.length === 0) return invalidIntentionsResponse();
         }
       } catch {
@@ -93,12 +120,25 @@ export default {
     }
 
     try {
-      const customizationResponse = await handleProfileCustomizationHardeningRequest(request, env as unknown as ProfileEnv);
-      if (customizationResponse) return customizationResponse;
-      const cardTileResponse = await handleProfileCardTilesRequest(request, env as unknown as ProfileEnv);
-      if (cardTileResponse) return cardTileResponse;
-      const profileResponse = await handleProfileMediaRequest(request, env as unknown as ProfileEnv);
-      if (profileResponse) return profileResponse;
+      const experienceResponse = await handleExperienceRequest(request, env as unknown as ExperienceEnv);
+      if (experienceResponse) return experienceResponse;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'UNKNOWN';
+      if (message === 'JSON_REQUIRED' || message === 'INVALID_BODY' || error instanceof SyntaxError) {
+        return workerJson({ ok: false, message: 'A valid JSON request body is required.' }, 400);
+      }
+      console.error('Experience request failed', error);
+      return workerJson({ ok: false, message: 'The dashboard or profile experience request could not be completed.' }, 500);
+    }
+
+    try {
+      const profileEnv = env as unknown as ProfileEnv;
+      const customizationResponse = await handleProfileCustomizationHardeningRequest(request, profileEnv);
+      if (customizationResponse) return applyProfilePrivacy(request, profileEnv, customizationResponse);
+      const cardTileResponse = await handleProfileCardTilesRequest(request, profileEnv);
+      if (cardTileResponse) return applyProfilePrivacy(request, profileEnv, cardTileResponse);
+      const profileResponse = await handleProfileMediaRequest(request, profileEnv);
+      if (profileResponse) return applyProfilePrivacy(request, profileEnv, profileResponse);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'UNKNOWN';
       if (message === 'JSON_REQUIRED' || message === 'INVALID_BODY' || error instanceof SyntaxError) {
