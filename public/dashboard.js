@@ -1100,7 +1100,6 @@ function openEditor() {
     ? 'Single-column preview: use Tile settings to resize and change vertical order. Use a wider screen for exact dragging.'
     : 'Grab any tile to move it, use Tile settings for exact controls, or drag its corner to resize.');
   renderEditor();
-  requestAnimationFrame(() => dashboardElement('#dashboard-editor-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 }
 
 function closeEditor(saved = false) {
