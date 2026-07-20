@@ -13,7 +13,8 @@
     sourcesMounted: false,
     toolbarObserver: null,
     sourceObserver: null,
-    backdropPointerDown: false
+    backdropPointerDown: false,
+    previewRecords: new Map()
   };
 
   const $ = selector => document.querySelector(selector);
@@ -60,6 +61,7 @@
         <section class="profile-unified-section" data-unified-section="cardTiles" hidden>
           <div class="profile-unified-section-intro"><strong>Mini tiles</strong><span>Add a site shortcut, external link or completely custom tile.</span></div>
           <div data-unified-slot="cardTiles"></div>
+          <div class="profile-unified-live-preview" data-unified-preview-slot="cardTiles"></div>
         </section>
         <section class="profile-unified-section" data-unified-section="page" hidden>
           <div class="profile-unified-section-intro"><strong>Whole profile design</strong><span>Change the page canvas, card layout and lower-grid presentation.</span></div>
@@ -69,6 +71,7 @@
           <div class="profile-unified-section-intro"><strong>Profile tile grid</strong><span>Add content, control spacing, or select a tile to edit it.</span></div>
           <div class="profile-unified-grid-actions" data-unified-pack-slot></div>
           <div data-unified-slot="profileTiles"></div>
+          <div class="profile-unified-live-preview" data-unified-preview-slot="profileTiles"></div>
         </section>
       </div>
       <footer class="profile-unified-footer">
@@ -88,6 +91,7 @@
       event.preventDefault();
       requestCancel();
     });
+    panel.addEventListener('close', restoreLivePreviews);
     panel.addEventListener('pointerdown', event => {
       state.backdropPointerDown = event.target === panel && pointerOutside(panel, event);
     });
@@ -111,6 +115,10 @@
     return state.panel?.querySelector(`[data-unified-slot="${name}"]`) || null;
   }
 
+  function previewSlot(name) {
+    return state.panel?.querySelector(`[data-unified-preview-slot="${name}"]`) || null;
+  }
+
   function mountOriginalActions() {
     if (!state.panel) return;
     const pack = $('#profile-pack');
@@ -131,6 +139,28 @@
       save.dataset.unifiedSave = '';
       saveSlot.append(save);
     }
+  }
+
+  function moveLivePreview(key, element) {
+    const target = previewSlot(key);
+    if (!element || !target || state.previewRecords.has(key)) return;
+    const marker = document.createComment(`profile-${key}-preview`);
+    element.parentNode?.insertBefore(marker, element);
+    state.previewRecords.set(key, { element, marker });
+    target.append(element);
+  }
+
+  function mountLivePreviews() {
+    if (!state.panel?.open) return;
+    moveLivePreview('cardTiles', $('.profile-card-tile-area'));
+    moveLivePreview('profileTiles', $('.profile-grid-region'));
+  }
+
+  function restoreLivePreviews() {
+    for (const { element, marker } of state.previewRecords.values()) {
+      if (marker.parentNode) marker.parentNode.replaceChild(element, marker);
+    }
+    state.previewRecords.clear();
   }
 
   function prepareDialog(dialog, tab) {
@@ -182,6 +212,7 @@
     const message = $('#profile-editor-message');
     const messageSlot = state.panel.querySelector('[data-unified-message-slot]');
     if (message && messageSlot && message.parentElement !== messageSlot) messageSlot.append(message);
+    if (state.panel.open) mountLivePreviews();
 
     state.sourcesMounted = Boolean(
       $('#profile-card-dialog') &&
@@ -242,11 +273,14 @@
         state.panel.setAttribute('open', '');
       }
     }
+    mountLivePreviews();
+    queueMicrotask(mountLivePreviews);
     selectTab(tab);
   }
 
   function closePanel() {
     if (!state.panel) return;
+    restoreLivePreviews();
     document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing', 'profile-mobile-editor-scroll-locked');
     state.panel.querySelectorAll('dialog[open]').forEach(dialog => dialog.removeAttribute('open'));
     if (state.panel.open) state.panel.close();
