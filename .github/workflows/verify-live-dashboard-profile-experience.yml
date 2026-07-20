@@ -1,0 +1,63 @@
+name: Verify Live Dashboard Profile Experience
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/verify-live-dashboard-profile-experience'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify merged PBE deployment
+        run: |
+          set -euo pipefail
+          BASE='https://pbe.grev.dad'
+          ready=0
+          for attempt in $(seq 1 48); do
+            health=$(curl --fail --silent --show-error "$BASE/api/health" || true)
+            dashboard=$(curl --fail --silent --show-error "$BASE/dashboard-experience.js" || true)
+            profile=$(curl --fail --silent --show-error "$BASE/profile-experience.js" || true)
+            popover=$(curl --fail --silent --show-error "$BASE/profile-card-popover.js" || true)
+            dashboard_bundle=$(curl --fail --silent --show-error "$BASE/dashboard.js" || true)
+            profile_bundle=$(curl --fail --silent --show-error "$BASE/profile-editor-unified.js" || true)
+            if [[ "$health" == *'"environment":"pbe"'* ]] \
+              && [[ "$dashboard" == *'dashboard-page-bar'* ]] \
+              && [[ "$dashboard" == *'feature-live-clock'* ]] \
+              && [[ "$dashboard" == *'dashboard-undo-layout'* ]] \
+              && [[ "$profile" == *'profile-theme-starters'* ]] \
+              && [[ "$profile" == *'profile-privacy-panel'* ]] \
+              && [[ "$profile" == *'profile-interactions'* ]] \
+              && [[ "$popover" == *'global-profile-card-popover'* ]] \
+              && [[ "$dashboard_bundle" == *'dashboard-page-bar'* ]] \
+              && [[ "$profile_bundle" == *'profile-theme-starters'* ]]; then
+              ready=1
+              break
+            fi
+            sleep 10
+          done
+          if [[ "$ready" != 1 ]]; then
+            echo 'The merged PBE experience assets did not become ready.' >&2
+            exit 1
+          fi
+
+          pages_status=$(curl --silent --output /tmp/pages.json --write-out '%{http_code}' "$BASE/api/experience/dashboard/pages")
+          privacy_status=$(curl --silent --output /tmp/privacy.json --write-out '%{http_code}' "$BASE/api/profile/privacy")
+          [[ "$pages_status" == '401' ]]
+          [[ "$privacy_status" == '401' ]]
+          grep -q 'Authentication required' /tmp/pages.json
+          grep -q 'Authentication required' /tmp/privacy.json
+
+          echo 'CHECKPOINT: PBE health reports pbe environment'
+          echo 'CHECKPOINT: dashboard page, live tile, quick action and history code is live'
+          echo 'CHECKPOINT: homepage, privacy, theme and interaction code is live'
+          echo 'CHECKPOINT: reusable profile card popover is live'
+          echo 'CHECKPOINT: bundled dashboard and profile scripts contain the new experience layer'
+          echo 'CHECKPOINT: new authenticated API routes are active'
+          echo 'Live PBE dashboard/profile experience verification passed.'
