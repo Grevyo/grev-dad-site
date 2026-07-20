@@ -113,6 +113,7 @@
     if (!scrollState.locked) return;
     const body = document.body;
     const saved = scrollState.bodyStyles || {};
+    const restoreY = scrollState.scrollY;
     body.style.position = saved.position || '';
     body.style.top = saved.top || '';
     body.style.left = saved.left || '';
@@ -122,7 +123,9 @@
     document.documentElement.style.overflow = scrollState.htmlOverflow || '';
     body.classList.remove('profile-mobile-editor-scroll-locked');
     scrollState.locked = false;
-    requestAnimationFrame(() => window.scrollTo(0, scrollState.scrollY));
+    window.scrollTo(0, restoreY);
+    requestAnimationFrame(() => window.scrollTo(0, restoreY));
+    setTimeout(() => window.scrollTo(0, restoreY), 60);
   }
 
   function editorIsOpen(editor) {
