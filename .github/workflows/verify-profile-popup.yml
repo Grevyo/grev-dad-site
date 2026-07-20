@@ -24,11 +24,10 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
-      - name: Verify Profile popup
+      - name: Diagnose Profile popup cancel
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
-            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/verify-profile-popup.cjs" \
-            --output verify-profile-popup.cjs
-          sed -i "s#agent/profile-editor-native-popup/public#${VERIFY_REF}/public#" verify-profile-popup.cjs
-          timeout --signal=INT 180s node verify-profile-popup.cjs
+            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/diagnose-profile-popup-cancel.cjs" \
+            --output diagnose-profile-popup-cancel.cjs
+          timeout --signal=INT 120s node diagnose-profile-popup-cancel.cjs
