@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 
 const base = 'https://agent-match-mobile-profile-editor-to-dashboard-grev-dad-site.joeahh.workers.dev';
+const authBase = 'https://pbe.grev.dad';
 const assert = (value, message) => { if (!value) throw new Error(message); };
 const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
 
@@ -16,11 +17,11 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
   try {
     let profileId = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
-      const login = await context.request.post(`${base}/api/auth/login`, {
+      const login = await context.request.post(`${authBase}/api/auth/login`, {
         data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
       });
       if (login.status() === 200) {
-        const session = await context.request.get(`${base}/api/auth/session`);
+        const session = await context.request.get(`${authBase}/api/auth/session`);
         if (session.status() === 200) {
           const payload = await session.json();
           profileId = payload.user?.id || null;
@@ -29,7 +30,22 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
       }
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
-    assert(profileId, 'Could not authenticate against the branch preview.');
+    assert(profileId, 'Could not create a valid PBE session.');
+
+    const authCookies = await context.cookies(authBase);
+    assert(authCookies.length > 0, 'PBE login did not issue a session cookie.');
+    await context.addCookies(authCookies.map(cookie => ({
+      name: cookie.name,
+      value: cookie.value,
+      url: base,
+      expires: cookie.expires,
+      httpOnly: cookie.httpOnly,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite
+    })));
+    const previewSession = await context.request.get(`${base}/api/auth/session`);
+    assert(previewSession.status() === 200, `Branch preview rejected the signed PBE session (${previewSession.status()}).`);
+    checkpoint('branch preview authenticated');
 
     const beforeResponse = await context.request.get(`${base}/api/profiles/${encodeURIComponent(profileId)}`);
     assert(beforeResponse.status() === 200, 'Profile API did not load.');
