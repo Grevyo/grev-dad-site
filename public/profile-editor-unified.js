@@ -31,7 +31,7 @@
   };
 
   const $ = selector => document.querySelector(selector);
-  const $$ = selector => [...document.querySelectorAll(selector)];
+  const mobileLayout = matchMedia('(max-width:820px)');
 
   function createPanel() {
     if ($('#profile-unified-editor')) return $('#profile-unified-editor');
@@ -83,7 +83,10 @@
         </div>
       </footer>`;
 
-    document.body.append(panel);
+    const toolbar = $('#profile-editor-toolbar');
+    if (toolbar) toolbar.insertAdjacentElement('afterend', panel);
+    else document.body.append(panel);
+
     state.panel = panel;
     state.body = panel.querySelector('.profile-unified-body');
     state.footer = panel.querySelector('.profile-unified-footer');
@@ -116,7 +119,10 @@
   function prepareDialog(dialog, tab) {
     if (!dialog || dialog.dataset.unifiedEditorReady === 'true') return;
     dialog.dataset.unifiedEditorReady = 'true';
-    dialog.dataset.unifiedTab = tab;
+    dialog.dataset.unifiedEditorSection = tab;
+    dialog.removeAttribute('data-unified-tab');
+    dialog.removeAttribute('aria-selected');
+    dialog.classList.remove('is-active');
     dialog.classList.add('profile-editor-inline-dialog');
 
     dialog.showModal = () => {
@@ -147,6 +153,19 @@
     else target.append(element);
   }
 
+  function placeEditorMessage() {
+    const message = $('#profile-editor-message');
+    const toolbar = $('#profile-editor-toolbar');
+    const messageSlot = state.panel?.querySelector('[data-unified-message-slot]');
+    const destination = mobileLayout.matches ? toolbar : messageSlot;
+    if (message && destination && message.parentElement !== destination) destination.append(message);
+  }
+
+  function stopSourceObserver() {
+    state.bodyObserver?.disconnect();
+    state.bodyObserver = null;
+  }
+
   function mountSources() {
     if (!state.panel) return;
 
@@ -158,13 +177,7 @@
     moveSource($('#profile-card-tile-editor'), 'cardTiles');
     moveSource($('.profile-editor-preferences'), 'profileTiles');
     moveSource($('#profile-catalogue'), 'profileTiles');
-
-    const message = $('#profile-editor-message');
-    const messageSlot = state.panel.querySelector('[data-unified-message-slot]');
-    if (message && messageSlot && message.dataset.unifiedEditorMoved !== 'true') {
-      message.dataset.unifiedEditorMoved = 'true';
-      messageSlot.append(message);
-    }
+    placeEditorMessage();
 
     state.sourcesMounted = Boolean(
       $('#profile-card-dialog') &&
@@ -172,6 +185,7 @@
       $('#profile-card-tile-dialog') &&
       $('#profile-tile-dialog')
     );
+    if (state.sourcesMounted) stopSourceObserver();
   }
 
   function ensureTabSource(tab) {
@@ -193,7 +207,7 @@
     if (state.title) state.title.textContent = meta.title;
     if (state.description) state.description.textContent = meta.description;
 
-    state.panel?.querySelectorAll('[data-unified-tab]').forEach(button => {
+    state.panel?.querySelectorAll('.profile-unified-tabs [data-unified-tab]').forEach(button => {
       const active = button.dataset.unifiedTab === tab;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-selected', String(active));
@@ -208,6 +222,7 @@
 
   function openPanel(tab = state.activeTab) {
     if (!state.panel) return;
+    const wasHidden = state.panel.hidden;
     state.panel.hidden = false;
     state.panel.classList.remove('is-collapsed');
     const previewButton = state.panel.querySelector('[data-unified-preview]');
@@ -217,13 +232,16 @@
     }
     document.body.classList.add('profile-unified-editing');
     selectTab(tab);
+    if (wasHidden && mobileLayout.matches) {
+      requestAnimationFrame(() => $('#profile-editor-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
   }
 
   function closePanel() {
     if (!state.panel) return;
     state.panel.hidden = true;
     state.panel.classList.remove('is-collapsed');
-    document.body.classList.remove('profile-unified-editing');
+    document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing');
     state.panel.querySelectorAll('dialog[open]').forEach(dialog => dialog.removeAttribute('open'));
   }
 
@@ -245,8 +263,15 @@
   }
 
   function installDialogObserver() {
-    state.bodyObserver = new MutationObserver(() => mountSources());
-    state.bodyObserver.observe(document.body, { childList: true, subtree: true });
+    if (state.sourcesMounted || state.bodyObserver) return;
+    const observer = new MutationObserver(() => mountSources());
+    state.bodyObserver = observer;
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => {
+      if (state.bodyObserver !== observer) return;
+      stopSourceObserver();
+      mountSources();
+    }, 5000);
   }
 
   function installToolbarObserver() {
@@ -279,6 +304,7 @@
     installDialogObserver();
     installToolbarObserver();
     installActionRouting();
+    mobileLayout.addEventListener('change', placeEditorMessage);
     syncEditorState();
   }
 

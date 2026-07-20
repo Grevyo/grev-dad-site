@@ -1,15 +1,6 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   const mobile = matchMedia('(max-width:820px)');
-  const scrollState = {
-    locked: false,
-    scrollY: 0,
-    bodyStyles: null,
-    htmlOverflow: '',
-    editorObserver: null,
-    bodyObserver: null,
-    focusedControl: null
-  };
 
   function tabName(button) {
     return button?.dataset.unifiedTab || 'card';
@@ -67,177 +58,64 @@
     syncTabState(editor);
   }
 
-  function cleanDialogMarkers(editor) {
-    editor.querySelectorAll('dialog[data-unified-tab]').forEach(dialog => {
-      dialog.removeAttribute('data-unified-tab');
-      dialog.removeAttribute('aria-selected');
-      dialog.classList.remove('is-active');
-    });
-  }
-
   function updateViewportMetrics() {
-    const viewport = window.visualViewport;
-    const visibleHeight = Math.max(240, Math.round(viewport?.height || window.innerHeight));
-    const bottomOffset = viewport
-      ? Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
-      : 0;
+    const visibleHeight = Math.max(240, Math.round(window.visualViewport?.height || window.innerHeight));
     document.documentElement.style.setProperty('--profile-visible-height', `${visibleHeight}px`);
-    document.documentElement.style.setProperty('--profile-editor-bottom-offset', `${bottomOffset}px`);
+    document.documentElement.style.setProperty('--profile-editor-bottom-offset', '0px');
   }
 
-  function lockPageScroll() {
-    if (scrollState.locked) return;
-    const body = document.body;
-    scrollState.scrollY = window.scrollY;
-    scrollState.bodyStyles = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      overflow: body.style.overflow
-    };
-    scrollState.htmlOverflow = document.documentElement.style.overflow;
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollState.scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    body.classList.add('profile-mobile-editor-scroll-locked');
-    scrollState.locked = true;
+  function releaseLegacyPageLock() {
+    document.body.classList.remove('profile-mobile-editor-scroll-locked', 'profile-unified-previewing');
   }
 
-  function releasePageScroll() {
-    if (!scrollState.locked) return;
-    const body = document.body;
-    const saved = scrollState.bodyStyles || {};
-    const restoreY = scrollState.scrollY;
-    body.style.position = saved.position || '';
-    body.style.top = saved.top || '';
-    body.style.left = saved.left || '';
-    body.style.right = saved.right || '';
-    body.style.width = saved.width || '';
-    body.style.overflow = saved.overflow || '';
-    document.documentElement.style.overflow = scrollState.htmlOverflow || '';
-    body.classList.remove('profile-mobile-editor-scroll-locked');
-    scrollState.locked = false;
-    window.scrollTo(0, restoreY);
-    requestAnimationFrame(() => window.scrollTo(0, restoreY));
-    setTimeout(() => window.scrollTo(0, restoreY), 60);
-  }
-
-  function editorIsOpen(editor) {
-    return Boolean(editor && !editor.hidden && document.body.classList.contains('profile-unified-editing'));
-  }
-
-  function syncMobileScrollState(editor) {
-    updateViewportMetrics();
-    const open = editorIsOpen(editor);
-    const previewing = open && mobile.matches && editor.classList.contains('is-collapsed');
-    document.body.classList.toggle('profile-unified-previewing', previewing);
-    if (open && mobile.matches && !previewing) lockPageScroll();
-    else releasePageScroll();
-  }
-
-  function ensureFocusedControlVisible(editor, control = scrollState.focusedControl || document.activeElement) {
-    if (!mobile.matches || !(control instanceof HTMLElement) || !editor.contains(control)) return;
-    const scroller = editor.querySelector('.profile-unified-body');
-    if (!scroller || !scroller.contains(control)) return;
-
-    const adjust = () => {
-      const scrollerRect = scroller.getBoundingClientRect();
-      const controlRect = control.getBoundingClientRect();
-      const viewport = window.visualViewport;
-      const viewportTop = viewport?.offsetTop || 0;
-      const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
-      const visibleTop = Math.max(scrollerRect.top, viewportTop) + 16;
-      const visibleBottom = Math.min(scrollerRect.bottom, viewportBottom) - 20;
-      if (visibleBottom <= visibleTop) return;
-      if (controlRect.bottom > visibleBottom) {
-        scroller.scrollTop += controlRect.bottom - visibleBottom;
-      } else if (controlRect.top < visibleTop) {
-        scroller.scrollTop += controlRect.top - visibleTop;
-      }
-    };
-
-    adjust();
-    requestAnimationFrame(adjust);
-  }
-
-  function configurePreviewToggle(editor) {
+  function hideLegacyPreview(editor) {
     const button = editor.querySelector('[data-unified-preview]');
-    if (!button) return;
-    const apply = () => {
-      button.hidden = !mobile.matches;
-      if (!mobile.matches && editor.classList.contains('is-collapsed')) {
-        editor.classList.remove('is-collapsed');
-        button.textContent = 'Preview';
-        button.setAttribute('aria-expanded', 'true');
-      }
-      syncMobileScrollState(editor);
-    };
-    apply();
-    if (button.dataset.mobileReady !== 'true') {
-      button.dataset.mobileReady = 'true';
-      mobile.addEventListener('change', apply);
-      button.addEventListener('click', () => queueMicrotask(() => syncMobileScrollState(editor)), true);
+    if (button) {
+      button.hidden = true;
+      button.setAttribute('aria-expanded', 'true');
     }
+    editor.classList.remove('is-collapsed');
   }
 
-  function configureMobileScrolling(editor) {
-    if (editor.dataset.mobileScrollReady === 'true') {
-      syncMobileScrollState(editor);
-      return;
-    }
-    editor.dataset.mobileScrollReady = 'true';
-
-    scrollState.editorObserver = new MutationObserver(() => syncMobileScrollState(editor));
-    scrollState.editorObserver.observe(editor, { attributes: true, attributeFilter: ['class', 'hidden'] });
-
-    scrollState.bodyObserver = new MutationObserver(() => syncMobileScrollState(editor));
-    scrollState.bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
+  function configureFocus(editor) {
+    if (editor.dataset.inlineFocusReady === 'true') return;
+    editor.dataset.inlineFocusReady = 'true';
     editor.addEventListener('focusin', event => {
-      if (!(event.target instanceof HTMLElement)) return;
-      scrollState.focusedControl = event.target;
-      requestAnimationFrame(() => requestAnimationFrame(() => ensureFocusedControlVisible(editor, event.target)));
+      if (!mobile.matches || !(event.target instanceof HTMLElement)) return;
+      requestAnimationFrame(() => event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
     });
-
-    const viewport = window.visualViewport;
-    const handleViewportChange = () => {
-      updateViewportMetrics();
-      requestAnimationFrame(() => requestAnimationFrame(() => ensureFocusedControlVisible(editor)));
-      setTimeout(() => ensureFocusedControlVisible(editor), 120);
-    };
-    viewport?.addEventListener('resize', handleViewportChange);
-    viewport?.addEventListener('scroll', handleViewportChange);
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('orientationchange', handleViewportChange);
-    window.addEventListener('pagehide', releasePageScroll);
-
-    syncMobileScrollState(editor);
   }
 
   function configure() {
     const editor = $('#profile-unified-editor');
     if (!editor) return false;
-    cleanDialogMarkers(editor);
     configureTabs(editor);
-    configurePreviewToggle(editor);
-    configureMobileScrolling(editor);
+    hideLegacyPreview(editor);
+    configureFocus(editor);
+    updateViewportMetrics();
+    releaseLegacyPageLock();
     return true;
   }
 
   function initialise() {
-    updateViewportMetrics();
     if (configure()) return;
-    const observer = new MutationObserver(() => {
-      if (configure()) observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    requestAnimationFrame(() => configure());
   }
+
+  window.visualViewport?.addEventListener('resize', updateViewportMetrics);
+  window.addEventListener('resize', () => {
+    updateViewportMetrics();
+    const editor = $('#profile-unified-editor');
+    if (editor) hideLegacyPreview(editor);
+    releaseLegacyPageLock();
+  });
+  window.addEventListener('orientationchange', updateViewportMetrics);
+  window.addEventListener('pagehide', releaseLegacyPageLock);
+  mobile.addEventListener('change', () => {
+    const editor = $('#profile-unified-editor');
+    if (editor) hideLegacyPreview(editor);
+    releaseLegacyPageLock();
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialise, { once: true });
   else initialise();

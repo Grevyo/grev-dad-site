@@ -22,6 +22,19 @@
 
 <p id="profile-message" class="profile-message" role="status">Loading profile…</p>
 
+<section id="profile-editor-toolbar" class="profile-editor-toolbar" hidden aria-label="Profile editing controls">
+<div class="profile-editor-topline">
+<div><p class="eyebrow">Live profile editor</p><h2>Edit directly on your profile</h2><p>Choose a section below, make your changes, then check the live card and tile grid underneath. Nothing is stored until you press Save profile.</p></div>
+<div class="profile-editor-actions"><button id="profile-card-settings" type="button">Edit profile card</button><button id="profile-pack" type="button">Pack tiles</button><button id="profile-cancel" type="button">Cancel</button><button id="profile-save" class="primary" type="button">Save profile</button></div>
+</div>
+<div class="profile-editor-preferences">
+<label>Tile density<select id="profile-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+<label>Tile gap<select id="profile-tile-gap"><option value="0">0 px</option><option value="4">4 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option></select></label>
+<label>Outer margin<select id="profile-outer-margin"><option value="0">0 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option></select></label>
+</div>
+<p id="profile-editor-message" class="profile-editor-message" role="status">Choose a section below to edit your profile.</p>
+</section>
+
 <section id="profile-card" class="profile-card" aria-label="Member profile card">
 <div class="profile-card-cover" data-profile-cover></div>
 <div class="profile-card-main">
@@ -40,19 +53,6 @@
 </div>
 </div>
 </div>
-</section>
-
-<section id="profile-editor-toolbar" class="profile-editor-toolbar" hidden>
-<div class="profile-editor-topline">
-<div><p class="eyebrow">Profile builder</p><h2>Edit the card and profile grid</h2><p>Changes preview immediately. Move and resize tiles on the eight-column square grid; nothing is stored until Save profile.</p></div>
-<div class="profile-editor-actions"><button id="profile-card-settings" type="button">Edit profile card</button><button id="profile-pack" type="button">Pack tiles</button><button id="profile-cancel" type="button">Cancel</button><button id="profile-save" class="primary" type="button">Save profile</button></div>
-</div>
-<div class="profile-editor-preferences">
-<label>Tile density<select id="profile-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
-<label>Tile gap<select id="profile-tile-gap"><option value="0">0 px</option><option value="4">4 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option></select></label>
-<label>Outer margin<select id="profile-outer-margin"><option value="0">0 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option></select></label>
-</div>
-<p id="profile-editor-message" class="profile-editor-message" role="status">Choose a tile type or grab an existing tile to move it.</p>
 </section>
 
 <section id="profile-workspace" class="profile-workspace">
