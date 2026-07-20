@@ -20,15 +20,18 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           path = Path('src/experience.ts')
           text = path.read_text()
-          old = """      WHERE p.owner_user_id=? OR ?=1 OR (
-                p.group_id IS NOT NULL AND EXISTS("""
-          new = """      WHERE p.owner_user_id=? OR (?=1 AND p.group_id IS NOT NULL) OR (
-                p.group_id IS NOT NULL AND EXISTS("""
-          if old not in text:
-              raise SystemExit('Admin page listing predicate not found')
-          path.write_text(text.replace(old, new, 1))
+          text, count = re.subn(
+              r"WHERE p\.owner_user_id=\? OR \?=1 OR \(\s+p\.group_id IS NOT NULL AND EXISTS\(",
+              "WHERE p.owner_user_id=? OR (?=1 AND p.group_id IS NOT NULL) OR (\n        p.group_id IS NOT NULL AND EXISTS(",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one admin listing predicate, changed {count}')
+          path.write_text(text)
           PY
       - name: Commit patch
         run: |
