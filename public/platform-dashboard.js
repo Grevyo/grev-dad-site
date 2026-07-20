@@ -30,7 +30,7 @@
     return base(feature,preferences,editing);
   };
   async function refresh(render=false){if(state.loading)return;state.loading=true;try{state.payload=await api('/api/platform/modules');if(render&&dashboardState.payload)renderDashboardGrid();updateHeaderBadge();}catch{}finally{state.loading=false;}}
-  function updateHeaderBadge(){let badge=document.querySelector('#global-notification-badge');if(!badge){const header=document.querySelector('header>div');if(!header)return;const link=document.createElement('a');link.id='global-notification-link';link.className='header-link global-notification-link';link.href='/hub#notifications';link.textContent='Notifications';badge=document.createElement('span');badge.id='global-notification-badge';link.append(badge);header.insertBefore(link,header.querySelector('button'));}const count=state.payload?.unreadNotifications||0;badge.textContent=String(count);badge.hidden=!count;}
+  function updateHeaderBadge(){const badge=document.querySelector('#global-notification-button b');if(!badge)return;const count=state.payload?.unreadNotifications||0;badge.textContent=String(count);badge.hidden=!count;}
   async function init(){for(let attempt=0;attempt<80&&!dashboardState.payload;attempt+=1)await new Promise(resolve=>setTimeout(resolve,100));await refresh(true);state.timer=setInterval(()=>refresh(true),30000);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
