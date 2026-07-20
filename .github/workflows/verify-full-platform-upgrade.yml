@@ -39,5 +39,17 @@ jobs:
           node --check public/dashboard-collaboration.js
           node --check public/platform-profile.js
           node --check public/site-platform.js
+          node --check public/chat-ui.js
       - name: Fresh migrations
-        run: npx wrangler d1 migrations apply grev-dad-dev --local
+        run: |
+          set +e
+          npx wrangler d1 migrations apply grev-dad-dev --local > migration.log 2>&1
+          status=$?
+          cat migration.log
+          exit $status
+      - name: Upload migration output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-platform-migrations
+          path: migration.log
