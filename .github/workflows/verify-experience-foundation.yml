@@ -31,6 +31,7 @@ jobs:
           node --check public/profile-experience.js
           node --check public/profile-card-popover.js
           node --check .github/scripts/verify-experience-local.cjs
+          node --check .github/scripts/verify-experience-hardening.cjs
       - name: Apply migrations locally
         run: npx wrangler d1 migrations apply grev-dad-dev --local
       - name: Install Chromium
@@ -47,3 +48,4 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8787/api/health >/dev/null
           node .github/scripts/verify-experience-local.cjs
+          node .github/scripts/verify-experience-hardening.cjs
