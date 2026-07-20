@@ -225,7 +225,7 @@ async function dashboardPagesPayload(env: ExperienceEnv, user: ExperienceUser) {
       SELECT p.id,p.owner_user_id,p.group_id,g.name AS group_name,p.name,p.slug,p.layout_json,p.created_by,p.updated_at
       FROM dashboard_pages p
       LEFT JOIN groups g ON g.id=p.group_id
-      WHERE p.owner_user_id=? OR ?=1 OR (
+      WHERE p.owner_user_id=? OR (?=1 AND p.group_id IS NOT NULL) OR (
         p.group_id IS NOT NULL AND EXISTS(
           SELECT 1 FROM group_memberships gm WHERE gm.group_id=p.group_id AND gm.user_id=?
         )
