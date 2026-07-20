@@ -6,16 +6,22 @@ const raw = `https://raw.githubusercontent.com/Grevyo/grev-dad-site/${process.en
 (async () => {
   let js = await fetch(`${raw}/profile-editor-unified.js`).then(response => response.text());
   const css = await fetch(`${raw}/profile-editor-unified.css`).then(response => response.text());
-  const old = '        if (state.body) state.body.scrollTop = 0;';
-  const replacement = `        if (!state.body) return;
+  const old = `      queueMicrotask(() => {
+        dialog.scrollTop = 0;
+        if (state.body) state.body.scrollTop = 0;
+      });`;
+  const replacement = `      requestAnimationFrame(() => {
+        dialog.scrollTop = 0;
+        if (!state.body) return;
         if (tab === 'card' || tab === 'page') {
           state.body.scrollTop = 0;
           return;
         }
         const bodyRect = state.body.getBoundingClientRect();
         const dialogRect = dialog.getBoundingClientRect();
-        state.body.scrollTop += dialogRect.top - bodyRect.top - 12;`;
-  if (!js.includes(old)) throw new Error('Current popup scroll line was not found.');
+        state.body.scrollTop += dialogRect.top - bodyRect.top - 12;
+      });`;
+  if (!js.includes(old)) throw new Error('Current popup scheduling block was not found.');
   js = js.replace(old, replacement);
 
   const browser = await chromium.launch({ headless: true });
