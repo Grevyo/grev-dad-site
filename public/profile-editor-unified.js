@@ -156,9 +156,16 @@
     dialog.showModal = () => {
       dialog.setAttribute('open', '');
       openPanel(tab);
-      queueMicrotask(() => {
+      requestAnimationFrame(() => {
         dialog.scrollTop = 0;
-        dialog.querySelector('input:not([type="file"]),textarea,select')?.focus({ preventScroll: true });
+        if (!state.body) return;
+        if (tab === 'card' || tab === 'page') {
+          state.body.scrollTop = 0;
+          return;
+        }
+        const bodyRect = state.body.getBoundingClientRect();
+        const dialogRect = dialog.getBoundingClientRect();
+        state.body.scrollTop += dialogRect.top - bodyRect.top - 12;
       });
     };
     dialog.show = dialog.showModal;
