@@ -136,6 +136,16 @@
 <p id="own-profile-note" hidden>This is your permanent profile URL.</p>
 </main>
 
+<script>
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  const editor = document.querySelector('#profile-unified-editor');
+  if (!editor?.open) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  document.querySelector('#profile-cancel')?.click();
+}, true);
+</script>
 <script src="/profile-card.js" defer></script>
 <script src="/profile-card-tiles.js" defer></script>
 <script src="/profile-customization.js" defer></script>
