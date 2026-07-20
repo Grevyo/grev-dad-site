@@ -16,6 +16,7 @@ jobs:
     timeout-minutes: 8
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+      VERIFY_REF: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Install Chromium
         run: |
@@ -27,6 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/Grevyo/grev-dad-site/agent/profile-editor-native-popup/.github/scripts/verify-profile-popup.cjs \
+            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/verify-profile-popup.cjs" \
             --output verify-profile-popup.cjs
+          sed -i "s#agent/profile-editor-native-popup/public#${VERIFY_REF}/public#" verify-profile-popup.cjs
           timeout --signal=INT 180s node verify-profile-popup.cjs
