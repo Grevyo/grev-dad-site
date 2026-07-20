@@ -1200,7 +1200,7 @@ dashboardGrid?.addEventListener('drop', event => {
 });
 
 
-dashboardElement('#customize-dashboard')?.addEventListener('click', openEditor);
+dashboardElement('#customize-dashboard')?.addEventListener('click', event => { event.preventDefault(); requestAnimationFrame(() => openEditor()); });
 dashboardElement('#dashboard-cancel-layout')?.addEventListener('click', () => closeEditor(false));
 dashboardElement('#dashboard-save-layout')?.addEventListener('click', saveDashboardLayout);
 dashboardElement('#dashboard-reset-layout')?.addEventListener('click', loadDefaultWorkingTiles);
