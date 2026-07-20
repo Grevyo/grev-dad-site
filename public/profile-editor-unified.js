@@ -36,7 +36,7 @@
   function requestCancel() {
     const cancel = $('#profile-cancel');
     if (cancel) cancel.click();
-    closePanel();
+    else closePanel();
   }
 
   function pointerIsOutsideDialog(dialog, event) {
@@ -81,16 +81,13 @@
         </section>
         <section class="profile-unified-section" data-unified-section="profileTiles" hidden>
           <div class="profile-unified-section-intro"><strong>Profile tile grid</strong><span>Add content, control spacing, or select a tile to edit it.</span></div>
-          <div class="profile-unified-grid-actions"><button type="button" data-unified-pack>Pack profile tiles</button></div>
+          <div class="profile-unified-grid-actions" data-unified-pack-slot></div>
           <div data-unified-slot="profileTiles"></div>
         </section>
       </div>
       <footer class="profile-unified-footer">
         <div data-unified-message-slot></div>
-        <div class="profile-unified-save-actions">
-          <button type="button" data-unified-cancel>Cancel</button>
-          <button type="button" class="primary" data-unified-save>Save profile</button>
-        </div>
+        <div class="profile-unified-save-actions" data-unified-save-actions></div>
       </footer>`;
 
     document.body.append(panel);
@@ -105,9 +102,6 @@
       button.addEventListener('click', () => selectTab(button.dataset.unifiedTab));
     });
     panel.querySelector('[data-unified-close]').addEventListener('click', requestCancel);
-    panel.querySelector('[data-unified-cancel]').addEventListener('click', requestCancel);
-    panel.querySelector('[data-unified-save]').addEventListener('click', () => $('#profile-save')?.click());
-    panel.querySelector('[data-unified-pack]').addEventListener('click', () => $('#profile-pack')?.click());
 
     panel.addEventListener('cancel', event => {
       event.preventDefault();
@@ -127,6 +121,28 @@
 
   function slot(name) {
     return state.panel?.querySelector(`[data-unified-slot="${name}"]`) ?? null;
+  }
+
+  function mountOriginalActions() {
+    if (!state.panel) return;
+    const packSlot = state.panel.querySelector('[data-unified-pack-slot]');
+    const saveActions = state.panel.querySelector('[data-unified-save-actions]');
+    const pack = $('#profile-pack');
+    const cancel = $('#profile-cancel');
+    const save = $('#profile-save');
+
+    if (pack && packSlot && pack.parentElement !== packSlot) {
+      pack.dataset.unifiedPack = '';
+      packSlot.append(pack);
+    }
+    if (cancel && saveActions && cancel.parentElement !== saveActions) {
+      cancel.dataset.unifiedCancel = '';
+      saveActions.append(cancel);
+    }
+    if (save && saveActions && save.parentElement !== saveActions) {
+      save.dataset.unifiedSave = '';
+      saveActions.append(save);
+    }
   }
 
   function dispatchClose(dialog) {
@@ -183,6 +199,7 @@
   function mountSources() {
     if (!state.panel) return;
 
+    mountOriginalActions();
     prepareDialog($('#profile-card-dialog'), 'card');
     prepareDialog($('#profile-design-dialog'), 'page');
     prepareDialog($('#profile-card-tile-dialog'), 'cardTiles');
@@ -197,7 +214,10 @@
       $('#profile-card-dialog') &&
       $('#profile-design-dialog') &&
       $('#profile-card-tile-dialog') &&
-      $('#profile-tile-dialog')
+      $('#profile-tile-dialog') &&
+      $('#profile-pack') &&
+      $('#profile-cancel') &&
+      $('#profile-save')
     );
     if (state.sourcesMounted) stopSourceObserver();
   }
