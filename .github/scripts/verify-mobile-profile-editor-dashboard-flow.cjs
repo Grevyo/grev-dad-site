@@ -91,6 +91,7 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
       const toolbar = document.querySelector('#profile-editor-toolbar');
       const panel = document.querySelector('#profile-unified-editor');
       const card = document.querySelector('#profile-card');
+      const message = document.querySelector('#profile-editor-message');
       const panelStyle = getComputedStyle(panel);
       const bodyStyle = getComputedStyle(document.body);
       return {
@@ -103,6 +104,7 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
         viewportHeight: innerHeight,
         toolbarBeforePanel: Boolean(toolbar.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING),
         panelBeforeCard: Boolean(panel.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING),
+        messageInToolbar: message?.parentElement === toolbar,
         actionCount: [...toolbar.querySelectorAll('.profile-editor-actions button')].filter(button => getComputedStyle(button).display !== 'none').length
       };
     });
@@ -112,6 +114,7 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     assert(profileFlow.toolbarBeforePanel && profileFlow.panelBeforeCard, 'Mobile editor order is not toolbar, controls, live preview.');
     assert(profileFlow.pageHeight > profileFlow.viewportHeight, 'Mobile profile editor does not use normal page scrolling.');
     assert(profileFlow.actionCount === 4, 'The dashboard-style profile toolbar actions are incomplete.');
+    assert(profileFlow.messageInToolbar, 'Profile editor feedback is not beside the mobile toolbar actions.');
     checkpoint('profile inline editing structure');
 
     const tabs = ['card', 'cardTiles', 'page', 'profileTiles'];
@@ -138,6 +141,20 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     assert(focusFlow.activeInsideEditor, 'Focused profile control was lost after the viewport changed.');
     checkpoint('normal page scrolling with focused input');
 
+    await page.locator('#profile-card-website').fill('invalid-url');
+    await page.locator('#profile-save').click();
+    const feedback = page.locator('#profile-editor-message');
+    assert(await feedback.isVisible(), 'Validation feedback is not visible beside Save.');
+    const feedbackState = await feedback.evaluate(element => ({
+      parentId: element.parentElement?.id || '',
+      text: element.textContent || '',
+      isError: element.classList.contains('error')
+    }));
+    assert(feedbackState.parentId === 'profile-editor-toolbar', 'Validation feedback moved away from the mobile toolbar.');
+    assert(feedbackState.isError && /http:\/\//i.test(feedbackState.text), 'Invalid website feedback was not shown clearly.');
+    assert(await page.locator('#profile-unified-editor').isVisible(), 'Invalid Save unexpectedly closed the editor.');
+    checkpoint('visible save validation feedback');
+
     await page.locator('#profile-cancel').click();
     await page.locator('#profile-unified-editor').waitFor({ state: 'hidden' });
     assert(await page.locator('#profile-edit').isVisible(), 'Edit profile button did not return after Cancel.');
@@ -163,10 +180,12 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     const desktopFlow = await page.evaluate(() => ({
       panelPosition: getComputedStyle(document.querySelector('#profile-unified-editor')).position,
       toolbarVisible: getComputedStyle(document.querySelector('#profile-editor-toolbar')).display !== 'none',
+      messageInPanel: Boolean(document.querySelector('[data-unified-message-slot]')?.contains(document.querySelector('#profile-editor-message'))),
       shellMarginRight: getComputedStyle(document.querySelector('.profile-shell')).marginRight
     }));
     assert(desktopFlow.panelPosition === 'fixed', 'Desktop profile side editor is no longer fixed.');
     assert(!desktopFlow.toolbarVisible, 'Desktop now shows the duplicate inline toolbar.');
+    assert(desktopFlow.messageInPanel, 'Desktop editor feedback did not return to the side panel.');
     await page.locator('[data-unified-cancel]').click();
     checkpoint('desktop side editor preserved');
 
