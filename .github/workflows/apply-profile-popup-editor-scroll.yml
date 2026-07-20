@@ -1,0 +1,163 @@
+name: Apply Profile Popup Editor Scroll
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/profile-popup-mobile-focus-desktop-size'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/profile-popup-mobile-focus-desktop-size
+      - name: Keep lower tile editors visible
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('public/profile-editor-unified.js')
+          text = path.read_text()
+          old = '        if (state.body) state.body.scrollTop = 0;'
+          new = """        if (state.body) {
+                    if (tab === 'card' || tab === 'page') state.body.scrollTop = 0;
+                    else dialog.scrollIntoView({ block: 'start', inline: 'nearest' });
+                  }"""
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected one popup body scroll line, found {text.count(old)}.')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          node --check public/profile-editor-unified.js
+      - name: Install Chromium
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Verify initial and tile editor scrolling
+        run: |
+          cat > /tmp/verify-popup-editor-scroll.cjs <<'NODE'
+          const fs = require('node:fs');
+          const { chromium } = require('playwright');
+          const base = 'https://pbe.grev.dad';
+          const assert = (value, message) => { if (!value) throw new Error(message); };
+
+          (async () => {
+            const js = fs.readFileSync('public/profile-editor-unified.js', 'utf8');
+            const css = fs.readFileSync('public/profile-editor-unified.css', 'utf8');
+            assert(!js.includes("?.focus({ preventScroll: true })"), 'Automatic input focus returned.');
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+            const page = await context.newPage();
+            page.setDefaultTimeout(15000);
+            try {
+              const login = await context.request.post(`${base}/api/auth/login`, {
+                data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
+              });
+              assert(login.status() === 200, `Login failed (${login.status()}).`);
+              const profileId = (await (await context.request.get(`${base}/api/auth/session`)).json()).user.id;
+              await page.route('**/profile-editor-unified.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: js }));
+              await page.route('**/profile-editor-unified.css', route => route.fulfill({ status: 200, contentType: 'text/css', body: css }));
+              await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
+              await page.locator('#profile-edit').click();
+              const popup = page.locator('#profile-unified-editor');
+              await popup.waitFor({ state: 'visible' });
+              await page.waitForTimeout(150);
+              const initial = await popup.evaluate(dialog => ({
+                activeTag: document.activeElement?.tagName || null,
+                inputFocused: Boolean(document.activeElement?.matches?.('input,textarea,select')),
+                bodyScrollTop: dialog.querySelector('.profile-unified-body')?.scrollTop ?? -1
+              }));
+              assert(!initial.inputFocused, `Initial popup focused ${initial.activeTag}.`);
+              assert(initial.bodyScrollTop <= 1, `Initial popup opened at ${initial.bodyScrollTop}px.`);
+
+              await popup.locator('.profile-unified-tabs [data-unified-tab="profileTiles"]').click();
+              let selector = popup.locator('[data-unified-existing-list="profileTiles"] .profile-unified-existing-tile').first();
+              if (await selector.count() === 0) {
+                await popup.locator('[data-add-profile-tile="text"]').click();
+              } else {
+                await selector.click();
+              }
+              const tileDialog = popup.locator('#profile-tile-dialog[open]');
+              await tileDialog.waitFor({ state: 'visible' });
+              await page.waitForTimeout(100);
+              const tile = await popup.evaluate(dialog => {
+                const body = dialog.querySelector('.profile-unified-body').getBoundingClientRect();
+                const editor = dialog.querySelector('#profile-tile-dialog[open]').getBoundingClientRect();
+                return {
+                  bodyTop: body.top,
+                  bodyBottom: body.bottom,
+                  editorTop: editor.top,
+                  activeTag: document.activeElement?.tagName || null,
+                  inputFocused: Boolean(document.activeElement?.matches?.('input,textarea,select'))
+                };
+              });
+              assert(tile.editorTop >= tile.bodyTop - 2 && tile.editorTop < tile.bodyBottom - 24, `Profile tile editor opened off-screen at ${tile.editorTop}.`);
+              assert(!tile.inputFocused, `Profile tile editor focused ${tile.activeTag}.`);
+              await page.evaluate(() => document.querySelector('#profile-tile-dialog')?.close());
+
+              await popup.locator('.profile-unified-tabs [data-unified-tab="cardTiles"]').click();
+              let cardSelector = popup.locator('[data-unified-existing-list="cardTiles"] .profile-unified-existing-tile').first();
+              if (await cardSelector.count() === 0) {
+                await popup.locator('[data-add-card-tile="custom"]').click();
+              } else {
+                await cardSelector.click();
+              }
+              const cardDialog = popup.locator('#profile-card-tile-dialog[open]');
+              await cardDialog.waitFor({ state: 'visible' });
+              await page.waitForTimeout(100);
+              const card = await popup.evaluate(dialog => {
+                const body = dialog.querySelector('.profile-unified-body').getBoundingClientRect();
+                const editor = dialog.querySelector('#profile-card-tile-dialog[open]').getBoundingClientRect();
+                return {
+                  bodyTop: body.top,
+                  bodyBottom: body.bottom,
+                  editorTop: editor.top,
+                  activeTag: document.activeElement?.tagName || null,
+                  inputFocused: Boolean(document.activeElement?.matches?.('input,textarea,select'))
+                };
+              });
+              assert(card.editorTop >= card.bodyTop - 2 && card.editorTop < card.bodyBottom - 24, `Card tile editor opened off-screen at ${card.editorTop}.`);
+              assert(!card.inputFocused, `Card tile editor focused ${card.activeTag}.`);
+              await page.evaluate(() => document.querySelector('#profile-card-tile-dialog')?.close());
+              await popup.locator('#profile-cancel').click();
+
+              await page.setViewportSize({ width: 1440, height: 900 });
+              await page.reload({ waitUntil: 'networkidle' });
+              await page.locator('#profile-edit').click();
+              await popup.waitFor({ state: 'visible' });
+              const desktop = await popup.evaluate(dialog => {
+                const rect = dialog.getBoundingClientRect();
+                return { width: rect.width, height: rect.height };
+              });
+              assert(desktop.width === 1320 && desktop.height === 860, `Desktop popup measured ${desktop.width}×${desktop.height}.`);
+              await popup.locator('#profile-cancel').click();
+              console.log(JSON.stringify({ initial, tile, card, desktop }));
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error.stack || error);
+            process.exit(1);
+          });
+          NODE
+          timeout --signal=INT 180s node /tmp/verify-popup-editor-scroll.cjs
+      - name: Commit verified editor scrolling
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/apply-profile-popup-editor-scroll.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/profile-editor-unified.js
+          git commit -m "Keep profile tile editors visible without auto-focus"
+          git push origin HEAD:agent/profile-popup-mobile-focus-desktop-size
