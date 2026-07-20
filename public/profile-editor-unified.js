@@ -119,7 +119,10 @@
   function prepareDialog(dialog, tab) {
     if (!dialog || dialog.dataset.unifiedEditorReady === 'true') return;
     dialog.dataset.unifiedEditorReady = 'true';
-    dialog.dataset.unifiedTab = tab;
+    dialog.dataset.unifiedEditorSection = tab;
+    dialog.removeAttribute('data-unified-tab');
+    dialog.removeAttribute('aria-selected');
+    dialog.classList.remove('is-active');
     dialog.classList.add('profile-editor-inline-dialog');
 
     dialog.showModal = () => {
@@ -204,7 +207,7 @@
     if (state.title) state.title.textContent = meta.title;
     if (state.description) state.description.textContent = meta.description;
 
-    state.panel?.querySelectorAll('[data-unified-tab]').forEach(button => {
+    state.panel?.querySelectorAll('.profile-unified-tabs [data-unified-tab]').forEach(button => {
       const active = button.dataset.unifiedTab === tab;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-selected', String(active));
