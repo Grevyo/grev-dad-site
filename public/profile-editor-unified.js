@@ -31,6 +31,7 @@
   };
 
   const $ = selector => document.querySelector(selector);
+  const mobileLayout = matchMedia('(max-width:820px)');
 
   function createPanel() {
     if ($('#profile-unified-editor')) return $('#profile-unified-editor');
@@ -149,6 +150,14 @@
     else target.append(element);
   }
 
+  function placeEditorMessage() {
+    const message = $('#profile-editor-message');
+    const toolbar = $('#profile-editor-toolbar');
+    const messageSlot = state.panel?.querySelector('[data-unified-message-slot]');
+    const destination = mobileLayout.matches ? toolbar : messageSlot;
+    if (message && destination && message.parentElement !== destination) destination.append(message);
+  }
+
   function mountSources() {
     if (!state.panel) return;
 
@@ -160,13 +169,7 @@
     moveSource($('#profile-card-tile-editor'), 'cardTiles');
     moveSource($('.profile-editor-preferences'), 'profileTiles');
     moveSource($('#profile-catalogue'), 'profileTiles');
-
-    const message = $('#profile-editor-message');
-    const messageSlot = state.panel.querySelector('[data-unified-message-slot]');
-    if (message && messageSlot && message.dataset.unifiedEditorMoved !== 'true') {
-      message.dataset.unifiedEditorMoved = 'true';
-      messageSlot.append(message);
-    }
+    placeEditorMessage();
 
     state.sourcesMounted = Boolean(
       $('#profile-card-dialog') &&
@@ -220,7 +223,7 @@
     }
     document.body.classList.add('profile-unified-editing');
     selectTab(tab);
-    if (wasHidden && matchMedia('(max-width:820px)').matches) {
+    if (wasHidden && mobileLayout.matches) {
       requestAnimationFrame(() => $('#profile-editor-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
   }
@@ -285,6 +288,7 @@
     installDialogObserver();
     installToolbarObserver();
     installActionRouting();
+    mobileLayout.addEventListener('change', placeEditorMessage);
     syncEditorState();
   }
 
