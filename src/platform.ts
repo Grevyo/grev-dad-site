@@ -35,7 +35,7 @@ const MODES = new Set(['desktop','mobile']);
 const MAX_LAYOUT_BYTES = 1_000_000;
 const MAX_TILES = 80;
 const SAFE_TILE_FIELDS = new Set([
-  'featureId','x','y','width','height','colour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay','iconMode','iconLabel','iconMedia',
+  'featureId','sourceFeatureId','x','y','width','height','colour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay','iconMode','iconLabel','iconMedia',
   'iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit','backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle',
   'backgroundMedia','textColour','borderColour','fontFamily'
 ]);
@@ -107,7 +107,14 @@ function cleanData(value: unknown): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (!/^[A-Za-z0-9_-]{1,40}$/.test(key)) continue;
-    if (item === null || ['string','number','boolean'].includes(typeof item)) result[key] = typeof item === 'string' ? item.slice(0, 2000) : item;
+    if (item === null || ['number','boolean'].includes(typeof item)) {
+    result[key] = item;
+  } else if (typeof item === 'string') {
+    if (key === 'mediaUrl') {
+      if (/^https:\/\//i.test(item)) result[key] = item.slice(0, 2048);
+      else if (/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/]+={0,2}$/i.test(item) && item.length <= 1_900_000) result[key] = item;
+    } else result[key] = item.slice(0, 2000);
+  }
   }
   return result;
 }
@@ -318,12 +325,21 @@ async function collaborators(request:Request,env:PlatformEnv,user:User,pageId:st
   return json({ok:true,collaborators:rows.results.map(row=>({userId:row.user_id,permission:row.permission,username:row.username,displayName:row.display_name}))});
 }
 
+async function searchUsers(request:Request,env:PlatformEnv,user:User):Promise<Response>{
+  const raw=new URL(request.url).searchParams.get('q')??'';
+  const query=raw.trim().replace(/[^A-Za-z0-9@._ -]/g,'').replace(/^@/,'').slice(0,60);
+  if(query.length<2)return json({ok:false,message:'Enter at least two characters.'},400);
+  const like=`%${query}%`;
+  const rows=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_verified,p.avatar_media,COALESCE(up.level,1) level FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id LEFT JOIN user_progression up ON up.user_id=u.id WHERE u.status='active' AND u.id<>? AND (u.username LIKE ? COLLATE NOCASE OR u.display_name LIKE ? COLLATE NOCASE) ORDER BY u.display_name LIMIT 20`).bind(user.id,like,like).all<{id:string;username:string;display_name:string;is_verified:number;avatar_media:string|null;level:number}>();
+  return json({ok:true,users:rows.results.map(row=>({id:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),avatarMedia:row.avatar_media,level:Number(row.level??1)}))});
+}
+
 async function modulePayload(env:PlatformEnv,user:User,ownerId=user.id):Promise<Response>{
   const groups=await userGroups(env,user.id),params:[unknown,...unknown[]]=[ownerId,user.id,user.isVerified?1:0,user.id];
   const rows=await env.DB.prepare(`SELECT i.*,u.username owner_username,u.display_name owner_display_name,g.name group_name FROM content_items i JOIN users u ON u.id=i.owner_user_id LEFT JOIN groups g ON g.id=i.group_id WHERE i.owner_user_id=? AND (i.owner_user_id=? OR i.visibility='account' OR(i.visibility='verified' AND ?=1) OR(i.visibility='group' AND EXISTS(SELECT 1 FROM group_memberships gm WHERE gm.group_id=i.group_id AND gm.user_id=?))) ORDER BY i.pinned DESC,i.starts_at,i.updated_at DESC LIMIT 300`).bind(...params).all<ItemRow>();
   const items=rows.results.map(row=>itemJson(row,user));
   const byType=Object.fromEntries([...ITEM_TYPES].map(type=>[type,items.filter(item=>item.type===type)]));
-  const groupAnnouncements=await env.DB.prepare(`SELECT i.*,u.username owner_username,u.display_name owner_display_name,g.name group_name FROM content_items i JOIN users u ON u.id=i.owner_user_id JOIN groups g ON g.id=i.group_id WHERE i.item_type IN('announcement','post') AND EXISTS(SELECT 1 FROM group_memberships gm WHERE gm.group_id=i.group_id AND gm.user_id=?) ORDER BY i.pinned DESC,i.updated_at DESC LIMIT 50`).bind(user.id).all<ItemRow>();
+  const groupAnnouncements=await env.DB.prepare(`SELECT i.*,u.username owner_username,u.display_name owner_display_name,g.name group_name FROM content_items i JOIN users u ON u.id=i.owner_user_id JOIN groups g ON g.id=i.group_id WHERE i.item_type IN('announcement','post') AND (i.owner_user_id=? OR i.visibility='account' OR (i.visibility='verified' AND ?=1) OR (i.visibility='group' AND EXISTS(SELECT 1 FROM group_memberships gm WHERE gm.group_id=i.group_id AND gm.user_id=?))) ORDER BY i.pinned DESC,i.updated_at DESC LIMIT 50`).bind(user.id,user.isVerified?1:0,user.id).all<ItemRow>();
   const notifications=await env.DB.prepare(`SELECT id,notification_type,title,body,target_url,read_at,created_at FROM notifications WHERE recipient_user_id=? ORDER BY created_at DESC LIMIT 20`).bind(user.id).all<{id:string;notification_type:string;title:string;body:string;target_url:string|null;read_at:number|null;created_at:number}>();
   return json({ok:true,generatedAt:now(),presence:await presencePayload(env,ownerId),items,byType,groupAnnouncements:groupAnnouncements.results.map(row=>itemJson(row,user)),notifications:notifications.results.map(row=>({id:row.id,type:row.notification_type,title:row.title,body:row.body,targetUrl:row.target_url,readAt:row.read_at,createdAt:row.created_at})),unreadNotifications:notifications.results.filter(row=>!row.read_at).length,groups:[...groups]});
 }
@@ -384,6 +400,7 @@ export async function handlePlatformRequest(request:Request,env:PlatformEnv):Pro
   const user=await getUser(request,env);if(!user)return json({ok:false,message:'Authentication required.'},401);
   if(request.method!=='GET'&&!sameOrigin(request))return json({ok:false,message:'Origin rejected.'},403);
 
+  if(path==='/api/platform/users'&&request.method==='GET')return searchUsers(request,env,user);
   if(path==='/api/platform/items'&&request.method==='GET')return listItems(request,env,user);
   if(path==='/api/platform/items'&&request.method==='POST')return createItem(request,env,user);
   const item=path.match(/^\/api\/platform\/items\/([0-9a-f-]{36})$/i);if(item&&request.method==='PUT')return updateItem(request,env,user,item[1]!);if(item&&request.method==='DELETE')return deleteItem(env,user,item[1]!);

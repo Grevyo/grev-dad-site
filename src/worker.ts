@@ -12,7 +12,7 @@ import { applyProfilePrivacy } from './profile-privacy-hardening';
 type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
-  '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-advanced.css','/dashboard-advanced.js',
+  '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js',
   '/admin-dashboard.js','/feature.js','/profile.css','/profile.js','/profile-card.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-experience.css','/profile-experience.js',
   '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/hub.html','/hub.css','/hub.js'
@@ -39,8 +39,8 @@ export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') return bundledAsset(request, env, ['/profile-customization-hardening.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/dashboard.js') return bundledAsset(request, env, ['/dashboard-experience.js','/platform-dashboard.js','/dashboard-advanced.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/dashboard.css') return bundledAsset(request, env, ['/dashboard-experience.css','/platform-dashboard.css','/dashboard-advanced.css','/site-platform.css','/profile-card-popover.css','/chat-ui.css'], 'text/css; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/dashboard.js') return bundledAsset(request, env, ['/dashboard-experience.js','/platform-dashboard.js','/dashboard-advanced.js','/dashboard-collaboration.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/dashboard.css') return bundledAsset(request, env, ['/dashboard-experience.css','/platform-dashboard.css','/dashboard-advanced.css','/dashboard-collaboration.css','/site-platform.css','/profile-card-popover.css','/chat-ui.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') return bundledAsset(request, env, ['/profile-editor-unified-a11y.js','/profile-experience.js','/platform-profile.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-editor-unified.css') return bundledAsset(request, env, ['/profile-experience.css','/platform-profile.css','/site-platform.css','/profile-card-popover.css','/chat-ui.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/admin.js') return bundledAsset(request, env, ['/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
