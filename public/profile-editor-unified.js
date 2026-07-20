@@ -36,7 +36,7 @@
   function requestCancel() {
     const cancel = $('#profile-cancel');
     if (cancel) cancel.click();
-    else closePanel();
+    closePanel();
   }
 
   function pointerIsOutsideDialog(dialog, event) {
