@@ -138,20 +138,29 @@
     else releasePageScroll();
   }
 
-  function ensureFocusedControlVisible(editor, control = scrollState.focusedControl) {
-    if (!mobile.matches || !control || !editor.contains(control)) return;
+  function ensureFocusedControlVisible(editor, control = scrollState.focusedControl || document.activeElement) {
+    if (!mobile.matches || !(control instanceof HTMLElement) || !editor.contains(control)) return;
     const scroller = editor.querySelector('.profile-unified-body');
     if (!scroller || !scroller.contains(control)) return;
-    const scrollerRect = scroller.getBoundingClientRect();
-    const controlRect = control.getBoundingClientRect();
-    const visualBottom = Math.min(scrollerRect.bottom, window.visualViewport?.height || window.innerHeight);
-    const upperLimit = scrollerRect.top + 16;
-    const lowerLimit = visualBottom - 20;
-    if (controlRect.bottom > lowerLimit) {
-      scroller.scrollBy({ top: controlRect.bottom - lowerLimit, behavior: 'auto' });
-    } else if (controlRect.top < upperLimit) {
-      scroller.scrollBy({ top: controlRect.top - upperLimit, behavior: 'auto' });
-    }
+
+    const adjust = () => {
+      const scrollerRect = scroller.getBoundingClientRect();
+      const controlRect = control.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop || 0;
+      const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
+      const visibleTop = Math.max(scrollerRect.top, viewportTop) + 16;
+      const visibleBottom = Math.min(scrollerRect.bottom, viewportBottom) - 20;
+      if (visibleBottom <= visibleTop) return;
+      if (controlRect.bottom > visibleBottom) {
+        scroller.scrollTop += controlRect.bottom - visibleBottom;
+      } else if (controlRect.top < visibleTop) {
+        scroller.scrollTop += controlRect.top - visibleTop;
+      }
+    };
+
+    adjust();
+    requestAnimationFrame(adjust);
   }
 
   function configurePreviewToggle(editor) {
@@ -192,14 +201,12 @@
       scrollState.focusedControl = event.target;
       requestAnimationFrame(() => requestAnimationFrame(() => ensureFocusedControlVisible(editor, event.target)));
     });
-    editor.addEventListener('focusout', event => {
-      if (event.target === scrollState.focusedControl) scrollState.focusedControl = null;
-    });
 
     const viewport = window.visualViewport;
     const handleViewportChange = () => {
       updateViewportMetrics();
-      requestAnimationFrame(() => ensureFocusedControlVisible(editor));
+      requestAnimationFrame(() => requestAnimationFrame(() => ensureFocusedControlVisible(editor)));
+      setTimeout(() => ensureFocusedControlVisible(editor), 120);
     };
     viewport?.addEventListener('resize', handleViewportChange);
     viewport?.addEventListener('scroll', handleViewportChange);
