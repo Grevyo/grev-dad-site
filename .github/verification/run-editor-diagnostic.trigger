@@ -1,0 +1,1 @@
+run dashboard editor diagnostic
