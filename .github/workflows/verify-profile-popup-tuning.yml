@@ -1,4 +1,4 @@
-name: Verify Profile Popup Tuning
+name: Finalize Profile Popup Tuning
 
 on:
   pull_request:
@@ -7,25 +7,57 @@ on:
     types:
       - synchronize
 
+permissions:
+  contents: write
+
 jobs:
-  verify:
+  finalize:
     if: github.head_ref == 'agent/profile-popup-mobile-focus-desktop-size'
     runs-on: ubuntu-latest
-    timeout-minutes: 8
-    env:
-      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
-      VERIFY_REF: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Install Chromium
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/profile-popup-mobile-focus-desktop-size
+      - name: Format and validate final changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          js_path = Path('public/profile-editor-unified.js')
+          js = js_path.read_text()
+          pattern = re.compile(
+              r"      queueMicrotask\(\(\) => \{\n"
+              r"\s*dialog\.scrollTop = 0;\n"
+              r"\s*if \(state\.body\) state\.body\.scrollTop = 0;\n"
+              r"\s*\}\);\n"
+              r"    \};"
+          )
+          replacement = """      queueMicrotask(() => {
+                dialog.scrollTop = 0;
+                if (state.body) state.body.scrollTop = 0;
+              });
+            };"""
+          js, count = pattern.subn(replacement, js, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected one popup scroll block, found {count}.')
+          if "?.focus({ preventScroll: true })" in js:
+              raise SystemExit('Automatic field focus is still present.')
+          js_path.write_text(js)
+
+          css = Path('public/profile-editor-unified.css').read_text()
+          if 'width:min(1320px,calc(100vw - 48px))' not in css:
+              raise SystemExit('Large desktop width is missing.')
+          if 'height:min(940px,calc(var(--profile-visible-height,100dvh) - 40px))' not in css:
+              raise SystemExit('Large desktop height is missing.')
+          PY
+          node --check public/profile-editor-unified.js
+      - name: Commit cleaned application files
         run: |
           set -euo pipefail
-          npm init -y >/dev/null 2>&1
-          npm install --no-save playwright@1.55.0 >/dev/null
-          npx playwright install --with-deps chromium >/dev/null
-      - name: Measure popup behaviour
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location \
-            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/measure-profile-popup-tuning.cjs" \
-            --output measure-profile-popup-tuning.cjs
-          timeout --signal=INT 180s node measure-profile-popup-tuning.cjs
+          git rm .github/workflows/verify-profile-popup-tuning.yml .github/scripts/measure-profile-popup-tuning.cjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/profile-editor-unified.js
+          git commit -m "Finalize profile popup focus and desktop sizing"
+          git push origin HEAD:agent/profile-popup-mobile-focus-desktop-size
