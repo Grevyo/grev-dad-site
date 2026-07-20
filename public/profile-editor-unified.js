@@ -158,6 +158,11 @@
     if (message && destination && message.parentElement !== destination) destination.append(message);
   }
 
+  function stopSourceObserver() {
+    state.bodyObserver?.disconnect();
+    state.bodyObserver = null;
+  }
+
   function mountSources() {
     if (!state.panel) return;
 
@@ -177,6 +182,7 @@
       $('#profile-card-tile-dialog') &&
       $('#profile-tile-dialog')
     );
+    if (state.sourcesMounted) stopSourceObserver();
   }
 
   function ensureTabSource(tab) {
@@ -254,8 +260,15 @@
   }
 
   function installDialogObserver() {
-    state.bodyObserver = new MutationObserver(() => mountSources());
-    state.bodyObserver.observe(document.body, { childList: true, subtree: true });
+    if (state.sourcesMounted || state.bodyObserver) return;
+    const observer = new MutationObserver(() => mountSources());
+    state.bodyObserver = observer;
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => {
+      if (state.bodyObserver !== observer) return;
+      stopSourceObserver();
+      mountSources();
+    }, 5000);
   }
 
   function installToolbarObserver() {
