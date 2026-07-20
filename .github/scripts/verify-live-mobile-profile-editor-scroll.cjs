@@ -45,7 +45,14 @@ const checkpoint = message => console.log(`CHECKPOINT: ${message}`);
     const response = await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
     assert(response?.status() === 200, 'Profile page did not load.');
     assert(await page.locator('link[href="/profile-editor-unified.css"]').count() === 1, 'Unified editor stylesheet is not deployed.');
-    assert(await page.locator('script[src="/profile-editor-unified-a11y.js"]').count() === 1, 'Unified editor mobile controller is not deployed.');
+    assert(await page.locator('script[src="/profile-editor-unified.js"]').count() === 1, 'Unified editor script is not deployed.');
+    const bundledResponse = await context.request.get(`${base}/profile-editor-unified.js`);
+    assert(bundledResponse.status() === 200, 'Bundled unified editor script did not load.');
+    const bundledSource = await bundledResponse.text();
+    assert(
+      bundledSource.includes('profile-mobile-editor-scroll-locked') && bundledSource.includes('--profile-editor-bottom-offset'),
+      'Bundled unified editor script does not include the mobile scrolling controller.'
+    );
 
     await page.evaluate(() => window.scrollTo(0, Math.min(320, document.documentElement.scrollHeight - innerHeight)));
     const pageScrollBefore = await page.evaluate(() => window.scrollY);
