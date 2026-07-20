@@ -49,7 +49,8 @@ export default {
     if (request.method === 'GET' && url.pathname === '/hub.css') return bundledAsset(request, env, ['/site-platform.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && DASHBOARD_ASSETS.has(url.pathname)) return (env as unknown as DashboardEnv).ASSETS.fetch(request);
     if (request.method === 'GET' && url.pathname === '/hub') {
-      const session = await fetch(new Request(new URL('/api/auth/session', url).toString(), request), env).then(response => response.json()).catch(() => ({ authenticated: false })) as { authenticated?: boolean };
+      const sessionRequest = new Request(new URL('/api/auth/session', url).toString(), request);
+      const session = await app.fetch(sessionRequest, env).then(response => response.json()).catch(() => ({ authenticated: false })) as { authenticated?: boolean };
       return session.authenticated ? (env as unknown as DashboardEnv).ASSETS.fetch(new Request(new URL('/hub.html', url).toString(), request)) : Response.redirect(new URL('/login', url).toString(), 303);
     }
 
