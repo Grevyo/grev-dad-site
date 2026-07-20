@@ -1,0 +1,55 @@
+name: Apply Profile Popup Tuning
+
+on:
+  push:
+    branches:
+      - agent/profile-popup-mobile-focus-desktop-size
+    paths:
+      - .github/workflows/apply-profile-popup-tuning.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/profile-popup-mobile-focus-desktop-size
+      - name: Update popup behaviour and size
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          js_path = Path('public/profile-editor-unified.js')
+          js = js_path.read_text()
+          old_focus = '''      queueMicrotask(() => {
+                dialog.scrollTop = 0;
+                dialog.querySelector('input:not([type="file"]),textarea,select')?.focus({ preventScroll: true });
+              });'''
+          new_focus = '''      queueMicrotask(() => {
+                dialog.scrollTop = 0;
+                if (state.body) state.body.scrollTop = 0;
+              });'''
+          if old_focus not in js:
+              raise SystemExit('Expected automatic-focus block was not found.')
+          js_path.write_text(js.replace(old_focus, new_focus, 1))
+
+          css_path = Path('public/profile-editor-unified.css')
+          css = css_path.read_text()
+          old_size = '.profile-unified-editor{width:min(920px,calc(100vw - 28px));height:min(820px,calc(var(--profile-visible-height,100dvh) - 32px));max-height:calc(var(--profile-visible-height,100dvh) - 32px);'
+          new_size = '.profile-unified-editor{width:min(1320px,calc(100vw - 48px));height:min(940px,calc(var(--profile-visible-height,100dvh) - 40px));max-height:calc(var(--profile-visible-height,100dvh) - 40px);'
+          if old_size not in css:
+              raise SystemExit('Expected desktop popup size rule was not found.')
+          css_path.write_text(css.replace(old_size, new_size, 1))
+          PY
+      - name: Commit branch changes
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/apply-profile-popup-tuning.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/profile-editor-unified.js public/profile-editor-unified.css
+          git commit -m "Stop profile popup auto-focus and enlarge desktop modal"
+          git push origin HEAD:agent/profile-popup-mobile-focus-desktop-size
