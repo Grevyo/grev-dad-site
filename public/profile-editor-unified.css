@@ -1,4 +1,4 @@
-:root{--profile-visible-height:100dvh}
+:root{--profile-visible-height:100dvh;--profile-editor-bottom-offset:0px}
 body.profile-unified-editing{overflow-x:hidden}
 body.profile-mobile-editor-scroll-locked{overflow:hidden!important;overscroll-behavior:none;touch-action:none}
 body.profile-mobile-editor-scroll-locked .profile-unified-editor{touch-action:auto}
@@ -68,8 +68,8 @@ body.profile-unified-editing .profile-card-quick-actions [data-quick-card-detail
   body.profile-unified-editing{padding-bottom:0}
   body.profile-unified-previewing{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
   body.profile-unified-editing .profile-shell{width:min(calc(100vw - 20px),177.7778vh)!important;margin:0 auto!important}
-  .profile-unified-editor{top:auto;left:0;right:0;bottom:0;width:100%;height:min(72dvh,calc(var(--profile-visible-height,100dvh) - 8px - env(safe-area-inset-top)));max-height:calc(var(--profile-visible-height,100dvh) - 8px - env(safe-area-inset-top));border-top:1px solid var(--line-strong);border-left:0;box-shadow:0 -10px 0 rgba(0,0,0,.42);transition:height .18s ease}
-  .profile-unified-editor.is-collapsed{height:calc(62px + env(safe-area-inset-bottom));max-height:calc(62px + env(safe-area-inset-bottom))}
+  .profile-unified-editor{top:auto;left:0;right:0;bottom:var(--profile-editor-bottom-offset,0px);width:100%;height:min(72dvh,calc(var(--profile-visible-height,100dvh) - 8px - env(safe-area-inset-top)));max-height:calc(var(--profile-visible-height,100dvh) - 8px - env(safe-area-inset-top));border-top:1px solid var(--line-strong);border-left:0;box-shadow:0 -10px 0 rgba(0,0,0,.42);transition:height .18s ease,bottom .12s ease}
+  .profile-unified-editor.is-collapsed{bottom:0;height:calc(62px + env(safe-area-inset-bottom));max-height:calc(62px + env(safe-area-inset-bottom))}
   .profile-unified-editor.is-collapsed .profile-unified-tabs,.profile-unified-editor.is-collapsed .profile-unified-body,.profile-unified-editor.is-collapsed .profile-unified-footer{display:none}
   .profile-unified-editor.is-collapsed .profile-unified-header{align-items:center;padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
   .profile-unified-editor.is-collapsed .profile-unified-header p:not(.eyebrow){display:none}
