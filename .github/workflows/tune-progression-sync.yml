@@ -1,0 +1,35 @@
+name: Tune Progression Sync
+
+on:
+  push:
+    branches:
+      - agent/full-dashboard-profile-upgrade
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/full-dashboard-profile-upgrade
+      - name: Limit progression reconciliation to progression views
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('public/chat-ui.js')
+          text=path.read_text()
+          text=text.replace("try{await api('/api/progression/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{});const payload=await api(`/api/progression/${encodeURIComponent(profileId)}`);", "try{const payload=await api(`/api/progression/${encodeURIComponent(profileId)}`);", 1)
+          text=text.replace("installDashboardHooks();await api('/api/progression/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{});await loadRooms().catch(()=>{});", "installDashboardHooks();await loadRooms().catch(()=>{});", 1)
+          path.write_text(text)
+          PY
+      - name: Commit tuning and remove workflow
+        run: |
+          git rm .github/workflows/tune-progression-sync.yml
+          git config user.name "grev-dad-progress-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/chat-ui.js
+          git commit -m "Limit progression sync to XP views"
+          git push origin HEAD:agent/full-dashboard-profile-upgrade
