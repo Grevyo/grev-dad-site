@@ -1,0 +1,33 @@
+name: Verify Final Profile Popup
+
+on:
+  pull_request:
+    branches:
+      - pbe
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  verify:
+    if: github.head_ref == 'agent/profile-editor-native-popup'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+      VERIFY_REF: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Install Chromium
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Verify final popup
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/verify-final-profile-popup.cjs" \
+            --output verify-final-profile-popup.cjs
+          timeout --signal=INT 180s node verify-final-profile-popup.cjs
