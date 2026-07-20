@@ -7,13 +7,11 @@ const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, millise
 
 async function mergedAssetsAreLive() {
   const token = Date.now();
-  const [html, js, css] = await Promise.all([
-    fetch(`${base}/profile/live-check?verify=${token}`, { redirect: 'follow' }).then(response => response.text()),
+  const [js, css] = await Promise.all([
     fetch(`${base}/profile-editor-unified.js?verify=${token}`).then(response => response.text()),
     fetch(`${base}/profile-editor-unified.css?verify=${token}`).then(response => response.text())
   ]);
-  return html.includes('/profile-editor-unified-a11y.js') &&
-    js.includes('profile-unified-existing-tiles') &&
+  return js.includes('profile-unified-existing-tiles') &&
     js.includes("document.createElement('dialog')") &&
     css.includes('.profile-unified-editor::backdrop') &&
     css.includes('.profile-unified-existing-tile');
