@@ -1,33 +1,18 @@
 (() => {
   const TAB_META = {
-    card: {
-      title: 'Profile card',
-      description: 'Name, bio, pictures, colours and visible details.'
-    },
-    cardTiles: {
-      title: 'Card tiles',
-      description: 'Add and edit the four mini tiles inside your profile card.'
-    },
-    page: {
-      title: 'Profile page',
-      description: 'Background, width, spacing and the overall profile layout.'
-    },
-    profileTiles: {
-      title: 'Profile tiles',
-      description: 'Add, arrange and style the larger tiles below your card.'
-    }
+    card: ['Profile card', 'Name, bio, pictures, colours and visible details.'],
+    cardTiles: ['Card tiles', 'Add and edit the four mini tiles inside your profile card.'],
+    page: ['Profile page', 'Background, width, spacing and the overall profile layout.'],
+    profileTiles: ['Profile tiles', 'Add, arrange and style the larger tiles below your card.']
   };
 
   const state = {
     panel: null,
     body: null,
-    footer: null,
-    title: null,
-    description: null,
     activeTab: 'card',
     sourcesMounted: false,
     toolbarObserver: null,
-    bodyObserver: null,
+    sourceObserver: null,
     backdropPointerDown: false
   };
 
@@ -39,13 +24,14 @@
     else closePanel();
   }
 
-  function pointerIsOutsideDialog(dialog, event) {
+  function pointerOutside(dialog, event) {
     const rect = dialog.getBoundingClientRect();
     return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
   }
 
   function createPanel() {
-    if ($('#profile-unified-editor')) return $('#profile-unified-editor');
+    const existing = $('#profile-unified-editor');
+    if (existing) return existing;
 
     const panel = document.createElement('dialog');
     panel.id = 'profile-unified-editor';
@@ -91,62 +77,60 @@
       </footer>`;
 
     document.body.append(panel);
-
     state.panel = panel;
     state.body = panel.querySelector('.profile-unified-body');
-    state.footer = panel.querySelector('.profile-unified-footer');
-    state.title = panel.querySelector('[data-unified-title]');
-    state.description = panel.querySelector('[data-unified-description]');
 
     panel.querySelectorAll('.profile-unified-tabs [data-unified-tab]').forEach(button => {
       button.addEventListener('click', () => selectTab(button.dataset.unifiedTab));
     });
     panel.querySelector('[data-unified-close]').addEventListener('click', requestCancel);
-
     panel.addEventListener('cancel', event => {
       event.preventDefault();
       requestCancel();
     });
     panel.addEventListener('pointerdown', event => {
-      state.backdropPointerDown = event.target === panel && pointerIsOutsideDialog(panel, event);
+      state.backdropPointerDown = event.target === panel && pointerOutside(panel, event);
     });
     panel.addEventListener('pointerup', event => {
-      const shouldCancel = state.backdropPointerDown && event.target === panel && pointerIsOutsideDialog(panel, event);
+      const cancel = state.backdropPointerDown && event.target === panel && pointerOutside(panel, event);
       state.backdropPointerDown = false;
-      if (shouldCancel) requestCancel();
+      if (cancel) requestCancel();
     });
+
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !panel.open) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      requestCancel();
+    }, true);
 
     return panel;
   }
 
   function slot(name) {
-    return state.panel?.querySelector(`[data-unified-slot="${name}"]`) ?? null;
+    return state.panel?.querySelector(`[data-unified-slot="${name}"]`) || null;
   }
 
   function mountOriginalActions() {
     if (!state.panel) return;
-    const packSlot = state.panel.querySelector('[data-unified-pack-slot]');
-    const saveActions = state.panel.querySelector('[data-unified-save-actions]');
     const pack = $('#profile-pack');
     const cancel = $('#profile-cancel');
     const save = $('#profile-save');
+    const packSlot = state.panel.querySelector('[data-unified-pack-slot]');
+    const saveSlot = state.panel.querySelector('[data-unified-save-actions]');
 
     if (pack && packSlot && pack.parentElement !== packSlot) {
       pack.dataset.unifiedPack = '';
       packSlot.append(pack);
     }
-    if (cancel && saveActions && cancel.parentElement !== saveActions) {
+    if (cancel && saveSlot && cancel.parentElement !== saveSlot) {
       cancel.dataset.unifiedCancel = '';
-      saveActions.append(cancel);
+      saveSlot.append(cancel);
     }
-    if (save && saveActions && save.parentElement !== saveActions) {
+    if (save && saveSlot && save.parentElement !== saveSlot) {
       save.dataset.unifiedSave = '';
-      saveActions.append(save);
+      saveSlot.append(save);
     }
-  }
-
-  function dispatchClose(dialog) {
-    dialog.dispatchEvent(new Event('close'));
   }
 
   function prepareDialog(dialog, tab) {
@@ -168,14 +152,13 @@
     };
     dialog.show = dialog.showModal;
     dialog.close = returnValue => {
-      const wasOpen = dialog.hasAttribute('open');
+      const open = dialog.hasAttribute('open');
       dialog.removeAttribute('open');
       if (returnValue !== undefined) dialog.returnValue = String(returnValue);
-      if (wasOpen) dispatchClose(dialog);
+      if (open) dialog.dispatchEvent(new Event('close'));
     };
 
-    const target = slot(tab);
-    if (target) target.append(dialog);
+    slot(tab)?.append(dialog);
   }
 
   function moveSource(element, tab) {
@@ -185,30 +168,20 @@
     target.append(element);
   }
 
-  function placeEditorMessage() {
-    const message = $('#profile-editor-message');
-    const messageSlot = state.panel?.querySelector('[data-unified-message-slot]');
-    if (message && messageSlot && message.parentElement !== messageSlot) messageSlot.append(message);
-  }
-
-  function stopSourceObserver() {
-    state.bodyObserver?.disconnect();
-    state.bodyObserver = null;
-  }
-
   function mountSources() {
     if (!state.panel) return;
-
     mountOriginalActions();
     prepareDialog($('#profile-card-dialog'), 'card');
     prepareDialog($('#profile-design-dialog'), 'page');
     prepareDialog($('#profile-card-tile-dialog'), 'cardTiles');
     prepareDialog($('#profile-tile-dialog'), 'profileTiles');
-
     moveSource($('#profile-card-tile-editor'), 'cardTiles');
     moveSource($('.profile-editor-preferences'), 'profileTiles');
     moveSource($('#profile-catalogue'), 'profileTiles');
-    placeEditorMessage();
+
+    const message = $('#profile-editor-message');
+    const messageSlot = state.panel.querySelector('[data-unified-message-slot]');
+    if (message && messageSlot && message.parentElement !== messageSlot) messageSlot.append(message);
 
     state.sourcesMounted = Boolean(
       $('#profile-card-dialog') &&
@@ -219,7 +192,10 @@
       $('#profile-cancel') &&
       $('#profile-save')
     );
-    if (state.sourcesMounted) stopSourceObserver();
+    if (state.sourcesMounted) {
+      state.sourceObserver?.disconnect();
+      state.sourceObserver = null;
+    }
   }
 
   function ensureTabSource(tab) {
@@ -237,9 +213,11 @@
   function selectTab(tab) {
     if (!TAB_META[tab]) tab = 'card';
     state.activeTab = tab;
-    const meta = TAB_META[tab];
-    if (state.title) state.title.textContent = meta.title;
-    if (state.description) state.description.textContent = meta.description;
+    const [title, description] = TAB_META[tab];
+    const titleNode = state.panel?.querySelector('[data-unified-title]');
+    const descriptionNode = state.panel?.querySelector('[data-unified-description]');
+    if (titleNode) titleNode.textContent = title;
+    if (descriptionNode) descriptionNode.textContent = description;
 
     state.panel?.querySelectorAll('.profile-unified-tabs [data-unified-tab]').forEach(button => {
       const active = button.dataset.unifiedTab === tab;
@@ -282,24 +260,21 @@
 
   function syncEditorState() {
     mountSources();
-    if (editingIsActive()) {
-      openPanel(state.activeTab || 'card');
-      if (!$('#profile-card-dialog')?.hasAttribute('open') && state.activeTab === 'card') {
-        queueMicrotask(() => ensureTabSource('card'));
-      }
-    } else {
-      closePanel();
+    if (!editingIsActive()) return closePanel();
+    openPanel(state.activeTab || 'card');
+    if (state.activeTab === 'card' && !$('#profile-card-dialog')?.hasAttribute('open')) {
+      queueMicrotask(() => ensureTabSource('card'));
     }
   }
 
-  function installDialogObserver() {
-    if (state.sourcesMounted || state.bodyObserver) return;
-    const observer = new MutationObserver(() => mountSources());
-    state.bodyObserver = observer;
-    observer.observe(document.body, { childList: true, subtree: true });
+  function installSourceObserver() {
+    if (state.sourcesMounted || state.sourceObserver) return;
+    state.sourceObserver = new MutationObserver(mountSources);
+    state.sourceObserver.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => {
-      if (state.bodyObserver !== observer) return;
-      stopSourceObserver();
+      if (!state.sourceObserver) return;
+      state.sourceObserver.disconnect();
+      state.sourceObserver = null;
       mountSources();
     }, 5000);
   }
@@ -313,25 +288,19 @@
 
   function installActionRouting() {
     document.addEventListener('click', event => {
-      if (event.target.closest('[data-quick-card-details],#profile-card-settings')) {
-        queueMicrotask(() => openPanel('card'));
-      }
-      if (event.target.closest('[data-quick-profile-design],#profile-design-settings')) {
-        queueMicrotask(() => openPanel('page'));
-      }
-      if (event.target.closest('[data-add-card-tile],.profile-card-empty-slot,.profile-card-mini-settings')) {
-        queueMicrotask(() => openPanel('cardTiles'));
-      }
-      if (event.target.closest('[data-add-profile-tile],.profile-tile-settings-button')) {
-        queueMicrotask(() => openPanel('profileTiles'));
-      }
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      if (target.closest('[data-quick-card-details],#profile-card-settings')) queueMicrotask(() => openPanel('card'));
+      if (target.closest('[data-quick-profile-design],#profile-design-settings')) queueMicrotask(() => openPanel('page'));
+      if (target.closest('[data-add-card-tile],.profile-card-empty-slot,.profile-card-mini-settings')) queueMicrotask(() => openPanel('cardTiles'));
+      if (target.closest('[data-add-profile-tile],.profile-tile-settings-button')) queueMicrotask(() => openPanel('profileTiles'));
     }, true);
   }
 
   function initialise() {
     createPanel();
     mountSources();
-    installDialogObserver();
+    installSourceObserver();
     installToolbarObserver();
     installActionRouting();
     syncEditorState();
