@@ -47,7 +47,7 @@
     panel.className = 'profile-unified-editor profile-settings-dialog';
     panel.setAttribute('aria-labelledby', 'profile-unified-title');
     panel.innerHTML = `
-      <header class="profile-unified-header profile-dialog-heading">
+      <header class="profile-unified-header">
         <div>
           <p class="eyebrow">Profile editor</p>
           <h2 id="profile-unified-title" data-unified-title>Profile card</h2>
