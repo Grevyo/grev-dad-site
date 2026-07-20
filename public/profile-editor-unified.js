@@ -160,7 +160,7 @@
       dialog.scrollTop = 0;
       if (state.body) state.body.scrollTop = 0;
     });
-    };
+  };
     dialog.show = dialog.showModal;
     dialog.close = returnValue => {
       const open = dialog.hasAttribute('open');
