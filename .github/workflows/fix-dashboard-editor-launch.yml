@@ -1,0 +1,43 @@
+name: Fix Dashboard Editor Launch
+
+on:
+  push:
+    branches:
+      - agent/full-dashboard-profile-upgrade
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/full-dashboard-profile-upgrade
+      - name: Return Customize click before smooth scroll and remove old notification link
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dashboard=Path('public/dashboard.js')
+          text=dashboard.read_text()
+          old="dashboardElement('#dashboard-editor-toolbar').scrollIntoView({ behavior: 'smooth', block: 'start' });"
+          new="requestAnimationFrame(() => dashboardElement('#dashboard-editor-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));"
+          if old not in text: raise SystemExit('Dashboard editor scroll target not found')
+          dashboard.write_text(text.replace(old,new,1))
+
+          modules=Path('public/platform-dashboard.js')
+          text=modules.read_text()
+          old_fn="function updateHeaderBadge(){let badge=document.querySelector('#global-notification-badge');if(!badge){const header=document.querySelector('header>div');if(!header)return;const link=document.createElement('a');link.id='global-notification-link';link.className='header-link global-notification-link';link.href='/hub#notifications';link.textContent='Notifications';badge=document.createElement('span');badge.id='global-notification-badge';link.append(badge);header.insertBefore(link,header.querySelector('button'));}const count=state.payload?.unreadNotifications||0;badge.textContent=String(count);badge.hidden=!count;}"
+          new_fn="function updateHeaderBadge(){const badge=document.querySelector('#global-notification-button b');if(!badge)return;const count=state.payload?.unreadNotifications||0;badge.textContent=String(count);badge.hidden=!count;}"
+          if old_fn not in text: raise SystemExit('Old dashboard notification link target not found')
+          modules.write_text(text.replace(old_fn,new_fn,1))
+          PY
+      - name: Commit fix and remove workflow
+        run: |
+          git rm .github/workflows/fix-dashboard-editor-launch.yml
+          git config user.name "grev-dad-dashboard-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/dashboard.js public/platform-dashboard.js
+          git commit -m "Make dashboard editor launch non-blocking"
+          git push origin HEAD:agent/full-dashboard-profile-upgrade
