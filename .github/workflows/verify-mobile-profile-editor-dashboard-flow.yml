@@ -17,7 +17,6 @@ jobs:
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
       - name: Install Chromium
         run: |
           set -euo pipefail
@@ -25,4 +24,9 @@ jobs:
           npm install --no-save playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
       - name: Verify mobile profile editor flow
-        run: node .github/scripts/verify-mobile-profile-editor-dashboard-flow.cjs
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/Grevyo/grev-dad-site/agent/match-mobile-profile-editor-to-dashboard/.github/scripts/verify-mobile-profile-editor-dashboard-flow.cjs \
+            --output verify-mobile-profile-editor-dashboard-flow.cjs
+          node verify-mobile-profile-editor-dashboard-flow.cjs
