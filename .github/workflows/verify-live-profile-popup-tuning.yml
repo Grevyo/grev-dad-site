@@ -16,8 +16,8 @@ jobs:
     timeout-minutes: 10
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+      VERIFY_REF: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: actions/checkout@v4
       - name: Install Chromium
         run: |
           set -euo pipefail
@@ -25,4 +25,9 @@ jobs:
           npm install --no-save playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
       - name: Verify real PBE tuning
-        run: timeout --signal=INT 300s node .github/scripts/verify-live-profile-popup-tuning.cjs
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/verify-live-profile-popup-tuning.cjs" \
+            --output verify-live-profile-popup-tuning.cjs
+          timeout --signal=INT 300s node verify-live-profile-popup-tuning.cjs
