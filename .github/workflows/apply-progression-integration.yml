@@ -1,0 +1,90 @@
+name: Apply Progression Integration
+
+on:
+  push:
+    branches:
+      - agent/full-dashboard-profile-upgrade
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/full-dashboard-profile-upgrade
+      - name: Add site-wide XP and profile card level bar
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          backend = Path('src/chat-progression.ts')
+          text = backend.read_text()
+          marker = "\n\nasync function ensureGroupRooms"
+          addition = """
+
+          async function syncSiteXp(env:ChatProgressionEnv,userId:string){
+            await ensureProgress(env,userId);
+            await grantXp(env,userId,50,'account',userId,`account:${userId}`,'Joined Grev.dad');
+            const audits=await env.DB.prepare(`SELECT id,event_type FROM audit_events WHERE actor_user_id=? AND (event_type LIKE 'profile.%' OR event_type LIKE 'dashboard.%') ORDER BY created_at LIMIT 1000`).bind(userId).all<{id:string;event_type:string}>();
+            for(const event of audits.results){const amount=event.event_type.startsWith('profile.')?15:10;await grantXp(env,userId,amount,'audit',event.id,`audit:${userId}:${event.id}`,event.event_type.replaceAll('.',' '));}
+            const versions=await env.DB.prepare(`SELECT id FROM dashboard_layout_versions WHERE user_id=? ORDER BY created_at LIMIT 500`).bind(userId).all<{id:string}>();
+            for(const version of versions.results)await grantXp(env,userId,15,'dashboard_version',version.id,`dashboard-version:${userId}:${version.id}`,'Saved a dashboard layout version');
+            const items=await env.DB.prepare(`SELECT id,item_type,completed_at FROM content_items WHERE owner_user_id=? ORDER BY created_at LIMIT 1000`).bind(userId).all<{id:string;item_type:string;completed_at:number|null}>();
+            for(const item of items.results){await grantXp(env,userId,10,'content_item',item.id,`content:${userId}:${item.id}`,`Created ${item.item_type}`);if(item.completed_at&&['task','reminder'].includes(item.item_type))await grantXp(env,userId,25,'content_complete',item.id,`content-complete:${userId}:${item.id}`,`Completed ${item.item_type}`);}
+            const guestbook=await env.DB.prepare(`SELECT id FROM profile_guestbook_entries WHERE author_user_id=? AND deleted_at IS NULL ORDER BY created_at LIMIT 500`).bind(userId).all<{id:string}>();
+            for(const entry of guestbook.results)await grantXp(env,userId,8,'guestbook',entry.id,`guestbook:${userId}:${entry.id}`,'Posted a guestbook message');
+            const reactions=await env.DB.prepare(`SELECT profile_user_id,reaction FROM profile_reactions WHERE author_user_id=?`).bind(userId).all<{profile_user_id:string;reaction:string}>();
+            for(const reaction of reactions.results)await grantXp(env,userId,3,'profile_reaction',reaction.profile_user_id,`reaction:${userId}:${reaction.profile_user_id}`,'Reacted to a profile');
+            const subscriptions=await env.DB.prepare(`SELECT profile_user_id FROM profile_subscriptions WHERE subscriber_user_id=?`).bind(userId).all<{profile_user_id:string}>();
+            for(const subscription of subscriptions.results)await grantXp(env,userId,3,'profile_subscription',subscription.profile_user_id,`subscription:${userId}:${subscription.profile_user_id}`,'Subscribed to a profile');
+            await syncAchievements(env,userId);
+          }
+          """
+          if marker not in text:
+              raise SystemExit('chat progression insertion marker not found')
+          text = text.replace(marker, addition + marker, 1)
+          text = text.replace("m.created_at>? ORDER BY", "m.created_at>=? ORDER BY", 1)
+          old_reply = """if(replyToId&&!UUID_RE.test(replyToId))return json({ok:false,message:'Invalid reply.'},400);const id=crypto.randomUUID(),created=now();"""
+          new_reply = """if(replyToId&&!UUID_RE.test(replyToId))return json({ok:false,message:'Invalid reply.'},400);if(replyToId&&!await env.DB.prepare(`SELECT 1 ok FROM chat_messages WHERE id=? AND room_id=? AND deleted_at IS NULL`).bind(replyToId,roomId).first())return json({ok:false,message:'The replied-to message is not in this chat.'},400);const id=crypto.randomUUID(),created=now();"""
+          if old_reply not in text:
+              raise SystemExit('chat reply validation target not found')
+          text = text.replace(old_reply, new_reply, 1)
+          old_progress = """async function progression(env:ChatProgressionEnv,viewer:User,userId:string):Promise<Response>{if(!UUID_RE.test(userId))return json({ok:false,message:'Profile not found.'},404);await syncAchievements(env,userId);"""
+          new_progress = """async function progression(env:ChatProgressionEnv,viewer:User,userId:string):Promise<Response>{if(!UUID_RE.test(userId))return json({ok:false,message:'Profile not found.'},404);await syncSiteXp(env,userId);"""
+          if old_progress not in text:
+              raise SystemExit('progression sync target not found')
+          text = text.replace(old_progress, new_progress, 1)
+          text = text.replace("if(path==='/api/progression/sync'&&request.method==='POST'){await syncAchievements(env,user.id);return progression(env,user,user.id);}", "if(path==='/api/progression/sync'&&request.method==='POST')return progression(env,user,user.id);", 1)
+          backend.write_text(text)
+
+          frontend = Path('public/chat-ui.js')
+          text = frontend.read_text()
+          old = """const payload=await api(`/api/progression/${encodeURIComponent(profileId)}`);const target=document.createElement('section');"""
+          new = """const payload=await api(`/api/progression/${encodeURIComponent(profileId)}`);const identity=$('#profile-card .profile-card-identity');if(identity){let cardXp=identity.querySelector('.profile-card-xp');if(!cardXp){cardXp=document.createElement('div');cardXp.className='profile-card-xp';identity.append(cardXp);}cardXp.replaceChildren(progressBar(payload.profile));}const target=document.createElement('section');"""
+          if old not in text:
+              raise SystemExit('profile achievement render target not found')
+          text = text.replace(old, new, 1)
+          old_init = """async function init(){if(state.initialized)return;state.initialized=true;ensureShell();window.GrevChat={open:openPanel,openDirect,minimise:minimisePanel};installDashboardHooks();await loadRooms().catch(()=>{});"""
+          new_init = """async function init(){if(state.initialized)return;state.initialized=true;ensureShell();window.GrevChat={open:openPanel,openDirect,minimise:minimisePanel};installDashboardHooks();await api('/api/progression/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{});await loadRooms().catch(()=>{});"""
+          if old_init not in text:
+              raise SystemExit('chat UI init target not found')
+          text = text.replace(old_init, new_init, 1)
+          frontend.write_text(text)
+          PY
+      - name: Confirm progression integration
+        run: |
+          grep -q "syncSiteXp" src/chat-progression.ts
+          grep -q "content-complete" src/chat-progression.ts
+          grep -q "profile-card-xp" public/chat-ui.js
+          grep -q "api/progression/sync" public/chat-ui.js
+      - name: Commit progression integration and remove workflow
+        run: |
+          git rm .github/workflows/apply-progression-integration.yml
+          git config user.name "grev-dad-progress-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/chat-progression.ts public/chat-ui.js
+          git commit -m "Complete chat and profile progression integration"
+          git push origin HEAD:agent/full-dashboard-profile-upgrade
