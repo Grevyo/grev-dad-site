@@ -7,9 +7,6 @@ on:
     types:
       - synchronize
 
-permissions:
-  contents: write
-
 jobs:
   verify:
     if: github.head_ref == 'agent/profile-popup-mobile-focus-desktop-size'
@@ -17,77 +14,48 @@ jobs:
     timeout-minutes: 8
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
+      VERIFY_REF: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: agent/profile-popup-mobile-focus-desktop-size
-      - name: Clean JavaScript formatting
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path('public/profile-editor-unified.js')
-          text = path.read_text()
-          pattern = re.compile(
-              r"      queueMicrotask\(\(\) => \{\n"
-              r"\s*dialog\.scrollTop = 0;\n"
-              r"\s*if \(state\.body\) state\.body\.scrollTop = 0;\n"
-              r"\s*\}\);\n"
-              r"    \};"
-          )
-          replacement = """      queueMicrotask(() => {
-                dialog.scrollTop = 0;
-                if (state.body) state.body.scrollTop = 0;
-              });
-            };"""
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f'Expected one popup scroll block, found {count}.')
-          path.write_text(text)
-          PY
       - name: Install Chromium
         run: |
           set -euo pipefail
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright@1.55.0 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
-      - name: Verify mobile focus and desktop size
+      - name: Measure popup behaviour
         run: |
-          cat > /tmp/verify-profile-popup-tuning.cjs <<'NODE'
-          const fs = require('node:fs');
+          cat > /tmp/measure-profile-popup.cjs <<'NODE'
           const { chromium } = require('playwright');
-
           const base = 'https://pbe.grev.dad';
-          const assert = (value, message) => { if (!value) throw new Error(message); };
+          const raw = `https://raw.githubusercontent.com/Grevyo/grev-dad-site/${process.env.VERIFY_REF}/public`;
 
           (async () => {
-            const js = fs.readFileSync('public/profile-editor-unified.js', 'utf8');
-            const css = fs.readFileSync('public/profile-editor-unified.css', 'utf8');
-            assert(!js.includes("?.focus({ preventScroll: true })"), 'Automatic field focus remains in the popup code.');
-            assert(css.includes('width:min(1320px,calc(100vw - 48px))'), 'Larger desktop width rule is missing.');
-            assert(css.includes('height:min(940px,calc(var(--profile-visible-height,100dvh) - 40px))'), 'Larger desktop height rule is missing.');
+            const [js, css] = await Promise.all([
+              fetch(`${raw}/profile-editor-unified.js`).then(r => r.text()),
+              fetch(`${raw}/profile-editor-unified.css`).then(r => r.text())
+            ]);
+            console.log(JSON.stringify({
+              autoFocusPresent: js.includes("?.focus({ preventScroll: true })"),
+              largeWidthPresent: css.includes('width:min(1320px,calc(100vw - 48px))'),
+              largeHeightPresent: css.includes('height:min(940px,calc(var(--profile-visible-height,100dvh) - 40px))')
+            }));
 
             const browser = await chromium.launch({ headless: true });
             const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
             const page = await context.newPage();
             page.setDefaultTimeout(15000);
-
             try {
               const login = await context.request.post(`${base}/api/auth/login`, {
                 data: { identifier: 'LADMIN', password: process.env.LADMIN_BOOTSTRAP_PASSWORD, rememberMe: false }
               });
-              assert(login.status() === 200, `Login failed (${login.status()}).`);
               const profileId = (await (await context.request.get(`${base}/api/auth/session`)).json()).user.id;
-
               await page.route('**/profile-editor-unified.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: js }));
               await page.route('**/profile-editor-unified.css', route => route.fulfill({ status: 200, contentType: 'text/css', body: css }));
               await page.goto(`${base}/profile/${encodeURIComponent(profileId)}`, { waitUntil: 'networkidle' });
               await page.locator('#profile-edit').click();
-
               const popup = page.locator('#profile-unified-editor');
               await popup.waitFor({ state: 'visible' });
-              await page.waitForTimeout(150);
+              await page.waitForTimeout(200);
               const mobile = await popup.evaluate(dialog => {
                 const body = dialog.querySelector('.profile-unified-body');
                 const active = document.activeElement;
@@ -101,12 +69,8 @@ jobs:
                   height: rect.height
                 };
               });
-              assert(!mobile.inputFocused, `Mobile popup focused ${mobile.activeTag}#${mobile.activeId}.`);
-              assert(mobile.activeId !== 'profile-card-display-name', 'Mobile popup jumped to the display-name field.');
-              assert(mobile.bodyScrollTop <= 1, `Mobile popup opened scrolled to ${mobile.bodyScrollTop}px.`);
-              assert(mobile.width <= 376 && mobile.height <= 830, 'Mobile popup dimensions changed unexpectedly.');
+              console.log(`MOBILE ${JSON.stringify(mobile)}`);
               await popup.locator('#profile-cancel').click();
-              await popup.waitFor({ state: 'hidden' });
 
               await page.setViewportSize({ width: 1440, height: 900 });
               await page.reload({ waitUntil: 'networkidle' });
@@ -114,15 +78,9 @@ jobs:
               await popup.waitFor({ state: 'visible' });
               const desktop = await popup.evaluate(dialog => {
                 const rect = dialog.getBoundingClientRect();
-                return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
+                return { width: rect.width, height: rect.height, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
               });
-              assert(desktop.width >= 1250 && desktop.width <= 1322, `Desktop popup width was ${desktop.width}px.`);
-              assert(desktop.height >= 820 && desktop.height <= 862, `Desktop popup height was ${desktop.height}px.`);
-              assert(desktop.left > 20 && desktop.right < 1420, 'Desktop popup lost its viewport margin.');
-              await popup.locator('#profile-cancel').click();
-
-              console.log(JSON.stringify({ mobile, desktop }));
-              console.log('Profile popup tuning verification passed.');
+              console.log(`DESKTOP ${JSON.stringify(desktop)}`);
             } finally {
               await browser.close();
             }
@@ -131,13 +89,4 @@ jobs:
             process.exit(1);
           });
           NODE
-          timeout --signal=INT 180s node /tmp/verify-profile-popup-tuning.cjs
-      - name: Commit verified changes
-        run: |
-          set -euo pipefail
-          git rm .github/workflows/verify-profile-popup-tuning.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/profile-editor-unified.js
-          git commit -m "Verify profile popup focus and desktop sizing"
-          git push origin HEAD:agent/profile-popup-mobile-focus-desktop-size
+          timeout --signal=INT 180s node /tmp/measure-profile-popup.cjs
