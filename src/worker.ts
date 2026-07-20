@@ -10,6 +10,8 @@ type AppEnv = Parameters<typeof app.fetch>[1];
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css',
   '/dashboard.js',
+  '/dashboard-editor-history-prelude.js',
+  '/dashboard-editor-history.js',
   '/admin-dashboard.js',
   '/feature.js',
   '/profile.css',
@@ -43,16 +45,17 @@ function invalidIntentionsResponse(): Response {
   return workerJson({ ok: false, message: 'Choose at least one intention.' }, 400);
 }
 
-async function bundledJavascript(request: Request, env: AppEnv, appendedPath: string): Promise<Response> {
+async function bundledJavascript(request: Request, env: AppEnv, appendedPaths: string | string[]): Promise<Response> {
   const assets = (env as unknown as DashboardEnv).ASSETS;
   const baseUrl = new URL(request.url);
-  const appendedUrl = new URL(appendedPath, baseUrl);
-  const [baseResponse, appendedResponse] = await Promise.all([
+  const paths = Array.isArray(appendedPaths) ? appendedPaths : [appendedPaths];
+  const [baseResponse, ...appendedResponses] = await Promise.all([
     assets.fetch(request),
-    assets.fetch(new Request(appendedUrl.toString(), request))
+    ...paths.map(path => assets.fetch(new Request(new URL(path, baseUrl).toString(), request)))
   ]);
   if (!baseResponse.ok) return baseResponse;
-  const content = `${await baseResponse.text()}\n${appendedResponse.ok ? await appendedResponse.text() : ''}`;
+  const appended = await Promise.all(appendedResponses.map(async response => response.ok ? response.text() : ''));
+  const content = [await baseResponse.text(), ...appended].join('\n');
   const headers = new Headers(baseResponse.headers);
   headers.delete('Content-Length');
   headers.set('Content-Type', 'application/javascript; charset=utf-8');
@@ -64,6 +67,9 @@ export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
 
+    if (request.method === 'GET' && url.pathname === '/dashboard.js') {
+      return bundledJavascript(request, env, ['/dashboard-editor-history-prelude.js', '/dashboard-editor-history.js']);
+    }
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') {
       return bundledJavascript(request, env, '/profile-customization-hardening.js');
     }
