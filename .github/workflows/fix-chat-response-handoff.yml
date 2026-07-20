@@ -1,0 +1,36 @@
+name: Fix Chat Response Handoff
+
+on:
+  push:
+    branches:
+      - agent/full-dashboard-profile-upgrade
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/full-dashboard-profile-upgrade
+      - name: Replace consumed POST request with clean GET
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('src/chat-progression.ts')
+          text=path.read_text()
+          old="return messages(new Request(new URL(`/api/chat/rooms/${roomId}/messages?after=${created-1}`,request.url),request),env,user,roomId);"
+          new="return messages(new Request(new URL(`/api/chat/rooms/${roomId}/messages?after=${created-1}`,request.url),{method:'GET',headers:request.headers}),env,user,roomId);"
+          if old not in text: raise SystemExit('chat response handoff target not found')
+          path.write_text(text.replace(old,new,1))
+          PY
+      - name: Commit fix and remove workflow
+        run: |
+          git rm .github/workflows/fix-chat-response-handoff.yml
+          git config user.name "grev-dad-chat-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/chat-progression.ts
+          git commit -m "Return chat messages with a clean GET request"
+          git push origin HEAD:agent/full-dashboard-profile-upgrade
