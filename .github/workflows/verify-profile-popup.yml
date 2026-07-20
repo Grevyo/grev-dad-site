@@ -13,7 +13,7 @@ jobs:
   verify:
     if: github.head_ref == 'agent/profile-editor-native-popup'
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     env:
       LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
       VERIFY_REF: ${{ github.event.pull_request.head.sha }}
@@ -33,3 +33,10 @@ jobs:
           sed -i "s#agent/profile-editor-native-popup/public#${VERIFY_REF}/public#" verify-profile-popup.cjs
           sed -i 's/\[data-unified-save\]/#profile-save/g; s/\[data-unified-cancel\]/#profile-cancel/g' verify-profile-popup.cjs
           timeout --signal=INT 180s node verify-profile-popup.cjs
+      - name: Verify existing tile controls
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/Grevyo/grev-dad-site/${VERIFY_REF}/.github/scripts/verify-popup-tile-controls.cjs" \
+            --output verify-popup-tile-controls.cjs
+          timeout --signal=INT 180s node verify-popup-tile-controls.cjs
