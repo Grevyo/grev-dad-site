@@ -1,13 +1,6 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   const mobile = matchMedia('(max-width:820px)');
-  const scrollState = {
-    locked: false,
-    scrollY: 0,
-    bodyStyles: null,
-    htmlOverflow: '',
-    focusedControl: null
-  };
 
   function tabName(button) {
     return button?.dataset.unifiedTab || 'card';
@@ -65,106 +58,64 @@
     syncTabState(editor);
   }
 
-  function cleanDialogMarkers(editor) {
-    editor.querySelectorAll('dialog[data-unified-tab]').forEach(dialog => {
-      dialog.removeAttribute('data-unified-tab');
-      dialog.removeAttribute('aria-selected');
-      dialog.classList.remove('is-active');
-    });
-  }
-
   function updateViewportMetrics() {
-    const viewport = window.visualViewport;
-    const visibleHeight = Math.max(240, Math.round(viewport?.height || window.innerHeight));
+    const visibleHeight = Math.max(240, Math.round(window.visualViewport?.height || window.innerHeight));
     document.documentElement.style.setProperty('--profile-visible-height', `${visibleHeight}px`);
     document.documentElement.style.setProperty('--profile-editor-bottom-offset', '0px');
   }
 
-  function releasePageScroll() {
-    const body = document.body;
-    if (scrollState.locked) {
-      const saved = scrollState.bodyStyles || {};
-      const restoreY = scrollState.scrollY;
-      body.style.position = saved.position || '';
-      body.style.top = saved.top || '';
-      body.style.left = saved.left || '';
-      body.style.right = saved.right || '';
-      body.style.width = saved.width || '';
-      body.style.overflow = saved.overflow || '';
-      document.documentElement.style.overflow = scrollState.htmlOverflow || '';
-      scrollState.locked = false;
-      window.scrollTo(0, restoreY);
-    }
-    body.classList.remove('profile-mobile-editor-scroll-locked', 'profile-unified-previewing');
+  function releaseLegacyPageLock() {
+    document.body.classList.remove('profile-mobile-editor-scroll-locked', 'profile-unified-previewing');
   }
 
-  function ensureFocusedControlVisible(editor, control = scrollState.focusedControl || document.activeElement) {
-    if (!mobile.matches || !(control instanceof HTMLElement) || !editor.contains(control)) return;
-    requestAnimationFrame(() => control.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
-  }
-
-  function configurePreviewToggle(editor) {
+  function hideLegacyPreview(editor) {
     const button = editor.querySelector('[data-unified-preview]');
-    if (!button) return;
-    button.hidden = true;
+    if (button) {
+      button.hidden = true;
+      button.setAttribute('aria-expanded', 'true');
+    }
     editor.classList.remove('is-collapsed');
-    button.setAttribute('aria-expanded', 'true');
   }
 
-  function configureInlineMobile(editor) {
-    if (editor.dataset.inlineMobileReady === 'true') {
-      releasePageScroll();
-      return;
-    }
-    editor.dataset.inlineMobileReady = 'true';
-
-    const observer = new MutationObserver(() => {
-      releasePageScroll();
-      configurePreviewToggle(editor);
-    });
-    observer.observe(editor, { attributes: true, attributeFilter: ['class', 'hidden'] });
-
+  function configureFocus(editor) {
+    if (editor.dataset.inlineFocusReady === 'true') return;
+    editor.dataset.inlineFocusReady = 'true';
     editor.addEventListener('focusin', event => {
-      if (!(event.target instanceof HTMLElement)) return;
-      scrollState.focusedControl = event.target;
-      ensureFocusedControlVisible(editor, event.target);
+      if (!mobile.matches || !(event.target instanceof HTMLElement)) return;
+      requestAnimationFrame(() => event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
     });
-
-    const handleViewportChange = () => {
-      updateViewportMetrics();
-      ensureFocusedControlVisible(editor);
-    };
-    window.visualViewport?.addEventListener('resize', handleViewportChange);
-    window.visualViewport?.addEventListener('scroll', handleViewportChange);
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('orientationchange', handleViewportChange);
-    window.addEventListener('pagehide', releasePageScroll);
-    mobile.addEventListener('change', () => {
-      configurePreviewToggle(editor);
-      releasePageScroll();
-    });
-
-    releasePageScroll();
   }
 
   function configure() {
     const editor = $('#profile-unified-editor');
     if (!editor) return false;
-    cleanDialogMarkers(editor);
     configureTabs(editor);
-    configurePreviewToggle(editor);
-    configureInlineMobile(editor);
+    hideLegacyPreview(editor);
+    configureFocus(editor);
+    updateViewportMetrics();
+    releaseLegacyPageLock();
     return true;
   }
 
   function initialise() {
-    updateViewportMetrics();
     if (configure()) return;
-    const observer = new MutationObserver(() => {
-      if (configure()) observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    requestAnimationFrame(() => configure());
   }
+
+  window.visualViewport?.addEventListener('resize', updateViewportMetrics);
+  window.addEventListener('resize', () => {
+    updateViewportMetrics();
+    const editor = $('#profile-unified-editor');
+    if (editor) hideLegacyPreview(editor);
+    releaseLegacyPageLock();
+  });
+  window.addEventListener('orientationchange', updateViewportMetrics);
+  window.addEventListener('pagehide', releaseLegacyPageLock);
+  mobile.addEventListener('change', () => {
+    const editor = $('#profile-unified-editor');
+    if (editor) hideLegacyPreview(editor);
+    releaseLegacyPageLock();
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialise, { once: true });
   else initialise();
