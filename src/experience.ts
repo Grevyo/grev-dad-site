@@ -148,6 +148,11 @@ function normalizedLayout(value: unknown): { layout: string; parsed: { tiles: Re
   if (!Array.isArray(input.tiles) || input.tiles.length > MAX_PAGE_TILES) return null;
   const tiles: Record<string, unknown>[] = [];
   const seen = new Set<string>();
+  const allowedTileFields = new Set([
+    'colour','contentMode','customTitle','customIcon','mediaFit','mediaOverlay',
+    'iconMode','iconLabel','iconMedia','iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit',
+    'backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','borderColour','fontFamily'
+  ]);
   for (const rawTile of input.tiles) {
     if (!rawTile || typeof rawTile !== 'object' || Array.isArray(rawTile)) return null;
     const tile = rawTile as Record<string, unknown>;
@@ -159,7 +164,12 @@ function normalizedLayout(value: unknown): { layout: string; parsed: { tiles: Re
     if (!featureId || seen.has(featureId) || !Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(width) || !Number.isInteger(height)) return null;
     if (x < 0 || y < 0 || x + width > 8 || width < 1 || width > 6 || height < 1 || height > 4 || y > 199) return null;
     seen.add(featureId);
-    tiles.push(structuredClone(tile));
+    const normalizedTile: Record<string, unknown> = { featureId, x, y, width, height };
+    for (const field of allowedTileFields) {
+      const fieldValue = tile[field];
+      if (fieldValue === null || ['string','number','boolean'].includes(typeof fieldValue)) normalizedTile[field] = fieldValue;
+    }
+    tiles.push(normalizedTile);
   }
   const preferences = input.preferences && typeof input.preferences === 'object' && !Array.isArray(input.preferences)
     ? structuredClone(input.preferences as Record<string, unknown>)
@@ -187,7 +197,7 @@ async function pageAccess(env: ExperienceEnv, user: ExperienceUser, pageId: stri
     LEFT JOIN groups g ON g.id=p.group_id
     WHERE p.id=? AND (
       p.owner_user_id=?
-      OR ?=1
+      OR (?=1 AND p.group_id IS NOT NULL)
       OR (p.group_id IS NOT NULL AND EXISTS(
         SELECT 1 FROM group_memberships gm WHERE gm.group_id=p.group_id AND gm.user_id=?
       ))
@@ -204,7 +214,7 @@ function pageJson(row: PageRow, user: ExperienceUser) {
     groupId: row.group_id,
     groupName: row.group_name,
     layout: parseLayout(row.layout_json),
-    canEdit: row.owner_user_id === user.id || user.isAdmin,
+    canEdit: row.owner_user_id === user.id || (Boolean(row.group_id) && user.isAdmin),
     updatedAt: row.updated_at
   };
 }

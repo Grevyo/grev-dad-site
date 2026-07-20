@@ -27,7 +27,7 @@
 
   function serializableTile(tile) {
     return {
-      featureId: tile.featureId,
+      featureId: tile.featureId ?? tile.id,
       x: Number(tile.x),
       y: Number(tile.y),
       width: Number(tile.width),
@@ -268,6 +268,7 @@
     const cloneCurrent = dashboardElement('#dashboard-clone-current-page')?.checked !== false;
     if (!name) return pageManagerMessage('Enter a page name.', 'error');
     pageManagerMessage('Creating page…');
+    if (experience.activePageId === 'home') saveHomeSnapshot();
     try {
       experience.pagesPayload = await experienceFetch('/api/experience/dashboard/pages', {
         method: 'POST',

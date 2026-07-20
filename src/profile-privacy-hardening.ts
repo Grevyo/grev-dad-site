@@ -105,9 +105,14 @@ export async function applyProfilePrivacy(request: Request, env: ProfileEnv, res
     if (!canView(fields.get('website'), isSelf, viewer, sharedGroups)) { card.websiteUrl = null; if (design) design.showWebsite = false; }
     if (!canView(fields.get('avatar'), isSelf, viewer, sharedGroups)) { card.avatarMedia = null; if (design) design.showAvatar = false; }
     if (!canView(fields.get('cover'), isSelf, viewer, sharedGroups)) { card.coverMedia = null; if (design) design.showCover = false; }
-    if (!canView(fields.get('username'), isSelf, viewer, sharedGroups)) card.showUsername = false;
-    if (!canView(fields.get('status'), isSelf, viewer, sharedGroups)) card.showStatus = false;
-    if (!canView(fields.get('memberSince'), isSelf, viewer, sharedGroups)) card.showMemberSince = false;
+    if (!canView(fields.get('username'), isSelf, viewer, sharedGroups)) { card.showUsername = false; profile.username = null; }
+    if (!canView(fields.get('status'), isSelf, viewer, sharedGroups)) {
+      card.showStatus = false;
+      profile.isVerified = null;
+      profile.isOwner = null;
+      profile.isAdmin = null;
+    }
+    if (!canView(fields.get('memberSince'), isSelf, viewer, sharedGroups)) { card.showMemberSince = false; profile.createdAt = null; }
   }
 
   if (Array.isArray(profile.tiles)) {

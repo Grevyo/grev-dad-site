@@ -286,11 +286,25 @@
     button.tabIndex = -1;
     button.innerHTML = '<strong>Privacy</strong><span>Fields & interaction</span>';
     button.addEventListener('click', showPrivacyTab);
-    button.addEventListener('keydown', event => {
-      if (event.key === 'ArrowLeft') { event.preventDefault(); nav.querySelector('[data-unified-tab="profileTiles"]')?.click(); nav.querySelector('[data-unified-tab="profileTiles"]')?.focus(); }
-      if (event.key === 'ArrowRight') { event.preventDefault(); nav.querySelector('[data-unified-tab="card"]')?.click(); nav.querySelector('[data-unified-tab="card"]')?.focus(); }
-    });
     nav.append(button);
+    if (nav.dataset.experienceKeyboardReady !== 'true') {
+      nav.dataset.experienceKeyboardReady = 'true';
+      nav.addEventListener('keydown', event => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        const buttons = [...nav.querySelectorAll('[data-unified-tab]')];
+        const current = buttons.indexOf(document.activeElement);
+        if (current < 0) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        let next = current;
+        if (event.key === 'ArrowLeft') next = (current - 1 + buttons.length) % buttons.length;
+        if (event.key === 'ArrowRight') next = (current + 1) % buttons.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = buttons.length - 1;
+        buttons[next].click();
+        buttons[next].focus();
+      }, true);
+    }
 
     const section = document.createElement('section');
     section.id = 'profile-unified-panel-privacy';
