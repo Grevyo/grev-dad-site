@@ -1,4 +1,5 @@
 (() => {
+  const CONTRACT='profile-card-baseline-v2';
   const FONT_STACKS={
     system:'Inter,Segoe UI,Arial,sans-serif',display:'Impact,Haettenschweiler,Arial Narrow Bold,sans-serif',
     mono:'ui-monospace,SFMono-Regular,Consolas,Liberation Mono,monospace',serif:'Georgia,Times New Roman,serif',
@@ -12,8 +13,9 @@
 
   function normalize(value){
     const source=value?.profileCard||value||{};
-    const tiles=Array.isArray(source.tiles)?source.tiles:(Array.isArray(source.cardTiles)?source.cardTiles:[]);
-    return {...source,card:source.card||{},design:source.design||{},tiles,cardTiles:tiles};
+    const legacyBaselineTiles=source.contract==='profile-card-baseline-v1'&&Array.isArray(source.tiles)?source.tiles:[];
+    const cardTiles=Array.isArray(source.cardTiles)?source.cardTiles:legacyBaselineTiles;
+    return {...source,card:source.card||{},design:source.design||{},cardTiles};
   }
   function featureFor(tile){return tile?.feature||null;}
   function tileHref(tile){return tile.tileKind==='feature'?(featureFor(tile)?.route||null):(tile.linkUrl||null);}
@@ -83,13 +85,13 @@
     return {area,grid};
   }
   function renderTiles(root,value){
-    const profile=normalize(value),{area,grid}=ensureTileArea(root),tiles=profile.tiles.slice().sort((a,b)=>(Number(a.y)-Number(b.y))||(Number(a.x)-Number(b.x))||(Number(a.position)-Number(b.position)));
+    const profile=normalize(value),{area,grid}=ensureTileArea(root),tiles=profile.cardTiles.slice().sort((a,b)=>(Number(a.y)-Number(b.y))||(Number(a.x)-Number(b.x))||(Number(a.position)-Number(b.position)));
     root.style.setProperty('--profile-card-tile-gap-custom',`${Number(profile.design.cardTileGap)||10}px`);
     root.style.setProperty('--profile-card-tile-row-custom',`${Number(profile.design.cardTileRowHeight)||92}px`);
     area.hidden=tiles.length===0;grid.replaceChildren(...tiles.map(tileElement));root.dataset.cardTileCount=String(tiles.length);
   }
   function apply(root,value,options={}){
-    const profile=normalize(value);previousApply(root,profile);renderTiles(root,profile);root.dataset.profileCardContract='baseline-v1';
+    const profile=normalize(value);previousApply(root,profile);renderTiles(root,profile);root.dataset.profileCardContract=CONTRACT;
     if(options.variant)root.dataset.cardVariant=options.variant;
     return root;
   }
@@ -97,7 +99,15 @@
     const profile=normalize(value);const root=previousCreate(profile,{...options,includeTiles:false});
     if(options.variant)root.dataset.cardVariant=options.variant;apply(root,profile,options);return root;
   }
+  function mount(current,value,options={}){
+    const next=create(value,options);
+    const id=options.id||current?.id;
+    if(id)next.id=id;
+    if(options.ariaLabel)next.setAttribute('aria-label',options.ariaLabel);
+    if(current)current.replaceWith(next);
+    return next;
+  }
 
-  base.apply=apply;base.create=create;base.renderTiles=renderTiles;base.normalize=normalize;base.contract='profile-card-baseline-v1';
-  window.GrevProfileCardBaseline={normalize,apply,create,renderTiles,contract:'profile-card-baseline-v1'};
+  base.apply=apply;base.create=create;base.renderTiles=renderTiles;base.normalize=normalize;base.mount=mount;base.contract=CONTRACT;
+  window.GrevProfileCardBaseline={normalize,apply,create,mount,renderTiles,contract:CONTRACT};
 })();
