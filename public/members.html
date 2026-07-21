@@ -5,13 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Members · Grev.dad</title>
 <link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/profile.css">
+<link rel="stylesheet" href="/profile-customization.css">
 <link rel="stylesheet" href="/members.css">
 </head>
 <body>
 <header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><button id="logout">Log out</button></div></header>
 <main class="members-shell">
 <section class="members-hero">
-  <div><p class="eyebrow">People on Grev.dad</p><h1>Members</h1><p>Browse the people who have accounts, see their public profile-card information and open their full profile.</p></div>
+  <div><p class="eyebrow">People on Grev.dad</p><h1>Members</h1><p>Browse the same reusable profile cards used across Grev.dad, filtered to the details each member allows you to see.</p></div>
   <strong id="members-count">Loading…</strong>
 </section>
 <section class="members-toolbar" aria-label="Member filters">
@@ -22,6 +24,7 @@
 <section id="members-grid" class="members-grid" aria-live="polite"></section>
 </main>
 <script src="/site-shell.js" defer></script>
+<script src="/profile-card.js" defer></script>
 <script src="/members.js" defer></script>
 </body>
 </html>
