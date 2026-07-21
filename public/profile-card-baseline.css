@@ -1,17 +1,15 @@
 /* One saved profile-card contract. Surfaces may choose a scale variant, but never omit saved card content. */
-.profile-card[data-profile-card-contract="baseline-v1"] .profile-card-tile-area{padding:0 var(--profile-card-padding,28px) var(--profile-card-padding,28px)}
-.profile-card[data-profile-card-contract="baseline-v1"] .profile-card-tile-grid{--profile-card-tile-gap:var(--profile-card-tile-gap-custom,10px);--profile-card-tile-row:var(--profile-card-tile-row-custom,92px);gap:var(--profile-card-tile-gap);grid-auto-rows:var(--profile-card-tile-row)}
-.profile-card[data-profile-card-contract="baseline-v1"][data-card-tile-count="0"] .profile-card-tile-area{display:none!important}
-.profile-card[data-profile-card-contract="baseline-v1"] .profile-card-mini-tile{isolation:isolate}
-.profile-card[data-profile-card-contract="baseline-v1"] .profile-card-mini-tile:focus-visible{outline:3px solid currentColor;outline-offset:2px}
-.profile-card[data-card-variant="directory"] .profile-card-tile-area{margin-top:auto}
+.profile-card[data-profile-card-contract="profile-card-baseline-v2"] .profile-card-tile-area{padding:0 var(--profile-card-padding,28px) var(--profile-card-padding,28px)}
+.profile-card[data-profile-card-contract="profile-card-baseline-v2"] .profile-card-tile-grid{--profile-card-tile-gap:var(--profile-card-tile-gap-custom,10px);--profile-card-tile-row:var(--profile-card-tile-row-custom,92px);gap:var(--profile-card-tile-gap);grid-auto-rows:var(--profile-card-tile-row)}
+.profile-card[data-profile-card-contract="profile-card-baseline-v2"][data-card-tile-count="0"] .profile-card-tile-area{display:none!important}
+.profile-card[data-profile-card-contract="profile-card-baseline-v2"] .profile-card-mini-tile{isolation:isolate}
+.profile-card[data-profile-card-contract="profile-card-baseline-v2"] .profile-card-mini-tile:focus-visible{outline:3px solid currentColor;outline-offset:2px}
 .profile-card[data-card-variant="directory"] .profile-card-tile-grid{padding-top:14px}
 .profile-card[data-card-variant="directory"] .profile-card-mini-content,.profile-card[data-card-variant="directory"] .profile-card-mini-media{padding:10px}
 .profile-card[data-card-variant="popover"] .profile-card-tile-area{padding-right:16px;padding-bottom:16px;padding-left:16px}
 .profile-card[data-card-variant="popover"] .profile-card-tile-grid{padding-top:12px}
 .profile-card[data-card-variant="popover"] .profile-card-mini-content,.profile-card[data-card-variant="popover"] .profile-card-mini-media{padding:8px}
-.profile-card[data-card-variant="popover"] .profile-card-mini-description{display:none}
 @media(max-width:560px){
-  .profile-card[data-profile-card-contract="baseline-v1"] .profile-card-tile-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:min(42vw,var(--profile-card-tile-row-custom,92px))}
-  .profile-card[data-profile-card-contract="baseline-v1"] .profile-card-mini-tile{grid-column:auto/span var(--card-mobile-width,1)!important;grid-row:auto/span var(--card-mobile-height,1)!important}
+  .profile-card[data-profile-card-contract="profile-card-baseline-v2"] .profile-card-tile-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:min(42vw,var(--profile-card-tile-row-custom,92px))}
+  .profile-card[data-profile-card-contract="profile-card-baseline-v2"] .profile-card-mini-tile{grid-column:auto/span var(--card-mobile-width,1)!important;grid-row:auto/span var(--card-mobile-height,1)!important}
 }

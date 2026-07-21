@@ -16,7 +16,7 @@
 
 <main class="profile-shell">
 <section class="profile-page-heading">
-<div><p class="eyebrow">Member profile</p><h1 id="profile-page-title">Profile</h1><p>This card is the member’s reusable mini profile. The grid below is their personal profile space.</p></div>
+<div><p class="eyebrow">Member profile</p><h1 id="profile-page-title">Profile</h1><p>The card below is the same saved profile card used everywhere across Grev.dad.</p></div>
 <div class="profile-page-actions"><button id="profile-edit" class="primary" type="button" hidden>Edit profile</button></div>
 </section>
 
@@ -35,25 +35,7 @@
 <p id="profile-editor-message" class="profile-editor-message" role="status">Choose a section below to edit your profile.</p>
 </section>
 
-<section id="profile-card" class="profile-card" aria-label="Member profile card">
-<div class="profile-card-cover" data-profile-cover></div>
-<div class="profile-card-main">
-<div id="profile-avatar" class="profile-card-avatar" data-profile-avatar aria-label="Profile picture">G</div>
-<div class="profile-card-identity">
-<div class="profile-card-name-row">
-<div><h2 id="profile-name" data-profile-name>Loading…</h2><p id="profile-username" data-profile-username>—</p></div>
-<span id="profile-badge" class="profile-card-status" data-profile-status>Checking…</span>
-</div>
-<p class="profile-card-headline" data-profile-headline hidden></p>
-<p class="profile-card-bio" data-profile-bio hidden></p>
-<div class="profile-card-meta">
-<span data-profile-location hidden></span>
-<a data-profile-website hidden target="_blank" rel="noopener noreferrer"></a>
-<span id="profile-member-since" data-profile-member-since>—</span>
-</div>
-</div>
-</div>
-</section>
+<section id="profile-card" class="profile-card-loading-shell" aria-label="Member profile card"><p>Loading profile card…</p></section>
 
 <section id="profile-workspace" class="profile-workspace">
 <div class="profile-grid-region">
@@ -140,6 +122,7 @@
 <script src="/profile-card-tiles.js" defer></script>
 <script src="/profile-customization.js" defer></script>
 <script src="/profile.js" defer></script>
+<script src="/profile-card-main-mount.js" defer></script>
 <script src="/profile-editor-unified.js" defer></script>
 <script src="/profile-editor-unified-a11y.js" defer></script>
 </body>
