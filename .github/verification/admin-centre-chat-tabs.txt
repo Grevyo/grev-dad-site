@@ -1,0 +1,1 @@
+Verification scope: chat category tabs, global authenticated header, tabbed admin centre, admin-managed desktop/mobile default dashboards, communities, achievements, settings and audit controls.
