@@ -32,6 +32,6 @@ export async function handleMembersRequest(request:Request,env:MembersEnv):Promi
     viewer:{id:viewer.id,verified:viewer.isVerified,owner:viewer.isOwner,admin:viewer.isAdmin},
     members,
     total:members.length,
-    contract:'profile-card-baseline-v1'
+    contract:'profile-card-baseline-v2'
   });
 }
