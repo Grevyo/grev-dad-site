@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Members · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/members.css">
+</head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><button id="logout">Log out</button></div></header>
+<main class="members-shell">
+<section class="members-hero">
+  <div><p class="eyebrow">People on Grev.dad</p><h1>Members</h1><p>Browse the people who have accounts, see their public profile-card information and open their full profile.</p></div>
+  <strong id="members-count">Loading…</strong>
+</section>
+<section class="members-toolbar" aria-label="Member filters">
+  <label>Search members<input id="members-search" type="search" placeholder="Name, username, headline or location"></label>
+  <label>Show<select id="members-filter"><option value="all">All members</option><option value="online">Online now</option><option value="verified">Verified members</option><option value="staff">Owner and administrators</option></select></label>
+</section>
+<p id="members-status" role="status">Loading members…</p>
+<section id="members-grid" class="members-grid" aria-live="polite"></section>
+</main>
+<script src="/site-shell.js" defer></script>
+<script src="/members.js" defer></script>
+</body>
+</html>
