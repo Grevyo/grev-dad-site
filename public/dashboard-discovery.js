@@ -30,15 +30,57 @@
   async function refreshModules(render=false){if(moduleState.loading)return;moduleState.loading=true;try{moduleState.payload=await api('/api/platform/modules');if(render&&dashboardState.payload&&!dashboardState.editing)renderDashboardGrid();}catch{}finally{moduleState.loading=false;}}
 
   function ensurePicker(){
-    let dialog=document.querySelector('#dashboard-tile-picker-dialog');if(dialog)return dialog;
-    dialog=document.createElement('dialog');dialog.id='dashboard-tile-picker-dialog';dialog.className='dashboard-tile-picker-dialog';dialog.setAttribute('aria-labelledby','dashboard-tile-picker-title');
-    const shell=document.createElement('div');shell.className='dashboard-tile-picker-shell';const heading=document.createElement('header');heading.innerHTML='<div><p class="eyebrow">Dashboard tiles</p><h2 id="dashboard-tile-picker-title">Choose a tile to add</h2><p>Every tile available to your account is shown here. Search or filter, then place it directly onto the dashboard.</p></div><button type="button" data-close-tile-picker>Close</button>';const body=document.createElement('div');body.className='dashboard-tile-picker-body';const catalogue=document.querySelector('#dashboard-editor-catalogue-panel');if(catalogue){catalogue.hidden=false;body.append(catalogue);}shell.append(heading,body);dialog.append(shell);document.body.append(dialog);
-    dialog.querySelector('[data-close-tile-picker]')?.addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();const target=event.target instanceof Element?event.target:null;const button=target?.closest('#dashboard-catalogue button');if(button&&button.textContent==='Place tile')setTimeout(()=>dialog.close(),0);});return dialog;
+    let dialog=document.querySelector('#dashboard-tile-picker-dialog');
+    if(!dialog){
+      dialog=document.createElement('dialog');dialog.id='dashboard-tile-picker-dialog';dialog.className='dashboard-tile-picker-dialog';dialog.setAttribute('aria-labelledby','dashboard-tile-picker-title');
+      const shell=document.createElement('div');shell.className='dashboard-tile-picker-shell';const heading=document.createElement('header');heading.innerHTML='<div><p class="eyebrow">Dashboard tiles</p><h2 id="dashboard-tile-picker-title">Choose a tile to add</h2><p>Every tile available to your account is shown here. Search or filter, then place it directly onto the dashboard.</p></div><button type="button" data-close-tile-picker>Close</button>';const body=document.createElement('div');body.className='dashboard-tile-picker-body';shell.append(heading,body);dialog.append(shell);document.body.append(dialog);
+      dialog.querySelector('[data-close-tile-picker]')?.addEventListener('click',()=>dialog.close());
+      dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();const target=event.target instanceof Element?event.target:null;const button=target?.closest('#dashboard-catalogue button');if(button&&button.textContent==='Place tile')setTimeout(()=>dialog.close(),0);});
+    }
+    const body=dialog.querySelector('.dashboard-tile-picker-body');
+    const catalogue=document.querySelector('#dashboard-editor-catalogue-panel');
+    if(body&&catalogue&&!body.contains(catalogue)){catalogue.hidden=false;body.append(catalogue);}
+    return dialog;
   }
-  function ensureAddButton(){let button=document.querySelector('#dashboard-open-tile-picker');if(button)return button;const actions=document.querySelector('.dashboard-editor-actions'),pack=document.querySelector('#dashboard-pack-layout');if(!actions)return null;button=document.createElement('button');button.id='dashboard-open-tile-picker';button.type='button';button.className='dashboard-add-tile-button';button.textContent='Add custom tile';button.hidden=true;button.addEventListener('click',()=>{if(!dashboardState.editing)return;const dialog=ensurePicker();renderCatalogueTools();renderCatalogue();dialog.showModal();setTimeout(()=>document.querySelector('#dashboard-feature-search')?.focus(),0);});actions.insertBefore(button,pack||actions.firstChild);return button;}
-  const baseOpenEditor=openEditor;openEditor=function discoveryOpenEditor(){baseOpenEditor();if(!dashboardState.editing)return;ensurePicker();const button=ensureAddButton();if(button)button.hidden=false;};
-  const baseCloseEditor=closeEditor;closeEditor=function discoveryCloseEditor(saved=false){document.querySelector('#dashboard-tile-picker-dialog')?.close();const button=document.querySelector('#dashboard-open-tile-picker');if(button)button.hidden=true;baseCloseEditor(saved);};
 
-  async function init(){ensureAddButton();for(let attempt=0;attempt<80&&!dashboardState.payload;attempt+=1)await new Promise(resolve=>setTimeout(resolve,100));await refreshModules(true);moduleState.timer=setInterval(()=>{if(!document.hidden)refreshModules(true);},30000);document.addEventListener('grev:platform-changed',()=>refreshModules(true));}
+  function ensureAddButton(){
+    let button=document.querySelector('#dashboard-open-tile-picker');if(button)return button;
+    const actions=document.querySelector('.dashboard-editor-actions'),pack=document.querySelector('#dashboard-pack-layout');if(!actions)return null;
+    button=document.createElement('button');button.id='dashboard-open-tile-picker';button.type='button';button.className='dashboard-add-tile-button';button.textContent='Add custom tile';button.hidden=true;
+    button.addEventListener('click',()=>{if(!dashboardState.editing)return;const dialog=ensurePicker();renderCatalogueTools();renderCatalogue();if(!dialog.open)dialog.showModal();setTimeout(()=>document.querySelector('#dashboard-feature-search')?.focus(),0);});
+    actions.insertBefore(button,pack||actions.firstChild);return button;
+  }
+
+  function syncPickerState(){
+    const button=ensureAddButton();
+    if(dashboardState.editing){
+      ensurePicker();
+      if(button)button.hidden=false;
+      return;
+    }
+    const dialog=document.querySelector('#dashboard-tile-picker-dialog');
+    if(dialog?.open)dialog.close();
+    if(button)button.hidden=true;
+  }
+
+  function installPickerRouting(){
+    const scheduleSync=()=>queueMicrotask(syncPickerState);
+    document.querySelector('#customize-dashboard')?.addEventListener('click',scheduleSync);
+    document.querySelector('#dashboard-save-layout')?.addEventListener('click',scheduleSync);
+    document.querySelector('#dashboard-cancel-layout')?.addEventListener('click',scheduleSync);
+    document.addEventListener('dashboard:editor-opened',syncPickerState);
+    const toolbar=document.querySelector('#dashboard-editor-toolbar');
+    if(toolbar)new MutationObserver(syncPickerState).observe(toolbar,{attributes:true,attributeFilter:['hidden']});
+  }
+
+  async function init(){
+    ensureAddButton();
+    installPickerRouting();
+    syncPickerState();
+    for(let attempt=0;attempt<80&&!dashboardState.payload;attempt+=1)await new Promise(resolve=>setTimeout(resolve,100));
+    await refreshModules(true);
+    moduleState.timer=setInterval(()=>{if(!document.hidden)refreshModules(true);},30000);
+    document.addEventListener('grev:platform-changed',()=>refreshModules(true));
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
