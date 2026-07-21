@@ -1,6 +1,23 @@
 (() => {
   const statusText = profile => profile.isOwner ? 'Owner' : (profile.isAdmin ? 'Administrator' : (profile.isVerified ? 'Verified member' : 'Member'));
 
+  const DEFAULT_DESIGN = {
+    cardWidth: 'full',
+    cardAlignment: 'centre',
+    cardSurface: 'gradient',
+    coverHeight: 180,
+    avatarSize: 132,
+    cardPadding: 28,
+    cardShadow: 'large',
+    cardBorderWidth: 1,
+    showCover: true,
+    showAvatar: true,
+    showHeadline: true,
+    showBio: true,
+    showLocation: true,
+    showWebsite: true
+  };
+
   function initials(name) {
     return String(name || 'G')
       .split(/\s+/)
@@ -10,9 +27,13 @@
       .join('') || 'G';
   }
 
+  function imageCss(value) {
+    return value ? `url("${String(value).replaceAll('"', '\\"')}")` : 'none';
+  }
+
   function applyMedia(element, value) {
     if (!element) return;
-    element.style.backgroundImage = value ? `url("${value.replaceAll('"', '\\"')}")` : '';
+    element.style.backgroundImage = value ? imageCss(value) : '';
     element.classList.toggle('has-media', Boolean(value));
   }
 
@@ -40,8 +61,8 @@
 
     const username = root.querySelector('[data-profile-username]');
     if (username) {
-      username.textContent = `@${profile.username}`;
-      username.hidden = !card.showUsername;
+      username.textContent = profile.username ? `@${profile.username}` : '';
+      username.hidden = !card.showUsername || !profile.username;
     }
 
     const headline = root.querySelector('[data-profile-headline]');
@@ -64,8 +85,8 @@
 
     const memberSince = root.querySelector('[data-profile-member-since]');
     if (memberSince) {
-      memberSince.textContent = `Member since ${new Date(profile.createdAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}`;
-      memberSince.hidden = !card.showMemberSince;
+      memberSince.textContent = profile.createdAt ? `Member since ${new Date(profile.createdAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}` : '';
+      memberSince.hidden = !card.showMemberSince || !profile.createdAt;
     }
 
     const location = root.querySelector('[data-profile-location]');
@@ -88,7 +109,80 @@
     }
   }
 
-  window.GrevProfileCard = { apply, initials, statusText };
+  function applyDesign(root, profile, value = {}, options = {}) {
+    if (!root || !profile?.card) return;
+    const design = { ...DEFAULT_DESIGN, ...(value && typeof value === 'object' ? value : {}) };
+    const compact = options.compact === true;
+    const scale = compact ? 0.72 : 1;
+    const coverHeight = compact ? Math.min(170, Math.round(Number(design.coverHeight || 0) * scale)) : Number(design.coverHeight || 0);
+    const avatarSize = compact ? Math.max(72, Math.min(112, Math.round(Number(design.avatarSize || 132) * scale))) : Number(design.avatarSize || 132);
+    const cardPadding = compact ? Math.max(14, Math.min(24, Math.round(Number(design.cardPadding || 28) * scale))) : Number(design.cardPadding || 28);
+
+    root.dataset.cardWidth = design.cardWidth;
+    root.dataset.cardAlignment = design.cardAlignment;
+    root.dataset.cardSurface = design.cardSurface;
+    root.dataset.cardShadow = design.cardShadow;
+    root.style.setProperty('--profile-card-cover-height', `${coverHeight}px`);
+    root.style.setProperty('--profile-card-avatar-size', `${avatarSize}px`);
+    root.style.setProperty('--profile-card-padding', `${cardPadding}px`);
+    root.style.setProperty('--profile-card-border-width', `${Number(design.cardBorderWidth ?? 1)}px`);
+    root.style.marginLeft = design.cardAlignment === 'left' ? '0' : 'auto';
+    root.style.marginRight = 'auto';
+
+    const card = profile.card;
+    if (design.cardSurface === 'cover' && card.coverMedia) {
+      root.style.background = `${imageCss(card.coverMedia)} center/cover no-repeat`;
+      root.classList.add('profile-card-cover-surface');
+    } else if (design.cardSurface === 'solid') {
+      root.style.background = card.backgroundPrimary || '#11161d';
+      root.classList.remove('profile-card-cover-surface');
+    } else {
+      root.style.background = `linear-gradient(${card.backgroundAngle ?? 135}deg,${card.backgroundPrimary || '#11161d'},${card.backgroundSecondary || '#3157c9'})`;
+      root.classList.remove('profile-card-cover-surface');
+    }
+
+    const visible = (selector, allowed, content) => {
+      const element = root.querySelector(selector);
+      if (element) element.hidden = !allowed || !content;
+    };
+    const cover = root.querySelector('[data-profile-cover]');
+    if (cover) cover.hidden = !design.showCover || coverHeight === 0;
+    const avatar = root.querySelector('[data-profile-avatar]');
+    if (avatar) avatar.hidden = !design.showAvatar;
+    visible('[data-profile-headline]', design.showHeadline, card.headline);
+    visible('[data-profile-bio]', design.showBio, card.bio);
+    visible('[data-profile-location]', design.showLocation, card.location);
+    visible('[data-profile-website]', design.showWebsite, card.websiteUrl);
+  }
+
+  function create(profile, options = {}) {
+    const root = document.createElement(options.tagName || 'article');
+    root.className = `profile-card${options.className ? ` ${options.className}` : ''}`;
+    root.setAttribute('aria-label', `${profile?.card?.displayName || 'Member'} profile card`);
+    root.innerHTML = `
+      <div class="profile-card-cover" data-profile-cover></div>
+      <div class="profile-card-main">
+        <div class="profile-card-avatar" data-profile-avatar aria-label="Profile picture">G</div>
+        <div class="profile-card-identity">
+          <div class="profile-card-name-row">
+            <div><h2 data-profile-name>Member</h2><p data-profile-username hidden></p></div>
+            <span class="profile-card-status" data-profile-status hidden></span>
+          </div>
+          <p class="profile-card-headline" data-profile-headline hidden></p>
+          <p class="profile-card-bio" data-profile-bio hidden></p>
+          <div class="profile-card-meta">
+            <span data-profile-location hidden></span>
+            <a data-profile-website hidden target="_blank" rel="noopener noreferrer"></a>
+            <span data-profile-member-since hidden></span>
+          </div>
+        </div>
+      </div>`;
+    apply(root, profile);
+    applyDesign(root, profile, profile?.design, options);
+    return root;
+  }
+
+  window.GrevProfileCard = { apply, applyDesign, create, initials, statusText };
 
   document.addEventListener('DOMContentLoaded', () => {
     if (typeof validProfilePlacement !== 'function' || typeof selectedTile !== 'function') return;
