@@ -1,26 +1,99 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin centre · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin centre · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin-centre.css">
+</head>
 <body>
-<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a class="header-link" href="/admin/dashboard">Dashboard features</a><a class="header-link" href="/profile">My profile</a><button id="logout">Log out</button></div></header>
-<main class="dashboard admin-page">
-<p class="eyebrow">Administration</p>
-<h1>Admin centre</h1>
-<p>Manage accounts, verification, hidden private groups, administrators and the feature catalogue.</p>
-<section id="admin-summary" class="admin-summary"><p>Loading account totals…</p></section>
-<p id="owner-summary" class="admin-owner-summary">Checking Owner…</p>
-<section class="admin-panel admin-search-panel">
-<div style="display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap">
-<form id="admin-search-form" class="admin-search-form" style="flex:1">
-<label>Search accounts<input name="q" type="search" placeholder="Username, display name or email"></label>
-<label>Status<select name="status"><option value="all">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="disabled">Disabled</option></select></label>
-<button type="submit">Search</button>
-</form>
-<a class="action-link" href="/admin/dashboard">Manage dashboard features</a>
-</div>
-</section>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a class="header-link" href="/profile">My profile</a><button id="logout">Log out</button></div></header>
+<main class="admin-centre-shell">
+<section class="admin-centre-hero"><div><p class="eyebrow">Administration</p><h1>Admin centre</h1><p>One place for account controls, default dashboards, groups, communities, chat, achievements, site settings and audit history.</p></div><span id="admin-environment">Loading environment…</span></section>
 <p id="admin-message" role="status"></p>
-<section id="admin-user-list" class="admin-user-list" aria-live="polite"><p>Loading accounts…</p></section>
+
+<section data-admin-panel="overview">
+  <div id="admin-summary" class="admin-summary"><p>Loading account totals…</p></div>
+  <p id="owner-summary" class="admin-owner-summary">Checking Owner…</p>
+  <div id="admin-platform-summary" class="admin-centre-card-grid"></div>
+  <div class="admin-centre-card-grid admin-centre-links">
+    <a href="/admin#accounts"><strong>Account control</strong><span>Verification, status, roles and private groups.</span></a>
+    <a href="/admin#default-dashboard"><strong>Default dashboard</strong><span>Set the desktop and mobile starting layouts.</span></a>
+    <a href="/admin/dashboard"><strong>Dashboard features</strong><span>Manage feature availability, sizes and audiences.</span></a>
+    <a href="/admin#chat"><strong>Chat & communities</strong><span>Review global, private, group and community activity.</span></a>
+  </div>
+</section>
+
+<section data-admin-panel="accounts" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Accounts</p><h2>Members and access</h2><p>Search every account and open its full verification, status, administrator and group controls.</p></div></div>
+  <section class="admin-panel admin-search-panel">
+    <form id="admin-search-form" class="admin-search-form">
+      <label>Search accounts<input name="q" type="search" placeholder="Username, display name or email"></label>
+      <label>Status<select name="status"><option value="all">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="disabled">Disabled</option></select></label>
+      <button type="submit">Search</button>
+    </form>
+  </section>
+  <section id="admin-user-list" class="admin-user-list" aria-live="polite"><p>Loading accounts…</p></section>
+</section>
+
+<section data-admin-panel="default-dashboard" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Starting experience</p><h2>Default dashboard</h2><p>This is applied only before a member has customised their own dashboard. Existing personal layouts are never overwritten.</p></div><div class="admin-device-switch"><button type="button" data-default-mode="desktop" class="active">Desktop</button><button type="button" data-default-mode="mobile">Mobile</button></div></div>
+  <p id="default-dashboard-message" role="status"></p>
+  <div class="admin-default-toolbar">
+    <label>Add feature<select id="default-dashboard-feature"></select></label><button id="default-dashboard-add" type="button">Add tile</button>
+    <button id="default-dashboard-pack" type="button">Pack layout</button>
+    <button id="default-dashboard-copy" type="button">Use my current layout</button>
+    <button id="default-dashboard-reset" type="button">Reset template</button>
+    <button id="default-dashboard-save" class="primary" type="button">Save default</button>
+  </div>
+  <div class="admin-default-preferences">
+    <label>Density<select id="default-dashboard-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+    <label>Tile gap<select id="default-dashboard-gap"><option>0</option><option>4</option><option>8</option><option selected>12</option><option>16</option><option>20</option><option>24</option><option>32</option><option>40</option><option>48</option></select></label>
+    <label>Outer margin<select id="default-dashboard-margin"><option>0</option><option>8</option><option>12</option><option>16</option><option>24</option><option>32</option><option>40</option><option>48</option><option>56</option><option>64</option></select></label>
+    <label class="check"><input id="default-dashboard-descriptions" type="checkbox" checked> Show descriptions</label>
+  </div>
+  <div class="admin-default-layout">
+    <section><h3>Layout preview</h3><div id="default-dashboard-canvas" class="admin-default-canvas"></div></section>
+    <section><h3>Tile controls</h3><div id="default-dashboard-tiles" class="admin-default-tiles"></div></section>
+  </div>
+</section>
+
+<section data-admin-panel="features" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Feature catalogue</p><h2>Dashboard features</h2><p>Create tiles, set audiences, choose permitted dimensions and decide which features are eligible for the default dashboard.</p></div><a class="action-link" href="/admin/dashboard">Open feature manager</a></div>
+  <div class="admin-callout"><strong>Feature manager</strong><p>The full feature editor remains a dedicated workspace because it contains every size, access-group and catalogue field. It is part of this Admin centre through the Dashboard features tab above.</p></div>
+</section>
+
+<section data-admin-panel="groups" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Membership</p><h2>Groups and access</h2><p>See how users are divided between private groups, ordinary access groups and communities created from site interests.</p></div></div>
+  <div id="admin-group-list" class="admin-data-list"></div>
+</section>
+
+<section data-admin-panel="chat" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Communication</p><h2>Chat and communities</h2><p>Global chat is site-wide, private messages are one-to-one, groups are restricted memberships and communities include areas such as Workers and CS2.</p></div></div>
+  <div id="admin-chat-summary" class="admin-centre-card-grid"></div>
+  <div id="admin-community-list" class="admin-data-list"></div>
+</section>
+
+<section data-admin-panel="progression" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Progression</p><h2>Achievements and XP</h2><p>Control which achievements are active, their XP rewards and their display order.</p></div></div>
+  <p id="admin-achievement-message" role="status"></p>
+  <div id="admin-achievement-list" class="admin-achievement-list"></div>
+</section>
+
+<section data-admin-panel="settings" hidden>
+  <div class="admin-section-heading"><div><p class="eyebrow">Configuration</p><h2>Site settings and audit</h2><p>Control global labels shown throughout the site and review the latest administrative and member activity.</p></div></div>
+  <form id="admin-site-settings" class="admin-panel admin-site-settings">
+    <label>Site title<input name="site_title" maxlength="60"></label>
+    <label>Community label<input name="community_label" maxlength="40"></label>
+    <label>Administration label<input name="admin_contact_label" maxlength="80"></label>
+    <label class="full">Header notice<input name="header_notice" maxlength="180" placeholder="Optional site-wide notice"></label>
+    <button class="primary" type="submit">Save site settings</button><p id="admin-settings-message" role="status"></p>
+  </form>
+  <section class="admin-panel"><h3>Recent audit activity</h3><div id="admin-centre-audit" class="admin-audit-list"></div></section>
+</section>
 </main>
 <script src="/admin.js" defer></script>
-</body></html>
+<script src="/admin-centre.js" defer></script>
+</body>
+</html>
