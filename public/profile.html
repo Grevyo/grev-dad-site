@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Profile · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/dashboard.css">
+<link rel="stylesheet" href="/profile.css">
+<link rel="stylesheet" href="/profile-card-tiles.css">
+<link rel="stylesheet" href="/profile-customization.css">
+<link rel="stylesheet" href="/profile-editor-unified.css">
+</head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a id="profile-settings-link" class="header-link" href="/settings" hidden>Account settings</a><button id="logout">Log out</button></div></header>
+
+<main class="profile-shell">
+<section class="profile-page-heading">
+<div><p class="eyebrow">Member profile</p><h1 id="profile-page-title">Profile</h1><p>This card is the member’s reusable mini profile. The grid below is their personal profile space.</p></div>
+<div class="profile-page-actions"><button id="profile-edit" class="primary" type="button" hidden>Edit profile</button></div>
+</section>
+
+<p id="profile-message" class="profile-message" role="status">Loading profile…</p>
+
+<section id="profile-editor-toolbar" class="profile-editor-toolbar" hidden aria-label="Profile editing controls">
+<div class="profile-editor-topline">
+<div><p class="eyebrow">Live profile editor</p><h2>Edit directly on your profile</h2><p>Choose a section below, make your changes, then check the live card and tile grid underneath. Nothing is stored until you press Save profile.</p></div>
+<div class="profile-editor-actions"><button id="profile-card-settings" type="button">Edit profile card</button><button id="profile-pack" type="button">Pack tiles</button><button id="profile-cancel" type="button">Cancel</button><button id="profile-save" class="primary" type="button">Save profile</button></div>
+</div>
+<div class="profile-editor-preferences">
+<label>Tile density<select id="profile-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+<label>Tile gap<select id="profile-tile-gap"><option value="0">0 px</option><option value="4">4 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option></select></label>
+<label>Outer margin<select id="profile-outer-margin"><option value="0">0 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option></select></label>
+</div>
+<p id="profile-editor-message" class="profile-editor-message" role="status">Choose a section below to edit your profile.</p>
+</section>
+
+<section id="profile-card" class="profile-card" aria-label="Member profile card">
+<div class="profile-card-cover" data-profile-cover></div>
+<div class="profile-card-main">
+<div id="profile-avatar" class="profile-card-avatar" data-profile-avatar aria-label="Profile picture">G</div>
+<div class="profile-card-identity">
+<div class="profile-card-name-row">
+<div><h2 id="profile-name" data-profile-name>Loading…</h2><p id="profile-username" data-profile-username>—</p></div>
+<span id="profile-badge" class="profile-card-status" data-profile-status>Checking…</span>
+</div>
+<p class="profile-card-headline" data-profile-headline hidden></p>
+<p class="profile-card-bio" data-profile-bio hidden></p>
+<div class="profile-card-meta">
+<span data-profile-location hidden></span>
+<a data-profile-website hidden target="_blank" rel="noopener noreferrer"></a>
+<span id="profile-member-since" data-profile-member-since>—</span>
+</div>
+</div>
+</div>
+</section>
+
+<section id="profile-workspace" class="profile-workspace">
+<div class="profile-grid-region">
+<div id="profile-grid-heading" class="profile-grid-heading"><div><strong>Profile space</strong><span id="profile-grid-description">Personal tiles selected by this member.</span></div><strong>8 square columns</strong></div>
+<section id="profile-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
+<section id="profile-empty" class="profile-empty" hidden><h2>No profile tiles yet</h2><p>This member has not added anything below their profile card.</p></section>
+</div>
+<aside id="profile-catalogue" class="profile-catalogue" hidden>
+<div><p class="eyebrow">Add profile tile</p><h2>Choose content</h2><p>Every tile can be moved, resized and styled after it is added.</p></div>
+<button type="button" data-add-profile-tile="text"><strong>Text</strong><span>About sections, notes and longer profile copy.</span></button>
+<button type="button" data-add-profile-tile="link"><strong>Link</strong><span>A clickable shortcut to a website or page.</span></button>
+<button type="button" data-add-profile-tile="media"><strong>Picture / GIF</strong><span>A full visual tile using PNG, JPEG, WebP or animated GIF.</span></button>
+<button type="button" data-add-profile-tile="stat"><strong>Stat</strong><span>A large value with a label and optional explanation.</span></button>
+</aside>
+</section>
+
+<dialog id="profile-card-dialog" class="profile-settings-dialog" aria-labelledby="profile-card-dialog-title">
+<div class="profile-dialog-heading"><div><p class="eyebrow">Mini profile</p><h2 id="profile-card-dialog-title">Edit profile card</h2></div><button type="button" data-close-dialog="profile-card-dialog">Close</button></div>
+<div class="profile-dialog-body">
+<section class="profile-settings-section">
+<h3>Identity</h3>
+<label>Display name<input id="profile-card-display-name" type="text" maxlength="60"></label>
+<label>Headline<input id="profile-card-headline" type="text" maxlength="120" placeholder="A short line about you"></label>
+<label>Bio<textarea id="profile-card-bio" maxlength="800" rows="5" placeholder="Write as much or as little as you want"></textarea></label>
+<div class="profile-two-column"><label>Location<input id="profile-card-location" type="text" maxlength="100"></label><label>Website<input id="profile-card-website" type="url" maxlength="500" placeholder="https://"></label></div>
+</section>
+<section class="profile-settings-section">
+<h3>Pictures</h3>
+<div class="profile-two-column">
+<label class="profile-upload">Profile picture<input id="profile-avatar-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><span id="profile-avatar-media-status">No custom picture.</span></label>
+<label class="profile-upload">Cover picture / GIF<input id="profile-cover-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><span id="profile-cover-media-status">No custom cover.</span></label>
+</div>
+<div class="profile-media-actions"><button id="profile-remove-avatar" type="button">Remove profile picture</button><button id="profile-remove-cover" type="button">Remove cover</button></div>
+<small>Each image may be up to 1.4 MB. SVG files are not accepted.</small>
+</section>
+<section class="profile-settings-section">
+<h3>Card appearance</h3>
+<div class="profile-four-column"><label>First colour<input id="profile-card-primary" type="color"></label><label>Second colour<input id="profile-card-secondary" type="color"></label><label>Text colour<input id="profile-card-text" type="color"></label><label>Border colour<input id="profile-card-border" type="color"></label></div>
+<label>Gradient angle <output id="profile-card-angle-value">135°</output><input id="profile-card-angle" type="range" min="0" max="360" step="5"></label>
+</section>
+<section class="profile-settings-section">
+<h3>Visible details</h3>
+<div class="profile-check-grid"><label><input id="profile-show-username" type="checkbox"> Show username</label><label><input id="profile-show-status" type="checkbox"> Show account status</label><label><input id="profile-show-member-since" type="checkbox"> Show member-since date</label></div>
+</section>
+</div>
+</dialog>
+
+<dialog id="profile-tile-dialog" class="profile-settings-dialog" aria-labelledby="profile-tile-dialog-title">
+<div class="profile-dialog-heading"><div><p class="eyebrow">Profile tile</p><h2 id="profile-tile-dialog-title">Edit tile</h2></div><button type="button" data-close-dialog="profile-tile-dialog">Close</button></div>
+<div class="profile-dialog-body">
+<section class="profile-settings-section">
+<h3>Layout</h3>
+<div class="profile-layout-row"><label>Size<select id="profile-tile-size"></select></label><div class="profile-move-buttons" aria-label="Move tile"><button type="button" data-profile-move="-1,0">←</button><button type="button" data-profile-move="0,-1">↑</button><button type="button" data-profile-move="0,1">↓</button><button type="button" data-profile-move="1,0">→</button></div></div>
+</section>
+<section class="profile-settings-section">
+<h3>Content</h3>
+<p id="profile-tile-type-label" class="profile-tile-type-label"></p>
+<label>Title<input id="profile-tile-title" type="text" maxlength="80"></label>
+<label id="profile-tile-body-control">Text<textarea id="profile-tile-body" maxlength="2000" rows="6"></textarea></label>
+<div id="profile-link-controls" class="profile-two-column" hidden><label>Link label<input id="profile-link-label" type="text" maxlength="80"></label><label>Link URL<input id="profile-link-url" type="url" maxlength="500" placeholder="https://"></label></div>
+<label id="profile-stat-control" hidden>Large value<input id="profile-stat-value" type="text" maxlength="80"></label>
+</section>
+<section class="profile-settings-section">
+<h3>Appearance</h3>
+<label>Background<select id="profile-tile-background-type"><option value="solid">Solid colour</option><option value="gradient">Gradient</option><option value="media">Picture / animated GIF</option></select></label>
+<div class="profile-four-column"><label>First colour<input id="profile-tile-primary" type="color"></label><label>Second colour<input id="profile-tile-secondary" type="color"></label><label>Text colour<input id="profile-tile-text" type="color"></label><label>Border colour<input id="profile-tile-border" type="color"></label></div>
+<label>Gradient angle <output id="profile-tile-angle-value">135°</output><input id="profile-tile-angle" type="range" min="0" max="360" step="5"></label>
+<div id="profile-tile-media-controls" class="profile-media-tile-controls" hidden>
+<label class="profile-upload">Choose PNG, JPEG, WebP or animated GIF<input id="profile-tile-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><span id="profile-tile-media-status">No picture selected.</span></label>
+<div class="profile-two-column"><label>Picture fit<select id="profile-tile-media-fit"><option value="cover">Cover</option><option value="contain">Contain</option><option value="stretch">Stretch</option></select></label><label>Overlay<select id="profile-tile-media-overlay"><option value="dark">Dark</option><option value="light">Light</option><option value="none">None</option></select></label></div>
+<button id="profile-remove-tile-media" type="button">Remove picture</button>
+</div>
+<label>Font<select id="profile-tile-font"><option value="system">Grev.dad system</option><option value="display">Bold display</option><option value="mono">Monospace</option><option value="serif">Serif</option><option value="rounded">Rounded</option></select></label>
+</section>
+<button id="profile-remove-tile" class="danger-action" type="button">Remove tile</button>
+</div>
+</dialog>
+
+<p id="profile-status" hidden>Loading…</p>
+<p id="own-profile-note" hidden>This is your permanent profile URL.</p>
+</main>
+
+<script src="/profile-card.js" defer></script>
+<script src="/profile-card-tiles.js" defer></script>
+<script src="/profile-customization.js" defer></script>
+<script src="/profile.js" defer></script>
+<script src="/profile-editor-unified.js" defer></script>
+<script src="/profile-editor-unified-a11y.js" defer></script>
+</body>
+</html>

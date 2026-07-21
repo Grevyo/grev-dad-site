@@ -1,15 +1,148 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard · Grev.dad</title><link rel="stylesheet" href="/styles.css"></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/dashboard.css">
+</head>
 <body>
-<header><strong>Grev.dad</strong><div><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
-<main class="dashboard">
-<p class="eyebrow">Barebones access</p><h1>Welcome, <span id="name">member</span>.</h1><p>This clean foundation comes before custom tiles, profiles and community modules.</p>
-<section class="grid">
-<article><small>Account</small><h2 id="username">—</h2><p id="verification">Checking verification…</p></article>
-<article><small>Access</small><h2>Basic dashboard</h2><p>Groups and policies will unlock additional areas later.</p></article>
-<article><small>Build status</small><h2>Foundation milestone</h2><p>Authentication, sessions and clean migrations are in place first.</p></article>
+<header><strong>Grev.dad</strong><div><a id="owner-setup-link" class="header-link" href="/owner-setup" hidden>Owner setup</a><a id="admin-link" class="header-link" href="/admin" hidden>Admin centre</a><a class="header-link" href="/settings">Profile settings</a><a class="header-link" href="/profile">My profile</a><span id="badge">Checking…</span><button id="logout">Log out</button></div></header>
+<main id="dashboard-shell" class="dashboard-shell">
+<section class="dashboard-hero">
+<div><p class="eyebrow">Personal dashboard</p><h1>Welcome, <span id="name">member</span>.</h1><p>Place features anywhere on the eight-column square grid, resize them to preset dimensions, and leave deliberate blank space wherever it suits your layout.</p></div>
+<div class="dashboard-toolbar"><button id="customize-dashboard" class="primary" type="button">Customize dashboard</button><a href="/settings">Manage account groups</a></div>
 </section>
+<p id="dashboard-status" class="dashboard-status" role="status">Loading your dashboard…</p>
+
+<section id="dashboard-editor-toolbar" class="dashboard-editor-toolbar" hidden aria-label="Dashboard editing controls">
+<div class="dashboard-editor-topline">
+<div><p class="eyebrow">Live dashboard editor</p><h2>Edit directly on your dashboard</h2><p>Grab each tile from the exact point you want to hold, then move it around the grid. Tile settings controls its size, background, text, font and border. Nothing is stored until you press Save dashboard.</p></div>
+<div class="dashboard-editor-actions"><button id="dashboard-pack-layout" type="button">Pack tiles</button><button id="dashboard-reset-layout" type="button">Load defaults</button><button id="dashboard-cancel-layout" type="button">Cancel</button><button id="dashboard-save-layout" class="primary" type="button">Save dashboard</button></div>
+</div>
+<div class="dashboard-editor-settings">
+<div class="dashboard-preference"><label>Tile density<select id="dashboard-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label></div>
+<div class="dashboard-preference"><label>Tile gap<select id="dashboard-tile-gap"><option value="0">0 px</option><option value="4">4 px</option><option value="8">8 px</option><option value="12" selected>12 px</option><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option></select></label></div>
+<div class="dashboard-preference"><label>Outer margin<select id="dashboard-outer-margin"><option value="0" selected>0 px</option><option value="8">8 px</option><option value="12">12 px</option><option value="16">16 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option></select></label></div>
+<div class="dashboard-preference"><label class="check"><input id="dashboard-show-descriptions" type="checkbox" checked> Show information-tile descriptions where space allows</label></div>
+</div>
+<dialog id="dashboard-tile-settings-dialog" class="dashboard-tile-settings-dialog" aria-labelledby="dashboard-tile-settings-title">
+<div class="dashboard-tile-settings-heading"><div><p class="eyebrow">Tile settings</p><h2 id="dashboard-tile-settings-title">Configure tile</h2></div><button id="dashboard-close-tile-settings" type="button" aria-label="Close tile settings">Close</button></div>
+<div id="dashboard-selected-controls" class="dashboard-selected-controls" hidden>
+<div class="dashboard-selected-identity"><small>Selected tile</small><strong id="dashboard-selected-name">—</strong></div>
+<section class="dashboard-tile-settings-section" aria-labelledby="dashboard-layout-settings-title">
+<div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-layout-settings-title">Layout</h3><span>Exact grid controls</span></div>
+<div class="dashboard-layout-controls">
+<label>Size<select id="dashboard-selected-dimension"></select></label>
+<div class="dashboard-selected-arrows" aria-label="Move selected tile"><button type="button" data-move-x="-1" data-move-y="0" title="Move left">←</button><button type="button" data-move-x="0" data-move-y="-1" title="Move up">↑</button><button type="button" data-move-x="0" data-move-y="1" title="Move down">↓</button><button type="button" data-move-x="1" data-move-y="0" title="Move right">→</button></div>
+</div>
+</section>
+<section class="dashboard-tile-settings-section" aria-labelledby="dashboard-content-settings-title">
+<div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-content-settings-title">Tile content</h3><span>Standard or fully custom</span></div>
+<label>Content mode<select id="dashboard-content-mode"><option value="standard">Standard feature tile</option><option value="media-button">Custom media button</option></select></label>
+<div id="dashboard-standard-icon-controls" class="dashboard-standard-icon-controls">
+<div class="dashboard-standard-icon-heading"><strong>Standard tile icon</strong><span>Change the coloured letters block or replace it with a picture.</span></div>
+<div class="dashboard-standard-icon-grid">
+<label>Icon type<select id="dashboard-icon-mode"><option value="text">Letters or short text</option><option value="image">Picture</option></select></label>
+<label id="dashboard-icon-label-control">Letters or short text<input id="dashboard-icon-label" type="text" maxlength="6" placeholder="Use feature default"></label>
+</div>
+<div class="dashboard-standard-icon-colours">
+<label class="dashboard-colour-input">Letter colour<input id="dashboard-icon-text-colour" type="color" value="#090b0f"></label>
+<label class="dashboard-colour-input">Icon background<input id="dashboard-icon-background-colour" type="color" value="#394657"></label>
+<label class="dashboard-colour-input">Icon border<input id="dashboard-icon-border-colour" type="color" value="#667181"></label>
+</div>
+<div id="dashboard-icon-media-controls" class="dashboard-standard-icon-media" hidden>
+<label class="dashboard-media-upload">Choose PNG, JPEG, WebP or animated GIF<input id="dashboard-icon-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+<label>Picture fit<select id="dashboard-icon-media-fit"><option value="cover">Fill icon (cover)</option><option value="contain">Show whole picture (contain)</option><option value="stretch">Stretch to icon</option></select></label>
+<div class="dashboard-media-actions"><span id="dashboard-icon-media-status">No icon picture selected.</span><button id="dashboard-remove-icon-media" type="button">Remove picture</button></div>
+<small>Maximum file size: 1.4 MB. The picture is stored privately with your dashboard layout.</small>
+</div>
+<button id="dashboard-reset-icon" type="button">Reset standard icon</button>
+</div>
+<div id="dashboard-custom-content-controls" class="dashboard-custom-content-controls" hidden>
+<p>Custom media mode removes the built-in tile content. The whole tile becomes the uploaded picture or GIF with only the optional title and icon below.</p>
+<label>Custom title <span class="optional">optional</span><input id="dashboard-custom-title" type="text" maxlength="80" placeholder="Leave empty for no title"></label>
+<label>Custom icon <span class="optional">optional</span><input id="dashboard-custom-icon" type="text" maxlength="12" placeholder="Emoji or short icon text"></label>
+<div class="dashboard-custom-media-options"><label>Picture fit<select id="dashboard-media-fit"><option value="cover">Fill tile (cover)</option><option value="contain">Show whole picture (contain)</option><option value="stretch">Stretch to tile</option></select></label><label>Text overlay<select id="dashboard-media-overlay"><option value="dark">Dark overlay</option><option value="light">Light overlay</option><option value="none">No overlay</option></select></label></div>
+</div>
+</section>
+<section class="dashboard-tile-settings-section" aria-labelledby="dashboard-appearance-settings-title">
+<div class="dashboard-tile-settings-section-heading"><h3 id="dashboard-appearance-settings-title">Appearance</h3><span id="dashboard-appearance-name">Solid · Charcoal</span></div>
+<label>Background type<select id="dashboard-background-type"><option value="solid">Solid colour</option><option value="gradient">Multi-colour gradient</option><option value="media">Picture or animated GIF</option></select></label>
+<div id="dashboard-solid-controls" class="dashboard-appearance-mode">
+<strong>Solid colour</strong>
+<div id="dashboard-solid-palette" class="dashboard-appearance-palette" role="list" aria-label="Solid tile colours"></div>
+<label class="dashboard-colour-input">Custom colour<input id="dashboard-background-primary" type="color" value="#171c23"></label>
+</div>
+<div id="dashboard-gradient-controls" class="dashboard-appearance-mode" hidden>
+<strong>Gradient</strong>
+<div id="dashboard-gradient-palette" class="dashboard-appearance-palette dashboard-gradient-palette" role="list" aria-label="Tile gradient presets"></div>
+<div class="dashboard-gradient-controls">
+<label class="dashboard-colour-input">First colour<input id="dashboard-gradient-primary" type="color" value="#3157c9"></label>
+<label class="dashboard-colour-input">Second colour<input id="dashboard-background-secondary" type="color" value="#9b4dca"></label>
+<label>Angle <output id="dashboard-gradient-angle-value" for="dashboard-gradient-angle">135°</output><input id="dashboard-gradient-angle" type="range" min="0" max="360" step="5" value="135"></label>
+</div>
+</div>
+<div id="dashboard-media-controls" class="dashboard-appearance-mode" hidden>
+<strong>Picture or GIF</strong>
+<label class="dashboard-media-upload">Choose PNG, JPEG, WebP or animated GIF<input id="dashboard-background-media" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+<div class="dashboard-media-actions"><span id="dashboard-media-status">No picture selected.</span><button id="dashboard-remove-media" type="button">Remove picture</button></div>
+<small>Maximum file size: 1.4 MB. The image is stored privately with your dashboard layout.</small>
+</div>
+<div class="dashboard-appearance-finish">
+<label class="dashboard-colour-input">Text colour<input id="dashboard-text-colour" type="color" value="#f4f7fb"></label>
+<label>Font<select id="dashboard-font-family"><option value="system">Grev.dad system</option><option value="display">Bold display</option><option value="mono">Monospace</option><option value="serif">Serif</option><option value="rounded">Rounded</option></select></label>
+<label class="dashboard-colour-input">Border colour<input id="dashboard-border-colour" type="color" value="#526074"></label>
+<button id="dashboard-reset-appearance" type="button">Reset appearance</button>
+</div>
+</section>
+<button id="dashboard-remove-selected" class="danger-action" type="button">Remove tile</button>
+</div>
+</dialog>
+<p id="dashboard-editor-message" class="dashboard-editor-message" role="status">Grab a tile to move it, drag its corner to resize it, or open Tile settings for appearance controls.</p>
+</section>
+
+<section id="dashboard-workspace" class="dashboard-workspace">
+<div class="dashboard-grid-region">
+<div id="dashboard-grid-heading" class="dashboard-grid-heading" hidden><div><strong>Live grid</strong><span>The placement highlight keeps the exact point where you grabbed the tile. Open Tile settings for standard content or a fully custom picture/GIF button.</span></div><strong id="dashboard-grid-summary">8 square columns</strong></div>
+<section id="dashboard-grid" class="dashboard-tile-grid dashboard-grid comfortable" aria-live="polite"></section>
+<section id="dashboard-empty" class="dashboard-empty" hidden><h2>Your dashboard is empty</h2><p>Open Customize dashboard and place any features currently available to your account.</p></section>
+</div>
+<aside id="dashboard-editor-catalogue-panel" class="dashboard-editor-catalogue-panel" hidden>
+<div class="dashboard-catalogue-heading"><p class="eyebrow">Available features</p><h2>Add dashboard tiles</h2><p>Only features allowed by your current groups appear here.</p></div>
+<div class="dashboard-catalogue-tools"><input id="dashboard-feature-search" type="search" placeholder="Search features"><select id="dashboard-category-filter"><option value="all">All categories</option></select></div>
+<div id="dashboard-catalogue" class="dashboard-catalogue"></div>
+</aside>
+</section>
+
+<section hidden aria-hidden="true"><span id="username">—</span><input id="username-input"><span id="verification">—</span><a id="profile-link" href="/profile">Profile</a><article id="owner-setup-card"></article></section>
 </main>
+
+<div id="onboarding-overlay" class="onboarding-overlay" hidden>
+<section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+<div class="onboarding-heading"><span id="onboarding-step">Step 1 of 2</span><strong>ACCOUNT SETUP</strong></div>
+<h2 id="onboarding-title">How do you know Grev?</h2>
+<p id="onboarding-description"></p>
+<form id="onboarding-relationship-form"><div id="onboarding-relationship-list" class="onboarding-choice-grid"></div><button type="submit">Continue</button></form>
+<form id="onboarding-intentions-form" hidden><div id="onboarding-intention-list" class="onboarding-choice-grid"></div><button type="submit">Finish account setup</button></form>
+<p id="onboarding-message" role="status"></p>
+</section>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const overlay=document.querySelector('#onboarding-overlay');
+  const intentionsForm=document.querySelector('#onboarding-intentions-form');
+  if(!overlay||!intentionsForm)return;
+  intentionsForm.addEventListener('submit',()=>{
+    const observer=new MutationObserver(()=>{
+      if(overlay.hidden){observer.disconnect();location.replace('/dashboard');}
+    });
+    observer.observe(overlay,{attributes:true,attributeFilter:['hidden']});
+  });
+});
+</script>
 <script src="/app.js" defer></script>
-</body></html>
+<script src="/dashboard.js" defer></script>
+</body>
+</html>

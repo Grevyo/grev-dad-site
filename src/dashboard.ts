@@ -1,0 +1,844 @@
+interface D1Result<T> { results: T[]; }
+interface D1Statement {
+  bind(...values: unknown[]): D1Statement;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
+  run(): Promise<unknown>;
+}
+interface D1Database {
+  prepare(query: string): D1Statement;
+  batch(statements: D1Statement[]): Promise<unknown[]>;
+}
+
+export interface DashboardEnv {
+  DB: D1Database;
+  ASSETS: { fetch(request: Request): Promise<Response> };
+  APP_ENV: 'development' | 'pbe' | 'production';
+}
+
+type DashboardUser = {
+  id: string;
+  username: string;
+  displayName: string;
+  isOwner: boolean;
+  isAdmin: boolean;
+};
+
+type LegacyDashboardSize = 'small' | 'medium' | 'wide' | 'large';
+type DashboardDensity = 'comfortable' | 'compact';
+type TileColour = 'default' | 'graphite' | 'blue' | 'cyan' | 'green' | 'amber' | 'red' | 'purple' | 'pink';
+type TilePresentation = 'action' | 'content';
+type TileBackgroundType = 'solid' | 'gradient' | 'media';
+type TileFontFamily = 'system' | 'display' | 'mono' | 'serif' | 'rounded';
+type TileContentMode = 'standard' | 'media-button';
+type TileIconMode = 'text' | 'image';
+type TileMediaFit = 'cover' | 'contain' | 'stretch';
+type TileMediaOverlay = 'none' | 'dark' | 'light';
+type Dimension = { width: number; height: number };
+type TileAppearance = {
+  backgroundType: TileBackgroundType;
+  backgroundPrimary: string;
+  backgroundSecondary: string;
+  backgroundAngle: number;
+  backgroundMedia: string | null;
+  textColour: string;
+  fontFamily: TileFontFamily;
+  borderColour: string;
+  contentMode: TileContentMode;
+  customTitle: string | null;
+  customIcon: string | null;
+  mediaFit: TileMediaFit;
+  mediaOverlay: TileMediaOverlay;
+  iconMode: TileIconMode;
+  iconLabel: string | null;
+  iconMedia: string | null;
+  iconTextColour: string;
+  iconBackgroundColour: string;
+  iconBorderColour: string;
+  iconMediaFit: TileMediaFit;
+};
+type TilePlacement = Dimension & Partial<TileAppearance> & { featureId: string; x: number; y: number; colour?: TileColour };
+
+type FeatureRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  category: string;
+  feature_type: 'workspace' | 'link' | 'system';
+  tile_presentation: TilePresentation;
+  route: string;
+  icon_text: string;
+  audience: 'all' | 'groups' | 'admin' | 'owner';
+  default_size: LegacyDashboardSize;
+  allowed_sizes: string;
+  default_width: number;
+  default_height: number;
+  allowed_dimensions: string;
+  is_active: number;
+  is_default: number;
+  sort_order: number;
+  position: number | null;
+  grid_x: number | null;
+  grid_y: number | null;
+  tile_width: number | null;
+  tile_height: number | null;
+  tile_colour: string | null;
+  background_type: string | null;
+  background_primary: string | null;
+  background_secondary: string | null;
+  background_angle: number | null;
+  background_media: string | null;
+  text_colour: string | null;
+  font_family: string | null;
+  border_colour: string | null;
+  content_mode: string | null;
+  custom_title: string | null;
+  custom_icon: string | null;
+  media_fit: string | null;
+  media_overlay: string | null;
+  icon_mode: string | null;
+  icon_label: string | null;
+  icon_media: string | null;
+  icon_text_colour: string | null;
+  icon_background_colour: string | null;
+  icon_border_colour: string | null;
+  icon_media_fit: string | null;
+  matched_groups: string;
+};
+
+const COOKIE = 'grev_session';
+const encoder = new TextEncoder();
+const GRID_COLUMNS = 8;
+const MAX_TILE_WIDTH = 6;
+const MAX_GRID_Y = 199;
+const MAX_TILES = 60;
+const VALID_DENSITIES = new Set<DashboardDensity>(['comfortable', 'compact']);
+const VALID_GAPS = new Set([0, 4, 8, 12, 16, 20, 24, 32, 40, 48]);
+const VALID_MARGINS = new Set([0, 8, 12, 16, 24, 32, 40, 48, 56, 64]);
+const ALL_DIMENSIONS = Array.from({ length: 4 }, (_, heightIndex) =>
+  Array.from({ length: MAX_TILE_WIDTH }, (_, widthIndex) => `${widthIndex + 1}x${heightIndex + 1}`)
+).flat();
+const VALID_DIMENSIONS = new Set(ALL_DIMENSIONS);
+const VALID_TILE_COLOURS = new Set<TileColour>(['default','graphite','blue','cyan','green','amber','red','purple','pink']);
+const VALID_BACKGROUND_TYPES = new Set<TileBackgroundType>(['solid','gradient','media']);
+const VALID_FONT_FAMILIES = new Set<TileFontFamily>(['system','display','mono','serif','rounded']);
+const VALID_CONTENT_MODES = new Set<TileContentMode>(['standard','media-button']);
+const VALID_ICON_MODES = new Set<TileIconMode>(['text','image']);
+const VALID_MEDIA_FITS = new Set<TileMediaFit>(['cover','contain','stretch']);
+const VALID_MEDIA_OVERLAYS = new Set<TileMediaOverlay>(['none','dark','light']);
+const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
+const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
+const MAX_TILE_MEDIA_BYTES = 1_400_000;
+const MAX_LAYOUT_MEDIA_BYTES = 8 * 1024 * 1024;
+const DEFAULT_TILE_APPEARANCE: TileAppearance = {
+  backgroundType: 'solid',
+  backgroundPrimary: '#11161d',
+  backgroundSecondary: '#5268aa',
+  backgroundAngle: 135,
+  backgroundMedia: null,
+  textColour: '#f4f7fb',
+  fontFamily: 'system',
+  borderColour: '#394657',
+  contentMode: 'standard',
+  customTitle: null,
+  customIcon: null,
+  mediaFit: 'cover',
+  mediaOverlay: 'dark',
+  iconMode: 'text',
+  iconLabel: null,
+  iconMedia: null,
+  iconTextColour: '#090b0f',
+  iconBackgroundColour: '#394657',
+  iconBorderColour: '#667181',
+  iconMediaFit: 'cover'
+};
+const LEGACY_TILE_APPEARANCE: Record<TileColour, Pick<TileAppearance, 'backgroundPrimary' | 'borderColour'>> = {
+  default: { backgroundPrimary: '#11161d', borderColour: '#394657' },
+  graphite: { backgroundPrimary: '#171b22', borderColour: '#3e4856' },
+  blue: { backgroundPrimary: '#101a2a', borderColour: '#365987' },
+  cyan: { backgroundPrimary: '#0e2023', borderColour: '#2f6c73' },
+  green: { backgroundPrimary: '#112319', borderColour: '#376c4b' },
+  amber: { backgroundPrimary: '#2a2010', borderColour: '#7b5b26' },
+  red: { backgroundPrimary: '#291417', borderColour: '#793842' },
+  purple: { backgroundPrimary: '#21172f', borderColour: '#60457f' },
+  pink: { backgroundPrimary: '#2b1624', borderColour: '#7c3b65' }
+};
+const LEGACY_ICON_BORDERS: Record<TileColour, string> = {
+  default: '#667181', graphite: '#687789', blue: '#5c82b8', cyan: '#4e9ca5', green: '#58936c',
+  amber: '#aa813d', red: '#a95461', purple: '#8765aa', pink: '#a9588a'
+};
+
+function legacyAppearance(colour: TileColour): TileAppearance {
+  const legacy = LEGACY_TILE_APPEARANCE[colour];
+  return { ...DEFAULT_TILE_APPEARANCE, ...legacy };
+}
+
+function b64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
+async function sha256(value: string): Promise<string> {
+  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
+}
+
+function parseCookies(request: Request): Record<string, string> {
+  const entries = (request.headers.get('Cookie') ?? '')
+    .split(';')
+    .map(value => value.trim())
+    .filter(Boolean)
+    .map(value => {
+      const index = value.indexOf('=');
+      return index < 0 ? null : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => entry !== null);
+  return Object.fromEntries(entries);
+}
+
+async function getDashboardUser(request: Request, env: DashboardEnv): Promise<DashboardUser | null> {
+  const token = parseCookies(request)[COOKIE];
+  if (!token) return null;
+  const now = Math.floor(Date.now() / 1000);
+  const row = await env.DB.prepare(`
+    SELECT u.id,u.username,u.display_name,u.is_owner,
+      CASE WHEN u.is_owner=1 OR EXISTS(
+        SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='role-admin'
+      ) THEN 1 ELSE 0 END AS is_admin
+    FROM sessions s
+    JOIN users u ON u.id=s.user_id
+    WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'
+  `).bind(await sha256(token), now).first<{
+    id: string;
+    username: string;
+    display_name: string;
+    is_owner: number;
+    is_admin: number;
+  }>();
+  return row ? {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    isOwner: Boolean(row.is_owner),
+    isAdmin: Boolean(row.is_admin)
+  } : null;
+}
+
+function secureJson(value: unknown, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers);
+  headers.set('Content-Type', 'application/json; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Referrer-Policy', 'same-origin');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  return new Response(JSON.stringify(value), { ...init, headers });
+}
+
+function sameOrigin(request: Request): boolean {
+  const origin = request.headers.get('Origin');
+  return !origin || origin === new URL(request.url).origin;
+}
+
+async function readJson(request: Request): Promise<Record<string, unknown>> {
+  if (!(request.headers.get('Content-Type') ?? '').includes('application/json')) throw new Error('JSON_REQUIRED');
+  const value: unknown = await request.json();
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('INVALID_BODY');
+  return value as Record<string, unknown>;
+}
+
+function dimensionKey(width: number, height: number): string {
+  return `${width}x${height}`;
+}
+
+function parseDimension(value: unknown): Dimension | null {
+  const match = String(value ?? '').trim().toLowerCase().match(/^(\d+)x(\d+)$/);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  return VALID_DIMENSIONS.has(dimensionKey(width, height)) ? { width, height } : null;
+}
+
+function dimensionsFromCsv(value: string): string[] {
+  const result = [...new Set(value.split(',').map(item => item.trim()).filter(item => VALID_DIMENSIONS.has(item)))];
+  return result.length ? result : ['2x1'];
+}
+
+function dataUrlByteLength(value: string): number {
+  const encoded = value.slice(value.indexOf(',') + 1);
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.floor(encoded.length * 3 / 4) - padding;
+}
+
+function validImageDataUrl(value: string): boolean {
+  const match = value.match(IMAGE_DATA_URL);
+  if (!match || !match[1] || !match[2] || dataUrlByteLength(value) > MAX_TILE_MEDIA_BYTES) return false;
+  let binary = '';
+  try {
+    binary = atob(match[2].slice(0, 48));
+  } catch {
+    return false;
+  }
+  const bytes = Array.from(binary, character => character.charCodeAt(0));
+  const mime = match[1].toLowerCase();
+  if (mime === 'png') return bytes.slice(0, 8).join(',') === '137,80,78,71,13,10,26,10';
+  if (mime === 'jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mime === 'gif') return binary.startsWith('GIF87a') || binary.startsWith('GIF89a');
+  if (mime === 'webp') return binary.startsWith('RIFF') && binary.slice(8, 12) === 'WEBP';
+  return false;
+}
+
+function tileAppearanceFromInput(item: Record<string, unknown>): TileAppearance | null {
+  const colourValue = String(item.colour ?? 'default') as TileColour;
+  const legacyColour = VALID_TILE_COLOURS.has(colourValue) ? colourValue : 'default';
+  const appearanceFields = ['backgroundType','backgroundPrimary','backgroundSecondary','backgroundAngle','backgroundMedia','textColour','fontFamily','borderColour','iconMode','iconLabel','iconMedia','iconTextColour','iconBackgroundColour','iconBorderColour','iconMediaFit'];
+  const hasExplicitAppearance = appearanceFields.some(field => Object.prototype.hasOwnProperty.call(item, field));
+  const defaults = hasExplicitAppearance ? DEFAULT_TILE_APPEARANCE : legacyAppearance(legacyColour);
+  const backgroundType = String(item.backgroundType ?? defaults.backgroundType) as TileBackgroundType;
+  const backgroundPrimary = String(item.backgroundPrimary ?? defaults.backgroundPrimary).toLowerCase();
+  const backgroundSecondary = String(item.backgroundSecondary ?? defaults.backgroundSecondary).toLowerCase();
+  const backgroundAngle = Number(item.backgroundAngle ?? defaults.backgroundAngle);
+  const backgroundMediaValue = item.backgroundMedia === null || item.backgroundMedia === undefined || item.backgroundMedia === '' ? null : String(item.backgroundMedia);
+  const textColour = String(item.textColour ?? defaults.textColour).toLowerCase();
+  const fontFamily = String(item.fontFamily ?? defaults.fontFamily) as TileFontFamily;
+  const borderColour = String(item.borderColour ?? defaults.borderColour).toLowerCase();
+  const contentMode = String(item.contentMode ?? defaults.contentMode) as TileContentMode;
+  const customTitleRaw = item.customTitle === null || item.customTitle === undefined || item.customTitle === '' ? null : item.customTitle;
+  const customIconRaw = item.customIcon === null || item.customIcon === undefined || item.customIcon === '' ? null : item.customIcon;
+  if (customTitleRaw !== null && typeof customTitleRaw !== 'string') return null;
+  if (customIconRaw !== null && typeof customIconRaw !== 'string') return null;
+  const customTitle = typeof customTitleRaw === 'string' && customTitleRaw.trim() ? customTitleRaw.trim() : null;
+  const customIcon = typeof customIconRaw === 'string' && customIconRaw.trim() ? customIconRaw.trim() : null;
+  const mediaFit = String(item.mediaFit ?? defaults.mediaFit) as TileMediaFit;
+  const mediaOverlay = String(item.mediaOverlay ?? defaults.mediaOverlay) as TileMediaOverlay;
+  const iconMode = String(item.iconMode ?? defaults.iconMode) as TileIconMode;
+  const iconLabelRaw = item.iconLabel === null || item.iconLabel === undefined || item.iconLabel === '' ? null : item.iconLabel;
+  const submittedIconMedia = item.iconMedia === null || item.iconMedia === undefined || item.iconMedia === '' ? null : String(item.iconMedia);
+  if (iconLabelRaw !== null && typeof iconLabelRaw !== 'string') return null;
+  const iconLabel = typeof iconLabelRaw === 'string' && iconLabelRaw.trim() ? iconLabelRaw.trim() : null;
+  const iconTextColour = String(item.iconTextColour ?? defaults.iconTextColour).toLowerCase();
+  const iconBackgroundColour = String(item.iconBackgroundColour ?? defaults.iconBackgroundColour).toLowerCase();
+  const iconBorderColour = String(item.iconBorderColour ?? defaults.iconBorderColour).toLowerCase();
+  const iconMediaFit = String(item.iconMediaFit ?? defaults.iconMediaFit) as TileMediaFit;
+  if ((customTitle?.length ?? 0) > 80 || (customIcon?.length ?? 0) > 12 || (iconLabel?.length ?? 0) > 6) return null;
+  if (!VALID_CONTENT_MODES.has(contentMode) || !VALID_ICON_MODES.has(iconMode) || !VALID_MEDIA_FITS.has(mediaFit) || !VALID_MEDIA_FITS.has(iconMediaFit) || !VALID_MEDIA_OVERLAYS.has(mediaOverlay)) return null;
+  if (!VALID_BACKGROUND_TYPES.has(backgroundType) || !HEX_COLOUR.test(backgroundPrimary) || !HEX_COLOUR.test(backgroundSecondary) || !HEX_COLOUR.test(textColour) || !HEX_COLOUR.test(borderColour) || !HEX_COLOUR.test(iconTextColour) || !HEX_COLOUR.test(iconBackgroundColour) || !HEX_COLOUR.test(iconBorderColour)) return null;
+  if (!Number.isInteger(backgroundAngle) || backgroundAngle < 0 || backgroundAngle > 360 || !VALID_FONT_FAMILIES.has(fontFamily)) return null;
+  if (backgroundMediaValue && !validImageDataUrl(backgroundMediaValue)) return null;
+  if (submittedIconMedia && !validImageDataUrl(submittedIconMedia)) return null;
+  const activeIconMode: TileIconMode = contentMode === 'standard' ? iconMode : 'text';
+  const iconMedia = activeIconMode === 'image' ? submittedIconMedia : null;
+  if (backgroundType === 'media' && !backgroundMediaValue) return null;
+  if (contentMode === 'media-button' && (backgroundType !== 'media' || !backgroundMediaValue)) return null;
+  if (activeIconMode === 'image' && !iconMedia) return null;
+  return { backgroundType, backgroundPrimary, backgroundSecondary, backgroundAngle, backgroundMedia: backgroundMediaValue, textColour, fontFamily, borderColour, contentMode, customTitle, customIcon, mediaFit, mediaOverlay, iconMode: activeIconMode, iconLabel, iconMedia, iconTextColour, iconBackgroundColour, iconBorderColour, iconMediaFit };
+}
+
+function legacySizeForDimension(width: number, height: number): LegacyDashboardSize {
+  if (width === 1 && height === 1) return 'small';
+  if (height === 1 && width <= 2) return 'medium';
+  if (width >= 4) return 'wide';
+  return 'large';
+}
+
+function overlaps(a: TilePlacement, b: TilePlacement): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function validPlacement(tile: TilePlacement): boolean {
+  return Number.isInteger(tile.x) && Number.isInteger(tile.y) && Number.isInteger(tile.width) && Number.isInteger(tile.height)
+    && tile.x >= 0 && tile.y >= 0 && tile.y <= MAX_GRID_Y
+    && tile.width >= 1 && tile.width <= MAX_TILE_WIDTH && tile.height >= 1 && tile.height <= 4
+    && tile.x + tile.width <= GRID_COLUMNS && tile.y + tile.height <= MAX_GRID_Y + 1;
+}
+
+function firstFreePlacement(existing: TilePlacement[], width: number, height: number): Omit<TilePlacement, 'featureId'> {
+  for (let y = 0; y <= MAX_GRID_Y - height + 1; y += 1) {
+    for (let x = 0; x <= GRID_COLUMNS - width; x += 1) {
+      const candidate: TilePlacement = { featureId: '', x, y, width, height };
+      if (!existing.some(tile => overlaps(candidate, tile))) return { x, y, width, height };
+    }
+  }
+  return { x: 0, y: MAX_GRID_Y - height + 1, width, height };
+}
+
+function featureFromRow(row: FeatureRow) {
+  const allowedDimensions = dimensionsFromCsv(row.allowed_dimensions);
+  const width = row.tile_width ?? row.default_width;
+  const height = row.tile_height ?? row.default_height;
+  const colourValue = String(row.tile_colour ?? 'default') as TileColour;
+  const tileColour = VALID_TILE_COLOURS.has(colourValue) ? colourValue : 'default';
+  const backgroundTypeValue = String(row.background_type ?? DEFAULT_TILE_APPEARANCE.backgroundType) as TileBackgroundType;
+  const fontFamilyValue = String(row.font_family ?? DEFAULT_TILE_APPEARANCE.fontFamily) as TileFontFamily;
+  const backgroundType = VALID_BACKGROUND_TYPES.has(backgroundTypeValue) ? backgroundTypeValue : DEFAULT_TILE_APPEARANCE.backgroundType;
+  const fontFamily = VALID_FONT_FAMILIES.has(fontFamilyValue) ? fontFamilyValue : DEFAULT_TILE_APPEARANCE.fontFamily;
+  const borderColour = HEX_COLOUR.test(String(row.border_colour ?? '')) ? String(row.border_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.borderColour;
+  const appearance: TileAppearance = {
+    backgroundType,
+    backgroundPrimary: HEX_COLOUR.test(String(row.background_primary ?? '')) ? String(row.background_primary).toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundPrimary,
+    backgroundSecondary: HEX_COLOUR.test(String(row.background_secondary ?? '')) ? String(row.background_secondary).toLowerCase() : DEFAULT_TILE_APPEARANCE.backgroundSecondary,
+    backgroundAngle: Number.isInteger(row.background_angle) && Number(row.background_angle) >= 0 && Number(row.background_angle) <= 360 ? Number(row.background_angle) : DEFAULT_TILE_APPEARANCE.backgroundAngle,
+    backgroundMedia: typeof row.background_media === 'string' && row.background_media ? row.background_media : null,
+    textColour: HEX_COLOUR.test(String(row.text_colour ?? '')) ? String(row.text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.textColour,
+    fontFamily,
+    borderColour,
+    contentMode: VALID_CONTENT_MODES.has(String(row.content_mode ?? '') as TileContentMode) ? String(row.content_mode) as TileContentMode : DEFAULT_TILE_APPEARANCE.contentMode,
+    customTitle: typeof row.custom_title === 'string' && row.custom_title.trim() ? row.custom_title.trim() : null,
+    customIcon: typeof row.custom_icon === 'string' && row.custom_icon.trim() ? row.custom_icon.trim() : null,
+    mediaFit: VALID_MEDIA_FITS.has(String(row.media_fit ?? '') as TileMediaFit) ? String(row.media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.mediaFit,
+    mediaOverlay: VALID_MEDIA_OVERLAYS.has(String(row.media_overlay ?? '') as TileMediaOverlay) ? String(row.media_overlay) as TileMediaOverlay : DEFAULT_TILE_APPEARANCE.mediaOverlay,
+    iconMode: VALID_ICON_MODES.has(String(row.icon_mode ?? '') as TileIconMode) ? String(row.icon_mode) as TileIconMode : DEFAULT_TILE_APPEARANCE.iconMode,
+    iconLabel: typeof row.icon_label === 'string' && row.icon_label.trim() ? row.icon_label.trim().slice(0, 6) : null,
+    iconMedia: typeof row.icon_media === 'string' && row.icon_media ? row.icon_media : null,
+    iconTextColour: HEX_COLOUR.test(String(row.icon_text_colour ?? '')) ? String(row.icon_text_colour).toLowerCase() : DEFAULT_TILE_APPEARANCE.iconTextColour,
+    iconBackgroundColour: HEX_COLOUR.test(String(row.icon_background_colour ?? '')) ? String(row.icon_background_colour).toLowerCase() : borderColour,
+    iconBorderColour: HEX_COLOUR.test(String(row.icon_border_colour ?? '')) ? String(row.icon_border_colour).toLowerCase() : LEGACY_ICON_BORDERS[tileColour],
+    iconMediaFit: VALID_MEDIA_FITS.has(String(row.icon_media_fit ?? '') as TileMediaFit) ? String(row.icon_media_fit) as TileMediaFit : DEFAULT_TILE_APPEARANCE.iconMediaFit
+  };
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    featureType: row.feature_type,
+    presentation: row.tile_presentation === 'content' ? 'content' : 'action',
+    route: row.route,
+    iconText: row.icon_text,
+    audience: row.audience,
+    defaultDimension: dimensionKey(row.default_width, row.default_height),
+    defaultWidth: row.default_width,
+    defaultHeight: row.default_height,
+    allowedDimensions,
+    isActive: Boolean(row.is_active),
+    isDefault: Boolean(row.is_default),
+    sortOrder: row.sort_order,
+    pinned: row.grid_x !== null,
+    position: row.position,
+    x: row.grid_x,
+    y: row.grid_y,
+    width,
+    height,
+    dimension: dimensionKey(width, height),
+    tileColour,
+    ...appearance,
+    accessGroups: row.matched_groups ? row.matched_groups.split(', ') : []
+  };
+}
+
+async function accessibleFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
+  const rows = await env.DB.prepare(`
+    SELECT f.*,
+      t.position,
+      t.grid_x,
+      t.grid_y,
+      t.tile_width,
+      t.tile_height,
+      t.tile_colour,
+      t.background_type,
+      t.background_primary,
+      t.background_secondary,
+      t.background_angle,
+      t.background_media,
+      t.text_colour,
+      t.font_family,
+      t.border_colour,
+       t.content_mode,
+       t.custom_title,
+       t.custom_icon,
+       t.media_fit,
+       t.media_overlay,
+       t.icon_mode,
+       t.icon_label,
+       t.icon_media,
+       t.icon_text_colour,
+       t.icon_background_colour,
+       t.icon_border_colour,
+       t.icon_media_fit,
+      COALESCE((
+        SELECT GROUP_CONCAT(g.name, ', ')
+        FROM dashboard_feature_group_grants fg
+        JOIN groups g ON g.id=fg.group_id
+        JOIN group_memberships gm ON gm.group_id=fg.group_id AND gm.user_id=?
+        WHERE fg.feature_id=f.id
+      ),'') AS matched_groups
+    FROM dashboard_features f
+    LEFT JOIN user_dashboard_tiles t ON t.feature_id=f.id AND t.user_id=?
+    WHERE f.is_active=1 AND (
+      ?=1
+      OR f.audience='all'
+      OR (f.audience='admin' AND ?=1)
+      OR (f.audience='owner' AND ?=1)
+      OR (f.audience='groups' AND EXISTS(
+        SELECT 1
+        FROM dashboard_feature_group_grants fg2
+        JOIN group_memberships gm2 ON gm2.group_id=fg2.group_id
+        WHERE fg2.feature_id=f.id AND gm2.user_id=?
+      ))
+    )
+    ORDER BY CASE WHEN t.grid_x IS NULL THEN 1 ELSE 0 END,t.grid_y,t.grid_x,f.sort_order,f.name
+  `).bind(
+    user.id,
+    user.id,
+    user.isOwner ? 1 : 0,
+    user.isAdmin ? 1 : 0,
+    user.isOwner ? 1 : 0,
+    user.id
+  ).all<FeatureRow>();
+  return rows.results;
+}
+
+async function defaultFeatures(env: DashboardEnv, user: DashboardUser): Promise<FeatureRow[]> {
+  const rows = await env.DB.prepare(`
+    SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,NULL AS icon_mode,NULL AS icon_label,NULL AS icon_media,NULL AS icon_text_colour,NULL AS icon_background_colour,NULL AS icon_border_colour,NULL AS icon_media_fit,'' AS matched_groups
+    FROM dashboard_features f
+    WHERE f.is_active=1 AND f.is_default=1 AND (
+      f.audience='all'
+      OR (f.audience='admin' AND ?=1)
+      OR (f.audience='owner' AND ?=1)
+      OR (f.audience='groups' AND EXISTS(
+        SELECT 1
+        FROM dashboard_feature_group_grants fg
+        JOIN group_memberships gm ON gm.group_id=fg.group_id
+        WHERE fg.feature_id=f.id AND gm.user_id=?
+      ))
+    )
+    ORDER BY f.sort_order,f.name
+    LIMIT 20
+  `).bind(user.isAdmin ? 1 : 0, user.isOwner ? 1 : 0, user.id).all<FeatureRow>();
+  return rows.results;
+}
+
+function defaultPlacements(features: FeatureRow[]): TilePlacement[] {
+  const placements: TilePlacement[] = [];
+  for (const feature of features) {
+    const width = Math.max(1, Math.min(GRID_COLUMNS, feature.default_width));
+    const height = Math.max(1, Math.min(4, feature.default_height));
+    const location = firstFreePlacement(placements, width, height);
+    placements.push({ featureId: feature.id, ...location });
+  }
+  return placements;
+}
+
+async function ensureDashboardInitialized(env: DashboardEnv, user: DashboardUser): Promise<void> {
+  const existing = await env.DB.prepare(`SELECT user_id FROM user_dashboard_preferences WHERE user_id=?`).bind(user.id).first<{ user_id: string }>();
+  if (existing) return;
+  const defaults = await defaultFeatures(env, user);
+  const placements = defaultPlacements(defaults);
+  const now = Math.floor(Date.now() / 1000);
+  const statements: D1Statement[] = [
+    env.DB.prepare(`INSERT OR IGNORE INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at) VALUES(?,'comfortable',1,12,0,?,?)`).bind(user.id, now, now)
+  ];
+  placements.forEach((tile, position) => {
+    statements.push(env.DB.prepare(`
+      INSERT OR IGNORE INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, 'default', now, now));
+  });
+  await env.DB.batch(statements);
+}
+
+async function dashboardPayload(env: DashboardEnv, user: DashboardUser) {
+  await ensureDashboardInitialized(env, user);
+  const [rows, preferences] = await Promise.all([
+    accessibleFeatures(env, user),
+    env.DB.prepare(`SELECT density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at FROM user_dashboard_preferences WHERE user_id=?`).bind(user.id).first<{
+      density: DashboardDensity;
+      show_descriptions: number;
+      tile_gap: number;
+      outer_margin: number;
+      initialized_at: number;
+      updated_at: number;
+    }>()
+  ]);
+  const hydratedFeatures = rows.map(featureFromRow);
+  const pinnedTiles = hydratedFeatures
+    .filter(feature => feature.pinned)
+    .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+  const features = hydratedFeatures.map(feature => ({
+    ...feature,
+    backgroundMedia: null,
+    hasBackgroundMedia: Boolean(feature.backgroundMedia),
+    iconMedia: null,
+    hasIconMedia: Boolean(feature.iconMedia)
+  }));
+  return {
+    ok: true,
+    viewer: { id: user.id, username: user.username, displayName: user.displayName, isAdmin: user.isAdmin, isOwner: user.isOwner },
+    grid: { columns: GRID_COLUMNS, maxY: MAX_GRID_Y, dimensions: ALL_DIMENSIONS },
+    features,
+    pinnedTiles,
+    preferences: {
+      density: preferences?.density ?? 'comfortable',
+      showDescriptions: Boolean(preferences?.show_descriptions ?? 1),
+      tileGap: preferences?.tile_gap ?? 12,
+      outerMargin: preferences?.outer_margin ?? 0,
+      initializedAt: preferences?.initialized_at ?? null,
+      updatedAt: preferences?.updated_at ?? null
+    },
+    capabilities: { canCustomize: true, isAdmin: user.isAdmin, isOwner: user.isOwner }
+  };
+}
+
+async function saveLayout(request: Request, env: DashboardEnv, user: DashboardUser): Promise<Response> {
+  const data = await readJson(request);
+  const rawTiles = data.tiles;
+  if (!Array.isArray(rawTiles) || rawTiles.length > MAX_TILES) return secureJson({ ok: false, message: `Choose up to ${MAX_TILES} dashboard tiles.` }, { status: 400 });
+
+  const availableRows = await accessibleFeatures(env, user);
+  const available = new Map(availableRows.map(row => [row.id, row]));
+  const seen = new Set<string>();
+  const tiles: TilePlacement[] = [];
+  let totalMediaBytes = 0;
+
+  for (const rawTile of rawTiles) {
+    if (!rawTile || typeof rawTile !== 'object' || Array.isArray(rawTile)) return secureJson({ ok: false, message: 'The dashboard layout is invalid.' }, { status: 400 });
+    const item = rawTile as Record<string, unknown>;
+    const featureId = String(item.featureId ?? '').trim();
+    const feature = available.get(featureId);
+    const appearance = tileAppearanceFromInput(item);
+    if (!appearance) return secureJson({ ok: false, message: 'Choose valid tile and icon colours, text, picture files and display modes.' }, { status: 400 });
+    if (appearance.backgroundMedia) totalMediaBytes += dataUrlByteLength(appearance.backgroundMedia);
+    if (appearance.iconMedia) totalMediaBytes += dataUrlByteLength(appearance.iconMedia);
+    if (totalMediaBytes > MAX_LAYOUT_MEDIA_BYTES) return secureJson({ ok: false, message: 'Tile backgrounds and icon pictures may use up to 8 MB across one dashboard layout.' }, { status: 400 });
+    const tile: TilePlacement = {
+      featureId,
+      x: Number(item.x),
+      y: Number(item.y),
+      width: Number(item.width),
+      height: Number(item.height),
+      colour: String(item.colour ?? 'default') as TileColour,
+      ...appearance
+    };
+    if (!VALID_TILE_COLOURS.has(tile.colour ?? 'default')) return secureJson({ ok: false, message: 'Choose a valid legacy tile colour.' }, { status: 400 });
+    if (!feature || seen.has(featureId) || !validPlacement(tile)) return secureJson({ ok: false, message: 'The dashboard contains an unavailable, duplicate, or out-of-bounds tile.' }, { status: 400 });
+    const allowed = new Set(dimensionsFromCsv(feature.allowed_dimensions));
+    if (!allowed.has(dimensionKey(tile.width, tile.height))) return secureJson({ ok: false, message: `${feature.name} does not support ${tile.width}×${tile.height}.` }, { status: 400 });
+    if (tiles.some(existing => overlaps(existing, tile))) return secureJson({ ok: false, message: `${feature.name} overlaps another tile. Move it into empty grid space.` }, { status: 400 });
+    seen.add(featureId);
+    tiles.push(tile);
+  }
+
+  const rawPreferences = data.preferences;
+  const preferences = rawPreferences && typeof rawPreferences === 'object' && !Array.isArray(rawPreferences) ? rawPreferences as Record<string, unknown> : {};
+  const densityValue = String(preferences.density ?? 'comfortable') as DashboardDensity;
+  const density = VALID_DENSITIES.has(densityValue) ? densityValue : 'comfortable';
+  const showDescriptions = preferences.showDescriptions !== false;
+  const gapValue = Number(preferences.tileGap ?? 12);
+  const marginValue = Number(preferences.outerMargin ?? 0);
+  const tileGap = VALID_GAPS.has(gapValue) ? gapValue : 12;
+  const outerMargin = VALID_MARGINS.has(marginValue) ? marginValue : 0;
+  const now = Math.floor(Date.now() / 1000);
+  const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id)];
+  tiles.forEach((tile, position) => {
+    statements.push(env.DB.prepare(`
+      INSERT INTO user_dashboard_tiles(user_id,feature_id,position,size,grid_x,grid_y,tile_width,tile_height,tile_colour,background_type,background_primary,background_secondary,background_angle,background_media,text_colour,font_family,border_colour,content_mode,custom_title,custom_icon,media_fit,media_overlay,icon_mode,icon_label,icon_media,icon_text_colour,icon_background_colour,icon_border_colour,icon_media_fit,pinned_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(user.id, tile.featureId, position, legacySizeForDimension(tile.width, tile.height), tile.x, tile.y, tile.width, tile.height, tile.colour ?? 'default', tile.backgroundType, tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia, tile.textColour, tile.fontFamily, tile.borderColour, tile.contentMode, tile.customTitle, tile.customIcon, tile.mediaFit, tile.mediaOverlay, tile.iconMode, tile.iconLabel, tile.iconMedia, tile.iconTextColour, tile.iconBackgroundColour, tile.iconBorderColour, tile.iconMediaFit, now, now));
+  });
+  statements.push(env.DB.prepare(`
+    INSERT INTO user_dashboard_preferences(user_id,density,show_descriptions,tile_gap,outer_margin,initialized_at,updated_at)
+    VALUES(?,?,?,?,?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET density=excluded.density,show_descriptions=excluded.show_descriptions,tile_gap=excluded.tile_gap,outer_margin=excluded.outer_margin,updated_at=excluded.updated_at
+  `).bind(user.id, density, showDescriptions ? 1 : 0, tileGap, outerMargin, now, now));
+  statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
+    crypto.randomUUID(), user.id, 'dashboard.grid_updated', 'user', user.id,
+    JSON.stringify({ tiles: tiles.map(tile => ({ featureId: tile.featureId, x: tile.x, y: tile.y, width: tile.width, height: tile.height, colour: tile.colour ?? 'default', backgroundType: tile.backgroundType, backgroundPrimary: tile.backgroundPrimary, backgroundSecondary: tile.backgroundSecondary, backgroundAngle: tile.backgroundAngle, hasBackgroundMedia: Boolean(tile.backgroundMedia), textColour: tile.textColour, fontFamily: tile.fontFamily, borderColour: tile.borderColour, contentMode: tile.contentMode, hasCustomTitle: Boolean(tile.customTitle), hasCustomIcon: Boolean(tile.customIcon), mediaFit: tile.mediaFit, mediaOverlay: tile.mediaOverlay, iconMode: tile.iconMode, iconLabel: tile.iconLabel, hasIconMedia: Boolean(tile.iconMedia), iconTextColour: tile.iconTextColour, iconBackgroundColour: tile.iconBackgroundColour, iconBorderColour: tile.iconBorderColour, iconMediaFit: tile.iconMediaFit })), density, showDescriptions, tileGap, outerMargin }), now
+  ));
+  await env.DB.batch(statements);
+  return secureJson(await dashboardPayload(env, user));
+}
+
+async function resetLayout(env: DashboardEnv, user: DashboardUser): Promise<Response> {
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM user_dashboard_tiles WHERE user_id=?`).bind(user.id),
+    env.DB.prepare(`DELETE FROM user_dashboard_preferences WHERE user_id=?`).bind(user.id),
+    env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,'{}',?)`).bind(crypto.randomUUID(), user.id, 'dashboard.layout_reset', 'user', user.id, now)
+  ]);
+  return secureJson(await dashboardPayload(env, user));
+}
+
+async function featureForUser(env: DashboardEnv, user: DashboardUser, slug: string) {
+  const rows = await accessibleFeatures(env, user);
+  const row = rows.find(feature => feature.slug.toLowerCase() === slug.toLowerCase());
+  return row ? featureFromRow(row) : null;
+}
+
+async function adminCatalogue(env: DashboardEnv) {
+  const [features, grants, groups] = await Promise.all([
+    env.DB.prepare(`SELECT f.*,NULL AS position,NULL AS grid_x,NULL AS grid_y,NULL AS tile_width,NULL AS tile_height,NULL AS tile_colour,NULL AS background_type,NULL AS background_primary,NULL AS background_secondary,NULL AS background_angle,NULL AS background_media,NULL AS text_colour,NULL AS font_family,NULL AS border_colour,NULL AS content_mode,NULL AS custom_title,NULL AS custom_icon,NULL AS media_fit,NULL AS media_overlay,NULL AS icon_mode,NULL AS icon_label,NULL AS icon_media,NULL AS icon_text_colour,NULL AS icon_background_colour,NULL AS icon_border_colour,NULL AS icon_media_fit,'' AS matched_groups FROM dashboard_features f ORDER BY f.sort_order,f.name`).all<FeatureRow>(),
+    env.DB.prepare(`SELECT feature_id,group_id FROM dashboard_feature_group_grants ORDER BY feature_id,group_id`).all<{ feature_id: string; group_id: string }>(),
+    env.DB.prepare(`SELECT id,name,description FROM groups ORDER BY name`).all<{ id: string; name: string; description: string }>()
+  ]);
+  const grantsByFeature = new Map<string, string[]>();
+  for (const grant of grants.results) {
+    const list = grantsByFeature.get(grant.feature_id) ?? [];
+    list.push(grant.group_id);
+    grantsByFeature.set(grant.feature_id, list);
+  }
+  return {
+    ok: true,
+    grid: { columns: GRID_COLUMNS, dimensions: ALL_DIMENSIONS },
+    features: features.results.map(row => ({ ...featureFromRow(row), groupIds: grantsByFeature.get(row.id) ?? [] })),
+    groups: groups.results.map(group => ({ id: group.id, name: group.name, description: group.description }))
+  };
+}
+
+function normalizedFeatureInput(data: Record<string, unknown>) {
+  const slug = String(data.slug ?? '').trim().toLowerCase();
+  const name = String(data.name ?? '').trim();
+  const description = String(data.description ?? '').trim();
+  const category = String(data.category ?? 'General').trim() || 'General';
+  const featureTypeValue = String(data.featureType ?? 'workspace');
+  const featureType = (['workspace', 'link', 'system'].includes(featureTypeValue) ? featureTypeValue : 'workspace') as 'workspace' | 'link' | 'system';
+  const hasPresentation = Object.prototype.hasOwnProperty.call(data, 'presentation');
+  const presentationValue = String(data.presentation ?? 'action');
+  const presentation = hasPresentation
+    ? (['action', 'content'].includes(presentationValue) ? presentationValue : 'action') as TilePresentation
+    : null;
+  const audienceValue = String(data.audience ?? 'groups');
+  const audience = (['all', 'groups', 'admin', 'owner'].includes(audienceValue) ? audienceValue : 'groups') as 'all' | 'groups' | 'admin' | 'owner';
+  const defaultDimension = parseDimension(data.defaultDimension) ?? { width: 2, height: 1 };
+  const rawAllowed = Array.isArray(data.allowedDimensions) ? data.allowedDimensions : [dimensionKey(defaultDimension.width, defaultDimension.height)];
+  const allowedDimensions = [...new Set(rawAllowed.map(value => String(value).trim()).filter(value => VALID_DIMENSIONS.has(value)))];
+  const defaultKey = dimensionKey(defaultDimension.width, defaultDimension.height);
+  if (!allowedDimensions.includes(defaultKey)) allowedDimensions.push(defaultKey);
+  const routeValue = String(data.route ?? '').trim();
+  const route = routeValue || (featureType === 'workspace' && slug ? `/feature/${slug}` : '');
+  const iconText = String(data.iconText ?? 'GD').trim().slice(0, 3).toUpperCase() || 'GD';
+  const groupIds = Array.isArray(data.groupIds) ? [...new Set(data.groupIds.map(value => String(value).trim()).filter(Boolean))] : [];
+  const sortOrderNumber = Number(data.sortOrder ?? 0);
+  return {
+    slug, name, description, category, featureType, presentation, audience, defaultDimension, allowedDimensions,
+    route, iconText, groupIds,
+    isActive: data.isActive !== false,
+    isDefault: data.isDefault === true,
+    sortOrder: Number.isFinite(sortOrderNumber) ? Math.max(-10000, Math.min(10000, Math.trunc(sortOrderNumber))) : 0
+  };
+}
+
+async function saveAdminFeature(request: Request, env: DashboardEnv, actor: DashboardUser, featureId: string | null): Promise<Response> {
+  const data = await readJson(request);
+  const input = normalizedFeatureInput(data);
+  let presentation: TilePresentation = input.presentation ?? 'action';
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug) || input.slug.length > 64 || input.name.length < 2 || input.name.length > 80 || input.description.length > 500 || input.category.length > 60) {
+    return secureJson({ ok: false, message: 'Check the feature name, slug, category and description.' }, { status: 400 });
+  }
+  if (input.route && !input.route.startsWith('/')) return secureJson({ ok: false, message: 'Feature routes must be internal paths beginning with /.' }, { status: 400 });
+  if (input.audience === 'groups' && input.groupIds.length === 0) return secureJson({ ok: false, message: 'Choose at least one access group.' }, { status: 400 });
+
+  if (input.groupIds.length) {
+    const knownGroups = await env.DB.prepare(`SELECT id FROM groups`).all<{ id: string }>();
+    const known = new Set(knownGroups.results.map(group => group.id));
+    if (input.groupIds.some(groupId => !known.has(groupId))) return secureJson({ ok: false, message: 'One or more access groups do not exist.' }, { status: 400 });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const id = featureId ?? `feature-${crypto.randomUUID()}`;
+  const legacySize = legacySizeForDimension(input.defaultDimension.width, input.defaultDimension.height);
+  const statements: D1Statement[] = [];
+  if (featureId) {
+    const existing = await env.DB.prepare(`SELECT id,tile_presentation FROM dashboard_features WHERE id=?`).bind(featureId).first<{ id: string; tile_presentation: string }>();
+    if (!existing) return secureJson({ ok: false, message: 'Dashboard feature not found.' }, { status: 404 });
+    presentation = input.presentation ?? (existing.tile_presentation === 'content' ? 'content' : 'action');
+    statements.push(env.DB.prepare(`
+      UPDATE dashboard_features
+      SET slug=?,name=?,description=?,category=?,feature_type=?,tile_presentation=?,route=?,icon_text=?,audience=?,default_size=?,allowed_sizes=?,default_width=?,default_height=?,allowed_dimensions=?,is_active=?,is_default=?,sort_order=?,updated_at=?
+      WHERE id=?
+    `).bind(input.slug, input.name, input.description, input.category, input.featureType, presentation, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, id));
+  } else {
+    statements.push(env.DB.prepare(`
+      INSERT INTO dashboard_features(id,slug,name,description,category,feature_type,tile_presentation,route,icon_text,audience,default_size,allowed_sizes,default_width,default_height,allowed_dimensions,is_active,is_default,sort_order,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(id, input.slug, input.name, input.description, input.category, input.featureType, presentation, input.route, input.iconText, input.audience, legacySize, legacySize, input.defaultDimension.width, input.defaultDimension.height, input.allowedDimensions.join(','), input.isActive ? 1 : 0, input.isDefault ? 1 : 0, input.sortOrder, now, now));
+  }
+  statements.push(env.DB.prepare(`DELETE FROM dashboard_feature_group_grants WHERE feature_id=?`).bind(id));
+  input.groupIds.forEach(groupId => statements.push(env.DB.prepare(`INSERT INTO dashboard_feature_group_grants(feature_id,group_id) VALUES(?,?)`).bind(id, groupId)));
+  statements.push(env.DB.prepare(`INSERT INTO audit_events(id,actor_user_id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)`).bind(
+    crypto.randomUUID(), actor.id, featureId ? 'dashboard.feature_updated' : 'dashboard.feature_created', 'dashboard_feature', id,
+    JSON.stringify({ slug: input.slug, presentation, audience: input.audience, groupIds: input.groupIds, defaultDimension: dimensionKey(input.defaultDimension.width, input.defaultDimension.height), allowedDimensions: input.allowedDimensions }), now
+  ));
+  try {
+    await env.DB.batch(statements);
+  } catch {
+    return secureJson({ ok: false, message: 'That feature slug is already in use or the feature could not be saved.' }, { status: 409 });
+  }
+  return secureJson(await adminCatalogue(env), { status: featureId ? 200 : 201 });
+}
+
+async function serveAsset(request: Request, env: DashboardEnv, pathname: string): Promise<Response> {
+  const assetUrl = new URL(pathname, request.url);
+  return env.ASSETS.fetch(new Request(assetUrl, { method: 'GET', headers: request.headers }));
+}
+
+export async function handleDashboardRequest(request: Request, env: DashboardEnv): Promise<Response | null> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  if (path === '/api/dashboard' && request.method === 'GET') {
+    const user = await getDashboardUser(request, env);
+    if (!user) return secureJson({ ok: false, message: 'Authentication required.' }, { status: 401 });
+    return secureJson(await dashboardPayload(env, user));
+  }
+
+  if (path === '/api/dashboard/layout' && request.method === 'POST') {
+    if (!sameOrigin(request)) return secureJson({ ok: false, message: 'Origin rejected.' }, { status: 403 });
+    const user = await getDashboardUser(request, env);
+    if (!user) return secureJson({ ok: false, message: 'Authentication required.' }, { status: 401 });
+    return saveLayout(request, env, user);
+  }
+
+  if (path === '/api/dashboard/reset' && request.method === 'POST') {
+    if (!sameOrigin(request)) return secureJson({ ok: false, message: 'Origin rejected.' }, { status: 403 });
+    const user = await getDashboardUser(request, env);
+    if (!user) return secureJson({ ok: false, message: 'Authentication required.' }, { status: 401 });
+    return resetLayout(env, user);
+  }
+
+  const featureApiMatch = path.match(/^\/api\/dashboard\/features\/([a-z0-9-]+)$/i);
+  if (featureApiMatch && request.method === 'GET') {
+    const user = await getDashboardUser(request, env);
+    if (!user) return secureJson({ ok: false, message: 'Authentication required.' }, { status: 401 });
+    const feature = await featureForUser(env, user, featureApiMatch[1]!);
+    return feature ? secureJson({ ok: true, feature }) : secureJson({ ok: false, message: 'Feature unavailable.' }, { status: 404 });
+  }
+
+  if (path === '/api/admin/dashboard/features' && request.method === 'GET') {
+    const actor = await getDashboardUser(request, env);
+    if (!actor?.isAdmin) return secureJson({ ok: false, message: 'Administrator access required.' }, { status: 403 });
+    return secureJson(await adminCatalogue(env));
+  }
+
+  if (path === '/api/admin/dashboard/features' && request.method === 'POST') {
+    if (!sameOrigin(request)) return secureJson({ ok: false, message: 'Origin rejected.' }, { status: 403 });
+    const actor = await getDashboardUser(request, env);
+    if (!actor?.isAdmin) return secureJson({ ok: false, message: 'Administrator access required.' }, { status: 403 });
+    return saveAdminFeature(request, env, actor, null);
+  }
+
+  const adminFeatureMatch = path.match(/^\/api\/admin\/dashboard\/features\/([^/]+)$/);
+  if (adminFeatureMatch && request.method === 'POST') {
+    if (!sameOrigin(request)) return secureJson({ ok: false, message: 'Origin rejected.' }, { status: 403 });
+    const actor = await getDashboardUser(request, env);
+    if (!actor?.isAdmin) return secureJson({ ok: false, message: 'Administrator access required.' }, { status: 403 });
+    return saveAdminFeature(request, env, actor, decodeURIComponent(adminFeatureMatch[1]!));
+  }
+
+  if (path === '/admin/dashboard' && request.method === 'GET') {
+    const actor = await getDashboardUser(request, env);
+    if (!actor) return new Response(null, { status: 303, headers: { Location: '/login' } });
+    if (!actor.isAdmin) return new Response('Administrator access required.', { status: 403 });
+    return serveAsset(request, env, '/admin-dashboard.html');
+  }
+
+  const featurePageMatch = path.match(/^\/feature\/([a-z0-9-]+)$/i);
+  if (featurePageMatch && request.method === 'GET') {
+    const user = await getDashboardUser(request, env);
+    if (!user) return new Response(null, { status: 303, headers: { Location: '/login' } });
+    const feature = await featureForUser(env, user, featurePageMatch[1]!);
+    if (!feature) return new Response('Feature unavailable.', { status: 404 });
+    return serveAsset(request, env, '/feature.html');
+  }
+
+  return null;
+}

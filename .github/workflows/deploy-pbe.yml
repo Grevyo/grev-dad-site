@@ -11,12 +11,16 @@ permissions:
 
 concurrency:
   group: grev-dad-pbe
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      LADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.LADMIN_BOOTSTRAP_PASSWORD }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,15 +37,181 @@ jobs:
         run: npm run typecheck
 
       - name: Apply PBE database migrations
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 migrations apply grev-dad-preview --remote --env pbe
+        run: npx wrangler d1 migrations apply grev-dad-preview --remote --env pbe
+
+      - name: Configure protected LADMIN account
+        run: node scripts/bootstrap-ladmin.mjs
 
       - name: Deploy PBE
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --env pbe
+        shell: bash
+        run: |
+          set +e
+          output=$(npx wrangler deploy --env pbe 2>&1)
+          status=$?
+          printf '%s\n' "$output"
+
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if printf '%s\n' "$output" | grep -q "Completion token has already been consumed"; then
+            echo "Cloudflare returned transient completion-token error 100312. Retrying once in 20 seconds."
+            sleep 20
+            npx wrangler deploy --env pbe
+            exit $?
+          fi
+
+          exit "$status"
+
+      - name: Verify LADMIN login end to end
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          payload=$(node -e 'process.stdout.write(JSON.stringify({identifier:"LADMIN",password:process.env.LADMIN_BOOTSTRAP_PASSWORD,rememberMe:false}))')
+
+          login_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/ladmin-login.json \
+            --write-out '%{http_code}' \
+            --cookie-jar /tmp/ladmin.cookies \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data "$payload" \
+            https://pbe.grev.dad/api/auth/login)
+
+          cat /tmp/ladmin-login.json
+          echo
+
+          if [ "$login_status" != "200" ]; then
+            echo "LADMIN login smoke test failed with HTTP $login_status."
+            exit 1
+          fi
+
+          session_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/ladmin-session.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/auth/session)
+
+          cat /tmp/ladmin-session.json
+          echo
+
+          if [ "$session_status" != "200" ]; then
+            echo "LADMIN session smoke test failed with HTTP $session_status."
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const session = JSON.parse(fs.readFileSync('/tmp/ladmin-session.json', 'utf8'));
+          const user = session.user;
+          if (!session.authenticated || !user || String(user.username).toLowerCase() !== 'ladmin' || !user.isOwner || !user.isAdmin) {
+            console.error('LADMIN session did not return the required Owner and Administrator access.');
+            process.exit(1);
+          }
+          console.log('LADMIN login and Owner/Admin session verified.');
+          NODE
+
+      - name: Verify onboarding groups and options
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/onboarding.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/onboarding)
+
+          cat /tmp/onboarding.json
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "Onboarding catalog check failed with HTTP $status."
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/onboarding.json', 'utf8'));
+          const relationshipNames = new Set((payload.relationships ?? []).map(item => item.name));
+          const intentionNames = new Set((payload.intentions ?? []).map(item => item.name));
+          const expectedRelationships = ['Family', 'Friends', 'Co-workers', 'Who is Grev?'];
+          const expectedIntentions = ['Counter-Strike 2', 'Gaming', 'Coding', 'NHS', 'Grev News'];
+          if (!payload.ok || expectedRelationships.some(name => !relationshipNames.has(name)) || expectedIntentions.some(name => !intentionNames.has(name))) {
+            console.error('The deployed onboarding catalog is incomplete or incorrect.');
+            process.exit(1);
+          }
+          console.log('Relationship and intention onboarding catalog verified.');
+          NODE
+
+      - name: Reject empty normalized intentions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status=$(curl --silent --show-error \
+            --output /tmp/empty-intentions.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"intentionIds":["   "]}' \
+            https://pbe.grev.dad/api/onboarding/intentions)
+
+          cat /tmp/empty-intentions.json
+          echo
+
+          if [ "$status" != "400" ]; then
+            echo "Whitespace-only intentions must be rejected with HTTP 400."
+            exit 1
+          fi
+
+      - name: Verify dashboard catalogue and administration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dashboard_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/dashboard.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/dashboard)
+
+          admin_status=$(curl --silent --show-error \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --output /tmp/dashboard-admin.json \
+            --write-out '%{http_code}' \
+            --cookie /tmp/ladmin.cookies \
+            https://pbe.grev.dad/api/admin/dashboard/features)
+
+          cat /tmp/dashboard.json
+          echo
+          cat /tmp/dashboard-admin.json
+          echo
+
+          if [ "$dashboard_status" != "200" ] || [ "$admin_status" != "200" ]; then
+            echo "Dashboard smoke test failed: member=$dashboard_status admin=$admin_status."
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const dashboard = JSON.parse(fs.readFileSync('/tmp/dashboard.json', 'utf8'));
+          const admin = JSON.parse(fs.readFileSync('/tmp/dashboard-admin.json', 'utf8'));
+          const names = new Set((dashboard.features ?? []).map(item => item.name));
+          const required = ['My profile', 'Profile settings', 'Counter-Strike 2', 'Coding Lab', 'Admin centre'];
+          if (!dashboard.ok || !dashboard.preferences || required.some(name => !names.has(name))) {
+            console.error('The member dashboard catalogue is incomplete.');
+            process.exit(1);
+          }
+          if (!admin.ok || !Array.isArray(admin.features) || admin.features.length < 10 || !Array.isArray(admin.groups)) {
+            console.error('The dashboard administration catalogue is incomplete.');
+            process.exit(1);
+          }
+          console.log('Dashboard catalogue, preferences and administration verified.');
+          NODE

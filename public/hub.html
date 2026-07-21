@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Content hub · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/hub.css">
+<link rel="stylesheet" href="/profile-card-popover.css">
+</head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a class="header-link" href="/profile">Profile</a><a id="hub-admin-link" class="header-link" href="/admin" hidden>Admin</a><button id="logout">Log out</button></div></header>
+<main class="hub-shell">
+<section class="hub-hero"><div><p class="eyebrow">Functional content</p><h1>Content hub</h1><p>Create the real information used by your dashboard tiles, profile modules, notifications and group pages.</p></div><button id="hub-create" class="primary" type="button">Create content</button></section>
+<section class="hub-status-panel" id="hub-status-panel"><div><span>Current presence</span><strong id="hub-status-summary">Loading…</strong></div><button id="hub-edit-status" type="button">Change status</button></section>
+<nav id="hub-tabs" class="hub-tabs" aria-label="Content hub sections"></nav>
+<p id="hub-message" class="hub-message" role="status">Loading content…</p>
+<section id="hub-summary" class="hub-summary"></section>
+<section id="hub-content" class="hub-content" aria-live="polite"></section>
+</main>
+<dialog id="hub-editor" class="hub-editor" aria-labelledby="hub-editor-title">
+<header><div><p class="eyebrow">Content module</p><h2 id="hub-editor-title">Create content</h2><p id="hub-editor-description">Add useful information to your dashboard and profile.</p></div><button type="button" data-hub-close>Close</button></header>
+<form id="hub-editor-form">
+<div class="hub-editor-body">
+<label>Module<select id="hub-item-type"></select></label>
+<label>Title<input id="hub-item-title" maxlength="120" required></label>
+<label id="hub-body-control">Details<textarea id="hub-item-body" maxlength="5000" rows="5"></textarea></label>
+<div class="hub-two-column"><label id="hub-start-control">Start / due<input id="hub-item-start" type="datetime-local"></label><label id="hub-end-control">End / expiry<input id="hub-item-end" type="datetime-local"></label></div>
+<div id="hub-dynamic-fields" class="hub-dynamic-fields"></div>
+<div class="hub-two-column"><label>Visibility<select id="hub-item-visibility"><option value="private">Only me</option><option value="account">Everyone with an account</option><option value="verified">Verified accounts</option><option value="group">Selected group</option></select></label><label id="hub-group-control" hidden>Group<select id="hub-item-group"></select></label></div>
+<label class="hub-check"><input id="hub-item-pinned" type="checkbox"> Pin this item to the top of its module</label>
+</div>
+<footer><button id="hub-delete-item" class="danger-action" type="button" hidden>Delete</button><span></span><button type="button" data-hub-close>Cancel</button><button class="primary" type="submit">Save content</button></footer>
+</form>
+</dialog>
+<dialog id="hub-status-editor" class="hub-editor" aria-labelledby="hub-status-title">
+<header><div><p class="eyebrow">Presence</p><h2 id="hub-status-title">Status and activity</h2><p>Show what you are doing across your profile cards and live tiles.</p></div><button type="button" data-status-close>Close</button></header>
+<form id="hub-status-form"><div class="hub-editor-body"><div class="hub-two-column"><label>Availability<select id="hub-presence-availability"><option value="online">Online</option><option value="away">Away</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label><label>Activity type<select id="hub-presence-type"><option value="none">None</option><option value="playing">Playing</option><option value="listening">Listening</option><option value="watching">Watching</option><option value="working">Working on</option></select></label></div><label>Status message<input id="hub-presence-text" maxlength="160" placeholder="What should people know?"></label><label>Activity<input id="hub-presence-activity" maxlength="160" placeholder="Counter-Strike 2, a project, an album…"></label><label>Automatically clear<input id="hub-presence-expires" type="datetime-local"></label></div><footer><span></span><span></span><button type="button" data-status-close>Cancel</button><button class="primary" type="submit">Save status</button></footer></form>
+</dialog>
+<script src="/hub.js" defer></script>
+<script src="/profile-card-popover.js" defer></script>
+</body>
+</html>
