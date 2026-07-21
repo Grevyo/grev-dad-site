@@ -1,13 +1,6 @@
 import { getProfileCardViewer, loadProfileCardBaselines, type ProfileCardBaselineEnv } from './profile-card-baseline';
 
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-}
-interface D1Database { prepare(query: string): D1Statement; }
-
-export interface MembersEnv extends ProfileCardBaselineEnv { DB: D1Database; }
+export type MembersEnv = ProfileCardBaselineEnv;
 
 function json(value:unknown,status=200):Response{return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}});}
 
