@@ -28,3 +28,5 @@ jobs:
           node .github/scripts/verify-admin-centre-chat-tabs-static.cjs
       - name: Check migration chain locally
         run: npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+      - name: Build Worker bundle
+        run: npx wrangler deploy --dry-run --env pbe
