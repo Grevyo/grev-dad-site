@@ -3,6 +3,7 @@
   if(!header||header.dataset.globalShell==='true')return;
   header.dataset.globalShell='true';
   const original=header.innerHTML;
+  const originalHeaderControls=[...header.querySelectorAll('[id]')].map(node=>node.cloneNode(true));
   const path=location.pathname;
   const active=href=>path===href||path.startsWith(`${href}/`)?' active':'';
   header.className='global-site-header';
@@ -16,6 +17,11 @@
       <a id="admin-link" class="header-link${active('/admin')}" href="/admin" hidden>Admin centre</a>
     </nav>
     <div class="global-header-actions"><span id="global-header-notice" class="global-header-notice" hidden></span><span id="badge" class="global-account-badge">Member</span><button id="logout" type="button">Log out</button></div>`;
+  const compatibility=document.createElement('div');
+  compatibility.className='global-header-compat';
+  compatibility.hidden=true;
+  for(const node of originalHeaderControls){if(node.id&&!document.getElementById(node.id))compatibility.append(node);}
+  if(compatibility.children.length)header.append(compatibility);
 
   function ensureAdminTabs(isAdmin){
     let tabs=document.querySelector('.admin-global-tabs');
