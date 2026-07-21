@@ -18,7 +18,7 @@ type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-discovery.css','/dashboard-discovery.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js','/platform-completion.css','/platform-live-quick.js',
-  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js',
+  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-experience.css','/profile-experience.js','/profile-guestbook-enhanced.js',
   '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js'
 ]);
