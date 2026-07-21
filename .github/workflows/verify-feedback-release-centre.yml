@@ -1,0 +1,30 @@
+name: Verify feedback and release centre
+
+on:
+  pull_request:
+    branches: [pbe, main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'migrations/**'
+      - '.github/workflows/verify-feedback-release-centre.yml'
+      - '.github/scripts/verify-feedback-release-centre-static.cjs'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run typecheck
+      - name: Check feedback browser bundle and integration
+        run: |
+          node --check public/feedback-centre.js
+          node .github/scripts/verify-feedback-release-centre-static.cjs
+      - name: Check migration chain locally
+        run: npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
+      - name: Build Worker bundle
+        run: npx wrangler deploy --dry-run --env pbe
