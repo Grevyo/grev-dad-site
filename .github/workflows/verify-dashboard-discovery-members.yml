@@ -1,0 +1,38 @@
+name: Verify dashboard discovery and members
+
+on:
+  pull_request:
+    paths:
+      - 'src/members.ts'
+      - 'src/worker.ts'
+      - 'public/dashboard-discovery.js'
+      - 'public/dashboard-discovery.css'
+      - 'public/members.html'
+      - 'public/members.js'
+      - 'public/members.css'
+      - 'public/site-shell.js'
+      - 'migrations/20260721_dashboard_calendar_clock_members.sql'
+      - '.github/scripts/verify-dashboard-discovery-members-static.cjs'
+      - '.github/workflows/verify-dashboard-discovery-members.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Type-check
+        run: npm run typecheck
+      - name: Check browser bundles and integration
+        run: node .github/scripts/verify-dashboard-discovery-members-static.cjs
+      - name: Check migration chain locally
+        run: npx wrangler d1 migrations apply grev-dad-dev --local
+      - name: Build Worker bundle
+        run: npx wrangler deploy --dry-run
