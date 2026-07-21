@@ -1,0 +1,14 @@
+const fs=require('node:fs');
+const required={
+  'src/platform-completion.ts':['handlePlatformCompletionRequest','/api/platform/events','handleGuestbookActions'],
+  'src/completion-pages.ts':['Verified group membership','dashboard_page_collaborators','canCreateGroupPages'],
+  'src/completion-guestbook-actions.ts':['profile.guestbook_replied','profile.guestbook_pinned','profile.guestbook_reported','profile.member_blocked'],
+  'public/platform-live-quick.js':['dashboard-inline-action','feature-quick-task','EventSource','BroadcastChannel'],
+  'public/profile-guestbook-enhanced.js':['guestbook-inline-composer','data-guestbook-action','/report','/blocks/'],
+  'src/worker.ts':['handlePlatformCompletionRequest','/platform-live-quick.js','/profile-guestbook-enhanced.js','/platform-completion.css']
+};
+for(const[file,needles]of Object.entries(required)){
+  const text=fs.readFileSync(file,'utf8');
+  for(const needle of needles)if(!text.includes(needle))throw new Error(`${file} missing ${needle}`);
+}
+console.log('Dashboard/profile completion static verification passed.');
