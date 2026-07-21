@@ -8,6 +8,7 @@ on:
       - 'public/**'
       - 'migrations/**'
       - '.github/workflows/verify-admin-centre-chat-tabs.yml'
+      - '.github/scripts/verify-admin-centre-chat-tabs-static.cjs'
 
 jobs:
   verify:
@@ -25,5 +26,6 @@ jobs:
           node --check public/site-shell.js
           node --check public/chat-tabs.js
           node --check public/admin-centre.js
+          node .github/scripts/verify-admin-centre-chat-tabs-static.cjs
       - name: Check migration chain locally
         run: npx wrangler d1 migrations apply grev-dad-preview --local --env pbe
