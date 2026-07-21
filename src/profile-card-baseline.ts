@@ -15,6 +15,7 @@ const COOKIE='grev_session';
 const encoder=new TextEncoder();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BATCH=100;
+const CONTRACT='profile-card-baseline-v2';
 const CARD_GRID={columns:4,maxTiles:4,maxY:7};
 const DEFAULT_CARD={
   backgroundPrimary:'#11161d',backgroundSecondary:'#3157c9',backgroundAngle:135,
@@ -146,6 +147,7 @@ export async function loadProfileCardBaselines(env:ProfileCardBaselineEnv,viewer
     const showMemberSince=bool(row.show_member_since,DEFAULT_CARD.showMemberSince)&&memberSinceVisible;
     const availability=statusVisible?String(row.availability??'offline'):'hidden';
     return {
+      contract:CONTRACT,
       id,displayName:String(row.display_name??row.username??'Member'),username:usernameVisible?String(row.username??''):null,
       isVerified:showStatus?Boolean(row.is_verified):null,isOwner:showStatus?Boolean(row.is_owner):null,isAdmin:showStatus?Boolean(row.is_admin):null,
       createdAt:showMemberSince?Number(row.created_at??0):null,
@@ -168,7 +170,8 @@ export async function loadProfileCardBaselines(env:ProfileCardBaselineEnv,viewer
         showLocation:bool(row.show_location,DEFAULT_DESIGN.showLocation)&&locationVisible,showWebsite:bool(row.show_website,DEFAULT_DESIGN.showWebsite)&&websiteVisible,
         cardTileGap:number(row.card_tile_gap,DEFAULT_DESIGN.cardTileGap),cardTileRowHeight:number(row.card_tile_row_height,DEFAULT_DESIGN.cardTileRowHeight)
       },
-      tiles:(tilesByUser.get(id)??[]).sort((a,b)=>Number(a.position)-Number(b.position)),grid:CARD_GRID,
+      cardTiles:(tilesByUser.get(id)??[]).sort((a,b)=>Number(a.position)-Number(b.position)),
+      cardTileGrid:CARD_GRID,
       presence:{availability,statusText:availability!=='hidden'&&row.status_text?String(row.status_text):null,activityType:availability!=='hidden'&&row.activity_type?String(row.activity_type):null,activityText:availability!=='hidden'&&row.activity_text?String(row.activity_text):null,updatedAt:availability!=='hidden'?Number(row.presence_updated_at??0):null}
     };
   }).sort((a,b)=>(order.get(String(a.id))??999)-(order.get(String(b.id))??999));
@@ -186,12 +189,12 @@ export async function handleProfileCardBaselineRequest(request:Request,env:Profi
     const id=decodeURIComponent(single[1]??'');
     if(!UUID_RE.test(id))return json({ok:false,message:'Profile card not found.'},404);
     const [profileCard]=await loadProfileCardBaselines(env,viewer,[id]);
-    return profileCard?json({ok:true,profileCard}):json({ok:false,message:'Profile card not found.'},404);
+    return profileCard?json({ok:true,contract:CONTRACT,profileCard}):json({ok:false,message:'Profile card not found.'},404);
   }
   if(request.method!=='POST')return json({ok:false,message:'Method not allowed.'},405);
   let body:unknown;try{body=await request.json();}catch{return json({ok:false,message:'A valid JSON request body is required.'},400);}
   const ids=body&&typeof body==='object'&&!Array.isArray(body)&&Array.isArray((body as {ids?:unknown}).ids)?(body as {ids:unknown[]}).ids.filter((value):value is string=>typeof value==='string'):[];
   if(!ids.length||ids.length>MAX_BATCH)return json({ok:false,message:`Choose between 1 and ${MAX_BATCH} profile cards.`},400);
   const cards=await loadProfileCardBaselines(env,viewer,ids);
-  return json({ok:true,cards});
+  return json({ok:true,contract:CONTRACT,cards});
 }
