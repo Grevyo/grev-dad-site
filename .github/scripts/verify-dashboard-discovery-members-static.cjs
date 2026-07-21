@@ -15,6 +15,12 @@ assert.match(dashboard,/Nothing scheduled today/);
 assert.match(dashboard,/dashboard-open-tile-picker/);
 assert.match(dashboard,/Choose a tile to add/);
 assert.match(dashboard,/renderCatalogue\(\)/);
+assert.match(dashboard,/installPickerRouting/);
+assert.match(dashboard,/scheduleSync/);
+assert.match(dashboard,/MutationObserver\(syncPickerState\)/);
+assert.match(dashboard,/dashboard:editor-opened/);
+assert.match(dashboard,/body\.append\(catalogue\)/);
+assert.doesNotMatch(dashboard,/openEditor=function discoveryOpenEditor/);
 assert.match(members,/\/api\/members/);
 assert.match(members,/Open profile/);
 assert.match(membersHtml,/id="members-grid"/);
@@ -25,4 +31,4 @@ assert.match(worker,/url\.pathname === '\/hub' \|\| url\.pathname === '\/members
 assert.match(migration,/feature-live-clock/);
 assert.match(migration,/feature-module-calendar/);
 assert.match(migration,/allowed_dimensions='3x2,4x2,4x3,5x3,6x3,6x4'/);
-console.log('Dashboard calendar, tile picker, clock catalogue and members directory integration verified.');
+console.log('Dashboard calendar, reliable tile picker, clock catalogue and members directory integration verified.');
