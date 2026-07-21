@@ -5,9 +5,20 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const password = process.env.LADMIN_BOOTSTRAP_PASSWORD ?? '';
+const targetName = (process.env.LADMIN_TARGET_ENV ?? 'pbe').toLowerCase();
+const targets = {
+  pbe: { database: 'grev-dad-preview', wranglerEnv: 'pbe' },
+  production: { database: 'grev-dad-production', wranglerEnv: 'production' }
+};
+const target = targets[targetName];
+
+if (!target) {
+  console.error('LADMIN_TARGET_ENV must be either pbe or production.');
+  process.exit(1);
+}
 
 if (!password) {
-  console.error('LADMIN_BOOTSTRAP_PASSWORD is not configured. Add the GitHub Actions repository secret before deploying PBE.');
+  console.error(`LADMIN_BOOTSTRAP_PASSWORD is not configured for ${targetName}.`);
   process.exit(1);
 }
 
@@ -18,7 +29,7 @@ if (password.length < 12) {
 
 const systemUserId = '03af6b83-ebb3-4d61-8572-f41371cb11b2';
 const iterations = 100000;
-const salt = createHash('sha256').update('grev-dad:ladmin:pbe:v1').digest().subarray(0, 16);
+const salt = createHash('sha256').update(`grev-dad:ladmin:${targetName}:v1`).digest().subarray(0, 16);
 const passwordHash = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
 const saltText = salt.toString('base64url');
 const hashText = passwordHash.toString('base64url');
@@ -99,7 +110,7 @@ INSERT INTO audit_events(
 )
 SELECT
   '${auditId}', id, 'system.ladmin_bootstrapped', 'user', id,
-  '{"environment":"pbe"}', unixepoch()
+  '${JSON.stringify({ environment: targetName })}', unixepoch()
 FROM users
 WHERE lower(username) = 'ladmin';
 `;
@@ -111,13 +122,13 @@ writeFileSync(sqlPath, sql, { encoding: 'utf8', mode: 0o600 });
 try {
   const result = spawnSync(
     'npx',
-    ['wrangler', 'd1', 'execute', 'grev-dad-preview', '--remote', '--env', 'pbe', '--file', sqlPath],
+    ['wrangler', 'd1', 'execute', target.database, '--remote', '--env', target.wranglerEnv, '--file', sqlPath],
     { stdio: 'inherit', shell: process.platform === 'win32' }
   );
 
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
-  console.log('LADMIN account is configured as the PBE Owner.');
+  console.log(`LADMIN account is configured as the ${targetName} Owner.`);
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
