@@ -1,0 +1,6 @@
+Expected checks:
+- npm run typecheck
+- browser-script syntax
+- focused static integration assertions
+- local D1 migration chain
+- Cloudflare preview deployment
