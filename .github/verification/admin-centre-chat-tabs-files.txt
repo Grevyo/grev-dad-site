@@ -1,8 +1,0 @@
-Implementation files:
-- src/admin-centre.ts
-- src/worker.ts
-- public/admin.html
-- public/admin-centre.js / .css
-- public/site-shell.js / .css
-- public/chat-tabs.js / .css
-- migrations/20260721_admin_centre_default_dashboard.sql
