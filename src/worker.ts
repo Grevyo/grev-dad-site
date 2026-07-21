@@ -7,15 +7,16 @@ import { handleProfileCustomizationHardeningRequest } from './profile-customizat
 import { handleExperienceRequest, type ExperienceEnv } from './experience';
 import { handlePlatformRequest, type PlatformEnv } from './platform';
 import { handleChatProgressionRequest, type ChatProgressionEnv } from './chat-progression';
+import { handleAdminCentreRequest, type AdminCentreEnv } from './admin-centre';
 import { applyProfilePrivacy } from './profile-privacy-hardening';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js',
-  '/admin-dashboard.js','/feature.js','/profile.css','/profile.js','/profile-card.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js',
+  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-experience.css','/profile-experience.js',
-  '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/hub.html','/hub.css','/hub.js'
+  '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/hub.html','/hub.css','/hub.js'
 ]);
 
 function workerJson(value: unknown, status = 200): Response {
@@ -41,13 +42,15 @@ export default {
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') return bundledAsset(request, env, ['/profile-customization-hardening.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/dashboard.js') return bundledAsset(request, env, ['/dashboard-experience.js','/platform-dashboard.js','/dashboard-advanced.js','/dashboard-collaboration.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/dashboard.css') return bundledAsset(request, env, ['/dashboard-experience.css','/platform-dashboard.css','/dashboard-advanced.css','/dashboard-collaboration.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') return bundledAsset(request, env, ['/profile-editor-unified-a11y.js','/profile-experience.js','/platform-profile.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.css') return bundledAsset(request, env, ['/profile-experience.css','/platform-profile.css','/site-platform.css','/profile-card-popover.css','/chat-ui.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/admin.js') return bundledAsset(request, env, ['/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/app.js') return bundledAsset(request, env, ['/site-platform.js','/profile-card-popover.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/styles.css') return bundledAsset(request, env, ['/site-platform.css','/profile-card-popover.css','/chat-ui.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/hub.js') return bundledAsset(request, env, ['/site-platform.js','/chat-ui.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/hub.css') return bundledAsset(request, env, ['/site-platform.css','/chat-ui.css'], 'text/css; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') return bundledAsset(request, env, ['/profile-editor-unified-a11y.js','/profile-experience.js','/platform-profile.js','/site-shell.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js','/chat-tabs.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.css') return bundledAsset(request, env, ['/profile-experience.css','/platform-profile.css','/site-shell.css','/site-platform.css','/profile-card-popover.css','/chat-ui.css','/chat-tabs.css'], 'text/css; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/admin.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js','/chat-tabs.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/admin-dashboard.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js','/chat-tabs.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/feature.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js','/chat-tabs.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/app.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js','/profile-card-popover.js','/chat-ui.js','/chat-tabs.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/styles.css') return bundledAsset(request, env, ['/site-shell.css','/site-platform.css','/profile-card-popover.css','/chat-ui.css','/chat-tabs.css'], 'text/css; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/hub.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js','/chat-ui.js','/chat-tabs.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/hub.css') return bundledAsset(request, env, ['/site-shell.css','/site-platform.css','/chat-ui.css','/chat-tabs.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && (DASHBOARD_ASSETS.has(url.pathname) || url.pathname.startsWith('/achievement-badges/'))) return (env as unknown as DashboardEnv).ASSETS.fetch(request);
     if (request.method === 'GET' && url.pathname === '/hub') {
       const sessionRequest = new Request(new URL('/api/auth/session', url).toString(), request);
@@ -58,6 +61,9 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/onboarding/intentions') {
       try { const payload = await request.clone().json() as { intentionIds?: unknown }; if (Array.isArray(payload.intentionIds)) { const normalized=[...new Set(payload.intentionIds.filter((value):value is string=>typeof value==='string').map(value=>value.trim()).filter(Boolean))]; if (!normalized.length) return invalidIntentionsResponse(); } } catch {}
     }
+
+    try { const response = await handleAdminCentreRequest(request, env as unknown as AdminCentreEnv); if (response) return response; }
+    catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Admin centre request failed',error); return workerJson({ok:false,message:'The admin centre request could not be completed.'},500); }
 
     try { const response = await handleChatProgressionRequest(request, env as unknown as ChatProgressionEnv); if (response) return response; }
     catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Chat/progression request failed',error); return workerJson({ok:false,message:'The chat or progression request could not be completed.'},500); }
