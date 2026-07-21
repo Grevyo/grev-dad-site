@@ -31,7 +31,7 @@
       card:member.profile?.card,
       design:member.profile?.design
     };
-    const article=window.GrevProfileCard.create(profile,{className:'member-profile-card',compact:true});
+    const article=window.GrevProfileCard.create(profile,{className:'member-profile-card',variant:'directory'});
     article.dataset.memberId=member.id;
 
     const footer=document.createElement('footer');footer.className='member-profile-card-footer';

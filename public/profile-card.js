@@ -1,4 +1,6 @@
 (() => {
+  if (window.GrevProfileCard?.contractVersion >= 2) return;
+
   const statusText = profile => profile.isOwner ? 'Owner' : (profile.isAdmin ? 'Administrator' : (profile.isVerified ? 'Verified member' : 'Member'));
 
   const DEFAULT_DESIGN = {
@@ -31,27 +33,31 @@
     return value ? `url("${String(value).replaceAll('"', '\\"')}")` : 'none';
   }
 
-  function applyMedia(element, value) {
+  function applyMedia(element, value, kind = 'cover') {
     if (!element) return;
     element.style.backgroundImage = value ? imageCss(value) : '';
+    element.style.backgroundSize = kind === 'avatar' ? 'contain' : 'cover';
+    element.style.backgroundPosition = 'center';
+    element.style.backgroundRepeat = 'no-repeat';
     element.classList.toggle('has-media', Boolean(value));
   }
 
   function apply(root, profile) {
     if (!root || !profile?.card) return;
     const card = profile.card;
-    root.style.setProperty('--profile-card-primary', card.backgroundPrimary);
-    root.style.setProperty('--profile-card-secondary', card.backgroundSecondary);
-    root.style.setProperty('--profile-card-angle', `${card.backgroundAngle}deg`);
-    root.style.setProperty('--profile-card-text', card.textColour);
-    root.style.setProperty('--profile-card-border', card.borderColour);
+    root.dataset.profileCardContract = '2';
+    root.style.setProperty('--profile-card-primary', card.backgroundPrimary || '#11161d');
+    root.style.setProperty('--profile-card-secondary', card.backgroundSecondary || '#3157c9');
+    root.style.setProperty('--profile-card-angle', `${card.backgroundAngle ?? 135}deg`);
+    root.style.setProperty('--profile-card-text', card.textColour || '#f4f7fb');
+    root.style.setProperty('--profile-card-border', card.borderColour || '#526074');
 
     const cover = root.querySelector('[data-profile-cover]');
-    applyMedia(cover, card.coverMedia);
+    applyMedia(cover, card.coverMedia, 'cover');
 
     const avatar = root.querySelector('[data-profile-avatar]');
     if (avatar) {
-      applyMedia(avatar, card.avatarMedia);
+      applyMedia(avatar, card.avatarMedia, 'avatar');
       avatar.textContent = card.avatarMedia ? '' : initials(card.displayName);
       avatar.setAttribute('aria-label', `${card.displayName} profile picture`);
     }
@@ -112,22 +118,29 @@
   function applyDesign(root, profile, value = {}, options = {}) {
     if (!root || !profile?.card) return;
     const design = { ...DEFAULT_DESIGN, ...(value && typeof value === 'object' ? value : {}) };
-    const compact = options.compact === true;
-    const scale = compact ? 0.72 : 1;
-    const coverHeight = compact ? Math.min(170, Math.round(Number(design.coverHeight || 0) * scale)) : Number(design.coverHeight || 0);
-    const avatarSize = compact ? Math.max(72, Math.min(112, Math.round(Number(design.avatarSize || 132) * scale))) : Number(design.avatarSize || 132);
-    const cardPadding = compact ? Math.max(14, Math.min(24, Math.round(Number(design.cardPadding || 28) * scale))) : Number(design.cardPadding || 28);
+    const variant = options.variant || (options.compact === true ? 'directory' : 'full');
+    const coverHeight = Number(design.coverHeight || 0);
+    const coverVisible = design.showCover !== false && coverHeight > 0;
+    const avatarVisible = design.showAvatar !== false;
 
+    root.dataset.profileCardContract = '2';
+    root.dataset.cardVariant = variant;
     root.dataset.cardWidth = design.cardWidth;
     root.dataset.cardAlignment = design.cardAlignment;
     root.dataset.cardSurface = design.cardSurface;
-    root.dataset.cardShadow = design.cardShadow;
-    root.style.setProperty('--profile-card-cover-height', `${coverHeight}px`);
-    root.style.setProperty('--profile-card-avatar-size', `${avatarSize}px`);
-    root.style.setProperty('--profile-card-padding', `${cardPadding}px`);
-    root.style.setProperty('--profile-card-border-width', `${Number(design.cardBorderWidth ?? 1)}px`);
-    root.style.marginLeft = design.cardAlignment === 'left' ? '0' : 'auto';
-    root.style.marginRight = 'auto';
+    root.dataset.cardShadow = variant === 'popover' ? 'none' : design.cardShadow;
+    root.dataset.cardCoverVisible = String(coverVisible);
+    root.dataset.cardAvatarVisible = String(avatarVisible);
+    root.dataset.cardCoverHeight = coverHeight > 0 ? String(coverHeight) : '0';
+
+    if (variant === 'full') {
+      root.style.setProperty('--profile-card-cover-height', `${Math.max(0, coverHeight)}px`);
+      root.style.setProperty('--profile-card-avatar-size', `${Math.max(72, Number(design.avatarSize || 132))}px`);
+      root.style.setProperty('--profile-card-padding', `${Math.max(12, Number(design.cardPadding || 28))}px`);
+      root.style.setProperty('--profile-card-border-width', `${Math.max(0, Number(design.cardBorderWidth ?? 1))}px`);
+      root.style.marginLeft = design.cardAlignment === 'left' ? '0' : 'auto';
+      root.style.marginRight = 'auto';
+    }
 
     const card = profile.card;
     if (design.cardSurface === 'cover' && card.coverMedia) {
@@ -146,9 +159,9 @@
       if (element) element.hidden = !allowed || !content;
     };
     const cover = root.querySelector('[data-profile-cover]');
-    if (cover) cover.hidden = !design.showCover || coverHeight === 0;
+    if (cover) cover.hidden = !coverVisible;
     const avatar = root.querySelector('[data-profile-avatar]');
-    if (avatar) avatar.hidden = !design.showAvatar;
+    if (avatar) avatar.hidden = !avatarVisible;
     visible('[data-profile-headline]', design.showHeadline, card.headline);
     visible('[data-profile-bio]', design.showBio, card.bio);
     visible('[data-profile-location]', design.showLocation, card.location);
@@ -182,7 +195,7 @@
     return root;
   }
 
-  window.GrevProfileCard = { apply, applyDesign, create, initials, statusText };
+  window.GrevProfileCard = { contractVersion: 2, apply, applyDesign, create, initials, statusText };
 
   document.addEventListener('DOMContentLoaded', () => {
     if (typeof validProfilePlacement !== 'function' || typeof selectedTile !== 'function') return;
