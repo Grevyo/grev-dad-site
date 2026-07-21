@@ -12,6 +12,7 @@
     <nav class="global-site-nav" aria-label="Main navigation">
       <a class="header-link${active('/dashboard')}" href="/dashboard">Dashboard</a>
       <a id="global-content-hub-link" class="header-link${active('/hub')}" href="/hub">Content</a>
+      <a id="global-members-link" class="header-link${active('/members')}" href="/members">Members</a>
       <a id="profile-link" class="header-link${active('/profile')}" href="/profile">My profile</a>
       <a class="header-link${active('/settings')}" href="/settings">Settings</a>
       <a id="admin-link" class="header-link${active('/admin')}" href="/admin" hidden>Admin centre</a>
