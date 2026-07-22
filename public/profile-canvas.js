@@ -11,6 +11,7 @@
   let gridObserver = null;
   let lastGeometry = '';
   let tileMode = false;
+  let tileRoutingInstalled = false;
 
   function overlaps(a, b) {
     return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -203,7 +204,8 @@
         <button type="button" data-profile-canvas-add="link"><strong>Link</strong><span>A clickable shortcut to a website or page.</span></button>
         <button type="button" data-profile-canvas-add="media"><strong>Picture / GIF</strong><span>A visual tile using an uploaded image.</span></button>
         <button type="button" data-profile-canvas-add="stat"><strong>Stat</strong><span>A large value with a label and explanation.</span></button>
-      </div>`;
+      </div>
+      <div class="profile-tile-customizer-message" data-profile-tile-message-slot></div>`;
     const message = document.querySelector('#profile-message');
     if (message) message.insertAdjacentElement('afterend', toolbar);
     else document.querySelector('.profile-shell')?.prepend(toolbar);
@@ -229,7 +231,7 @@
     });
     toolbar.querySelectorAll('[data-profile-canvas-add]').forEach(button => {
       button.addEventListener('click', () => {
-        if (typeof profileTileDefaults !== 'function' || !profileState?.working) return;
+        if (typeof profileTileDefaults !== 'function' || typeof profileState === 'undefined' || !profileState.working) return;
         const type = button.dataset.profileCanvasAdd;
         const tile = profileTileDefaults(type);
         profileState.working.tiles.push(tile);
@@ -240,6 +242,18 @@
       });
     });
     return toolbar;
+  }
+
+  function mountTileMessage() {
+    const message = document.querySelector('#profile-editor-message');
+    const slot = tileToolbar().querySelector('[data-profile-tile-message-slot]');
+    if (message && slot && message.parentElement !== slot) slot.append(message);
+  }
+
+  function restoreUnifiedMessage() {
+    const message = document.querySelector('#profile-editor-message');
+    const slot = document.querySelector('#profile-unified-editor [data-unified-message-slot]');
+    if (message && slot && message.parentElement !== slot) slot.append(message);
   }
 
   function syncTileModeUi() {
@@ -257,6 +271,7 @@
     const picker = document.querySelector('[data-profile-tile-picker]');
     if (picker) picker.hidden = true;
     closeUnifiedPanel();
+    restoreUnifiedMessage();
     syncTileModeUi();
   }
 
@@ -289,6 +304,7 @@
     tileMode = true;
     document.body.classList.add('profile-tile-customizing');
     tileToolbar();
+    mountTileMessage();
     if (!profileState.editing && typeof enterProfileEditor === 'function') enterProfileEditor();
     queueMicrotask(closeUnifiedPanel);
     requestAnimationFrame(() => {
@@ -301,11 +317,10 @@
   }
 
   function installTileModeRouting() {
+    if (tileRoutingInstalled) return;
+    tileRoutingInstalled = true;
     const customize = document.querySelector('#profile-customize-tiles');
-    if (customize && customize.dataset.tileCustomizerBound !== 'true') {
-      customize.dataset.tileCustomizerBound = 'true';
-      customize.addEventListener('click', enterTileMode);
-    }
+    if (customize) customize.addEventListener('click', enterTileMode);
 
     document.addEventListener('click', event => {
       if (!tileMode) return;
@@ -319,6 +334,14 @@
     window.addEventListener('keydown', event => {
       const panel = document.querySelector('#profile-unified-editor');
       if (!tileMode || !panel?.open || event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeUnifiedPanel();
+    }, true);
+
+    window.addEventListener('pointerup', event => {
+      const panel = document.querySelector('#profile-unified-editor');
+      if (!tileMode || !panel?.open || event.target !== panel) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       closeUnifiedPanel();
@@ -354,18 +377,6 @@
     requestAnimationFrame(syncCanvasGeometry);
   }
 
-  initialise();
-  document.addEventListener('DOMContentLoaded', () => {
-    installPlacementGuard();
-    installGridRenderer();
-    installLeaveHook();
-    installProfileRendererHook();
-    installTileModeRouting();
-    updateCanvasCopy();
-    syncTileModeUi();
-    requestAnimationFrame(syncCanvasGeometry);
-  }, { once: true });
-
   window.GrevProfileCanvas = {
     cardFootprint: lockedCardFootprint,
     overlapsLockedCard,
@@ -373,4 +384,7 @@
     syncCanvasGeometry,
     enterTileMode
   };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialise, { once: true });
+  else initialise();
 })();
