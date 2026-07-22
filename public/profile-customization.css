@@ -10,7 +10,7 @@ body[data-profile-page-background="media"]>header,body[data-profile-page-backgro
 .profile-card{width:100%;max-width:none;border-width:var(--profile-card-border-width,1px);box-sizing:border-box}
 .profile-card[data-card-width="compact"]{width:min(100%,900px)}
 .profile-card[data-card-width="wide"]{width:min(100%,1200px)}
-.profile-card[data-card-width="full"]{width:100%}
+.profile-card[data-card-width="full"]{width:min(100%,1440px)}
 .profile-card[data-card-shadow="none"]{box-shadow:none}
 .profile-card[data-card-shadow="small"]{box-shadow:5px 5px 0 #000}
 .profile-card[data-card-shadow="large"]{box-shadow:10px 10px 0 #000}
@@ -49,6 +49,9 @@ body[data-profile-page-background="media"]>header,body[data-profile-page-backgro
   .profile-card-quick-actions{justify-content:flex-start}
   .profile-design-checks{grid-template-columns:repeat(2,minmax(0,1fr))}
   .profile-three-column{grid-template-columns:1fr}
+  .profile-card-scale-source .profile-card-main{grid-template-columns:var(--profile-card-avatar-size) minmax(0,1fr);gap:clamp(12px,2vw,22px);padding:0 var(--profile-card-padding,28px) var(--profile-card-padding,28px)}
+  .profile-card-scale-source .profile-card-tile-area{padding-right:var(--profile-card-padding,28px);padding-bottom:var(--profile-card-padding,28px);padding-left:var(--profile-card-padding,28px)}
+  .profile-card-scale-source .profile-card-avatar{width:var(--profile-card-avatar-size,132px);height:var(--profile-card-avatar-size,132px);margin-top:calc(var(--profile-card-avatar-size,132px) * -.39)}
 }
 @media(max-width:560px){
   .profile-card-main{grid-template-columns:1fr}
@@ -56,4 +59,7 @@ body[data-profile-page-background="media"]>header,body[data-profile-page-backgro
   .profile-card-name-row{align-items:flex-start;flex-direction:column}
   .profile-card-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .profile-design-checks{grid-template-columns:1fr}
+  .profile-card-scale-source .profile-card-main{grid-template-columns:var(--profile-card-avatar-size) minmax(0,1fr)}
+  .profile-card-scale-source .profile-card-avatar{margin-top:calc(var(--profile-card-avatar-size,132px) * -.39)}
+  .profile-card-scale-source .profile-card-name-row{align-items:flex-start;flex-direction:row}
 }
