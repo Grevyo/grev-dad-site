@@ -15,12 +15,13 @@ import { handleAdminCentreRequest, type AdminCentreEnv } from './admin-centre';
 import { handleFeedbackCentreRequest, type FeedbackCentreEnv } from './feedback-centre';
 import { handleMembersRequest, type MembersEnv } from './members';
 import { handleGrevNewsRequest, refreshGrevNewsSources, type GrevNewsEnv } from './grev-news';
+import { handleGrevNewsSubscriptionsRequest, type GrevNewsSubscriptionsEnv } from './grev-news-subscriptions';
 import { applyProfilePrivacy } from './profile-privacy-hardening';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
-  '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-discovery.css','/dashboard-discovery.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js','/platform-completion.css','/platform-live-quick.js','/dashboard-freeze-fix.js','/editor-guidance.css','/editor-guidance.js',
+  '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-discovery.css','/dashboard-discovery.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js','/platform-completion.css','/platform-live-quick.js','/dashboard-freeze-fix.js','/dashboard-news-subscriptions.css','/dashboard-news-subscriptions.js','/editor-guidance.css','/editor-guidance.js',
   '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js','/profile-tile-save-fix.js',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-editor-focus.css','/profile-editor-focus.js','/profile-experience.css','/profile-experience.js','/profile-guestbook-enhanced.js',
   '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js',
@@ -52,8 +53,8 @@ export default {
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') return bundledAsset(request, env, ['/profile-customization-hardening.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.js') return bundledAsset(request, env, ['/profile-card-baseline.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.css') return bundledAsset(request, env, ['/profile-card-baseline.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/dashboard.js') return bundledAsset(request, env, ['/dashboard-experience.js','/platform-dashboard.js','/dashboard-discovery.js','/dashboard-advanced.js','/dashboard-collaboration.js','/platform-live-quick.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/dashboard.css') return bundledAsset(request, env, ['/dashboard-experience.css','/platform-dashboard.css','/dashboard-discovery.css','/dashboard-advanced.css','/dashboard-collaboration.css','/platform-completion.css','/feedback-centre.css'], 'text/css; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/dashboard.js') return bundledAsset(request, env, ['/dashboard-experience.js','/platform-dashboard.js','/dashboard-discovery.js','/dashboard-advanced.js','/dashboard-collaboration.js','/platform-live-quick.js','/feedback-centre.js','/dashboard-news-subscriptions.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/dashboard.css') return bundledAsset(request, env, ['/dashboard-experience.css','/platform-dashboard.css','/dashboard-discovery.css','/dashboard-advanced.css','/dashboard-collaboration.css','/platform-completion.css','/feedback-centre.css','/dashboard-news-subscriptions.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') return bundledAsset(request, env, ['/profile-canvas.js','/profile-editor-unified-a11y.js','/profile-experience.js','/platform-profile.js','/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/platform-live-quick.js','/profile-guestbook-enhanced.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-editor-unified.css') return bundledAsset(request, env, ['/profile-experience.css','/platform-profile.css','/site-shell.css','/site-platform.css',...PROFILE_CARD_CSS,'/chat-ui.css','/chat-tabs.css','/platform-completion.css','/feedback-centre.css','/profile-canvas.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/admin.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
@@ -79,6 +80,8 @@ export default {
       try { const payload = await request.clone().json() as { intentionIds?: unknown }; if (Array.isArray(payload.intentionIds)) { const normalized=[...new Set(payload.intentionIds.filter((value):value is string=>typeof value==='string').map(value=>value.trim()).filter(Boolean))]; if (!normalized.length) return invalidIntentionsResponse(); } } catch {}
     }
 
+    try { const response = await handleGrevNewsSubscriptionsRequest(request, env as unknown as GrevNewsSubscriptionsEnv); if (response) return response; }
+    catch (error) { console.error('Grev News subscriptions request failed', error); return workerJson({ ok:false, message:'Your news subscriptions could not be loaded.' }, 500); }
     try { const response = await handleGrevNewsRequest(request, env as unknown as GrevNewsEnv); if (response) return response; }
     catch (error) { console.error('Grev News request failed', error); return workerJson({ ok:false, message:'Grev News could not be loaded.' }, 500); }
     try { const response = await handleProfileCardBaselineRequest(request, env as unknown as ProfileCardBaselineEnv); if (response) return response; }
