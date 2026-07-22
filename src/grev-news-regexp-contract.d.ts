@@ -1,6 +1,8 @@
 // Grev News feed parsers only use regular expressions whose first three capture groups are required by the pattern.
-// This keeps noUncheckedIndexedAccess enabled project-wide while accurately typing those parser captures.
+// Preserve the native match metadata while keeping noUncheckedIndexedAccess enabled project-wide.
+type GrevNewsRequiredMatch = RegExpMatchArray & [string, string, string, string, ...string[]];
+type GrevNewsRequiredExec = RegExpExecArray & [string, string, string, string, ...string[]];
 interface String {
-  match(regexp: RegExp): [string, string, string, string, ...string[]] | null;
-  matchAll(regexp: RegExp): IterableIterator<[string, string, string, string, ...string[]]>;
+  match(regexp: RegExp): GrevNewsRequiredMatch | null;
+  matchAll(regexp: RegExp): IterableIterator<GrevNewsRequiredExec>;
 }
