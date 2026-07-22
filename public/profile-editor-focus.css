@@ -1,0 +1,69 @@
+.profile-unified-editor[data-focus-editor="true"]{width:min(980px,calc(100vw - 32px));height:min(820px,calc(var(--profile-visible-height,100dvh) - 28px));max-height:calc(var(--profile-visible-height,100dvh) - 28px);grid-template-rows:auto minmax(0,1fr) auto}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-header{align-items:center;padding:14px 16px}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-header h2{margin:2px 0 3px;font-size:1.35rem}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-header p:not(.eyebrow){max-width:620px;font-size:.72rem}
+.profile-unified-editor[data-focus-editor="true"] [data-unified-close]{display:grid;place-items:center;width:42px;min-width:42px;height:42px;min-height:42px;padding:0;font-size:1.65rem;line-height:1}
+.profile-unified-editor[data-focus-editor="true"]>.profile-unified-tabs{display:none!important}
+.profile-focus-shell{display:grid;grid-template-columns:210px minmax(0,1fr);min-width:0;min-height:0;overflow:hidden}
+.profile-focus-nav{display:flex;min-width:0;min-height:0;flex-direction:column;gap:6px;padding:12px;border-right:1px solid var(--line-strong);background:#090d12;overflow-y:auto;overscroll-behavior:contain}
+.profile-focus-nav button{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:10px;min-width:0;min-height:56px;padding:9px 10px;border:1px solid transparent;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.profile-focus-nav button:hover{border-color:var(--line-strong);background:#111720}
+.profile-focus-nav button.is-active{border-color:#eef3fa;background:#eef3fa;color:#090b0f;box-shadow:4px 4px 0 #000}
+.profile-focus-nav button>b{display:grid;place-items:center;width:28px;height:28px;border:1px solid currentColor;font-size:.7rem}
+.profile-focus-nav button>span{display:grid;min-width:0;gap:2px}
+.profile-focus-nav button strong,.profile-focus-nav button small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-focus-nav button strong{font-size:.78rem}
+.profile-focus-nav button small{color:var(--muted);font-size:.61rem}
+.profile-focus-nav button.is-active small{color:#3e4857}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-body{padding:0 20px 22px;scroll-padding-block:92px 120px}
+.profile-focus-current{position:sticky;z-index:8;top:0;display:grid;gap:3px;margin:0 -20px 16px;padding:14px 20px 13px;border-bottom:1px solid var(--line-strong);background:#0b0f14}
+.profile-focus-current>span{color:var(--accent-strong);font-size:.62rem;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+.profile-focus-current h3{margin:0;font-size:1.25rem;line-height:1.1}
+.profile-focus-current p{max-width:680px;margin:0;color:var(--muted);font-size:.7rem;line-height:1.45}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-section{gap:12px}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-section-intro,.profile-unified-editor[data-focus-editor="true"] .guided-dialog-tabs,.profile-unified-editor[data-focus-editor="true"] .profile-editor-inline-dialog>.profile-dialog-heading{display:none!important}
+.profile-unified-editor[data-focus-editor="true"] .profile-editor-inline-dialog[open]{display:block}
+.profile-unified-editor[data-focus-editor="true"] .profile-dialog-body{gap:10px;padding:0}
+.profile-unified-editor[data-focus-editor="true"] .profile-settings-section,.profile-unified-editor[data-focus-editor="true"] .card-tile-dialog-section{gap:10px;padding:14px;border:1px solid var(--line-strong);background:#10161e}
+.profile-unified-editor[data-focus-editor="true"] .profile-settings-section h3,.profile-unified-editor[data-focus-editor="true"] .card-tile-dialog-section h3{margin:0 0 2px;font-size:.92rem}
+.profile-unified-editor[data-focus-editor="true"] .profile-settings-section>label,.profile-unified-editor[data-focus-editor="true"] .card-tile-dialog-section>label{display:grid;gap:6px}
+.profile-unified-editor[data-focus-editor="true"] .profile-four-column{grid-template-columns:repeat(2,minmax(0,1fr))}
+.profile-unified-editor[data-focus-editor="true"] .profile-three-column{grid-template-columns:repeat(2,minmax(0,1fr))}
+.profile-unified-editor[data-focus-editor="true"] .profile-check-grid,.profile-unified-editor[data-focus-editor="true"] .profile-design-checks{grid-template-columns:repeat(2,minmax(0,1fr))}
+.profile-unified-editor[data-focus-editor="true"] .profile-upload{min-height:84px;padding:12px}
+.profile-unified-editor[data-focus-editor="true"] .profile-media-actions{display:flex;gap:8px;flex-wrap:wrap}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-existing-tiles{padding:12px}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-existing-list{grid-template-columns:1fr}
+.profile-unified-editor[data-focus-editor="true"] #profile-card-tile-editor,.profile-unified-editor[data-focus-editor="true"] #profile-catalogue{gap:8px}
+.profile-unified-editor[data-focus-editor="true"] .profile-card-tile-add{grid-template-columns:repeat(3,minmax(0,1fr))}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-footer{gap:8px;padding:10px 14px}
+.profile-focus-footer-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.profile-focus-footer-navigation{display:flex;gap:8px}
+.profile-focus-footer-navigation button{min-width:92px}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-save-actions{display:flex;grid-template-columns:none;gap:8px}
+.profile-unified-editor[data-focus-editor="true"] .profile-unified-save-actions button{min-width:120px}
+.profile-unified-editor[data-focus-editor="true"] [data-unified-message-slot]:empty{display:none}
+.profile-unified-editor[data-focus-editor="true"] #design-reset{justify-self:start}
+@media(max-width:760px){
+  .profile-unified-editor[data-focus-editor="true"]{width:calc(100vw - 12px);height:calc(var(--profile-visible-height,100dvh) - 12px);max-height:calc(var(--profile-visible-height,100dvh) - 12px);box-shadow:4px 4px 0 #000}
+  .profile-unified-editor[data-focus-editor="true"] .profile-unified-header{padding:11px 12px}
+  .profile-unified-editor[data-focus-editor="true"] .profile-unified-header p:not(.eyebrow){display:none}
+  .profile-focus-shell{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .profile-focus-nav{display:flex;flex-direction:row;gap:6px;padding:8px;border-right:0;border-bottom:1px solid var(--line-strong);overflow-x:auto;overflow-y:hidden}
+  .profile-focus-nav button{grid-template-columns:24px minmax(94px,1fr);min-width:150px;min-height:48px;padding:7px 8px}
+  .profile-focus-nav button>b{width:24px;height:24px}
+  .profile-focus-nav button small{display:none}
+  .profile-unified-editor[data-focus-editor="true"] .profile-unified-body{padding:0 12px 16px}
+  .profile-focus-current{margin:0 -12px 12px;padding:11px 12px}
+  .profile-unified-editor[data-focus-editor="true"] .profile-two-column,.profile-unified-editor[data-focus-editor="true"] .profile-three-column,.profile-unified-editor[data-focus-editor="true"] .profile-four-column,.profile-unified-editor[data-focus-editor="true"] .profile-check-grid,.profile-unified-editor[data-focus-editor="true"] .profile-design-checks,.profile-unified-editor[data-focus-editor="true"] .card-tile-two,.profile-unified-editor[data-focus-editor="true"] .card-tile-three,.profile-unified-editor[data-focus-editor="true"] .card-tile-four{grid-template-columns:1fr!important}
+  .profile-unified-editor[data-focus-editor="true"] .profile-card-tile-add{grid-template-columns:1fr}
+  .profile-focus-footer-row{align-items:stretch;flex-direction:column}
+  .profile-focus-footer-navigation,.profile-unified-editor[data-focus-editor="true"] .profile-unified-save-actions{display:grid;grid-template-columns:1fr 1fr}
+  .profile-focus-footer-navigation button,.profile-unified-editor[data-focus-editor="true"] .profile-unified-save-actions button{min-width:0}
+}
+@media(max-width:430px){
+  .profile-unified-editor[data-focus-editor="true"] .profile-unified-header h2{font-size:1.15rem}
+  .profile-focus-nav button{min-width:126px}
+  .profile-focus-current h3{font-size:1.1rem}
+  .profile-unified-editor[data-focus-editor="true"] .profile-settings-section,.profile-unified-editor[data-focus-editor="true"] .card-tile-dialog-section{padding:11px}
+}
