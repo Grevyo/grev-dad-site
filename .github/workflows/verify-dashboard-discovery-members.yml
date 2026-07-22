@@ -4,15 +4,28 @@ on:
   pull_request:
     paths:
       - 'src/members.ts'
+      - 'src/grev-news.ts'
+      - 'src/grev-news-regexp-contract.d.ts'
       - 'src/worker.ts'
       - 'public/dashboard-discovery.js'
       - 'public/dashboard-discovery.css'
       - 'public/members.html'
       - 'public/members.js'
       - 'public/members.css'
+      - 'public/news.html'
+      - 'public/news.js'
+      - 'public/news.css'
+      - 'public/admin-news.html'
+      - 'public/admin-news.js'
+      - 'public/admin-news.css'
+      - 'public/grev-dad-logo.svg'
       - 'public/site-shell.js'
+      - 'public/site-shell.css'
+      - 'wrangler.jsonc'
       - 'migrations/20260721_dashboard_calendar_clock_members.sql'
+      - 'migrations/20260722_grev_news.sql'
       - '.github/scripts/verify-dashboard-discovery-members-static.cjs'
+      - '.github/scripts/verify-grev-news-static.cjs'
       - '.github/workflows/verify-dashboard-discovery-members.yml'
 
 permissions:
@@ -32,6 +45,8 @@ jobs:
         run: npm run typecheck
       - name: Check browser bundles and integration
         run: node .github/scripts/verify-dashboard-discovery-members-static.cjs
+      - name: Check Grev News and branding
+        run: node .github/scripts/verify-grev-news-static.cjs
       - name: Check migration chain locally
         run: npx wrangler d1 migrations apply grev-dad-dev --local
       - name: Build Worker bundle

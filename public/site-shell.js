@@ -8,9 +8,10 @@
   const active=href=>path===href||path.startsWith(`${href}/`)?' active':'';
   header.className='global-site-header';
   header.innerHTML=`
-    <a class="global-site-brand" href="/dashboard" aria-label="Grev.dad dashboard"><strong data-site-title>Grev.dad</strong><small data-site-environment></small></a>
+    <a class="global-site-brand" href="/dashboard" aria-label="Grev.dad dashboard"><img src="/grev-dad-logo.svg" alt="Grev.dad"><strong class="global-site-brand-title" data-site-title>Grev.dad</strong><small data-site-environment></small></a>
     <nav class="global-site-nav" aria-label="Main navigation">
       <a class="header-link${active('/dashboard')}" href="/dashboard">Dashboard</a>
+      <a id="global-news-link" class="header-link${active('/news')}" href="/news">Grev News</a>
       <a id="global-content-hub-link" class="header-link${active('/hub')}" href="/hub">Content</a>
       <a id="global-members-link" class="header-link${active('/members')}" href="/members">Members</a>
       <a id="profile-link" class="header-link${active('/profile')}" href="/profile">My profile</a>
@@ -31,8 +32,8 @@
     tabs=document.createElement('nav');
     tabs.className='admin-global-tabs';
     tabs.setAttribute('aria-label','Admin centre sections');
-    const links=[['overview','Overview'],['accounts','Accounts'],['default-dashboard','Default dashboard'],['features','Dashboard features'],['groups','Groups & access'],['chat','Chat & communities'],['progression','Achievements & XP'],['settings','Settings & audit']];
-    for(const[id,label]of links){const link=document.createElement('a');link.href=id==='features'?'/admin/dashboard':`/admin#${id}`;link.textContent=label;if((id==='features'&&path==='/admin/dashboard')||(path==='/admin'&&(location.hash.slice(1)||'overview')===id))link.classList.add('active');tabs.append(link);}
+    const links=[['overview','Overview'],['accounts','Accounts'],['default-dashboard','Default dashboard'],['features','Dashboard features'],['news','Grev News'],['groups','Groups & access'],['chat','Chat & communities'],['progression','Achievements & XP'],['settings','Settings & audit']];
+    for(const[id,label]of links){const link=document.createElement('a');link.href=id==='features'?'/admin/dashboard':id==='news'?'/admin/news':`/admin#${id}`;link.textContent=label;if((id==='features'&&path==='/admin/dashboard')||(id==='news'&&path==='/admin/news')||(path==='/admin'&&(location.hash.slice(1)||'overview')===id))link.classList.add('active');tabs.append(link);}
     header.insertAdjacentElement('afterend',tabs);
   }
 
@@ -46,7 +47,9 @@
       if(!session.authenticated||!session.user){header.innerHTML=original;header.className='';header.dataset.globalShell='false';return;}
       const user=session.user;
       const settings=settingsResponse.ok?(await settingsResponse.json()).settings:null;
-      header.querySelector('[data-site-title]').textContent=settings?.siteTitle||'Grev.dad';
+      const title=settings?.siteTitle||'Grev.dad';
+      header.querySelector('[data-site-title]').textContent=title;
+      const logo=header.querySelector('.global-site-brand img');if(logo)logo.alt=title;
       document.querySelector('#admin-link').hidden=!user.isAdmin;
       document.querySelector('#profile-link').href=`/profile/${encodeURIComponent(user.id)}`;
       const badge=document.querySelector('#badge');

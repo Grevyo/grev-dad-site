@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grev News · Admin centre</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin-news.css">
+</head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/admin">Admin centre</a><button id="logout">Log out</button></div></header>
+<main class="admin-news-shell">
+<section class="admin-news-heading"><div><p class="eyebrow">Admin centre</p><h1>Grev News</h1><p>Publish original Grev.dad stories and manage approved automatic CS2 sources.</p></div><div class="admin-news-heading-actions"><a href="/news">View Grev News</a><button id="news-import-all" type="button">Import all now</button></div></section>
+<p id="admin-news-message" class="admin-news-message" role="status">Loading newsroom…</p>
+<nav class="admin-news-tabs" aria-label="Grev News admin sections"><button class="active" data-news-tab="posts">Posts</button><button data-news-tab="sources">Automatic sources</button><button data-news-tab="history">Import history</button></nav>
+<section data-news-panel="posts">
+<div class="admin-news-layout">
+<form id="news-post-form" class="admin-news-form">
+<input id="news-post-id" type="hidden">
+<div class="form-heading"><div><p class="eyebrow">Manual publishing</p><h2 id="news-post-form-title">Create news post</h2></div><button id="news-post-reset" type="button">Clear</button></div>
+<label>Headline<input id="news-post-title" required maxlength="180"></label>
+<label>Summary<textarea id="news-post-summary" maxlength="800" rows="4"></textarea></label>
+<label>Full Grev News text<textarea id="news-post-body" maxlength="12000" rows="8"></textarea></label>
+<div class="two"><label>Category<select id="news-post-category"><option value="grev">Grev.dad</option><option value="cs2">CS2</option><option value="team">Teams</option><option value="site">Site updates</option><option value="community">Community</option></select></label><label>Status<select id="news-post-status"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label></div>
+<label>Team tags <small>Comma-separated; used by the public team filter.</small><input id="news-post-teams" placeholder="NAVI, Vitality, Spirit"></label>
+<div class="two"><label>Source name<input id="news-post-source-name" maxlength="120" placeholder="HLTV, Liquipedia, Grev News"></label><label>Source link<input id="news-post-source-url" type="url" placeholder="https://"></label></div>
+<label>Image link<input id="news-post-image-url" type="url" placeholder="https://"></label>
+<label class="check"><input id="news-post-featured" type="checkbox"> Feature this story at the top</label>
+<button class="primary" type="submit">Save news post</button>
+</form>
+<section><div class="list-heading"><div><p class="eyebrow">News library</p><h2>Posts</h2></div><select id="news-post-filter"><option value="all">All statuses</option><option value="published">Published</option><option value="draft">Drafts</option><option value="archived">Archived</option></select></div><div id="news-post-list" class="admin-news-list"></div></section>
+</div>
+</section>
+<section data-news-panel="sources" hidden>
+<div class="admin-news-layout">
+<form id="news-source-form" class="admin-news-form">
+<input id="news-source-id" type="hidden">
+<div class="form-heading"><div><p class="eyebrow">Automatic importer</p><h2 id="news-source-form-title">Add source</h2></div><button id="news-source-reset" type="button">Clear</button></div>
+<label>Source name<input id="news-source-name" required maxlength="120"></label>
+<div class="two"><label>Type<select id="news-source-type"><option value="rss">RSS / Atom</option><option value="jsonfeed">JSON Feed</option><option value="steam">Valve Steam news</option><option value="liquipedia">Liquipedia licensed API</option></select></label><label>Category<select id="news-source-category"><option value="cs2">CS2</option><option value="team">Teams</option><option value="grev">Grev.dad</option><option value="site">Site updates</option><option value="community">Community</option></select></label></div>
+<label>Feed or API URL<input id="news-source-url" type="url" required placeholder="https://"></label>
+<label>Only import stories matching these teams or terms <small>Leave blank to import everything.</small><input id="news-source-keywords" placeholder="NAVI, Vitality, Spirit"></label>
+<label>Refresh interval<select id="news-source-refresh"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60" selected>1 hour</option><option value="180">3 hours</option><option value="360">6 hours</option><option value="720">12 hours</option><option value="1440">Daily</option></select></label>
+<div class="checks"><label class="check"><input id="news-source-enabled" type="checkbox" checked> Enabled</label><label class="check"><input id="news-source-auto" type="checkbox"> Publish imported stories automatically</label></div>
+<div class="source-warning"><strong>Source rules</strong><p>HLTV links can be added to manual posts, but automatic scraping is disabled. Liquipedia requires an approved API key stored as the Worker secret <code>LIQUIPEDIA_API_KEY</code>. Imports keep only the headline, short summary and attribution link.</p></div>
+<button class="primary" type="submit">Save source</button>
+</form>
+<section><div class="list-heading"><div><p class="eyebrow">Connected feeds</p><h2>Sources</h2></div></div><div id="news-source-list" class="admin-news-list"></div></section>
+</div>
+</section>
+<section data-news-panel="history" hidden><div class="list-heading"><div><p class="eyebrow">Automatic imports</p><h2>Recent runs</h2></div></div><div id="news-run-list" class="admin-news-list history"></div></section>
+</main>
+<script src="/site-shell.js" defer></script>
+<script src="/admin-news.js" defer></script>
+</body>
+</html>
