@@ -1,0 +1,10 @@
+const fs=require('node:fs');const assert=require('node:assert/strict');const read=path=>fs.readFileSync(path,'utf8');
+const api=read('src/grev-news.ts');const worker=read('src/worker.ts');const shell=read('public/site-shell.js');const shellCss=read('public/site-shell.css');const news=read('public/news.js');const admin=read('public/admin-news.js');const newsHtml=read('public/news.html');const adminHtml=read('public/admin-news.html');const migration=read('migrations/20260722_grev_news.sql');const wrangler=read('wrangler.jsonc');const logo=read('public/grev-dad-logo.svg');
+new Function(news);new Function(admin);new Function(shell);
+assert.match(shell,/src="\/grev-dad-logo\.svg"/);assert.match(shell,/href="\/news">Grev News/);assert.match(shell,/\['news','Grev News'\]/);assert.match(shellCss,/grev-dad-logo\.svg/);assert.match(logo,/data:image\/webp;base64/);
+assert.match(newsHtml,/Grev News/);assert.match(newsHtml,/src="\/site-shell\.js"/);assert.match(adminHtml,/Automatic sources/);assert.match(adminHtml,/LIQUIPEDIA_API_KEY/);assert.match(admin,/\/api\/admin\/news/);assert.match(news,/\/api\/news/);
+assert.match(api,/handleGrevNewsRequest/);assert.match(api,/refreshGrevNewsSources/);assert.match(api,/source_type: SourceType/);assert.match(api,/HLTV automatic importing is disabled/);assert.match(api,/Authorization', `Apikey/);assert.match(api,/api\.steampowered\.com\/ISteamNews\/GetNewsForApp/);assert.match(api,/team_keywords_json/);assert.match(api,/INSERT OR IGNORE INTO grev_news_posts/);assert.match(api,/status='published'/);
+assert.match(worker,/handleGrevNewsRequest/);assert.match(worker,/refreshGrevNewsSources/);assert.match(worker,/\/admin\/news/);assert.match(worker,/\/news\.html/);assert.match(worker,/grev-dad-logo\.svg/);assert.match(worker,/async scheduled/);
+assert.match(migration,/CREATE TABLE grev_news_posts/);assert.match(migration,/CREATE TABLE grev_news_sources/);assert.match(migration,/CREATE TABLE grev_news_import_runs/);assert.match(migration,/source-valve-cs2/);
+assert.equal((wrangler.match(/\*\/30 \* \* \* \*/g)||[]).length,3);
+console.log('Grev News, safe automatic imports and the new site logo are verified.');
