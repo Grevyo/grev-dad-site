@@ -10,6 +10,7 @@
   const MAX_GRID_ROWS = 200;
   const repairedLayouts = new WeakSet();
   let gridObserver = null;
+  let lastGeometry = '';
 
   function overlaps(a, b) {
     return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -101,6 +102,9 @@
     const scale = cardWidth / CARD_SOURCE_WIDTH;
     const cardHeight = CARD_SOURCE_HEIGHT * scale;
     const rowHeight = Math.max(1, (cardHeight - gap * (CARD_ROWS - 1)) / CARD_ROWS);
+    const geometry = [columnSpan, gap.toFixed(3), scale.toFixed(6), rowHeight.toFixed(3)].join(':');
+    if (geometry === lastGeometry) return;
+    lastGeometry = geometry;
 
     grid.style.setProperty('--tile-row-height', `${rowHeight}px`);
     slot.style.setProperty('--profile-card-canvas-scale', String(scale));
@@ -130,6 +134,7 @@
       previous();
       const grid = document.querySelector('#profile-grid');
       if (grid && slot) grid.prepend(slot);
+      updateCanvasCopy();
       syncCanvasGeometry();
     };
     integrated.profileCanvasRenderer = true;
@@ -145,6 +150,8 @@
     }
     const badge = document.querySelector('.profile-grid-heading > strong');
     if (badge) badge.textContent = 'Card 5 × 6 · tiles flexible';
+    const emptyText = document.querySelector('#profile-empty p');
+    if (emptyText) emptyText.textContent = 'This member has not added any personal tiles beside or below their profile card.';
   }
 
   function initialise() {
