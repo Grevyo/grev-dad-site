@@ -8,8 +8,8 @@
   }
   function renderProfile(profileCard){
     const dialog=ensureDialog(),host=dialog.querySelector('[data-popover-card-host]');
-    if(!window.GrevProfileCardBaseline?.create)throw new Error('The baseline profile card is unavailable.');
-    host.replaceChildren(window.GrevProfileCardBaseline.create(profileCard,{variant:'popover',className:'global-profile-card'}));
+    if(!window.GrevProfileCardBaseline?.createScaled)throw new Error('The canonical profile card is unavailable.');
+    host.replaceChildren(window.GrevProfileCardBaseline.createScaled(profileCard,{className:'global-profile-card',frameClassName:'global-profile-card-frame'}));
     dialog.querySelector('[data-popover-open]').href=`/profile/${encodeURIComponent(profileCard.id)}`;dialog.querySelector('[data-popover-message]').textContent='';
   }
   async function fetchProfileCard(profileId){
