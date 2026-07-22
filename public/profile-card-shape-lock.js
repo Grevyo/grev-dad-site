@@ -9,16 +9,17 @@
     cardTileGap: 10,
     cardTileRowHeight: 92
   });
-  const REMOVED_CONTROL_IDS = [
-    'design-card-width',
-    'design-card-alignment',
-    'design-cover-height',
-    'design-avatar-size',
-    'design-card-padding',
-    'design-card-border',
-    'design-card-tile-gap',
-    'design-card-tile-row'
-  ];
+  const LOCKED_CONTROL_VALUES = Object.freeze({
+    'design-card-width': 'locked',
+    'design-card-alignment': 'centre',
+    'design-cover-height': '180',
+    'design-avatar-size': '132',
+    'design-card-padding': '28',
+    'design-card-border': '1',
+    'design-card-tile-gap': '10',
+    'design-card-tile-row': '92'
+  });
+  const REMOVED_CONTROL_IDS = Object.keys(LOCKED_CONTROL_VALUES);
   const nativeFetch = window.fetch.bind(window);
 
   function lockDesign(value) {
@@ -26,25 +27,53 @@
     return { ...design, ...LOCKED_GEOMETRY };
   }
 
+  function enforceHiddenControlValues(dialog) {
+    REMOVED_CONTROL_IDS.forEach(id => {
+      const control = dialog.querySelector(`#${CSS.escape(id)}`);
+      if (!control) return;
+      const value = LOCKED_CONTROL_VALUES[id];
+      if (control instanceof HTMLSelectElement && ![...control.options].some(option => option.value === value)) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = 'Locked';
+        control.append(option);
+      }
+      control.value = value;
+      const label = control.closest('label');
+      if (label) label.dataset.cardShapeControlHidden = '';
+    });
+  }
+
   function stripGeometryControls() {
     const dialog = document.querySelector('#profile-design-dialog');
     if (!dialog) return;
 
-    REMOVED_CONTROL_IDS.forEach(id => {
-      const control = dialog.querySelector(`#${CSS.escape(id)}`);
-      control?.closest('label')?.remove();
-    });
+    if (!document.querySelector('#profile-card-shape-lock-style')) {
+      const style = document.createElement('style');
+      style.id = 'profile-card-shape-lock-style';
+      style.textContent = '[data-card-shape-control-hidden]{display:none!important}';
+      document.head.append(style);
+    }
+
+    enforceHiddenControlValues(dialog);
+    if (dialog.dataset.cardShapeLockBound !== 'true') {
+      dialog.dataset.cardShapeLockBound = 'true';
+      dialog.addEventListener('input', () => enforceHiddenControlValues(dialog), true);
+      dialog.addEventListener('change', () => enforceHiddenControlValues(dialog), true);
+    }
 
     dialog.querySelectorAll('.profile-settings-section').forEach(section => {
       const heading = section.querySelector('h3');
       if (!heading) return;
       const title = heading.textContent?.trim();
       if (title === 'Card tile layout') {
-        section.remove();
+        section.dataset.cardShapeControlHidden = '';
         return;
       }
       section.querySelectorAll('.profile-two-column,.profile-three-column,.profile-four-column').forEach(group => {
-        if (!group.children.length) group.remove();
+        if ([...group.children].length && [...group.children].every(child => child.hasAttribute('data-card-shape-control-hidden'))) {
+          group.dataset.cardShapeControlHidden = '';
+        }
       });
       if (title === 'Profile card layout') {
         heading.textContent = 'Profile card style';
