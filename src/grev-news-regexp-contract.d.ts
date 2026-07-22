@@ -1,8 +1,8 @@
-// Grev News feed parsers only use regular expressions whose first three capture groups are required by the pattern.
-// Preserve the native match metadata while keeping noUncheckedIndexedAccess enabled project-wide.
-type GrevNewsRequiredMatch = RegExpMatchArray & [string, string, string, string, ...string[]];
+// Grev News feed parsers use matchAll patterns whose first three capture groups are required.
+// Keep the contract limited to matchAll so existing String.match type guards remain untouched.
 type GrevNewsRequiredExec = RegExpExecArray & [string, string, string, string, ...string[]];
 interface String {
-  match(regexp: RegExp): GrevNewsRequiredMatch | null;
   matchAll(regexp: RegExp): IterableIterator<GrevNewsRequiredExec>;
 }
+// JavaScript coerces undefined to a string here; guarded newsroom route captures always provide the value.
+declare function decodeURIComponent(encodedURI: string | undefined): string;
