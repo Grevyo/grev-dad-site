@@ -11,13 +11,24 @@
 <header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><button id="logout">Log out</button></div></header>
 <main class="news-shell">
 <section class="news-hero">
-<div><p class="eyebrow">Grev.dad newsroom</p><h1>Grev News</h1><p>Site updates, community stories and selected Counter-Strike 2 news in one place.</p></div>
-<div class="news-controls"><label>Category<select id="news-category"><option value="all">All news</option><option value="grev">Grev.dad</option><option value="cs2">CS2</option><option value="team">Teams</option><option value="site">Site updates</option><option value="community">Community</option></select></label><label>Team filter<input id="news-team" type="search" placeholder="e.g. Vitality or NAVI"></label></div>
+<div><p class="eyebrow">Grev.dad newsroom</p><h1>Grev News</h1><p>Your Grev.dad updates, Counter-Strike 2 updates and followed CS2 teams in one personal feed.</p></div>
+<div class="news-controls"><label>Show<select id="news-scope"><option value="subscribed">My subscriptions</option></select></label><label>Search<input id="news-search" type="search" placeholder="Headline, summary or team"></label></div>
 </section>
-<p id="news-message" class="news-message" role="status">Loading Grev News…</p>
+<details id="news-subscriptions-panel" class="news-subscriptions">
+<summary><span><strong>News subscriptions</strong><small>Choose what appears here and in your dashboard news tile.</small></span><span aria-hidden="true">Manage</span></summary>
+<form id="news-subscriptions-form">
+<div class="news-subscription-core">
+<label class="news-subscription-choice"><input id="news-subscribe-grev" type="checkbox"><span><strong>Grev News</strong><small>Grev.dad, community and site updates. Selected by default for every account.</small></span></label>
+<label class="news-subscription-choice"><input id="news-subscribe-cs2" type="checkbox"><span><strong>CS2 updates</strong><small>General Counter-Strike 2 updates and competitive news.</small></span></label>
+</div>
+<section class="news-team-subscriptions"><div><h2>CS2 teams</h2><p>Follow individual teams to include their tagged stories in your feed.</p></div><div id="news-team-options" class="news-team-options"></div><div class="news-team-add"><input id="news-team-add" placeholder="Add another team"><button id="news-team-add-button" type="button">Add team</button></div></section>
+<div class="news-subscription-actions"><p id="news-subscription-message" role="status"></p><button class="primary-action" type="submit">Save subscriptions</button></div>
+</form>
+</details>
+<p id="news-message" class="news-message" role="status">Loading your news…</p>
 <section id="news-featured" class="news-featured" hidden></section>
 <section id="news-grid" class="news-grid" aria-live="polite"></section>
-<section id="news-empty" class="news-empty" hidden><h2>No matching news</h2><p>Try another category or team.</p></section>
+<section id="news-empty" class="news-empty" hidden><h2>No matching news</h2><p>Choose another subscribed feed or add more subscriptions.</p></section>
 </main>
 <script src="/site-shell.js" defer></script>
 <script src="/news.js" defer></script>
