@@ -1,0 +1,49 @@
+/* The profile card is the locked top-left tile in the same eight-column profile canvas. */
+.profile-card-grid-slot{
+  position:relative;
+  z-index:1;
+  min-width:0;
+  min-height:0;
+  grid-column:1 / span 5;
+  grid-row:1 / span 6;
+  overflow:visible;
+}
+.profile-card-grid-slot>#profile-card{
+  position:absolute!important;
+  top:0;
+  left:0;
+  width:900px!important;
+  max-width:none!important;
+  height:600px!important;
+  min-height:600px!important;
+  max-height:600px!important;
+  margin:0!important;
+  aspect-ratio:3/2!important;
+  transform:scale(var(--profile-card-canvas-scale,1));
+  transform-origin:top left!important;
+}
+.profile-grid.editing-grid .profile-card-grid-slot::after{
+  content:"Locked profile card · 5 × 6";
+  position:absolute;
+  z-index:12;
+  top:8px;
+  right:8px;
+  padding:6px 8px;
+  border:1px solid #dce7ff;
+  background:#111821;
+  color:#dce7ff;
+  font-size:.62rem;
+  font-weight:950;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  pointer-events:none;
+}
+.profile-grid.editing-grid .profile-card-grid-slot{
+  outline:2px solid color-mix(in srgb,#dce7ff 68%,transparent);
+  outline-offset:-2px;
+}
+.profile-grid .profile-drop-preview{z-index:14}
+@media(max-width:900px){
+  .profile-card-grid-slot{grid-column:1 / -1;grid-row:1 / span 6}
+  .profile-grid.editing-grid .profile-card-grid-slot::after{content:"Locked profile card"}
+}
