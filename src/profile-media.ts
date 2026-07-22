@@ -2,11 +2,14 @@ import { handleProfileRequest, type ProfileEnv } from './profile';
 
 type ProfileMediaSlot = 'avatar' | 'cover';
 type ProfileMediaRow = { media_slot: ProfileMediaSlot; media_data: string };
+type ProfileCanvasRow = { card_x: number; card_y: number };
+type ProfileCanvasPosition = { cardX: number; cardY: number };
 type ProfilePayload = {
   profile?: {
     id?: unknown;
     username?: string | null;
     isSelf?: boolean;
+    preferences?: Record<string, unknown>;
     card?: {
       avatarMedia?: string | null;
       coverMedia?: string | null;
@@ -20,6 +23,11 @@ const encoder = new TextEncoder();
 const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_MEDIA_BYTES = 1_400_000;
 const MAX_PROFILE_MEDIA_BYTES = 8 * 1024 * 1024;
+const PROFILE_GRID_COLUMNS = 8;
+const PROFILE_GRID_ROWS = 200;
+const PROFILE_CARD_COLUMNS = 4;
+const PROFILE_CARD_ROWS = 6;
+const DEFAULT_CANVAS_POSITION: ProfileCanvasPosition = { cardX: 0, cardY: 0 };
 
 function secureJson(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
@@ -112,20 +120,65 @@ function responseWithPayload(response: Response, payload: unknown): Response {
   });
 }
 
+function canvasPositionFromInput(value: unknown): ProfileCanvasPosition | null {
+  const preferences = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const cardX = Number(preferences.cardX ?? DEFAULT_CANVAS_POSITION.cardX);
+  const cardY = Number(preferences.cardY ?? DEFAULT_CANVAS_POSITION.cardY);
+  if (!Number.isInteger(cardX) || !Number.isInteger(cardY)) return null;
+  if (cardX < 0 || cardY < 0) return null;
+  if (cardX + PROFILE_CARD_COLUMNS > PROFILE_GRID_COLUMNS) return null;
+  if (cardY + PROFILE_CARD_ROWS > PROFILE_GRID_ROWS) return null;
+  return { cardX, cardY };
+}
+
+function tileOverlapsCanvasCard(value: unknown, position: ProfileCanvasPosition): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const tile = value as Record<string, unknown>;
+  const x = Number(tile.x);
+  const y = Number(tile.y);
+  const width = Number(tile.width);
+  const height = Number(tile.height);
+  if (![x, y, width, height].every(Number.isInteger)) return false;
+  return x < position.cardX + PROFILE_CARD_COLUMNS
+    && x + width > position.cardX
+    && y < position.cardY + PROFILE_CARD_ROWS
+    && y + height > position.cardY;
+}
+
+function applyCanvasPosition(payload: ProfilePayload, position: ProfileCanvasPosition): void {
+  if (!payload.profile) return;
+  const preferences = payload.profile.preferences ?? {};
+  preferences.cardX = position.cardX;
+  preferences.cardY = position.cardY;
+  payload.profile.preferences = preferences;
+}
+
 async function injectStoredCardMedia(response: Response, env: ProfileEnv): Promise<Response> {
   if (!response.ok) return response;
   const payload = await response.json() as ProfilePayload;
   const profileId = typeof payload.profile?.id === 'string' ? payload.profile.id : null;
   if (!profileId || !payload.profile?.card) return responseWithPayload(response, payload);
 
-  const rows = await env.DB.prepare(`
-    SELECT media_slot,media_data
-    FROM user_profile_media
-    WHERE user_id=?
-  `).bind(profileId).all<ProfileMediaRow>();
+  const [rows, canvasRow] = await Promise.all([
+    env.DB.prepare(`
+      SELECT media_slot,media_data
+      FROM user_profile_media
+      WHERE user_id=?
+    `).bind(profileId).all<ProfileMediaRow>(),
+    env.DB.prepare(`
+      SELECT card_x,card_y
+      FROM user_profile_canvas_positions
+      WHERE user_id=?
+    `).bind(profileId).first<ProfileCanvasRow>()
+  ]);
   const media = new Map(rows.results.map(row => [row.media_slot, row.media_data]));
   payload.profile.card.avatarMedia = media.get('avatar') ?? payload.profile.card.avatarMedia ?? null;
   payload.profile.card.coverMedia = media.get('cover') ?? payload.profile.card.coverMedia ?? null;
+  applyCanvasPosition(payload, canvasRow
+    ? { cardX: canvasRow.card_x, cardY: canvasRow.card_y }
+    : DEFAULT_CANVAS_POSITION);
   if (!payload.profile.isSelf && payload.profile.card.showUsername === false) payload.profile.username = null;
   return responseWithPayload(response, payload);
 }
@@ -147,6 +200,14 @@ async function saveProfileWithSeparateCardMedia(request: Request, env: ProfileEn
     ? rawCard as Record<string, unknown>
     : null;
   if (!card) return handleProfileRequest(request, env) as Promise<Response>;
+
+  const canvasPosition = canvasPositionFromInput(data.preferences);
+  if (!canvasPosition) {
+    return secureJson({ ok: false, message: 'Choose a valid profile-card position inside the eight-column canvas.' }, 400);
+  }
+  if (Array.isArray(data.tiles) && data.tiles.some(tile => tileOverlapsCanvasCard(tile, canvasPosition))) {
+    return secureJson({ ok: false, message: 'The profile card and profile tiles cannot overlap.' }, 400);
+  }
 
   const avatarMedia = optionalMedia(card.avatarMedia);
   const coverMedia = optionalMedia(card.coverMedia);
@@ -226,7 +287,15 @@ async function saveProfileWithSeparateCardMedia(request: Request, env: ProfileEn
   if (!profileId || !payload.profile?.card) return responseWithPayload(response, payload);
 
   const now = Math.floor(Date.now() / 1000);
-  const statements = [env.DB.prepare(`DELETE FROM user_profile_media WHERE user_id=?`).bind(profileId)];
+  const statements = [
+    env.DB.prepare(`DELETE FROM user_profile_media WHERE user_id=?`).bind(profileId),
+    env.DB.prepare(`
+      INSERT INTO user_profile_canvas_positions(user_id,card_x,card_y,updated_at)
+      VALUES(?,?,?,?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        card_x=excluded.card_x,card_y=excluded.card_y,updated_at=excluded.updated_at
+    `).bind(profileId, canvasPosition.cardX, canvasPosition.cardY, now)
+  ];
   if (avatarMedia) {
     statements.push(env.DB.prepare(`
       INSERT INTO user_profile_media(user_id,media_slot,media_data,updated_at)
@@ -243,6 +312,7 @@ async function saveProfileWithSeparateCardMedia(request: Request, env: ProfileEn
 
   payload.profile.card.avatarMedia = avatarMedia;
   payload.profile.card.coverMedia = coverMedia;
+  applyCanvasPosition(payload, canvasPosition);
   return responseWithPayload(response, payload);
 }
 
