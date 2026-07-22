@@ -17,8 +17,33 @@
     return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
   }
 
-  function lockedCardFootprint() {
-    return { x: 0, y: 0, width: CARD_COLUMNS, height: CARD_ROWS };
+  function canvasPreferences() {
+    if (typeof profileState === 'undefined') return null;
+    return profileState.working?.preferences ?? profileState.profile?.preferences ?? null;
+  }
+
+  function cardPosition() {
+    const preferences = canvasPreferences();
+    const rawX = Number.parseInt(preferences?.cardX, 10);
+    const rawY = Number.parseInt(preferences?.cardY, 10);
+    const cardX = Number.isInteger(rawX) && rawX >= 0 && rawX + CARD_COLUMNS <= GRID_COLUMNS ? rawX : 0;
+    const cardY = Number.isInteger(rawY) && rawY >= 0 && rawY + CARD_ROWS <= MAX_GRID_ROWS ? rawY : 0;
+    if (preferences) {
+      preferences.cardX = cardX;
+      preferences.cardY = cardY;
+    }
+    return { x: cardX, y: cardY };
+  }
+
+  function setCardPosition(position) {
+    const preferences = canvasPreferences();
+    if (!preferences) return;
+    preferences.cardX = position.x;
+    preferences.cardY = position.y;
+  }
+
+  function lockedCardFootprint(position = cardPosition()) {
+    return { x: position.x, y: position.y, width: CARD_COLUMNS, height: CARD_ROWS };
   }
 
   function overlapsLockedCard(candidate) {
@@ -39,6 +64,20 @@
     return !placed.some(tile => tile.tileId !== ignoreId && overlaps(candidate, tile));
   }
 
+  function validCardPlacement(candidate) {
+    if (
+      !Number.isInteger(candidate.x) || !Number.isInteger(candidate.y) ||
+      candidate.width !== CARD_COLUMNS || candidate.height !== CARD_ROWS ||
+      candidate.x < 0 || candidate.y < 0 ||
+      candidate.x + CARD_COLUMNS > GRID_COLUMNS ||
+      candidate.y + CARD_ROWS > MAX_GRID_ROWS
+    ) return false;
+    const tiles = typeof profileState !== 'undefined' && Array.isArray(profileState.working?.tiles)
+      ? profileState.working.tiles
+      : [];
+    return !tiles.some(tile => overlaps(candidate, tile));
+  }
+
   function firstFreePlacement(width, height, placed, ignoreId = null) {
     for (let y = 0; y <= MAX_GRID_ROWS - height; y += 1) {
       for (let x = 0; x <= GRID_COLUMNS - width; x += 1) {
@@ -46,12 +85,13 @@
         if (validAgainstPlaced(candidate, placed, ignoreId)) return candidate;
       }
     }
-    return { x: 0, y: Math.max(CARD_ROWS, MAX_GRID_ROWS - height), width, height };
+    return { x: 0, y: Math.max(cardPosition().y + CARD_ROWS, MAX_GRID_ROWS - height), width, height };
   }
 
   function repairWorkingLayout() {
     const working = typeof profileState !== 'undefined' ? profileState.working : null;
     if (!working || repairedLayouts.has(working) || !Array.isArray(working.tiles)) return;
+    cardPosition();
 
     const placed = [];
     for (const tile of working.tiles) {
@@ -78,7 +118,12 @@
       slot = document.createElement('section');
       slot.id = 'profile-card-grid-slot';
       slot.className = 'profile-card-grid-slot';
-      slot.setAttribute('aria-label', 'Locked profile card tile');
+      slot.setAttribute('aria-label', 'Profile card tile. Fixed size; drag to move while customising tiles.');
+      slot.dataset.profileCardTile = 'true';
+    }
+    if (slot.dataset.cardMoveBound !== 'true') {
+      slot.dataset.cardMoveBound = 'true';
+      slot.addEventListener('pointerdown', startProfileCardMove);
     }
     if (card.parentElement !== slot) slot.append(card);
     if (slot.parentElement !== grid) grid.prepend(slot);
@@ -98,6 +143,7 @@
     const usableWidth = Math.max(1, rect.width - paddingLeft - paddingRight);
     const mobile = matchMedia('(max-width:900px)').matches;
     const rowHeight = Number.parseFloat(styles.getPropertyValue('--tile-row-height')) || 100;
+    const position = cardPosition();
 
     let scale;
     let geometry;
@@ -117,14 +163,16 @@
       const slotWidth = columnWidth * CARD_COLUMNS + gap * (CARD_COLUMNS - 1);
       const slotHeight = rowHeight * CARD_ROWS + gap * (CARD_ROWS - 1);
       scale = Math.min(1, slotWidth / CARD_SOURCE_WIDTH, slotHeight / CARD_SOURCE_HEIGHT);
-      geometry = ['desktop', gap.toFixed(3), rowHeight.toFixed(3), scale.toFixed(6)].join(':');
+      geometry = ['desktop', position.x, position.y, gap.toFixed(3), rowHeight.toFixed(3), scale.toFixed(6)].join(':');
       if (geometry === lastGeometry) return;
       lastGeometry = geometry;
-      slot.style.gridColumn = `1 / span ${CARD_COLUMNS}`;
-      slot.style.gridRow = `1 / span ${CARD_ROWS}`;
+      slot.style.gridColumn = `${position.x + 1} / span ${CARD_COLUMNS}`;
+      slot.style.gridRow = `${position.y + 1} / span ${CARD_ROWS}`;
       slot.style.height = '';
       slot.dataset.cardColumns = String(CARD_COLUMNS);
       slot.dataset.cardRows = String(CARD_ROWS);
+      slot.dataset.cardX = String(position.x);
+      slot.dataset.cardY = String(position.y);
     }
 
     slot.style.setProperty('--profile-card-canvas-scale', String(scale));
@@ -145,13 +193,13 @@
     const description = document.querySelector('#profile-grid-description');
     if (description && typeof profileState !== 'undefined') {
       description.textContent = profileState.editing
-        ? 'Drag and resize your tiles around the locked profile card.'
-        : 'The locked profile card starts this canvas; personal tiles continue beside and below it.';
+        ? 'Drag the fixed-size profile card and your other tiles. Resize handles only appear on ordinary tiles.'
+        : 'The profile card and personal tiles share one saved canvas.';
     }
     const badge = document.querySelector('.profile-grid-heading > strong');
-    if (badge) badge.textContent = 'Card 4 × 6 · tiles flexible';
+    if (badge) badge.textContent = 'Card fixed at 4 × 6 · position movable';
     const emptyText = document.querySelector('#profile-empty p');
-    if (emptyText) emptyText.textContent = 'This member has not added any personal tiles beside or below their profile card.';
+    if (emptyText) emptyText.textContent = 'This member has not added any personal tiles around their profile card.';
   }
 
   function installGridRenderer() {
@@ -167,9 +215,69 @@
       queueMicrotask(updateCanvasCopy);
       lastGeometry = '';
       syncCanvasGeometry();
+      syncTileModeUi();
     };
     integrated.profileCanvasRenderer = true;
     renderProfileGrid = integrated;
+  }
+
+  function startProfileCardMove(event) {
+    if (
+      !tileMode || typeof profileState === 'undefined' || !profileState.editing ||
+      event.button !== 0 || matchMedia('(max-width:900px)').matches ||
+      event.target.closest('button,input,textarea,select,a')
+    ) return;
+    const slot = event.currentTarget;
+    const metrics = typeof profileGridMetrics === 'function' ? profileGridMetrics() : null;
+    if (!metrics) return;
+
+    event.preventDefault();
+    const current = lockedCardFootprint();
+    const slotRect = slot.getBoundingClientRect();
+    const grabColumn = Math.max(0, Math.min(CARD_COLUMNS - 1, Math.floor((event.clientX - slotRect.left) / metrics.pitchX)));
+    const grabRow = Math.max(0, Math.min(CARD_ROWS - 1, Math.floor((event.clientY - slotRect.top) / metrics.pitchY)));
+    let candidate = { ...current };
+    let valid = true;
+    slot.classList.add('dragging');
+
+    const move = pointerEvent => {
+      const x = Math.floor((pointerEvent.clientX - metrics.left) / metrics.pitchX) - grabColumn;
+      const y = Math.floor((pointerEvent.clientY - metrics.top) / metrics.pitchY) - grabRow;
+      candidate = { x, y, width: CARD_COLUMNS, height: CARD_ROWS };
+      valid = validCardPlacement(candidate);
+      if (typeof showProfilePreview === 'function') {
+        showProfilePreview(candidate, valid);
+        const preview = document.querySelector('.profile-drop-preview');
+        if (preview) preview.dataset.label = valid ? 'Move profile card here' : 'Position blocked';
+      }
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', cancel);
+      slot.classList.remove('dragging');
+      if (typeof clearProfilePreview === 'function') clearProfilePreview();
+    };
+
+    const finish = () => {
+      cleanup();
+      if (valid) {
+        setCardPosition(candidate);
+        lastGeometry = '';
+        renderProfileGrid();
+        if (typeof profileEditorMessage === 'function') profileEditorMessage('Profile card moved. Save tiles to keep this position.');
+      }
+    };
+
+    const cancel = () => {
+      cleanup();
+      renderProfileGrid();
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finish, { once: true });
+    window.addEventListener('pointercancel', cancel, { once: true });
   }
 
   function closeUnifiedPanel() {
@@ -191,8 +299,8 @@
     toolbar.innerHTML = `
       <div class="profile-tile-customizer-copy">
         <p class="eyebrow">Tile customizer</p>
-        <h2>Arrange your profile tiles</h2>
-        <p>Drag tiles to move them, use the bottom-right handle to resize, or open Tile settings for content and styling.</p>
+        <h2>Arrange your profile canvas</h2>
+        <p>Drag the profile card or any ordinary tile to move it. The profile card has a fixed size; ordinary tiles also have a bottom-right resize handle.</p>
       </div>
       <div class="profile-tile-customizer-actions">
         <button type="button" data-profile-tile-picker-toggle>Add tile</button>
@@ -260,10 +368,12 @@
   function syncTileModeUi() {
     const customize = document.querySelector('#profile-customize-tiles');
     const toolbar = tileToolbar();
+    const slot = ensureCardSlot();
     const isSelf = Boolean(typeof profileState !== 'undefined' && profileState.profile?.isSelf);
     const editing = Boolean(typeof profileState !== 'undefined' && profileState.editing);
     if (customize) customize.hidden = !isSelf || editing;
     toolbar.hidden = !tileMode;
+    slot?.classList.toggle('editing', tileMode && editing);
   }
 
   function finishTileMode() {
@@ -314,7 +424,7 @@
       syncTileModeUi();
       updateCanvasCopy();
       document.querySelector('#profile-grid')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      if (typeof profileEditorMessage === 'function') profileEditorMessage('Tile mode is active. Drag, resize, add or pack tiles, then save.');
+      if (typeof profileEditorMessage === 'function') profileEditorMessage('Canvas mode is active. Drag the profile card or another tile, resize ordinary tiles, then save.');
     });
   }
 
@@ -381,7 +491,9 @@
 
   window.GrevProfileCanvas = {
     cardFootprint: lockedCardFootprint,
+    cardPosition,
     overlapsLockedCard,
+    validCardPlacement,
     repairWorkingLayout,
     syncCanvasGeometry,
     enterTileMode
