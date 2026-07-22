@@ -1,6 +1,8 @@
 (() => {
   const CONTRACT='profile-card-baseline-v2';
   const SCALED_CARD_WIDTH=900;
+  const SCALED_CARD_ASPECT=8/3;
+  const SCALED_CARD_HEIGHT=SCALED_CARD_WIDTH/SCALED_CARD_ASPECT;
   const FONT_STACKS={system:'Inter,Segoe UI,Arial,sans-serif',display:'Impact,Haettenschweiler,Arial Narrow Bold,sans-serif',mono:'ui-monospace,SFMono-Regular,Consolas,Liberation Mono,monospace',serif:'Georgia,Times New Roman,serif',rounded:'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'};
   const overlays={none:'transparent',dark:'rgba(0,0,0,.38)',light:'rgba(255,255,255,.28)'};
   const base=window.GrevProfileCard;
@@ -16,6 +18,7 @@
     return {...source,card:source.card||{},design:source.design||{},cardTiles};
   }
   function canonicalWidth(){return SCALED_CARD_WIDTH;}
+  function canonicalHeight(){return SCALED_CARD_HEIGHT;}
   function featureFor(tile){return tile?.feature||null;}
   function tileHref(tile){return tile.tileKind==='feature'?(featureFor(tile)?.route||null):(tile.linkUrl||null);}
   function tileTitle(tile){return tile.title||tile.linkLabel||featureFor(tile)?.name||(tile.tileKind==='link'?'External link':'Custom tile');}
@@ -65,12 +68,17 @@
     const frame=document.createElement(options.frameTagName||'div');
     frame.className=`profile-card-scale-frame${options.frameClassName?` ${options.frameClassName}`:''}`;
     frame.dataset.profileCardScale='canonical';
+    frame.dataset.profileCardAspect='8:3';
     frame.dataset.profileCardPlacementWidth=profile.design.cardWidth||'full';
     frame.dataset.scaleReady='false';
     const card=create(profile,{...options,variant:'full'});
     const width=canonicalWidth();
+    const height=canonicalHeight();
     card.classList.add('profile-card-scale-source');
     card.style.width=`${width}px`;
+    card.style.height=`${height}px`;
+    card.style.minHeight=`${height}px`;
+    card.style.maxHeight=`${height}px`;
     card.style.maxWidth='none';
     card.style.margin='0';
     frame.append(card);
@@ -79,7 +87,7 @@
       if(!available)return;
       const scale=Math.min(1,available/width);
       card.style.transform=`scale(${scale})`;
-      frame.style.height=`${Math.ceil(card.scrollHeight*scale)}px`;
+      frame.style.height=`${height*scale}px`;
       frame.style.setProperty('--profile-card-uniform-scale',String(scale));
       frame.dataset.scaleReady='true';
     };
@@ -91,5 +99,5 @@
   function mount(current,value,options={}){const next=create(value,options);const id=options.id||current?.id;if(id)next.id=id;if(options.ariaLabel)next.setAttribute('aria-label',options.ariaLabel);if(current)current.replaceWith(next);return next;}
 
   base.apply=apply;base.create=create;base.createScaled=createScaled;base.renderTiles=renderTiles;base.normalize=normalize;base.mount=mount;base.contract=CONTRACT;
-  window.GrevProfileCardBaseline={normalize,apply,create,createScaled,mount,renderTiles,canonicalWidth,contract:CONTRACT};
+  window.GrevProfileCardBaseline={normalize,apply,create,createScaled,mount,renderTiles,canonicalWidth,canonicalHeight,contract:CONTRACT};
 })();
