@@ -10,7 +10,7 @@ body[data-profile-page-background="media"]>header,body[data-profile-page-backgro
 .profile-card{width:100%;max-width:none;border-width:var(--profile-card-border-width,1px);box-sizing:border-box}
 .profile-card[data-card-width="compact"]{width:min(100%,900px)}
 .profile-card[data-card-width="wide"]{width:min(100%,1200px)}
-.profile-card[data-card-width="full"]{width:100%}
+.profile-card[data-card-width="full"]{width:min(100%,1440px)}
 .profile-card[data-card-shadow="none"]{box-shadow:none}
 .profile-card[data-card-shadow="small"]{box-shadow:5px 5px 0 #000}
 .profile-card[data-card-shadow="large"]{box-shadow:10px 10px 0 #000}
