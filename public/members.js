@@ -9,17 +9,24 @@
   });};
 
   function card(member){
-    if(!window.GrevProfileCardBaseline?.create)throw new Error('The baseline profile-card component did not load.');
-    const entry=document.createElement('section');entry.className='member-profile-entry';
-    const profileCard=window.GrevProfileCardBaseline.create(member,{className:'member-profile-card',variant:'directory'});
-    profileCard.dataset.memberId=member.id;
-    const action=document.createElement('a');
-    action.className='member-profile-open';
-    action.href=`/profile/${encodeURIComponent(member.id)}`;
-    action.textContent='Open full profile';
-    action.setAttribute('aria-label',`Open ${member.displayName} profile`);
-    entry.append(profileCard,action);
-    return entry;
+    if(!window.GrevProfileCardBaseline?.createScaled)throw new Error('The canonical profile-card scaler did not load.');
+    const href=`/profile/${encodeURIComponent(member.id)}`;
+    const frame=window.GrevProfileCardBaseline.createScaled(member,{className:'member-profile-card',frameClassName:'member-profile-entry'});
+    frame.dataset.memberId=member.id;
+    frame.tabIndex=0;
+    frame.setAttribute('role','link');
+    frame.setAttribute('aria-label',`Open ${member.displayName} profile`);
+    frame.addEventListener('click',event=>{
+      const target=event.target instanceof Element?event.target:null;
+      if(target?.closest('a,button,input,select,textarea,[role="button"]'))return;
+      location.assign(href);
+    });
+    frame.addEventListener('keydown',event=>{
+      if(event.target!==frame||!['Enter',' '].includes(event.key))return;
+      event.preventDefault();
+      location.assign(href);
+    });
+    return frame;
   }
 
   function render(){
