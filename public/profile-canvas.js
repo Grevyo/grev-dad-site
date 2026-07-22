@@ -178,6 +178,7 @@
     if (panel?.open) panel.close();
     else panel?.removeAttribute('open');
     document.body.classList.remove('profile-unified-editing', 'profile-unified-previewing', 'profile-mobile-editor-scroll-locked');
+    if (tileMode) queueMicrotask(mountTileMessage);
   }
 
   function tileToolbar() {
@@ -309,6 +310,7 @@
     queueMicrotask(closeUnifiedPanel);
     requestAnimationFrame(() => {
       closeUnifiedPanel();
+      mountTileMessage();
       syncTileModeUi();
       updateCanvasCopy();
       document.querySelector('#profile-grid')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
