@@ -1,32 +1,32 @@
 (() => {
-  const $ = selector => document.querySelector(selector);
-  const state = { posts: [] };
-  const date = value => new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(Number(value)*1000));
-  function card(post, featured=false){
+  const $=selector=>document.querySelector(selector);
+  const state={posts:[],subscriptions:null,availableTeams:[],selectedTeams:new Map()};
+  const date=value=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(Number(value)*1000));
+  async function request(url,options={}){const response=await fetch(url,{cache:'no-store',...options});const payload=await response.json();if(!response.ok)throw new Error(payload.message||'The news request failed.');return payload;}
+  function card(post,featured=false){
     const article=document.createElement('article');article.className=`news-card${featured?' featured':''}`;
     const media=document.createElement('div');media.className='news-card-media';if(post.image_url)media.style.backgroundImage=`linear-gradient(rgba(0,0,0,.08),rgba(0,0,0,.28)),url("${String(post.image_url).replaceAll('"','\\"')}")`;
     const body=document.createElement('div');body.className='news-card-body';
-    const meta=document.createElement('div');meta.className='news-card-meta';
-    const category=document.createElement('span');category.textContent=post.category;const published=document.createElement('time');published.dateTime=new Date(Number(post.published_at)*1000).toISOString();published.textContent=date(post.published_at);meta.append(category,published);
-    const title=document.createElement('h2');title.textContent=post.title;
-    const summary=document.createElement('p');summary.textContent=post.summary||post.body||'';
-    body.append(meta,title,summary);
+    const meta=document.createElement('div');meta.className='news-card-meta';const category=document.createElement('span');category.textContent=post.category;const published=document.createElement('time');published.dateTime=new Date(Number(post.published_at)*1000).toISOString();published.textContent=date(post.published_at);meta.append(category,published);
+    const title=document.createElement('h2');title.textContent=post.title;const summary=document.createElement('p');summary.textContent=post.summary||post.body||'';body.append(meta,title,summary);
     if(Array.isArray(post.teamTags)&&post.teamTags.length){const tags=document.createElement('div');tags.className='news-team-tags';post.teamTags.forEach(value=>{const tag=document.createElement('span');tag.textContent=value;tags.append(tag)});body.append(tags)}
-    const actions=document.createElement('div');actions.className='news-card-actions';
-    if(post.source_url){const link=document.createElement('a');link.href=post.source_url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=post.source_name?`Read at ${post.source_name}`:'Read source';actions.append(link)}
-    const source=document.createElement('span');source.className='news-card-source';source.textContent=post.source_name&&!post.source_url?post.source_name:'Grev News';actions.append(source);body.append(actions);
-    article.append(media,body);return article;
+    const actions=document.createElement('div');actions.className='news-card-actions';if(post.source_url){const link=document.createElement('a');link.href=post.source_url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=post.source_name?`Read at ${post.source_name}`:'Read source';actions.append(link)}const source=document.createElement('span');source.className='news-card-source';source.textContent=post.source_name&&!post.source_url?post.source_name:'Grev News';actions.append(source);body.append(actions);article.append(media,body);return article;
   }
-  function render(){
-    const featured=$('#news-featured'),grid=$('#news-grid'),empty=$('#news-empty');featured.replaceChildren();grid.replaceChildren();
-    const leading=state.posts.find(post=>Number(post.is_featured)===1);if(leading){featured.append(card(leading,true));featured.hidden=false}else featured.hidden=true;
-    state.posts.filter(post=>post!==leading).forEach(post=>grid.append(card(post)));
-    empty.hidden=state.posts.length>0;
-  }
-  async function load(){
-    const params=new URLSearchParams({limit:'80'});const category=$('#news-category').value;const team=$('#news-team').value.trim();if(category!=='all')params.set('category',category);if(team)params.set('team',team);
-    $('#news-message').textContent='Loading Grev News…';$('#news-message').className='news-message';
-    try{const response=await fetch(`/api/news?${params}`,{cache:'no-store'});const payload=await response.json();if(!response.ok)throw new Error(payload.message||'Unable to load Grev News.');state.posts=payload.posts||[];render();$('#news-message').textContent=state.posts.length?`${state.posts.length} news ${state.posts.length===1?'story':'stories'}.`:'No matching stories.'}catch(error){$('#news-message').textContent=error.message;$('#news-message').className='news-message error'}
-  }
-  let timer;$('#news-category')?.addEventListener('change',load);$('#news-team')?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(load,250)});load();
+  function renderPosts(){const featured=$('#news-featured'),grid=$('#news-grid'),empty=$('#news-empty');featured.replaceChildren();grid.replaceChildren();const leading=state.posts.find(post=>Number(post.is_featured)===1);if(leading){featured.append(card(leading,true));featured.hidden=false}else featured.hidden=true;state.posts.filter(post=>post!==leading).forEach(post=>grid.append(card(post)));empty.hidden=state.posts.length>0;}
+  function scopeOptions(){const options=[{value:'subscribed',label:'My subscriptions'}];if(state.subscriptions?.grev)options.push({value:'grev',label:'Grev News'});if(state.subscriptions?.cs2)options.push({value:'cs2',label:'CS2 updates'});for(const team of state.subscriptions?.teams??[])options.push({value:`team:${team.key}`,label:team.label});return options;}
+  function renderScope(preferred='subscribed'){const select=$('#news-scope');select.replaceChildren();for(const option of scopeOptions()){const node=document.createElement('option');node.value=option.value;node.textContent=option.label;select.append(node)}select.value=[...select.options].some(option=>option.value===preferred)?preferred:'subscribed';}
+  function renderTeams(){const container=$('#news-team-options');container.replaceChildren();const labels=new Map();for(const label of state.availableTeams){const key=label.trim().toLocaleLowerCase('en-GB');if(key)labels.set(key,label)}for(const [key,label] of state.selectedTeams)labels.set(key,label);for(const [key,label] of [...labels.entries()].sort((a,b)=>a[1].localeCompare(b[1],'en-GB',{sensitivity:'base'}))){const choice=document.createElement('label');choice.className='news-team-choice';const input=document.createElement('input');input.type='checkbox';input.checked=state.selectedTeams.has(key);input.addEventListener('change',()=>{if(input.checked)state.selectedTeams.set(key,label);else state.selectedTeams.delete(key)});const text=document.createElement('span');text.textContent=label;choice.append(input,text);container.append(choice)}if(!labels.size){const empty=document.createElement('p');empty.className='news-team-empty';empty.textContent='No team tags are available yet. Add a team below.';container.append(empty)}}
+  function applySnapshot(payload,preferred){state.subscriptions=payload.subscriptions;state.availableTeams=payload.availableTeams??[];state.selectedTeams=new Map((payload.subscriptions?.teams??[]).map(team=>[team.key,team.label]));$('#news-subscribe-grev').checked=Boolean(payload.subscriptions?.grev);$('#news-subscribe-cs2').checked=Boolean(payload.subscriptions?.cs2);renderTeams();renderScope(preferred??new URLSearchParams(location.search).get('scope')??'subscribed');}
+  async function loadSubscriptions(){const payload=await request('/api/news/subscriptions');applySnapshot(payload);return payload;}
+  async function loadPosts(){const scope=$('#news-scope').value||'subscribed';const query=$('#news-search').value.trim();const params=new URLSearchParams({scope,limit:'80'});if(query)params.set('q',query);$('#news-message').textContent='Loading your news…';$('#news-message').className='news-message';try{const payload=await request(`/api/news/personalized?${params}`);state.posts=payload.posts??[];renderPosts();$('#news-message').textContent=state.posts.length?`${state.posts.length} news ${state.posts.length===1?'story':'stories'} from ${$('#news-scope').selectedOptions[0]?.textContent??'your subscriptions'}.`:'No matching stories.';const url=new URL(location.href);url.searchParams.set('scope',scope);history.replaceState(null,'',url);}catch(error){$('#news-message').textContent=error.message;$('#news-message').className='news-message error'}}
+  function addTeam(){const input=$('#news-team-add');const label=input.value.replace(/\s+/g,' ').trim().slice(0,80);if(!label)return;state.selectedTeams.set(label.toLocaleLowerCase('en-GB'),label);input.value='';renderTeams()}
+  async function saveSubscriptions(event){event.preventDefault();const button=event.submitter;button.disabled=true;const message=$('#news-subscription-message');message.textContent='Saving subscriptions…';message.className='';try{const payload=await request('/api/news/subscriptions',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({grev:$('#news-subscribe-grev').checked,cs2:$('#news-subscribe-cs2').checked,teams:[...state.selectedTeams.values()]})});applySnapshot(payload,$('#news-scope').value);message.textContent='News subscriptions saved.';message.className='success';document.dispatchEvent(new CustomEvent('grev:news-subscriptions-changed'));await loadPosts()}catch(error){message.textContent=error.message;message.className='error'}finally{button.disabled=false}}
+  let timer;
+  $('#news-scope').addEventListener('change',loadPosts);
+  $('#news-search').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(loadPosts,250)});
+  $('#news-team-add-button').addEventListener('click',addTeam);
+  $('#news-team-add').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addTeam()}});
+  $('#news-subscriptions-form').addEventListener('submit',saveSubscriptions);
+  if(location.hash==='#subscriptions')$('#news-subscriptions-panel').open=true;
+  loadSubscriptions().then(loadPosts).catch(error=>{$('#news-message').textContent=error.message;$('#news-message').className='news-message error'});
 })();

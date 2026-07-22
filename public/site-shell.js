@@ -6,13 +6,20 @@
   const originalHeaderControls=[...header.querySelectorAll('[id]')].map(node=>node.cloneNode(true));
   const path=location.pathname;
   const active=href=>path===href||path.startsWith(`${href}/`)?' active':'';
+  const extrasActive=path==='/news'||path.startsWith('/news/')||path==='/hub'||path.startsWith('/hub/');
   header.className='global-site-header';
   header.innerHTML=`
     <a class="global-site-brand" href="/dashboard" aria-label="Grev.dad dashboard"><img src="/grev-dad-logo.svg" alt="Grev.dad"><strong class="global-site-brand-title" data-site-title>Grev.dad</strong><small data-site-environment></small></a>
     <nav class="global-site-nav" aria-label="Main navigation">
       <a class="header-link${active('/dashboard')}" href="/dashboard">Dashboard</a>
-      <a id="global-news-link" class="header-link${active('/news')}" href="/news">Grev News</a>
-      <a id="global-content-hub-link" class="header-link${active('/hub')}" href="/hub">Content</a>
+      <details id="global-extras-menu" class="global-extras-menu${extrasActive?' active':''}">
+        <summary class="header-link">Extras</summary>
+        <div class="global-extras-panel">
+          <a id="global-news-link" class="global-extras-link${active('/news')}" href="/news"><strong>Grev News</strong><small>Your subscribed news feed</small></a>
+          <a id="global-news-subscriptions-link" class="global-extras-link" href="/news#subscriptions"><strong>News subscriptions</strong><small>Choose CS2 updates and teams</small></a>
+          <a id="global-content-hub-link" class="global-extras-link${active('/hub')}" href="/hub"><strong>Content</strong><small>Shared posts and community content</small></a>
+        </div>
+      </details>
       <a id="global-members-link" class="header-link${active('/members')}" href="/members">Members</a>
       <a id="profile-link" class="header-link${active('/profile')}" href="/profile">My profile</a>
       <a class="header-link${active('/settings')}" href="/settings">Settings</a>
@@ -24,6 +31,11 @@
   compatibility.hidden=true;
   for(const node of originalHeaderControls){if(node.id&&!document.getElementById(node.id))compatibility.append(node);}
   if(compatibility.children.length)header.append(compatibility);
+
+  function closeExtras(){const menu=header.querySelector('#global-extras-menu');if(menu instanceof HTMLDetailsElement)menu.open=false;}
+  document.addEventListener('pointerdown',event=>{const menu=header.querySelector('#global-extras-menu');if(menu instanceof HTMLDetailsElement&&menu.open&&!menu.contains(event.target))menu.open=false;});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeExtras();});
+  header.querySelectorAll('.global-extras-link').forEach(link=>link.addEventListener('click',closeExtras));
 
   function ensureAdminTabs(isAdmin){
     let tabs=document.querySelector('.admin-global-tabs');
