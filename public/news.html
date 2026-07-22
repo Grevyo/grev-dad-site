@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grev News · Grev.dad</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/news.css">
+</head>
+<body>
+<header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><button id="logout">Log out</button></div></header>
+<main class="news-shell">
+<section class="news-hero">
+<div><p class="eyebrow">Grev.dad newsroom</p><h1>Grev News</h1><p>Site updates, community stories and selected Counter-Strike 2 news in one place.</p></div>
+<div class="news-controls"><label>Category<select id="news-category"><option value="all">All news</option><option value="grev">Grev.dad</option><option value="cs2">CS2</option><option value="team">Teams</option><option value="site">Site updates</option><option value="community">Community</option></select></label><label>Team filter<input id="news-team" type="search" placeholder="e.g. Vitality or NAVI"></label></div>
+</section>
+<p id="news-message" class="news-message" role="status">Loading Grev News…</p>
+<section id="news-featured" class="news-featured" hidden></section>
+<section id="news-grid" class="news-grid" aria-live="polite"></section>
+<section id="news-empty" class="news-empty" hidden><h2>No matching news</h2><p>Try another category or team.</p></section>
+</main>
+<script src="/site-shell.js" defer></script>
+<script src="/news.js" defer></script>
+</body>
+</html>
