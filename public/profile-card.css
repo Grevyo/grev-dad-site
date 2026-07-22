@@ -1,6 +1,6 @@
 /* Canonical Grev.dad profile-card contract.
-   All profile cards use the same DOM structure, saved geometry and shared rules.
-   Smaller surfaces may scale the completed card, but must not redefine its internals. */
+   All profile cards use the same DOM structure and globally locked geometry.
+   Members may change content and styling, but no surface may change the card shape. */
 .profile-card-loading-shell{display:grid;place-items:center;min-height:260px;border:1px solid #394657;background:#11161d;color:#aeb7c3}
 .profile-card{
   --profile-card-primary:#11161d;
