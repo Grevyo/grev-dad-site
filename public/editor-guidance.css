@@ -1,0 +1,53 @@
+/* Task-first editing: show one job or settings section at a time. */
+.guided-editor-panel-hidden{display:none!important}
+.guided-native-action-hidden{display:none!important}
+
+.guided-task-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:16px 0;padding:12px;border:1px solid var(--line-strong,#394657);background:#0d1219}
+.guided-task-button{display:grid;gap:5px;min-height:72px;padding:12px 14px;border:1px solid #3b4758;background:#151b24;color:#f4f7fb;text-align:left;cursor:pointer}
+.guided-task-button strong{font-size:.92rem}
+.guided-task-button span{color:#aeb8c6;font-size:.72rem;line-height:1.4}
+.guided-task-button:hover,.guided-task-button.active{border-color:#dce7ff;background:#202a38;transform:translateY(-1px)}
+.guided-task-button.active{box-shadow:inset 4px 0 0 #dce7ff}
+
+.guided-more-actions{position:relative}
+.guided-more-actions>summary{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border:1px solid #465266;background:#151b24;color:#dce7ff;font-size:.75rem;font-weight:900;cursor:pointer;list-style:none}
+.guided-more-actions>summary::-webkit-details-marker{display:none}
+.guided-more-actions[open]>summary{border-color:#dce7ff}
+.guided-more-actions-body{position:absolute;z-index:50;right:0;top:calc(100% + 6px);display:grid;min-width:190px;gap:6px;padding:8px;border:1px solid #526074;background:#0b0f14;box-shadow:8px 8px 0 #000}
+.guided-more-actions-body button{width:100%;text-align:left}
+
+.guided-dialog-tabs{position:sticky;z-index:8;top:0;display:flex;gap:6px;overflow-x:auto;padding:10px 14px;border-bottom:1px solid #394657;background:#0b0f14}
+.guided-dialog-tabs button{flex:0 0 auto;min-height:38px;padding:0 12px;border:1px solid #3c4859;background:#151b24;color:#b9c3cf;font-size:.72rem;font-weight:900;cursor:pointer}
+.guided-dialog-tabs button:hover,.guided-dialog-tabs button.active{border-color:#eef3fa;background:#eef3fa;color:#090c11}
+
+.guided-danger-panel{display:grid;gap:12px;padding:18px;border:1px solid #713945;background:#1b1014}
+.guided-danger-panel h3{margin:0;color:#ffadb9}
+.guided-danger-panel p{margin:0;color:#d6a7ae;font-size:.78rem;line-height:1.5}
+.guided-danger-panel .danger-action,.guided-danger-panel .card-tile-danger{justify-self:start}
+
+#dashboard-editor-toolbar[data-guided-mode="arrange"] .dashboard-editor-settings{display:none!important}
+#dashboard-editor-toolbar[data-guided-mode="spacing"] .dashboard-editor-settings{display:grid!important;margin-top:0;padding:16px;border:1px solid #3b4758;background:#111720}
+#dashboard-editor-toolbar[data-guided-mode="spacing"] .dashboard-editor-settings::before{content:"Dashboard spacing";grid-column:1/-1;color:#f4f7fb;font-size:1rem;font-weight:950}
+.dashboard-editor-actions,.profile-editor-actions{align-items:center}
+
+#profile-editor-toolbar[data-guided-mode="profile-space"]~#profile-card+#profile-workspace .profile-catalogue,
+#profile-workspace.guided-profile-space-active .profile-catalogue{display:grid}
+#profile-editor-toolbar .profile-editor-preferences{margin-top:0;padding:16px;border:1px solid #3b4758;background:#111720}
+#profile-editor-toolbar .profile-editor-preferences::before{content:"Profile-space spacing";grid-column:1/-1;color:#f4f7fb;font-size:1rem;font-weight:950}
+#profile-card-tile-editor:not(.guided-editor-panel-hidden){margin-top:0}
+
+.profile-settings-dialog[data-guided-dialog="true"] .profile-dialog-body,
+.dashboard-tile-settings-dialog[data-guided-dialog="true"] #dashboard-selected-controls{padding-top:14px}
+.profile-settings-dialog[data-guided-dialog="true"] .profile-settings-section,
+.profile-settings-dialog[data-guided-dialog="true"] .card-tile-dialog-section,
+.dashboard-tile-settings-dialog[data-guided-dialog="true"] .dashboard-tile-settings-section{margin:0}
+
+@media(max-width:760px){
+  .guided-task-nav{grid-template-columns:1fr 1fr;padding:8px}
+  .guided-task-button{min-height:64px;padding:10px}
+  .guided-more-actions-body{position:fixed;right:10px;left:10px;top:auto;bottom:72px;min-width:0}
+  .guided-dialog-tabs{padding:8px}
+}
+@media(max-width:480px){
+  .guided-task-nav{grid-template-columns:1fr}
+}
