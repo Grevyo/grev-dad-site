@@ -1,10 +1,11 @@
 /* The profile card is the locked top-left tile in the same eight-column profile canvas. */
+.profile-grid-region{width:min(100%,1800px)}
 .profile-card-grid-slot{
   position:relative;
   z-index:1;
   min-width:0;
   min-height:0;
-  grid-column:1 / span 5;
+  grid-column:1 / span 4;
   grid-row:1 / span 6;
   overflow:visible;
 }
@@ -23,7 +24,7 @@
   transform-origin:top left!important;
 }
 .profile-grid.editing-grid .profile-card-grid-slot::after{
-  content:"Locked profile card · 5 × 6";
+  content:"Locked profile card · 4 × 6";
   position:absolute;
   z-index:12;
   top:8px;
@@ -43,7 +44,63 @@
   outline-offset:-2px;
 }
 .profile-grid .profile-drop-preview{z-index:14}
+.profile-tile-customizer-toolbar{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:18px 28px;
+  align-items:center;
+  margin:18px 0 22px;
+  padding:18px;
+  border:1px solid var(--line-strong);
+  background:#0b0f14;
+  box-shadow:8px 8px 0 #000;
+}
+.profile-tile-customizer-toolbar[hidden]{display:none!important}
+.profile-tile-customizer-copy{display:grid;gap:5px}
+.profile-tile-customizer-copy h2{margin:0;font-size:1.8rem}
+.profile-tile-customizer-copy p{max-width:760px;margin:0;color:var(--muted);line-height:1.5}
+.profile-tile-customizer-copy .eyebrow{color:var(--accent-strong);font-size:.68rem;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
+.profile-tile-customizer-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.profile-tile-customizer-actions button,.profile-tile-customizer-picker button{
+  min-height:42px;
+  padding:10px 14px;
+  border:1px solid var(--line-strong);
+  border-radius:0;
+  background:#171c23;
+  color:var(--text);
+  font-weight:900;
+  cursor:pointer;
+}
+.profile-tile-customizer-actions button:hover,.profile-tile-customizer-picker button:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 #000}
+.profile-tile-customizer-actions .primary{border-color:#f4f6fa;background:#f4f6fa;color:#090b0f}
+.profile-tile-customizer-picker{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+  padding-top:14px;
+  border-top:1px solid var(--line);
+}
+.profile-tile-customizer-picker[hidden]{display:none!important}
+.profile-tile-customizer-picker button{display:grid;gap:5px;text-align:left}
+.profile-tile-customizer-picker span{color:var(--muted);font-size:.74rem;line-height:1.4}
+.profile-tile-customizer-message{grid-column:1 / -1;min-height:24px}
+.profile-tile-customizer-message .profile-editor-message{margin:0;color:var(--muted)}
+.profile-tile-customizer-message .profile-editor-message.error{color:var(--danger)}
+.profile-tile-customizer-message .profile-editor-message.success{color:var(--success)}
+body.profile-tile-customizing #profile-editor-toolbar{display:none!important}
+body.profile-tile-customizing .profile-workspace.editing{grid-template-columns:minmax(0,1fr)!important}
+body.profile-tile-customizing #profile-grid{scroll-margin-top:18px}
+body.profile-tile-customizing .profile-tile.editing{cursor:grab}
 @media(max-width:900px){
-  .profile-card-grid-slot{grid-column:1 / -1;grid-row:1 / span 6}
+  .profile-grid-region{width:100%}
+  .profile-card-grid-slot{grid-column:1 / -1;grid-row:auto}
   .profile-grid.editing-grid .profile-card-grid-slot::after{content:"Locked profile card"}
+  .profile-tile-customizer-toolbar{grid-template-columns:1fr}
+  .profile-tile-customizer-actions{justify-content:flex-start}
+  .profile-tile-customizer-picker{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:560px){
+  .profile-tile-customizer-picker{grid-template-columns:1fr}
+  .profile-tile-customizer-actions button{flex:1 1 calc(50% - 8px)}
 }
