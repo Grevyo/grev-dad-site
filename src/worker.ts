@@ -48,6 +48,7 @@ const PROFILE_CARD_CSS=['/profile-card.css','/profile-card-tiles.css','/profile-
 export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
+    const legacyCommunityPage = url.pathname === '/hub' || url.pathname === '/members';
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') return bundledAsset(request, env, ['/profile-customization-hardening.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.js') return bundledAsset(request, env, ['/profile-card-baseline.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.css') return bundledAsset(request, env, ['/profile-card-baseline.css'], 'text/css; charset=utf-8');
@@ -65,7 +66,7 @@ export default {
     if (request.method === 'GET' && url.pathname === '/members.css') return bundledAsset(request, env, ['/profile-card.css','/profile-card-tiles.css','/profile-card-baseline.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && (DASHBOARD_ASSETS.has(url.pathname) || url.pathname.startsWith('/achievement-badges/'))) return (env as unknown as DashboardEnv).ASSETS.fetch(request);
 
-    if (request.method === 'GET' && ['/hub','/members','/news','/admin/news'].includes(url.pathname)) {
+    if (request.method === 'GET' && (legacyCommunityPage || url.pathname === '/news' || url.pathname === '/admin/news')) {
       const sessionRequest = new Request(new URL('/api/auth/session', url).toString(), request);
       const session = await app.fetch(sessionRequest, env).then(response => response.json()).catch(() => ({ authenticated: false })) as { authenticated?: boolean; user?: { isAdmin?: boolean } };
       if (!session.authenticated) return Response.redirect(new URL('/login', url).toString(), 303);
