@@ -9,6 +9,7 @@
     "run_worker_first": true,
     "html_handling": "none"
   },
+  "triggers": { "crons": ["*/30 * * * *"] },
   "vars": { "APP_ENV": "development" },
   "d1_databases": [{
     "binding": "DB",
@@ -23,6 +24,7 @@
         "pattern": "pbe.grev.dad",
         "custom_domain": true
       }],
+      "triggers": { "crons": ["*/30 * * * *"] },
       "vars": { "APP_ENV": "pbe" },
       "d1_databases": [{
         "binding": "DB",
@@ -37,6 +39,7 @@
         "pattern": "grev.dad",
         "custom_domain": true
       }],
+      "triggers": { "crons": ["*/30 * * * *"] },
       "vars": { "APP_ENV": "production" },
       "d1_databases": [{
         "binding": "DB",
