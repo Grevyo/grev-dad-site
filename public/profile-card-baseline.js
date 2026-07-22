@@ -1,8 +1,16 @@
 (() => {
   const CONTRACT='profile-card-baseline-v2';
-  const SCALED_CARD_WIDTH=900;
-  const SCALED_CARD_ASPECT=8/3;
-  const SCALED_CARD_HEIGHT=SCALED_CARD_WIDTH/SCALED_CARD_ASPECT;
+  const LOCKED_CARD=Object.freeze({
+    width:900,
+    height:600,
+    aspect:3/2,
+    coverHeight:180,
+    avatarSize:132,
+    padding:28,
+    borderWidth:1,
+    tileGap:10,
+    tileRowHeight:92
+  });
   const FONT_STACKS={system:'Inter,Segoe UI,Arial,sans-serif',display:'Impact,Haettenschweiler,Arial Narrow Bold,sans-serif',mono:'ui-monospace,SFMono-Regular,Consolas,Liberation Mono,monospace',serif:'Georgia,Times New Roman,serif',rounded:'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'};
   const overlays={none:'transparent',dark:'rgba(0,0,0,.38)',light:'rgba(255,255,255,.28)'};
   const base=window.GrevProfileCard;
@@ -11,14 +19,18 @@
   const previousCreate=base.create.bind(base);
   const previousApplyDesign=base.applyDesign.bind(base);
 
+  function lockedDesign(value){
+    const design=value&&typeof value==='object'?{...value}:{};
+    return {...design,cardWidth:'locked',cardAlignment:'centre',coverHeight:LOCKED_CARD.coverHeight,avatarSize:LOCKED_CARD.avatarSize,cardPadding:LOCKED_CARD.padding,cardBorderWidth:LOCKED_CARD.borderWidth,cardTileGap:LOCKED_CARD.tileGap,cardTileRowHeight:LOCKED_CARD.tileRowHeight};
+  }
   function normalize(value){
     const source=value?.profileCard||value||{};
     const legacyBaselineTiles=source.contract==='profile-card-baseline-v1'&&Array.isArray(source.tiles)?source.tiles:[];
     const cardTiles=Array.isArray(source.cardTiles)?source.cardTiles:legacyBaselineTiles;
-    return {...source,card:source.card||{},design:source.design||{},cardTiles};
+    return {...source,card:source.card||{},design:lockedDesign(source.design),cardTiles};
   }
-  function canonicalWidth(){return SCALED_CARD_WIDTH;}
-  function canonicalHeight(){return SCALED_CARD_HEIGHT;}
+  function canonicalWidth(){return LOCKED_CARD.width;}
+  function canonicalHeight(){return LOCKED_CARD.height;}
   function featureFor(tile){return tile?.feature||null;}
   function tileHref(tile){return tile.tileKind==='feature'?(featureFor(tile)?.route||null):(tile.linkUrl||null);}
   function tileTitle(tile){return tile.title||tile.linkLabel||featureFor(tile)?.name||(tile.tileKind==='link'?'External link':'Custom tile');}
@@ -47,12 +59,26 @@
   function mediaContent(tile){const content=document.createElement('div');content.className='profile-card-mini-media';if(tile.customIcon){const icon=document.createElement('span');icon.className='profile-card-mini-media-icon';icon.textContent=tile.customIcon;content.append(icon);}const titleText=tile.customTitle||tileTitle(tile);if(titleText){const title=document.createElement('strong');title.className='profile-card-mini-media-title';title.textContent=titleText;content.append(title);}return content;}
   function tileElement(tile){const href=tileHref(tile);const element=href?document.createElement('a'):document.createElement('article');element.className='profile-card-mini-tile';element.dataset.tileId=String(tile.tileId||'');element.style.gridColumn=`${Math.max(0,Number(tile.x)||0)+1} / span ${Math.max(1,Number(tile.width)||1)}`;element.style.gridRow=`${Math.max(0,Number(tile.y)||0)+1} / span ${Math.max(1,Number(tile.height)||1)}`;setTileAppearance(element,tile);if(href){element.href=href;if(/^https?:\/\//i.test(href)){element.target='_blank';element.rel='noopener noreferrer';}}element.append(tile.contentMode==='media-button'?mediaContent(tile):standardContent(tile));return element;}
   function ensureTileArea(root){let area=root.querySelector('.profile-card-tile-area');if(!area){area=document.createElement('section');area.className='profile-card-tile-area';area.setAttribute('aria-label','Profile card buttons and tiles');root.append(area);}let grid=area.querySelector('.profile-card-tile-grid');if(!grid){grid=document.createElement('div');grid.className='profile-card-tile-grid';area.append(grid);}return {area,grid};}
-  function renderTiles(root,value){const profile=normalize(value),{area,grid}=ensureTileArea(root),tiles=profile.cardTiles.slice().sort((a,b)=>(Number(a.y)-Number(b.y))||(Number(a.x)-Number(b.x))||(Number(a.position)-Number(b.position)));root.style.setProperty('--profile-card-tile-gap-custom',`${Number(profile.design.cardTileGap)||10}px`);root.style.setProperty('--profile-card-tile-row-custom',`${Number(profile.design.cardTileRowHeight)||92}px`);area.hidden=tiles.length===0;grid.replaceChildren(...tiles.map(tileElement));root.dataset.cardTileCount=String(tiles.length);}
+  function renderTiles(root,value){const profile=normalize(value),{area,grid}=ensureTileArea(root),tiles=profile.cardTiles.slice().sort((a,b)=>(Number(a.y)-Number(b.y))||(Number(a.x)-Number(b.x))||(Number(a.position)-Number(b.position)));root.style.setProperty('--profile-card-tile-gap-custom',`${LOCKED_CARD.tileGap}px`,'important');root.style.setProperty('--profile-card-tile-row-custom',`${LOCKED_CARD.tileRowHeight}px`,'important');area.hidden=tiles.length===0;grid.replaceChildren(...tiles.map(tileElement));root.dataset.cardTileCount=String(tiles.length);}
   function applyCanonicalGeometry(root,profile){
     previousApplyDesign(root,profile,profile.design,{variant:'full'});
     root.dataset.cardVariant='canonical';
-    root.dataset.cardWidth=profile.design.cardWidth||'full';
+    root.dataset.cardWidth='locked';
+    root.dataset.profileCardShape='locked-900x600';
     root.dataset.profileCardContract=CONTRACT;
+    root.style.setProperty('--profile-card-cover-height',`${LOCKED_CARD.coverHeight}px`,'important');
+    root.style.setProperty('--profile-card-avatar-size',`${LOCKED_CARD.avatarSize}px`,'important');
+    root.style.setProperty('--profile-card-padding',`${LOCKED_CARD.padding}px`,'important');
+    root.style.setProperty('--profile-card-border-width',`${LOCKED_CARD.borderWidth}px`,'important');
+    root.style.setProperty('--profile-card-tile-gap-custom',`${LOCKED_CARD.tileGap}px`,'important');
+    root.style.setProperty('--profile-card-tile-row-custom',`${LOCKED_CARD.tileRowHeight}px`,'important');
+    root.style.width=`min(100%, ${LOCKED_CARD.width}px)`;
+    root.style.maxWidth=`${LOCKED_CARD.width}px`;
+    root.style.aspectRatio='3 / 2';
+    root.style.minHeight='0';
+    root.style.overflow='hidden';
+    root.style.marginLeft='auto';
+    root.style.marginRight='auto';
   }
   function apply(root,value){
     const profile=normalize(value);
@@ -68,26 +94,24 @@
     const frame=document.createElement(options.frameTagName||'div');
     frame.className=`profile-card-scale-frame${options.frameClassName?` ${options.frameClassName}`:''}`;
     frame.dataset.profileCardScale='canonical';
-    frame.dataset.profileCardAspect='8:3';
-    frame.dataset.profileCardPlacementWidth=profile.design.cardWidth||'full';
+    frame.dataset.profileCardAspect='3:2';
+    frame.dataset.profileCardPlacementWidth='locked';
     frame.dataset.scaleReady='false';
     const card=create(profile,{...options,variant:'full'});
-    const width=canonicalWidth();
-    const height=canonicalHeight();
     card.classList.add('profile-card-scale-source');
-    card.style.width=`${width}px`;
-    card.style.height=`${height}px`;
-    card.style.minHeight=`${height}px`;
-    card.style.maxHeight=`${height}px`;
+    card.style.width=`${LOCKED_CARD.width}px`;
+    card.style.height=`${LOCKED_CARD.height}px`;
+    card.style.minHeight=`${LOCKED_CARD.height}px`;
+    card.style.maxHeight=`${LOCKED_CARD.height}px`;
     card.style.maxWidth='none';
     card.style.margin='0';
     frame.append(card);
     const resize=()=>{
       const available=frame.clientWidth;
       if(!available)return;
-      const scale=Math.min(1,available/width);
+      const scale=Math.min(1,available/LOCKED_CARD.width);
       card.style.transform=`scale(${scale})`;
-      frame.style.height=`${height*scale}px`;
+      frame.style.height=`${LOCKED_CARD.height*scale}px`;
       frame.style.setProperty('--profile-card-uniform-scale',String(scale));
       frame.dataset.scaleReady='true';
     };
@@ -99,5 +123,5 @@
   function mount(current,value,options={}){const next=create(value,options);const id=options.id||current?.id;if(id)next.id=id;if(options.ariaLabel)next.setAttribute('aria-label',options.ariaLabel);if(current)current.replaceWith(next);return next;}
 
   base.apply=apply;base.create=create;base.createScaled=createScaled;base.renderTiles=renderTiles;base.normalize=normalize;base.mount=mount;base.contract=CONTRACT;
-  window.GrevProfileCardBaseline={normalize,apply,create,createScaled,mount,renderTiles,canonicalWidth,canonicalHeight,contract:CONTRACT};
+  window.GrevProfileCardBaseline={normalize,apply,create,createScaled,mount,renderTiles,canonicalWidth,canonicalHeight,lockedDesign,geometry:LOCKED_CARD,contract:CONTRACT};
 })();
