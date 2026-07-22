@@ -1,6 +1,6 @@
 (() => {
   const CONTRACT='profile-card-baseline-v2';
-  const CANONICAL_WIDTHS={compact:900,wide:1200,full:1440};
+  const SCALED_CARD_WIDTH=900;
   const FONT_STACKS={system:'Inter,Segoe UI,Arial,sans-serif',display:'Impact,Haettenschweiler,Arial Narrow Bold,sans-serif',mono:'ui-monospace,SFMono-Regular,Consolas,Liberation Mono,monospace',serif:'Georgia,Times New Roman,serif',rounded:'Trebuchet MS,Arial Rounded MT Bold,Arial,sans-serif'};
   const overlays={none:'transparent',dark:'rgba(0,0,0,.38)',light:'rgba(255,255,255,.28)'};
   const base=window.GrevProfileCard;
@@ -15,10 +15,7 @@
     const cardTiles=Array.isArray(source.cardTiles)?source.cardTiles:legacyBaselineTiles;
     return {...source,card:source.card||{},design:source.design||{},cardTiles};
   }
-  function canonicalWidth(value){
-    const profile=normalize(value);
-    return CANONICAL_WIDTHS[profile.design.cardWidth]||CANONICAL_WIDTHS.full;
-  }
+  function canonicalWidth(){return SCALED_CARD_WIDTH;}
   function featureFor(tile){return tile?.feature||null;}
   function tileHref(tile){return tile.tileKind==='feature'?(featureFor(tile)?.route||null):(tile.linkUrl||null);}
   function tileTitle(tile){return tile.title||tile.linkLabel||featureFor(tile)?.name||(tile.tileKind==='link'?'External link':'Custom tile');}
@@ -68,9 +65,10 @@
     const frame=document.createElement(options.frameTagName||'div');
     frame.className=`profile-card-scale-frame${options.frameClassName?` ${options.frameClassName}`:''}`;
     frame.dataset.profileCardScale='canonical';
+    frame.dataset.profileCardPlacementWidth=profile.design.cardWidth||'full';
     frame.dataset.scaleReady='false';
     const card=create(profile,{...options,variant:'full'});
-    const width=canonicalWidth(profile);
+    const width=canonicalWidth();
     card.classList.add('profile-card-scale-source');
     card.style.width=`${width}px`;
     card.style.maxWidth='none';
