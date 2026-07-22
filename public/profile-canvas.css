@@ -1,8 +1,8 @@
-/* The profile card is the locked top-left tile in the same eight-column profile canvas. */
+/* The profile card is a real movable tile with one globally fixed 4 × 6 size. */
 .profile-grid-region{width:min(100%,1800px)}
 .profile-card-grid-slot{
   position:relative;
-  z-index:1;
+  z-index:2;
   min-width:0;
   min-height:0;
   grid-column:1 / span 4;
@@ -23,8 +23,15 @@
   transform:scale(var(--profile-card-canvas-scale,1));
   transform-origin:top left!important;
 }
-.profile-grid.editing-grid .profile-card-grid-slot::after{
-  content:"Locked profile card · 4 × 6";
+.profile-card-grid-slot.editing{
+  cursor:grab;
+  outline:2px solid color-mix(in srgb,#dce7ff 68%,transparent);
+  outline-offset:-2px;
+}
+.profile-card-grid-slot.editing:active{cursor:grabbing}
+.profile-card-grid-slot.dragging{z-index:15;opacity:.45;cursor:grabbing}
+.profile-card-grid-slot.editing::after{
+  content:"Fixed 4 × 6 · drag to move";
   position:absolute;
   z-index:12;
   top:8px;
@@ -38,10 +45,6 @@
   letter-spacing:.08em;
   text-transform:uppercase;
   pointer-events:none;
-}
-.profile-grid.editing-grid .profile-card-grid-slot{
-  outline:2px solid color-mix(in srgb,#dce7ff 68%,transparent);
-  outline-offset:-2px;
 }
 .profile-grid .profile-drop-preview{z-index:14}
 .profile-tile-customizer-toolbar{
@@ -95,7 +98,8 @@ body.profile-tile-customizing .profile-tile.editing{cursor:grab}
 @media(max-width:900px){
   .profile-grid-region{width:100%}
   .profile-card-grid-slot{grid-column:1 / -1;grid-row:auto}
-  .profile-grid.editing-grid .profile-card-grid-slot::after{content:"Locked profile card"}
+  .profile-card-grid-slot.editing{cursor:default}
+  .profile-card-grid-slot.editing::after{content:"Fixed-size profile card"}
   .profile-tile-customizer-toolbar{grid-template-columns:1fr}
   .profile-tile-customizer-actions{justify-content:flex-start}
   .profile-tile-customizer-picker{grid-template-columns:repeat(2,minmax(0,1fr))}
