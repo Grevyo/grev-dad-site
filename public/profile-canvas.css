@@ -89,6 +89,7 @@
 .profile-tile-customizer-message .profile-editor-message.error{color:var(--danger)}
 .profile-tile-customizer-message .profile-editor-message.success{color:var(--success)}
 body.profile-tile-customizing #profile-editor-toolbar{display:none!important}
+body.profile-tile-customizing .profile-workspace.editing{grid-template-columns:minmax(0,1fr)!important}
 body.profile-tile-customizing #profile-grid{scroll-margin-top:18px}
 body.profile-tile-customizing .profile-tile.editing{cursor:grab}
 @media(max-width:900px){
