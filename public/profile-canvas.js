@@ -135,6 +135,7 @@
       const grid = document.querySelector('#profile-grid');
       if (grid && slot) grid.prepend(slot);
       updateCanvasCopy();
+      queueMicrotask(updateCanvasCopy);
       syncCanvasGeometry();
     };
     integrated.profileCanvasRenderer = true;
