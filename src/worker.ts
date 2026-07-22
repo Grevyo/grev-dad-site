@@ -4,6 +4,8 @@ import { type ProfileEnv } from './profile';
 import { handleProfileMediaRequest } from './profile-media';
 import { handleProfileCardTilesRequest } from './profile-card-tiles';
 import { handleProfileCustomizationHardeningRequest } from './profile-customization-hardening';
+import { handleProfileTileSaveRequest } from './profile-tile-save';
+import { handleProfileDesignLockNormalizerRequest } from './profile-design-lock-normalizer';
 import { handleProfileCardBaselineRequest, type ProfileCardBaselineEnv } from './profile-card-baseline';
 import { handleExperienceRequest, type ExperienceEnv } from './experience';
 import { handlePlatformRequest, type PlatformEnv } from './platform';
@@ -18,7 +20,7 @@ type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-discovery.css','/dashboard-discovery.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js','/platform-completion.css','/platform-live-quick.js','/dashboard-freeze-fix.js','/editor-guidance.css','/editor-guidance.js',
-  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js',
+  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js','/profile-tile-save-fix.js',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-editor-focus.css','/profile-editor-focus.js','/profile-experience.css','/profile-experience.js','/profile-guestbook-enhanced.js',
   '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js'
 ]);
@@ -91,6 +93,8 @@ export default {
     catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Experience request failed',error); return workerJson({ok:false,message:'The dashboard or profile experience request could not be completed.'},500); }
     try {
       const profileEnv = env as unknown as ProfileEnv;
+      const tileSaveResponse = await handleProfileTileSaveRequest(request, profileEnv); if (tileSaveResponse) return applyProfilePrivacy(request, profileEnv, tileSaveResponse);
+      const normalizedDesignResponse = await handleProfileDesignLockNormalizerRequest(request, profileEnv); if (normalizedDesignResponse) return applyProfilePrivacy(request, profileEnv, normalizedDesignResponse);
       const customizationResponse = await handleProfileCustomizationHardeningRequest(request, profileEnv); if (customizationResponse) return applyProfilePrivacy(request, profileEnv, customizationResponse);
       const cardTileResponse = await handleProfileCardTilesRequest(request, profileEnv); if (cardTileResponse) return applyProfilePrivacy(request, profileEnv, cardTileResponse);
       const profileResponse = await handleProfileMediaRequest(request, profileEnv); if (profileResponse) return applyProfilePrivacy(request, profileEnv, profileResponse);
