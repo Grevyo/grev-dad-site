@@ -84,6 +84,10 @@
 .profile-tile-customizer-picker[hidden]{display:none!important}
 .profile-tile-customizer-picker button{display:grid;gap:5px;text-align:left}
 .profile-tile-customizer-picker span{color:var(--muted);font-size:.74rem;line-height:1.4}
+.profile-tile-customizer-message{grid-column:1 / -1;min-height:24px}
+.profile-tile-customizer-message .profile-editor-message{margin:0;color:var(--muted)}
+.profile-tile-customizer-message .profile-editor-message.error{color:var(--danger)}
+.profile-tile-customizer-message .profile-editor-message.success{color:var(--success)}
 body.profile-tile-customizing #profile-editor-toolbar{display:none!important}
 body.profile-tile-customizing #profile-grid{scroll-margin-top:18px}
 body.profile-tile-customizing .profile-tile.editing{cursor:grab}
