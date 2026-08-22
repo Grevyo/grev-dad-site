@@ -1,0 +1,66 @@
+name: Verify Grev Home Backbone
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/grev-home*.ts'
+      - 'src/worker-grev-home.ts'
+      - 'migrations/*grev_home*.sql'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/verify-grev-home-backbone.yml'
+  pull_request:
+    paths:
+      - 'src/grev-home*.ts'
+      - 'src/worker-grev-home.ts'
+      - 'migrations/*grev_home*.sql'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/verify-grev-home-backbone.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: grev-home-backbone-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check Grev.dad worker
+        run: npm run typecheck
+
+      - name: Verify Grev Home migration ordering
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(find migrations -maxdepth 1 -type f -name '*grev_home*.sql' -printf '%f\n' | sort)
+          printf '%s\n' "$files"
+          test -n "$files"
+          base=$(printf '%s\n' "$files" | grep 'grev_home_backbone.sql' | head -n1)
+          history=$(printf '%s\n' "$files" | grep 'grev_home_progression_history.sql' | head -n1)
+          if [ -z "$base" ] || [ -z "$history" ]; then
+            echo 'Required Grev Home base/history migrations are missing.'
+            exit 1
+          fi
+          if [[ "$base" > "$history" ]]; then
+            echo 'Grev Home base migration sorts after progression/history.'
+            exit 1
+          fi
