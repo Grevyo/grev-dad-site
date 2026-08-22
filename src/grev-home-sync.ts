@@ -166,8 +166,6 @@ function parseSession(value: unknown): SessionInput | null {
     return null;
   }
 
-  // Duration is recorded by Grev Home and may differ by a second because of rounding, but it
-  // should remain close to the supplied timestamps. Reject obviously malformed history rows.
   const elapsed = endedAt - startedAt;
   if (Math.abs(elapsed - durationSeconds) > 5) return null;
 
@@ -211,17 +209,15 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
   for (const session of sessions) {
     statements.push(env.DB.prepare(`
       INSERT OR IGNORE INTO grev_home_session_history(
-        link_id,session_id,user_id,app_id,app_name,content_id,content_name,started_at,ended_at,duration_seconds,outcome,
+        link_id,session_id,user_id,app_id,app_name,started_at,ended_at,duration_seconds,outcome,
         failure_message,client_sequence,visibility,created_at
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
       context.linkId,
       session.sessionId,
       context.userId,
       session.appId,
       session.appName,
-      session.contentId,
-      session.contentName,
       session.startedAt,
       session.endedAt,
       session.durationSeconds,
@@ -231,6 +227,13 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
       session.visibility,
       current
     ));
+
+    if (session.contentId !== null || session.contentName !== null) {
+      statements.push(env.DB.prepare(`
+        INSERT OR IGNORE INTO grev_home_session_content(link_id,session_id,content_id,content_name,created_at)
+        VALUES(?,?,?,?,?)
+      `).bind(context.linkId, session.sessionId, session.contentId, session.contentName, current));
+    }
   }
 
   statements.push(env.DB.prepare(`
@@ -291,10 +294,12 @@ async function history(request: Request, env: GrevHomeSyncEnv, context: DeviceCo
   const requested = Number(new URL(request.url).searchParams.get('limit') ?? 100);
   const limit = Math.max(1, Math.min(250, Number.isFinite(requested) ? Math.floor(requested) : 100));
   const rows = await env.DB.prepare(`
-    SELECT session_id,app_id,app_name,content_id,content_name,started_at,ended_at,duration_seconds,outcome,failure_message,client_sequence,visibility
-    FROM grev_home_session_history
-    WHERE user_id=?
-    ORDER BY ended_at DESC,created_at DESC
+    SELECT h.session_id,h.app_id,h.app_name,c.content_id,c.content_name,h.started_at,h.ended_at,h.duration_seconds,
+           h.outcome,h.failure_message,h.client_sequence,h.visibility
+    FROM grev_home_session_history h
+    LEFT JOIN grev_home_session_content c ON c.link_id=h.link_id AND c.session_id=h.session_id
+    WHERE h.user_id=?
+    ORDER BY h.ended_at DESC,h.created_at DESC
     LIMIT ?
   `).bind(context.userId, limit).all<{
     session_id:string;app_id:string;app_name:string;content_id:string|null;content_name:string|null;
