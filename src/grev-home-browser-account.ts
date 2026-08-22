@@ -2,6 +2,7 @@ import type { GrevHomeEnv } from './grev-home';
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type BrowserUser = {
   id: string;
@@ -64,10 +65,32 @@ export async function handleGrevHomeBrowserAccountRequest(
   env: GrevHomeEnv
 ): Promise<Response | null> {
   const path = new URL(request.url).pathname;
-  if (path !== '/api/grev-home/browser/link') return null;
+  const deviceMatch = path.match(/^\/api\/grev-home\/browser\/devices\/([0-9a-f-]{36})$/i);
+  if (path !== '/api/grev-home/browser/link' && !deviceMatch) return null;
 
   const user = await browserUser(request, env);
   if (!user) return json({ ok:false, message:'Authentication required.' }, 401);
+
+  if (deviceMatch) {
+    if (request.method !== 'DELETE') return json({ ok:false, message:'Method not allowed.' }, 405);
+    if (!sameOrigin(request)) return json({ ok:false, message:'Origin rejected.' }, 403);
+
+    const tokenId = deviceMatch[1]!;
+    if (!UUID_RE.test(tokenId)) return json({ ok:false, message:'Device not found.' }, 404);
+
+    const device = await env.DB.prepare(`
+      SELECT t.id,t.link_id,t.revoked_at,l.user_id
+      FROM grev_home_tokens t JOIN grev_home_links l ON l.id=t.link_id
+      WHERE t.id=? AND l.user_id=? AND l.revoked_at IS NULL
+    `).bind(tokenId, user.id).first<{id:string;link_id:string;revoked_at:number|null;user_id:string}>();
+    if (!device) return json({ ok:false, message:'Device not found.' }, 404);
+
+    if (device.revoked_at === null) {
+      await env.DB.prepare(`UPDATE grev_home_tokens SET revoked_at=? WHERE id=? AND revoked_at IS NULL`)
+        .bind(now(), tokenId).run();
+    }
+    return json({ ok:true, revoked:true, deviceId:tokenId });
+  }
 
   if (request.method === 'GET') {
     const link = await env.DB.prepare(`
