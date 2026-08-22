@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Link Grev Home · Grev.dad</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0d12;color:#f5f7fb}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at top,#192235 0,#0b0d12 52%)}
+    main{width:min(680px,calc(100% - 32px));box-sizing:border-box;background:#121720;border:1px solid #2d3749;border-radius:22px;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.4)}
+    h1{margin:0 0 8px;font-size:30px} p{color:#aeb8ca;line-height:1.55}.code{font:700 26px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.12em;color:#94b5ff;margin:20px 0}.details{display:grid;gap:10px;margin:22px 0;padding:18px;border-radius:14px;background:#0c1119}.row{display:grid;grid-template-columns:150px 1fr;gap:14px}.label{color:#7f8ba1}.value{overflow-wrap:anywhere}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}button{min-width:150px;border-radius:12px;border:1px solid #42516d;background:#202a3b;color:white;padding:12px 18px;font:600 15px inherit;cursor:pointer}button.primary{background:#4f78d8;border-color:#7197ee}button.danger{border-color:#7a4249;background:#311a1d}button:disabled{opacity:.45;cursor:not-allowed}.status{min-height:24px;margin-top:18px;color:#9db7f5}.error{color:#ff9da5}.success{color:#94ddb0}@media(max-width:560px){main{padding:22px}.row{grid-template-columns:1fr;gap:2px}.actions button{width:100%}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Link Grev Home</h1>
+  <p>Approve this only if the GrevID and device below belong to you. Grev Home never receives your Grev.dad password or browser session.</p>
+  <div id="code" class="code"></div>
+  <section id="details" class="details" hidden>
+    <div class="row"><div class="label">GrevID</div><div id="grevId" class="value"></div></div>
+    <div class="row"><div class="label">Local username</div><div id="username" class="value"></div></div>
+    <div class="row"><div class="label">Display name</div><div id="displayName" class="value"></div></div>
+    <div class="row"><div class="label">Device</div><div id="deviceName" class="value"></div></div>
+    <div class="row"><div class="label">Expires</div><div id="expires" class="value"></div></div>
+  </section>
+  <div class="actions">
+    <button id="approve" class="primary" disabled>Approve link</button>
+    <button id="deny" class="danger" disabled>Deny</button>
+    <button id="back" onclick="location.href='/dashboard'">Back to dashboard</button>
+  </div>
+  <div id="status" class="status" role="status"></div>
+</main>
+<script>
+const params=new URLSearchParams(location.search),code=(params.get('code')||'').trim().toUpperCase();
+const $=id=>document.getElementById(id),status=$('status'),approve=$('approve'),deny=$('deny');
+$('code').textContent=code||'NO CODE';
+function setStatus(message,kind=''){status.textContent=message;status.className='status '+kind;}
+async function load(){
+  if(!code){setStatus('No Grev Home link code was supplied.','error');return;}
+  try{
+    const response=await fetch('/api/grev-home/link/request?code='+encodeURIComponent(code),{credentials:'same-origin'});
+    const data=await response.json();
+    if(!response.ok||!data.ok)throw new Error(data.message||'The link request could not be loaded.');
+    const request=data.request;$('details').hidden=false;$('grevId').textContent=request.grevId;$('username').textContent=request.localUsername;$('displayName').textContent=request.localDisplayName;$('deviceName').textContent=request.deviceName||'Grev Home device';$('expires').textContent=new Date(request.expiresAt*1000).toLocaleString();
+    if(request.status==='approved'){setStatus('This Grev Home request is already approved.','success');return;}
+    if(request.status==='denied'){setStatus('This Grev Home request has already been denied.','error');return;}
+    approve.disabled=false;deny.disabled=false;
+  }catch(error){setStatus(error instanceof Error?error.message:'The link request could not be loaded.','error');}
+}
+async function decide(decision){
+  approve.disabled=true;deny.disabled=true;setStatus(decision==='approve'?'Approving Grev Home…':'Denying request…');
+  try{
+    const response=await fetch('/api/grev-home/link/approve',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({userCode:code,decision})});
+    const data=await response.json();
+    if(!response.ok||!data.ok)throw new Error(data.message||'The link decision could not be saved.');
+    setStatus(decision==='approve'?'Grev Home is linked. You can return to the console.':'The Grev Home link request was denied.',decision==='approve'?'success':'');
+  }catch(error){setStatus(error instanceof Error?error.message:'The link decision could not be saved.','error');approve.disabled=false;deny.disabled=false;}
+}
+approve.addEventListener('click',()=>decide('approve'));deny.addEventListener('click',()=>decide('deny'));load();
+</script>
+</body>
+</html>
