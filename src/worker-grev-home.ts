@@ -1,6 +1,7 @@
 import existingWorker from './worker';
 import { handleGrevHomeBrowserAccountRequest } from './grev-home-browser-account';
 import { handleGrevHomeRequest, type GrevHomeEnv } from './grev-home';
+import { handleGrevHomeSyncRequest } from './grev-home-sync';
 
 interface AssetsBinding {
   fetch(request: Request): Promise<Response>;
@@ -61,6 +62,9 @@ export default {
       try {
         const browserResponse = await handleGrevHomeBrowserAccountRequest(request, env);
         if (browserResponse) return browserResponse;
+
+        const syncResponse = await handleGrevHomeSyncRequest(request, env);
+        if (syncResponse) return syncResponse;
 
         const response = await handleGrevHomeRequest(request, env);
         return response ?? workerJson({ ok:false, message:'Unknown Grev Home API route.' }, 404);
