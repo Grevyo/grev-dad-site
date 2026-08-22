@@ -27,6 +27,8 @@ type SessionInput = {
   sequence: number;
   appId: string;
   appName: string;
+  contentId: string | null;
+  contentName: string | null;
   startedAt: number;
   endedAt: number;
   durationSeconds: number;
@@ -46,6 +48,7 @@ type ProgressionInput = {
 const encoder = new TextEncoder();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_APP_ID_RE = /^[A-Za-z0-9._-]{1,80}$/;
+const SAFE_CONTENT_ID_RE = /^[A-Za-z0-9._:+-]{1,160}$/;
 const MAX_SESSION_BATCH = 100;
 const MAX_SESSION_SECONDS = 31 * 24 * 60 * 60;
 const API_VERSION = 1;
@@ -89,6 +92,12 @@ function now(): number { return Math.floor(Date.now() / 1000); }
 
 function cleanText(value: unknown, maximumLength: number): string {
   return String(value ?? '').trim().slice(0, maximumLength);
+}
+
+function optionalText(value: unknown, maximumLength: number): string | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = cleanText(value, maximumLength);
+  return cleaned || null;
 }
 
 function safeInteger(value: unknown, minimum = 0, maximum = Number.MAX_SAFE_INTEGER): number | null {
@@ -139,6 +148,8 @@ function parseSession(value: unknown): SessionInput | null {
   const sequence = safeInteger(input.sequence, 1);
   const appId = cleanText(input.appId, 80);
   const appName = cleanText(input.appName, 120);
+  const contentId = optionalText(input.contentId, 160);
+  const contentName = optionalText(input.contentName, 200);
   const startedAt = safeInteger(input.startedAt, 1);
   const endedAt = safeInteger(input.endedAt, 1);
   const durationSeconds = safeInteger(input.durationSeconds, 0, MAX_SESSION_SECONDS);
@@ -149,6 +160,7 @@ function parseSession(value: unknown): SessionInput | null {
     : cleanText(input.failureMessage, 500);
 
   if (!UUID_RE.test(sessionId) || sequence === null || !SAFE_APP_ID_RE.test(appId) || !appName ||
+      (contentId !== null && !SAFE_CONTENT_ID_RE.test(contentId)) ||
       startedAt === null || endedAt === null || endedAt < startedAt || durationSeconds === null ||
       !['exited','failed'].includes(outcome) || !['friends','private'].includes(visibility)) {
     return null;
@@ -164,6 +176,8 @@ function parseSession(value: unknown): SessionInput | null {
     sequence,
     appId,
     appName,
+    contentId,
+    contentName,
     startedAt,
     endedAt,
     durationSeconds,
@@ -197,15 +211,17 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
   for (const session of sessions) {
     statements.push(env.DB.prepare(`
       INSERT OR IGNORE INTO grev_home_session_history(
-        link_id,session_id,user_id,app_id,app_name,started_at,ended_at,duration_seconds,outcome,
+        link_id,session_id,user_id,app_id,app_name,content_id,content_name,started_at,ended_at,duration_seconds,outcome,
         failure_message,client_sequence,visibility,created_at
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
       context.linkId,
       session.sessionId,
       context.userId,
       session.appId,
       session.appName,
+      session.contentId,
+      session.contentName,
       session.startedAt,
       session.endedAt,
       session.durationSeconds,
@@ -275,14 +291,15 @@ async function history(request: Request, env: GrevHomeSyncEnv, context: DeviceCo
   const requested = Number(new URL(request.url).searchParams.get('limit') ?? 100);
   const limit = Math.max(1, Math.min(250, Number.isFinite(requested) ? Math.floor(requested) : 100));
   const rows = await env.DB.prepare(`
-    SELECT session_id,app_id,app_name,started_at,ended_at,duration_seconds,outcome,failure_message,client_sequence,visibility
+    SELECT session_id,app_id,app_name,content_id,content_name,started_at,ended_at,duration_seconds,outcome,failure_message,client_sequence,visibility
     FROM grev_home_session_history
     WHERE user_id=?
     ORDER BY ended_at DESC,created_at DESC
     LIMIT ?
   `).bind(context.userId, limit).all<{
-    session_id:string;app_id:string;app_name:string;started_at:number;ended_at:number;duration_seconds:number;
-    outcome:string;failure_message:string|null;client_sequence:number;visibility:string;
+    session_id:string;app_id:string;app_name:string;content_id:string|null;content_name:string|null;
+    started_at:number;ended_at:number;duration_seconds:number;outcome:string;failure_message:string|null;
+    client_sequence:number;visibility:string;
   }>();
   return json({
     ok:true,
@@ -290,6 +307,8 @@ async function history(request: Request, env: GrevHomeSyncEnv, context: DeviceCo
       sessionId:row.session_id,
       appId:row.app_id,
       appName:row.app_name,
+      contentId:row.content_id,
+      contentName:row.content_name,
       startedAt:row.started_at,
       endedAt:row.ended_at,
       durationSeconds:row.duration_seconds,
