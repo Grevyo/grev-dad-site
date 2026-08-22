@@ -1,7 +1,9 @@
 import existingWorker from './worker';
 import { handleGrevHomeBrowserAccountRequest } from './grev-home-browser-account';
+import { handleGrevHomeCapabilitiesRequest } from './grev-home-capabilities';
 import { handleGrevHomeRequest, type GrevHomeEnv } from './grev-home';
 import { handleGrevHomeSyncRequest } from './grev-home-sync';
+import { handleGrevHomeTokenLifecycleRequest } from './grev-home-token-lifecycle';
 
 interface AssetsBinding {
   fetch(request: Request): Promise<Response>;
@@ -60,8 +62,14 @@ export default {
 
     if (url.pathname.startsWith('/api/grev-home/')) {
       try {
+        const capabilitiesResponse = await handleGrevHomeCapabilitiesRequest(request, env);
+        if (capabilitiesResponse) return capabilitiesResponse;
+
         const browserResponse = await handleGrevHomeBrowserAccountRequest(request, env);
         if (browserResponse) return browserResponse;
+
+        const tokenLifecycleResponse = await handleGrevHomeTokenLifecycleRequest(request, env);
+        if (tokenLifecycleResponse) return tokenLifecycleResponse;
 
         const syncResponse = await handleGrevHomeSyncRequest(request, env);
         if (syncResponse) return syncResponse;
