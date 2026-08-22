@@ -34,6 +34,7 @@ export async function handleGrevHomeCapabilitiesRequest(
       deviceTokens:true,
       tokenRotation:true,
       perDeviceRevocation:true,
+      linkMetadataSync:true,
       friends:true,
       friendRequests:true,
       presence:true,
