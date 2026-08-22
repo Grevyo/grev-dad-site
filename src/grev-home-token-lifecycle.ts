@@ -91,7 +91,7 @@ export async function handleGrevHomeTokenLifecycleRequest(
     `).bind(previousTokenValidUntil, context.tokenId, current),
     env.DB.prepare(`
       INSERT INTO grev_home_tokens(id,link_id,link_request_id,token_hash,device_name,created_at,expires_at)
-      VALUES(?,?,NULL,?,?,?,?,?)
+      VALUES(?,?,NULL,?,?,?,?)
     `).bind(
       tokenId,
       context.linkId,
