@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "grev-dad-dev",
-  "main": "src/worker.ts",
+  "main": "src/worker-grev-home.ts",
   "compatibility_date": "2026-07-16",
   "assets": {
     "directory": "./public",
