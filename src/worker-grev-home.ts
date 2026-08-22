@@ -1,6 +1,7 @@
 import existingWorker from './worker';
 import { handleGrevHomeBrowserAccountRequest } from './grev-home-browser-account';
 import { handleGrevHomeCapabilitiesRequest } from './grev-home-capabilities';
+import { handleGrevHomeLinkMetadataRequest } from './grev-home-link-metadata';
 import { handleGrevHomeRequest, type GrevHomeEnv } from './grev-home';
 import { handleGrevHomeSyncRequest } from './grev-home-sync';
 import { handleGrevHomeTokenLifecycleRequest } from './grev-home-token-lifecycle';
@@ -67,6 +68,9 @@ export default {
 
         const browserResponse = await handleGrevHomeBrowserAccountRequest(request, env);
         if (browserResponse) return browserResponse;
+
+        const linkMetadataResponse = await handleGrevHomeLinkMetadataRequest(request, env);
+        if (linkMetadataResponse) return linkMetadataResponse;
 
         const tokenLifecycleResponse = await handleGrevHomeTokenLifecycleRequest(request, env);
         if (tokenLifecycleResponse) return tokenLifecycleResponse;
