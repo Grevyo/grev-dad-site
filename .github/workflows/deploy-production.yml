@@ -104,3 +104,6 @@ jobs:
           }
           console.log('Production LADMIN login and Owner/Admin session verified.');
           NODE
+
+      - name: Verify Grev Home API end to end
+        run: node scripts/smoke-grev-home-api.mjs https://grev.dad production
