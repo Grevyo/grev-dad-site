@@ -114,6 +114,9 @@ jobs:
           console.log('LADMIN login and Owner/Admin session verified.');
           NODE
 
+      - name: Verify Grev Home API end to end
+        run: node scripts/smoke-grev-home-api.mjs https://pbe.grev.dad pbe
+
       - name: Verify onboarding groups and options
         shell: bash
         run: |
