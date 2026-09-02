@@ -5,9 +5,15 @@ interface D1Statement {
   all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
   run(): Promise<unknown>;
 }
-interface D1Database {
+interface D1Executor {
   prepare(query: string): D1Statement;
   batch(statements: D1Statement[]): Promise<unknown[]>;
+}
+interface D1DatabaseSession extends D1Executor {
+  getBookmark(): string | null;
+}
+interface D1Database extends D1Executor {
+  withSession(constraint?: string): D1DatabaseSession;
 }
 
 export interface GrevHomeEnv {
@@ -66,6 +72,13 @@ const LINK_REQUEST_LIFETIME_SECONDS = 10 * 60;
 const DEVICE_TOKEN_LIFETIME_SECONDS = 90 * 24 * 60 * 60;
 const PRESENCE_MIN_SECONDS = 60;
 const PRESENCE_MAX_SECONDS = 10 * 60;
+
+function primaryDatabase(env: GrevHomeEnv): D1Executor {
+  // Link creation, approval and token issuance cross multiple HTTP requests. Route those
+  // security-sensitive reads to the primary so every step sees the latest committed state even
+  // when D1 read replication is enabled for the database.
+  return env.DB.withSession('first-primary');
+}
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -175,7 +188,8 @@ async function getDeviceContext(request: Request, env: GrevHomeEnv): Promise<Dev
   const token = bearerToken(request);
   if (!token) return null;
   const current = now();
-  const row = await env.DB.prepare(`
+  const db = primaryDatabase(env);
+  const row = await db.prepare(`
     SELECT t.id AS token_id,t.link_id,l.grev_id,l.local_username,l.local_display_name,
       u.id AS user_id,u.username,u.display_name,u.is_verified,u.is_owner,
       CASE WHEN u.is_owner=1 OR EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='role-admin') THEN 1 ELSE 0 END AS is_admin
@@ -190,9 +204,9 @@ async function getDeviceContext(request: Request, env: GrevHomeEnv): Promise<Dev
   }>();
   if (!row) return null;
 
-  await env.DB.batch([
-    env.DB.prepare(`UPDATE grev_home_tokens SET last_used_at=? WHERE id=?`).bind(current, row.token_id),
-    env.DB.prepare(`UPDATE grev_home_links SET last_seen_at=?,updated_at=? WHERE id=?`).bind(current, current, row.link_id)
+  await db.batch([
+    db.prepare(`UPDATE grev_home_tokens SET last_used_at=? WHERE id=?`).bind(current, row.token_id),
+    db.prepare(`UPDATE grev_home_links SET last_seen_at=?,updated_at=? WHERE id=?`).bind(current, current, row.link_id)
   ]);
 
   return {
@@ -260,9 +274,10 @@ async function linkStart(request: Request, env: GrevHomeEnv): Promise<Response> 
   const userCode = randomUserCode();
   const created = now();
   const expiresAt = created + LINK_REQUEST_LIFETIME_SECONDS;
+  const db = primaryDatabase(env);
 
-  await env.DB.prepare(`DELETE FROM grev_home_link_requests WHERE expires_at<?`).bind(created - 3600).run();
-  await env.DB.prepare(`
+  await db.prepare(`DELETE FROM grev_home_link_requests WHERE expires_at<?`).bind(created - 3600).run();
+  await db.prepare(`
     INSERT INTO grev_home_link_requests(id,device_code_hash,user_code,grev_id,local_username,local_display_name,device_name,created_at,expires_at)
     VALUES(?,?,?,?,?,?,?,?,?)
   `).bind(id, await sha256(deviceCode), userCode, grevId, localUsername, localDisplayName, deviceName, created, expiresAt).run();
@@ -285,7 +300,7 @@ async function browserLinkRequest(request: Request, env: GrevHomeEnv): Promise<R
   const user = await getBrowserUser(request, env);
   if (!user) return json({ ok:false, message:'Authentication required.' }, 401);
   const code = normalizeUserCode(new URL(request.url).searchParams.get('code'));
-  const row = await env.DB.prepare(`
+  const row = await primaryDatabase(env).prepare(`
     SELECT id,grev_id,local_username,local_display_name,device_name,created_at,expires_at,approved_user_id,approved_at,denied_at
     FROM grev_home_link_requests WHERE user_code=?
   `).bind(code).first<LinkRequestRow>();
@@ -317,7 +332,8 @@ async function browserLinkDecision(request: Request, env: GrevHomeEnv): Promise<
   const decision = String(input.decision ?? '').toLowerCase();
   if (!['approve','deny'].includes(decision)) return json({ ok:false, message:'Choose approve or deny.' }, 400);
 
-  const row = await env.DB.prepare(`
+  const db = primaryDatabase(env);
+  const row = await db.prepare(`
     SELECT id,grev_id,local_username,local_display_name,device_name,created_at,expires_at,approved_user_id,approved_at,denied_at
     FROM grev_home_link_requests WHERE user_code=?
   `).bind(code).first<LinkRequestRow>();
@@ -328,18 +344,15 @@ async function browserLinkDecision(request: Request, env: GrevHomeEnv): Promise<
   if (row.approved_user_id && row.approved_user_id !== user.id) return json({ ok:false, message:'That request has already been approved by another account.' }, 409);
 
   if (decision === 'deny') {
-    await env.DB.prepare(`UPDATE grev_home_link_requests SET denied_at=? WHERE id=? AND approved_user_id IS NULL`).bind(current, row.id).run();
+    await db.prepare(`UPDATE grev_home_link_requests SET denied_at=? WHERE id=? AND approved_user_id IS NULL`).bind(current, row.id).run();
     return json({ ok:true, status:'denied' });
   }
 
-  const byUser = await env.DB.prepare(`SELECT id,user_id,grev_id,revoked_at FROM grev_home_links WHERE user_id=?`).bind(user.id)
+  const byUser = await db.prepare(`SELECT id,user_id,grev_id,revoked_at FROM grev_home_links WHERE user_id=?`).bind(user.id)
     .first<{id:string;user_id:string;grev_id:string;revoked_at:number|null}>();
-  const byGrev = await env.DB.prepare(`SELECT id,user_id,grev_id,revoked_at FROM grev_home_links WHERE grev_id=? COLLATE NOCASE`).bind(row.grev_id)
+  const byGrev = await db.prepare(`SELECT id,user_id,grev_id,revoked_at FROM grev_home_links WHERE grev_id=? COLLATE NOCASE`).bind(row.grev_id)
     .first<{id:string;user_id:string;grev_id:string;revoked_at:number|null}>();
 
-  if (byUser && !byUser.grev_id.localeCompare(row.grev_id, undefined, { sensitivity:'accent' }) === false) {
-    // Kept below as a simple explicit comparison; localeCompare is not trusted for identity decisions.
-  }
   if (byUser && byUser.grev_id.toLowerCase() !== row.grev_id.toLowerCase()) {
     return json({ ok:false, message:`This grev.dad account is already linked to GrevID ${byUser.grev_id}.` }, 409);
   }
@@ -349,18 +362,18 @@ async function browserLinkDecision(request: Request, env: GrevHomeEnv): Promise<
 
   let linkId = byUser?.id ?? byGrev?.id ?? null;
   if (linkId) {
-    await env.DB.prepare(`
+    await db.prepare(`
       UPDATE grev_home_links SET local_username=?,local_display_name=?,updated_at=?,revoked_at=NULL WHERE id=?
     `).bind(row.local_username, row.local_display_name, current, linkId).run();
   } else {
     linkId = crypto.randomUUID();
-    await env.DB.prepare(`
+    await db.prepare(`
       INSERT INTO grev_home_links(id,user_id,grev_id,local_username,local_display_name,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?)
     `).bind(linkId, user.id, row.grev_id, row.local_username, row.local_display_name, current, current).run();
   }
 
-  await env.DB.prepare(`
+  await db.prepare(`
     UPDATE grev_home_link_requests SET approved_user_id=?,approved_at=?,denied_at=NULL WHERE id=?
   `).bind(user.id, current, row.id).run();
 
@@ -372,7 +385,8 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
   const id = new URL(request.url).searchParams.get('id') ?? '';
   if (!deviceCode || !UUID_RE.test(id)) return json({ ok:false, message:'The link request credentials are invalid.' }, 401);
 
-  const row = await env.DB.prepare(`
+  const db = primaryDatabase(env);
+  const row = await db.prepare(`
     SELECT id,grev_id,local_username,local_display_name,device_name,created_at,expires_at,approved_user_id,approved_at,denied_at
     FROM grev_home_link_requests WHERE id=? AND device_code_hash=?
   `).bind(id, await sha256(deviceCode)).first<LinkRequestRow>();
@@ -382,7 +396,7 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
   if (row.denied_at) return json({ ok:true, status:'denied', expiresAt:row.expires_at });
   if (!row.approved_user_id) return json({ ok:true, status:'pending', expiresAt:row.expires_at });
 
-  const link = await env.DB.prepare(`
+  const link = await db.prepare(`
     SELECT l.id,l.user_id,l.grev_id,l.local_username,l.local_display_name,u.username,u.display_name,u.is_verified,u.status
     FROM grev_home_links l JOIN users u ON u.id=l.user_id
     WHERE l.user_id=? AND l.grev_id=? COLLATE NOCASE AND l.revoked_at IS NULL
@@ -398,13 +412,13 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
   const accessToken = randomSecret();
   const tokenId = crypto.randomUUID();
   const tokenExpiresAt = current + DEVICE_TOKEN_LIFETIME_SECONDS;
-  await env.DB.batch([
-    env.DB.prepare(`UPDATE grev_home_tokens SET revoked_at=? WHERE link_request_id=? AND revoked_at IS NULL`).bind(current, row.id),
-    env.DB.prepare(`
+  await db.batch([
+    db.prepare(`UPDATE grev_home_tokens SET revoked_at=? WHERE link_request_id=? AND revoked_at IS NULL`).bind(current, row.id),
+    db.prepare(`
       INSERT INTO grev_home_tokens(id,link_id,link_request_id,token_hash,device_name,created_at,expires_at)
       VALUES(?,?,?,?,?,?,?)
     `).bind(tokenId, link.id, row.id, await sha256(accessToken), row.device_name, current, tokenExpiresAt),
-    env.DB.prepare(`UPDATE grev_home_link_requests SET last_token_issued_at=? WHERE id=?`).bind(current, row.id)
+    db.prepare(`UPDATE grev_home_link_requests SET last_token_issued_at=? WHERE id=?`).bind(current, row.id)
   ]);
 
   return json({

@@ -45,6 +45,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Verify Grev Home link lifecycle
+        run: npm run verify:grev-home-link
+
       - name: Apply production database migrations
         run: npx wrangler d1 migrations apply grev-dad-production --remote --env production
 
@@ -104,3 +107,6 @@ jobs:
           }
           console.log('Production LADMIN login and Owner/Admin session verified.');
           NODE
+
+      - name: Verify deployed Grev Home connection API
+        run: node scripts/smoke-grev-home-api.mjs https://grev.dad production

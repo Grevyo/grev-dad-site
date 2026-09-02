@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "verify:grev-home-link": "node scripts/verify-grev-home-link-contract.mjs",
     "deploy:pbe": "wrangler d1 migrations apply grev-dad-preview --remote --env pbe && wrangler deploy --env pbe",
     "deploy:production": "wrangler d1 migrations apply grev-dad-production --remote --env production && wrangler deploy --env production"
   },
   "devDependencies": {
+    "esbuild": "latest",
     "typescript": "latest",
     "wrangler": "latest"
   }
