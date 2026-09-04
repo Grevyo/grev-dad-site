@@ -31,6 +31,8 @@ export async function handleGrevHomeCapabilitiesRequest(
     environment:env.APP_ENV,
     capabilities:{
       linking:true,
+      accountRestore:true,
+      multiDeviceAccounts:true,
       deviceTokens:true,
       tokenRotation:true,
       perDeviceRevocation:true,

@@ -19,6 +19,7 @@ type DeviceContext = {
   tokenId: string;
   linkId: string;
   grevId: string;
+  sourceGrevId: string;
   userId: string;
 };
 
@@ -110,14 +111,14 @@ async function getDeviceContext(request: Request, env: GrevHomeSyncEnv): Promise
   if (!token) return null;
   const current = now();
   const row = await env.DB.prepare(`
-    SELECT t.id AS token_id,t.link_id,l.grev_id,l.user_id
+    SELECT t.id AS token_id,t.link_id,l.grev_id,l.user_id,COALESCE(t.local_grev_id,l.grev_id) AS source_grev_id
     FROM grev_home_tokens t
     JOIN grev_home_links l ON l.id=t.link_id
     JOIN users u ON u.id=l.user_id
     WHERE t.token_hash=? AND t.revoked_at IS NULL AND t.expires_at>?
       AND l.revoked_at IS NULL AND u.status='active'
   `).bind(await sha256(token), current).first<{
-    token_id:string;link_id:string;grev_id:string;user_id:string;
+    token_id:string;link_id:string;grev_id:string;user_id:string;source_grev_id:string;
   }>();
   if (!row) return null;
 
@@ -126,7 +127,45 @@ async function getDeviceContext(request: Request, env: GrevHomeSyncEnv): Promise
     env.DB.prepare(`UPDATE grev_home_links SET last_seen_at=?,updated_at=? WHERE id=?`).bind(current, current, row.link_id)
   ]);
 
-  return { tokenId:row.token_id, linkId:row.link_id, grevId:row.grev_id, userId:row.user_id };
+  return { tokenId:row.token_id, linkId:row.link_id, grevId:row.grev_id, sourceGrevId:row.source_grev_id, userId:row.user_id };
+}
+
+type AppStat = { appId:string; appName:string; totalSeconds:number; sessionCount:number; lastPlayedAt:number };
+
+function parseApps(value:unknown): AppStat[] | null {
+  if (!Array.isArray(value) || value.length > 10000) return null;
+  const ids = new Set<string>();
+  const apps:AppStat[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return null;
+    const id = cleanText(item.appId,80);
+    const seconds = safeInteger(item.totalSeconds,0,Number.MAX_SAFE_INTEGER / 10000);
+    const count = safeInteger(item.sessionCount,0,10000000);
+    const played = safeInteger(item.lastPlayedAt,1,now()+300);
+    const name = cleanText(item.appName,120);
+    if (!SAFE_APP_ID_RE.test(id) || ids.has(id.toLowerCase()) || !name || seconds===null || count===null || played===null) return null;
+    ids.add(id.toLowerCase());
+    apps.push({appId:id,appName:name,totalSeconds:seconds,sessionCount:count,lastPlayedAt:played});
+  }
+  return apps;
+}
+
+function homeLevel(xp:number):number {
+  let level=1;
+  while (level<999 && xp>=250+(level-1)*150) { xp-=250+(level-1)*150; level++; }
+  return level;
+}
+
+async function accountData(env:GrevHomeSyncEnv, context:DeviceContext):Promise<Response> {
+  const user = await env.DB.prepare(`SELECT id,username,display_name,created_at FROM users WHERE id=?`)
+    .bind(context.userId).first<{id:string;username:string;display_name:string;created_at:number}>();
+  const sources = await env.DB.prepare(`SELECT grev_id,profile_created_at,total_seconds,completed_sessions,unique_apps,apps_json,updated_at
+    FROM grev_home_profile_sources WHERE user_id=? ORDER BY grev_id`)
+    .bind(context.userId).all<{grev_id:string;profile_created_at:number|null;total_seconds:number;completed_sessions:number;unique_apps:number;apps_json:string;updated_at:number}>();
+  return json({ok:true,apiVersion:API_VERSION,userId:context.userId,username:user?.username,displayName:user?.display_name,
+    accountCreatedAt:user?.created_at,downloadedAt:now(),
+    sources:sources.results.map(s=>({grevId:s.grev_id,profileCreatedAt:s.profile_created_at,totalSeconds:s.total_seconds,
+      completedSessions:s.completed_sessions,uniqueApps:s.unique_apps,apps:JSON.parse(s.apps_json),updatedAt:s.updated_at}))});
 }
 
 function parseProgression(value: unknown): ProgressionInput | null {
@@ -188,8 +227,14 @@ function parseSession(value: unknown): SessionInput | null {
 async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: DeviceContext): Promise<Response> {
   const input = await readBody(request);
   const progression = parseProgression(input.progression);
+  const apps = input.apps === undefined ? undefined : parseApps(input.apps);
+  const profileCreatedAt = input.profileCreatedAt === undefined ? null : safeInteger(input.profileCreatedAt,1,now()+300);
+  if (apps === null || (input.profileCreatedAt !== undefined && profileCreatedAt === null)) return json({ok:false,message:'Invalid account statistics.'},400);
   const rawSessions = Array.isArray(input.sessions) ? input.sessions : [];
   if (!progression) return json({ ok:false, message:'The Grev Home progression snapshot is invalid.' }, 400);
+  if (apps && (apps.reduce((n,a)=>n+a.totalSeconds,0)!==progression.totalTrackedSeconds ||
+    apps.reduce((n,a)=>n+a.sessionCount,0)!==progression.completedSessions || apps.length!==progression.uniqueApps))
+    return json({ok:false,message:'App statistics do not match the local totals.'},400);
   if (rawSessions.length > MAX_SESSION_BATCH) return json({ ok:false, message:`Upload at most ${MAX_SESSION_BATCH} sessions per sync batch.` }, 400);
 
   const sessions: SessionInput[] = [];
@@ -236,10 +281,32 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
     }
   }
 
+  // Snapshots contain this installation's local data only, never downloaded totals.
+  // Older clients still update their own source's high-water marks.
+  statements.push(env.DB.prepare(`
+    INSERT INTO grev_home_profile_sources(grev_id,user_id,profile_created_at,total_seconds,completed_sessions,unique_apps,apps_json,updated_at)
+    VALUES(?,?,?,?,?,?,?,?)
+    ON CONFLICT(grev_id) DO UPDATE SET
+      profile_created_at=CASE WHEN excluded.profile_created_at IS NULL THEN profile_created_at
+        WHEN profile_created_at IS NULL THEN excluded.profile_created_at ELSE MIN(profile_created_at,excluded.profile_created_at) END,
+      apps_json=CASE WHEN excluded.total_seconds>=total_seconds AND excluded.completed_sessions>=completed_sessions AND ?=1
+        THEN excluded.apps_json ELSE apps_json END,
+      total_seconds=MAX(total_seconds,excluded.total_seconds),
+      completed_sessions=MAX(completed_sessions,excluded.completed_sessions),
+      unique_apps=MAX(unique_apps,excluded.unique_apps),updated_at=excluded.updated_at
+    WHERE user_id=excluded.user_id
+  `).bind(context.sourceGrevId,context.userId,profileCreatedAt,progression.totalTrackedSeconds,
+    progression.completedSessions,progression.uniqueApps,JSON.stringify(apps ?? []),current,apps ? 1 : 0));
+
   statements.push(env.DB.prepare(`
     INSERT INTO grev_home_progression_state(
       grev_id,link_id,user_id,home_total_xp,home_level,total_tracked_seconds,completed_sessions,unique_apps,updated_at
-    ) VALUES(?,?,?,?,?,?,?,?,?)
+    ) SELECT ?,?,?,CAST(total_seconds/60 AS INTEGER)+completed_sessions*20+unique_apps*100,
+      1,total_seconds,completed_sessions,unique_apps,?
+      FROM (SELECT SUM(total_seconds) AS total_seconds,SUM(completed_sessions) AS completed_sessions,
+        MAX(MAX(unique_apps),(SELECT COUNT(DISTINCT lower(json_extract(value,'$.appId')))
+          FROM grev_home_profile_sources,json_each(apps_json) WHERE user_id=?)) AS unique_apps
+        FROM grev_home_profile_sources WHERE user_id=?) WHERE total_seconds IS NOT NULL
     ON CONFLICT(grev_id) DO UPDATE SET
       link_id=excluded.link_id,
       user_id=excluded.user_id,
@@ -253,12 +320,9 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
     context.grevId,
     context.linkId,
     context.userId,
-    progression.totalXp,
-    progression.level,
-    progression.totalTrackedSeconds,
-    progression.completedSessions,
-    progression.uniqueApps,
-    current
+    current,
+    context.userId,
+    context.userId
   ));
 
   await env.DB.batch(statements);
@@ -276,7 +340,7 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
     acceptedThroughSequence:sessions.length ? Math.max(...sessions.map(session => session.sequence)) : null,
     grevHome:{
       totalXp:Number(home?.home_total_xp ?? 0),
-      level:Number(home?.home_level ?? 1),
+      level:homeLevel(Number(home?.home_total_xp ?? 0)),
       totalTrackedSeconds:Number(home?.total_tracked_seconds ?? 0),
       completedSessions:Number(home?.completed_sessions ?? 0),
       uniqueApps:Number(home?.unique_apps ?? 0),
@@ -343,9 +407,10 @@ export async function handleGrevHomeSyncRequest(request: Request, env: GrevHomeS
     });
   }
 
-  if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history') return null;
+  if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history' && path !== '/api/grev-home/account-data') return null;
   const context = await getDeviceContext(request, env);
   if (!context) return json({ ok:false, message:'Grev Home link authentication required.' }, 401);
+  if (path === '/api/grev-home/account-data' && request.method === 'GET') return accountData(env,context);
 
   if (path === '/api/grev-home/sync' && request.method === 'POST') return syncProfile(request, env, context);
   if (path === '/api/grev-home/history' && request.method === 'GET') return history(request, env, context);

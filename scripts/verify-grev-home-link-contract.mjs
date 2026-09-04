@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -156,6 +156,16 @@ try {
     );
   `);
 
+  sqlite.exec(`ALTER TABLE users ADD COLUMN created_at INTEGER NOT NULL DEFAULT 1;
+    CREATE TABLE user_progression(user_id TEXT PRIMARY KEY,total_xp INTEGER,level INTEGER,updated_at INTEGER);
+    CREATE TABLE xp_ledger(id TEXT PRIMARY KEY,user_id TEXT,xp_amount INTEGER,source_type TEXT,source_id TEXT,event_key TEXT UNIQUE,description TEXT,created_at INTEGER);
+    CREATE TABLE platform_change_revision(id INTEGER PRIMARY KEY,revision INTEGER,changed_at INTEGER);
+    INSERT INTO platform_change_revision VALUES(1,0,0);`);
+  for (const migration of ['20260822_grev_home_progression_history.sql','20260822_grev_home_progression_trigger_fix.sql',
+      '20260822_grev_home_history_content_identity.sql','20260904_grev_home_account_restore.sql']) {
+    sqlite.exec(await readFile(new URL('../migrations/'+migration,import.meta.url),'utf8'));
+  }
+
   const database = new TestDatabase(sqlite);
   const env = { DB: database, APP_ENV: 'production' };
   const userId = randomUUID();
@@ -233,6 +243,59 @@ try {
   assert.equal(meResponse.status, 200);
   assert.equal((await readJson(meResponse)).account.grevId, 'GABCDContractUserXYZ');
 
+  const syncBundle = join(buildDirectory,'sync.mjs');
+  await build({entryPoints:['src/grev-home-sync.ts'],bundle:true,platform:'node',format:'esm',outfile:syncBundle});
+  const {handleGrevHomeSyncRequest} = await import(pathToFileURL(syncBundle).href);
+  async function sync(token,seconds) {
+    const response = await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/sync',{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({profileCreatedAt:100,progression:{totalXp:120,level:1,totalTrackedSeconds:seconds,completedSessions:seconds?1:0,uniqueApps:seconds?1:0},
+        apps:seconds?[{appId:'pcsx2',appName:'PCSX2',totalSeconds:seconds,sessionCount:1,lastPlayedAt:current}]:[],sessions:[]})}),env);
+    const value=await response.json();
+    assert.equal(response.status,200,JSON.stringify(value));
+    return value;
+  }
+  assert.equal((await sync(approved.accessToken,60)).grevHome.totalTrackedSeconds,60);
+  assert.equal((await sync(approved.accessToken,60)).grevHome.totalTrackedSeconds,60,'Replay must not add totals');
+  const secondStart = await readJson(await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/link/start',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grevId:'GNEWPCXYZ',username:'NewPC',displayName:'New PC',deviceName:'Second PC'})}),env));
+  const secondApproval = await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/link/approve',{
+    method:'POST',headers:{...browserHeaders,Origin:'https://grev.dad','Content-Type':'application/json'},
+    body:JSON.stringify({userCode:secondStart.userCode,decision:'approve'})}),env);
+  assert.equal(secondApproval.status,200,'Existing account must accept a fresh local profile');
+  const second = await readJson(await handleGrevHomeRequest(new Request(`https://grev.dad/api/grev-home/link/status?id=${secondStart.linkId}`,{
+    headers:{Authorization:`Bearer ${secondStart.deviceCode}`}}),env));
+  assert.equal(second.account.grevId,'GNEWPCXYZ');
+  assert.equal(second.account.userId,approved.account.userId);
+  assert.equal((await sync(second.accessToken,0)).grevHome.totalTrackedSeconds,60,'Empty reinstall must not erase totals');
+  assert.equal((await sync(second.accessToken,120)).grevHome.totalTrackedSeconds,180,'Independent devices must accumulate');
+  assert.equal((await sync(second.accessToken,60)).grevHome.totalTrackedSeconds,180,'Stale snapshots must not lower totals');
+  const restored = await readJson(await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/account-data',{
+    headers:{Authorization:`Bearer ${second.accessToken}`}}),env));
+  assert.equal(restored.sources.length,2);
+  assert.equal(restored.userId,userId);
+  assert.equal(restored.sources[0].profileCreatedAt,100);
+  const unauthorised=await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/account-data'),env);
+  assert.equal(unauthorised.status,401);
+  const rotateBundle=join(buildDirectory,'rotate.mjs');
+  await build({entryPoints:['src/grev-home-token-lifecycle.ts'],bundle:true,platform:'node',format:'esm',outfile:rotateBundle});
+  const {handleGrevHomeTokenLifecycleRequest}=await import(pathToFileURL(rotateBundle).href);
+  const rotated=await readJson(await handleGrevHomeTokenLifecycleRequest(new Request('https://grev.dad/api/grev-home/token/rotate',{
+    method:'POST',headers:{Authorization:`Bearer ${second.accessToken}`}}),env));
+  const rotatedMe=await readJson(await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/me',{
+    headers:{Authorization:`Bearer ${rotated.accessToken}`}}),env));
+  assert.equal(rotatedMe.account.grevId,'GNEWPCXYZ','Rotation must preserve the local profile mapping');
+  await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/token/revoke',{
+    method:'POST',headers:{Authorization:`Bearer ${rotated.accessToken}`}}),env);
+  for(const token of [second.accessToken,rotated.accessToken]) {
+    const denied=await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/me',{
+      headers:{Authorization:`Bearer ${token}`}}),env);
+    assert.equal(denied.status,401,'Unlink must revoke the rotated device credential family');
+  }
+  const firstStillLinked=await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/me',{
+    headers:{Authorization:`Bearer ${approved.accessToken}`}}),env);
+  assert.equal(firstStillLinked.status,200,'Unlinking one PC must leave the other PC authorised');
+
   const revokeResponse = await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/link/revoke', {
     method: 'POST',
     headers: { Authorization: `Bearer ${approved.accessToken}` }
@@ -244,7 +307,7 @@ try {
   }), env);
   assert.equal(revokedMeResponse.status, 401);
   assert.ok(database.primarySessionCount >= 7);
-  console.log('Grev Home link contract passed: start, pending, browser approval, token, me and revoke.');
+  console.log('Grev Home contract passed: linking, multi-device identity, reinstall recovery, replay/stale sync, private restore, token rotation and device unlink.');
 } finally {
   await rm(buildDirectory, { recursive: true, force: true });
 }

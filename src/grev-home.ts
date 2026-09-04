@@ -190,11 +190,13 @@ async function getDeviceContext(request: Request, env: GrevHomeEnv): Promise<Dev
   const current = now();
   const db = primaryDatabase(env);
   const row = await db.prepare(`
-    SELECT t.id AS token_id,t.link_id,l.grev_id,l.local_username,l.local_display_name,
+    SELECT t.id AS token_id,t.link_id,COALESCE(t.local_grev_id,l.grev_id) AS grev_id,
+      COALESCE(s.local_username,l.local_username) AS local_username,COALESCE(s.local_display_name,l.local_display_name) AS local_display_name,
       u.id AS user_id,u.username,u.display_name,u.is_verified,u.is_owner,
       CASE WHEN u.is_owner=1 OR EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='role-admin') THEN 1 ELSE 0 END AS is_admin
     FROM grev_home_tokens t
     JOIN grev_home_links l ON l.id=t.link_id
+    LEFT JOIN grev_home_profile_sources s ON s.grev_id=COALESCE(t.local_grev_id,l.grev_id) AND s.user_id=l.user_id
     JOIN users u ON u.id=l.user_id
     WHERE t.token_hash=? AND t.revoked_at IS NULL AND t.expires_at>?
       AND l.revoked_at IS NULL AND u.status='active'
@@ -353,8 +355,10 @@ async function browserLinkDecision(request: Request, env: GrevHomeEnv): Promise<
   const byGrev = await db.prepare(`SELECT id,user_id,grev_id,revoked_at FROM grev_home_links WHERE grev_id=? COLLATE NOCASE`).bind(row.grev_id)
     .first<{id:string;user_id:string;grev_id:string;revoked_at:number|null}>();
 
-  if (byUser && byUser.grev_id.toLowerCase() !== row.grev_id.toLowerCase()) {
-    return json({ ok:false, message:`This grev.dad account is already linked to GrevID ${byUser.grev_id}.` }, 409);
+  const source = await db.prepare(`SELECT user_id FROM grev_home_profile_sources WHERE grev_id=? COLLATE NOCASE`)
+    .bind(row.grev_id).first<{user_id:string}>();
+  if (source && source.user_id !== user.id) {
+    return json({ ok:false, message:'That local profile already belongs to another grev.dad account. Create a separate local profile.' }, 409);
   }
   if (byGrev && byGrev.user_id !== user.id) {
     return json({ ok:false, message:'That GrevID is already linked to another grev.dad account.' }, 409);
@@ -372,6 +376,16 @@ async function browserLinkDecision(request: Request, env: GrevHomeEnv): Promise<
       VALUES(?,?,?,?,?,?,?)
     `).bind(linkId, user.id, row.grev_id, row.local_username, row.local_display_name, current, current).run();
   }
+
+  // Claim each local profile once. A reinstall can have a new GrevID without
+  // replacing the account link or granting ownership based on matching names.
+  await db.prepare(`INSERT INTO grev_home_profile_sources(grev_id,user_id,updated_at)
+    VALUES(?,?,?) ON CONFLICT(grev_id) DO NOTHING`).bind(row.grev_id,user.id,current).run();
+  const claimed = await db.prepare(`SELECT user_id FROM grev_home_profile_sources WHERE grev_id=? COLLATE NOCASE`)
+    .bind(row.grev_id).first<{user_id:string}>();
+  if (claimed?.user_id !== user.id) return json({ok:false,message:'This profile was linked to another account.'},409);
+  await db.prepare(`UPDATE grev_home_profile_sources SET local_username=?,local_display_name=? WHERE grev_id=? AND user_id=?`)
+    .bind(row.local_username,row.local_display_name,row.grev_id,user.id).run();
 
   await db.prepare(`
     UPDATE grev_home_link_requests SET approved_user_id=?,approved_at=?,denied_at=NULL WHERE id=?
@@ -399,7 +413,8 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
   const link = await db.prepare(`
     SELECT l.id,l.user_id,l.grev_id,l.local_username,l.local_display_name,u.username,u.display_name,u.is_verified,u.status
     FROM grev_home_links l JOIN users u ON u.id=l.user_id
-    WHERE l.user_id=? AND l.grev_id=? COLLATE NOCASE AND l.revoked_at IS NULL
+    WHERE l.user_id=? AND l.revoked_at IS NULL
+      AND EXISTS(SELECT 1 FROM grev_home_profile_sources s WHERE s.user_id=l.user_id AND s.grev_id=? COLLATE NOCASE)
   `).bind(row.approved_user_id, row.grev_id).first<{
     id:string;user_id:string;grev_id:string;local_username:string;local_display_name:string;
     username:string;display_name:string;is_verified:number;status:string;
@@ -415,9 +430,9 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
   await db.batch([
     db.prepare(`UPDATE grev_home_tokens SET revoked_at=? WHERE link_request_id=? AND revoked_at IS NULL`).bind(current, row.id),
     db.prepare(`
-      INSERT INTO grev_home_tokens(id,link_id,link_request_id,token_hash,device_name,created_at,expires_at)
-      VALUES(?,?,?,?,?,?,?)
-    `).bind(tokenId, link.id, row.id, await sha256(accessToken), row.device_name, current, tokenExpiresAt),
+      INSERT INTO grev_home_tokens(id,link_id,link_request_id,token_hash,device_name,created_at,expires_at,local_grev_id)
+      VALUES(?,?,?,?,?,?,?,?)
+    `).bind(tokenId, link.id, row.id, await sha256(accessToken), row.device_name, current, tokenExpiresAt,row.grev_id),
     db.prepare(`UPDATE grev_home_link_requests SET last_token_issued_at=? WHERE id=?`).bind(current, row.id)
   ]);
 
@@ -433,9 +448,9 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
       username:link.username,
       displayName:link.display_name,
       isVerified:Boolean(link.is_verified),
-      grevId:link.grev_id,
-      localUsername:link.local_username,
-      localDisplayName:link.local_display_name,
+      grevId:row.grev_id,
+      localUsername:row.local_username,
+      localDisplayName:row.local_display_name,
       linkId:link.id
     }
   });
@@ -450,7 +465,8 @@ async function deviceMe(request: Request, env: GrevHomeEnv): Promise<Response> {
 async function revokeCurrentToken(request: Request, env: GrevHomeEnv): Promise<Response> {
   const context = await getDeviceContext(request, env);
   if (!context) return json({ ok:false, message:'Grev Home link authentication failed.' }, 401);
-  await env.DB.prepare(`UPDATE grev_home_tokens SET revoked_at=? WHERE id=?`).bind(now(), context.tokenId).run();
+  await env.DB.prepare(`UPDATE grev_home_tokens SET revoked_at=? WHERE id=? OR link_request_id=(SELECT link_request_id FROM grev_home_tokens WHERE id=?)`)
+    .bind(now(), context.tokenId,context.tokenId).run();
   return json({ ok:true });
 }
 

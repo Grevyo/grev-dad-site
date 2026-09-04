@@ -90,15 +90,16 @@ export async function handleGrevHomeTokenLifecycleRequest(
        WHERE id=? AND revoked_at IS NULL AND expires_at>?
     `).bind(previousTokenValidUntil, context.tokenId, current),
     env.DB.prepare(`
-      INSERT INTO grev_home_tokens(id,link_id,link_request_id,token_hash,device_name,created_at,expires_at)
-      VALUES(?,?,NULL,?,?,?,?)
+      INSERT INTO grev_home_tokens(id,link_id,link_request_id,token_hash,device_name,created_at,expires_at,local_grev_id)
+      SELECT ?,?,link_request_id,?,?,?,?,local_grev_id FROM grev_home_tokens WHERE id=?
     `).bind(
       tokenId,
       context.linkId,
       await sha256(accessToken),
       context.deviceName,
       current,
-      tokenExpiresAt
+      tokenExpiresAt,
+      context.tokenId
     )
   ]);
 

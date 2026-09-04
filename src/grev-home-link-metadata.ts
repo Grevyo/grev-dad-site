@@ -52,7 +52,7 @@ async function deviceContext(request: Request, env: GrevHomeEnv): Promise<Device
   if (!token) return null;
   const current = Math.floor(Date.now() / 1000);
   const row = await env.DB.prepare(`
-    SELECT t.link_id,l.grev_id,l.user_id
+    SELECT t.link_id,COALESCE(t.local_grev_id,l.grev_id) AS grev_id,l.user_id
     FROM grev_home_tokens t
     JOIN grev_home_links l ON l.id=t.link_id
     JOIN users u ON u.id=l.user_id
@@ -83,15 +83,13 @@ export async function handleGrevHomeLinkMetadataRequest(
 
   const current = Math.floor(Date.now() / 1000);
   await env.DB.prepare(`
-    UPDATE grev_home_links
-       SET local_username=?,local_display_name=?,updated_at=?,last_seen_at=?
-     WHERE id=? AND user_id=? AND grev_id=? COLLATE NOCASE AND revoked_at IS NULL
+    UPDATE grev_home_profile_sources
+       SET local_username=?,local_display_name=?,updated_at=?
+     WHERE user_id=? AND grev_id=? COLLATE NOCASE
   `).bind(
     localUsername,
     localDisplayName,
     current,
-    current,
-    context.linkId,
     context.userId,
     context.grevId
   ).run();
