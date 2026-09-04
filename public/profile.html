@@ -24,6 +24,17 @@
 
 <p id="profile-message" class="profile-message" role="status">Loading profile…</p>
 
+<section id="profile-grev-home-link" class="profile-settings-section" hidden aria-labelledby="grev-home-link-heading">
+<h2 id="grev-home-link-heading">Link Grev Home</h2>
+<p>Generate an approval code in Grev Home, then paste it here. You will review the Home profile and device before approving the link to your signed-in Grev.dad account.</p>
+<form action="/link-grev-home" method="get">
+<label for="grev-home-code">Grev Home approval code</label>
+<input id="grev-home-code" name="code" type="text" required maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Paste your approval code">
+<button class="primary" type="submit">Review link</button>
+</form>
+<p>Already used Grev Home? Linking this installation restores your synced account progress. Game files and emulators stay on your PC.</p>
+</section>
+
 <section id="profile-editor-toolbar" class="profile-editor-toolbar" hidden aria-label="Profile editing controls">
 <div class="profile-editor-topline">
 <div><p class="eyebrow">Live profile editor</p><h2>Edit directly on your profile</h2><p>Choose a section below, make your changes, then check the live card and tile grid underneath. Nothing is stored until you press Save profile.</p></div>

@@ -264,6 +264,8 @@ function renderProfile() {
   if (editButton) editButton.hidden = !profileState.profile?.isSelf || profileState.editing;
   const settingsLink = profile$('#profile-settings-link');
   if (settingsLink) settingsLink.hidden = !profileState.profile?.isSelf;
+  const homeLink = profile$('#profile-grev-home-link');
+  if (homeLink) homeLink.hidden = !profileState.profile?.isSelf || profileState.editing;
   const description = profile$('#profile-grid-description');
   if (description) description.textContent = profileState.editing
     ? 'Grab a tile to move it, use the corner to resize it, or open Tile settings.'

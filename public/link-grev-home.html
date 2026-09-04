@@ -14,6 +14,11 @@
 <body>
 <main>
   <h1>Link Grev Home</h1>
+  <form action="/link-grev-home" method="get">
+    <label for="approval-code">Paste the approval code generated in Grev Home</label>
+    <input id="approval-code" name="code" type="text" required maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" style="display:block;box-sizing:border-box;width:100%;padding:14px;margin:12px 0;font:inherit;background:#0c1119;color:white;border:1px solid #7197ee;border-radius:8px">
+    <button class="primary" type="submit">Review link</button>
+  </form>
   <p>Approve this only if the GrevID and device below belong to you. Grev Home never receives your Grev.dad password or browser session.</p>
   <div id="code" class="code"></div>
   <section id="details" class="details" hidden>
@@ -34,9 +39,10 @@
 const params=new URLSearchParams(location.search),code=(params.get('code')||'').trim().toUpperCase();
 const $=id=>document.getElementById(id),status=$('status'),approve=$('approve'),deny=$('deny');
 $('code').textContent=code||'NO CODE';
+$('approval-code').value=code;
 function setStatus(message,kind=''){status.textContent=message;status.className='status '+kind;}
 async function load(){
-  if(!code){setStatus('No Grev Home link code was supplied.','error');return;}
+  if(!code){$('code').textContent='';setStatus('Signed in. Paste your Grev Home approval code above to continue.');return;}
   try{
     const response=await fetch('/api/grev-home/link/request?code='+encodeURIComponent(code),{credentials:'same-origin'});
     const data=await response.json();
