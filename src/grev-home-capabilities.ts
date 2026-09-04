@@ -33,6 +33,8 @@ export async function handleGrevHomeCapabilitiesRequest(
       linking:true,
       accountRestore:true,
       multiDeviceAccounts:true,
+      sharedProgression:true,
+      sharedAchievements:true,
       deviceTokens:true,
       tokenRotation:true,
       perDeviceRevocation:true,

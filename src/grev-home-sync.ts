@@ -157,6 +157,26 @@ function homeLevel(xp:number):number {
 }
 
 async function accountData(env:GrevHomeSyncEnv, context:DeviceContext):Promise<Response> {
+  // Derive Home awards from stored activity, never accept arbitrary client claims
+  // of website or RetroAchievements awards. The unique key makes replay harmless.
+  await env.DB.prepare(`INSERT OR IGNORE INTO user_achievements(user_id,achievement_id,awarded_at,progress_value)
+    SELECT h.user_id,a.id,?,a.criteria_value FROM grev_home_progression_state h
+    JOIN user_progression p ON p.user_id=h.user_id
+    JOIN achievement_definitions a ON a.category='Grev Home' AND a.is_active=1
+    WHERE h.user_id=? AND CASE a.criteria_type
+      WHEN 'grev_home_sessions' THEN h.completed_sessions
+      WHEN 'grev_home_seconds' THEN h.total_tracked_seconds
+      WHEN 'grev_home_apps' THEN h.unique_apps
+      WHEN 'grev_home_level' THEN MAX(CAST(p.total_xp/500 AS INTEGER)+1,
+        CASE WHEN h.home_total_xp>=7650 THEN 10 WHEN h.home_total_xp>=1900 THEN 5 ELSE 1 END)
+      ELSE 0 END >= a.criteria_value`).bind(now(),context.userId).run();
+  const progression=await env.DB.prepare(`SELECT p.total_xp,COALESCE(h.home_total_xp,0) home_xp
+    FROM user_progression p LEFT JOIN grev_home_progression_state h ON h.user_id=p.user_id WHERE p.user_id=?`)
+    .bind(context.userId).first<{total_xp:number;home_xp:number}>();
+  const achievements=await env.DB.prepare(`SELECT a.id,a.name,a.description,a.category,u.awarded_at
+    FROM user_achievements u JOIN achievement_definitions a ON a.id=u.achievement_id
+    WHERE u.user_id=? ORDER BY u.awarded_at,a.id`).bind(context.userId)
+    .all<{id:string;name:string;description:string;category:string;awarded_at:number}>();
   const user = await env.DB.prepare(`SELECT id,username,display_name,created_at FROM users WHERE id=?`)
     .bind(context.userId).first<{id:string;username:string;display_name:string;created_at:number}>();
   const sources = await env.DB.prepare(`SELECT grev_id,profile_created_at,total_seconds,completed_sessions,unique_apps,apps_json,updated_at
@@ -164,6 +184,9 @@ async function accountData(env:GrevHomeSyncEnv, context:DeviceContext):Promise<R
     .bind(context.userId).all<{grev_id:string;profile_created_at:number|null;total_seconds:number;completed_sessions:number;unique_apps:number;apps_json:string;updated_at:number}>();
   return json({ok:true,apiVersion:API_VERSION,userId:context.userId,username:user?.username,displayName:user?.display_name,
     accountCreatedAt:user?.created_at,downloadedAt:now(),
+    sharedProgression:{totalXp:Number(progression?.total_xp??0),level:Math.floor(Number(progression?.total_xp??0)/500)+1,
+      xpPerLevel:500,homeTotalXp:Number(progression?.home_xp??0)},
+    achievements:achievements.results.map(a=>({id:a.id,name:a.name,description:a.description,source:a.category,awardedAt:a.awarded_at})),
     sources:sources.results.map(s=>({grevId:s.grev_id,profileCreatedAt:s.profile_created_at,totalSeconds:s.total_seconds,
       completedSessions:s.completed_sessions,uniqueApps:s.unique_apps,apps:JSON.parse(s.apps_json),updatedAt:s.updated_at}))});
 }

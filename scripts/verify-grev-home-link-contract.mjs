@@ -161,12 +161,14 @@ try {
   `);
 
   sqlite.exec(`ALTER TABLE users ADD COLUMN created_at INTEGER NOT NULL DEFAULT 1;
+    CREATE TABLE achievement_definitions(id TEXT PRIMARY KEY,name TEXT UNIQUE,description TEXT,image_url TEXT,xp_reward INTEGER,category TEXT,criteria_type TEXT,criteria_value INTEGER,is_active INTEGER DEFAULT 1,sort_order INTEGER);
+    CREATE TABLE user_achievements(user_id TEXT,achievement_id TEXT,awarded_at INTEGER,progress_value INTEGER,PRIMARY KEY(user_id,achievement_id));
     CREATE TABLE user_progression(user_id TEXT PRIMARY KEY,total_xp INTEGER,level INTEGER,updated_at INTEGER);
     CREATE TABLE xp_ledger(id TEXT PRIMARY KEY,user_id TEXT,xp_amount INTEGER,source_type TEXT,source_id TEXT,event_key TEXT UNIQUE,description TEXT,created_at INTEGER);
     CREATE TABLE platform_change_revision(id INTEGER PRIMARY KEY,revision INTEGER,changed_at INTEGER);
     INSERT INTO platform_change_revision VALUES(1,0,0);`);
   for (const migration of ['20260822_grev_home_progression_history.sql','20260822_grev_home_progression_trigger_fix.sql',
-      '20260822_grev_home_history_content_identity.sql','20260904_grev_home_account_restore.sql']) {
+      '20260822_grev_home_history_content_identity.sql','20260904_grev_home_account_restore.sql','20260904_grev_home_shared_achievements.sql']) {
     sqlite.exec(await readFile(new URL('../migrations/'+migration,import.meta.url),'utf8'));
   }
 
@@ -278,6 +280,19 @@ try {
     headers:{Authorization:`Bearer ${second.accessToken}`}}),env));
   assert.equal(restored.sources.length,2);
   assert.equal(restored.userId,userId);
+  assert.equal(restored.sharedProgression.totalXp,143);
+  assert.equal(restored.sharedProgression.level,1);
+  assert.ok(restored.achievements.some(a=>a.id==='grev-home:first-session'),'Local achievements must mirror to the account');
+  sqlite.prepare(`UPDATE user_progression SET total_xp=total_xp+1000,level=3 WHERE user_id=?`).run(userId);
+  sqlite.prepare(`INSERT INTO achievement_definitions VALUES('site:test','Website award','Already earned','',1000,'Website','test',1,1,1)`).run();
+  sqlite.prepare(`INSERT INTO user_achievements VALUES(?,'site:test',?,1)`).run(userId,current);
+  const sharedAgain=await readJson(await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/account-data',{
+    headers:{Authorization:`Bearer ${second.accessToken}`}}),env));
+  assert.equal(sharedAgain.sharedProgression.totalXp,1143,'Website XP must be part of the restored balance');
+  assert.equal(sharedAgain.sharedProgression.level,3,'Shared level must use the website rule');
+  assert.equal(sharedAgain.achievements.filter(a=>a.id==='grev-home:first-session').length,1,'Replaying must not duplicate awards');
+  assert.ok(sharedAgain.achievements.some(a=>a.id==='site:test'),'Existing website achievements must be restored');
+  assert.equal((await sync(second.accessToken,120)).grevDad.totalXp,1143,'Restoring and resyncing must not credit website XP twice');
   assert.equal(restored.sources[0].profileCreatedAt,100);
   const unauthorised=await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/account-data'),env);
   assert.equal(unauthorised.status,401);
