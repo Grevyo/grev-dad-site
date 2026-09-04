@@ -325,6 +325,12 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
     context.userId
   ));
 
+  // Store the same level the clients calculate, including XP carried over from
+  // the legacy high-water mark. This runs in the same transaction as the totals.
+  statements.push(env.DB.prepare(`WITH RECURSIVE levels(level,required) AS (
+      SELECT 1,0 UNION ALL SELECT level+1,required+250+(level-1)*150 FROM levels WHERE level<999
+    ) UPDATE grev_home_progression_state SET home_level=(SELECT MAX(level) FROM levels WHERE required<=home_total_xp)
+      WHERE user_id=?`).bind(context.userId));
   await env.DB.batch(statements);
 
   const [home, combined] = await Promise.all([

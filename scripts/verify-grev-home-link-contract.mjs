@@ -50,8 +50,12 @@ class TestDatabase {
 
   async batch(statements) {
     const results = [];
-    for (const statement of statements) results.push(await statement.run());
-    return results;
+    this.database.exec('BEGIN');
+    try {
+      for (const statement of statements) results.push(await statement.run());
+      this.database.exec('COMMIT');
+      return results;
+    } catch(error) { this.database.exec('ROLLBACK'); throw error; }
   }
 
   withSession(constraint) {
