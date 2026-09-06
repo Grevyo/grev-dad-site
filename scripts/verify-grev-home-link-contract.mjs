@@ -172,6 +172,7 @@ try {
       '20260906_grev_home_friend_codes_public_cards.sql','20260906_grev_home_account_progression.sql']) {
     sqlite.exec(await readFile(new URL('../migrations/'+migration,import.meta.url),'utf8'));
   }
+  sqlite.exec(await readFile(new URL('../migrations/20260906_grev_home_statistics_correction.sql',import.meta.url),'utf8'));
 
   const database = new TestDatabase(sqlite);
   const env = { DB: database, APP_ENV: 'production' };
@@ -263,11 +264,11 @@ try {
   const syncBundle = join(buildDirectory,'sync.mjs');
   await build({entryPoints:['src/grev-home-sync.ts'],bundle:true,platform:'node',format:'esm',outfile:syncBundle});
   const {handleGrevHomeSyncRequest} = await import(pathToFileURL(syncBundle).href);
-  async function sync(token,seconds) {
+  async function sync(token,seconds,statisticsRevision=2,appId='pcsx2') {
     const response = await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/sync',{
       method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({profileCreatedAt:100,progression:{totalXp:120,level:1,totalTrackedSeconds:seconds,completedSessions:seconds?1:0,uniqueApps:seconds?1:0},
-        apps:seconds?[{appId:'pcsx2',appName:'PCSX2',totalSeconds:seconds,sessionCount:1,lastPlayedAt:current}]:[],sessions:[]})}),env);
+      body:JSON.stringify({statisticsRevision,profileCreatedAt:100,progression:{totalXp:120,level:1,totalTrackedSeconds:seconds,completedSessions:seconds?1:0,uniqueApps:seconds?1:0},
+        apps:seconds?[{appId,appName:appId,totalSeconds:seconds,sessionCount:1,lastPlayedAt:current}]:[],sessions:[]})}),env);
     const value=await response.json();
     assert.equal(response.status,200,JSON.stringify(value));
     return value;
@@ -291,6 +292,14 @@ try {
   assert.equal((await sync(second.accessToken,0)).grevHome.totalTrackedSeconds,60,'Empty reinstall must not erase totals');
   assert.equal((await sync(second.accessToken,120)).grevHome.totalTrackedSeconds,180,'Independent devices must accumulate');
   assert.equal((await sync(second.accessToken,60)).grevHome.totalTrackedSeconds,180,'Stale snapshots must not lower totals');
+  assert.equal((await sync(approved.accessToken,600,2)).grevHome.totalTrackedSeconds,720);
+  const corrected=await sync(approved.accessToken,60,2);
+  assert.equal(corrected.grevHome.totalTrackedSeconds,720,'Same-revision stale snapshots must remain high-water protected');
+  const legacySource=sqlite.prepare(`SELECT statistics_revision FROM grev_home_profile_sources WHERE grev_id=?`).get('GABCDContractUserXYZ');
+  sqlite.prepare(`UPDATE grev_home_profile_sources SET statistics_revision=1 WHERE grev_id=?`).run('GABCDContractUserXYZ');
+  const repaired=await sync(approved.accessToken,60,2);
+  assert.equal(repaired.grevHome.totalTrackedSeconds,180,'A newer statistics revision must replace polluted source totals downward');
+  assert.equal(legacySource.statistics_revision,2);
   const restored = await readJson(await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/account-data',{
     headers:{Authorization:`Bearer ${second.accessToken}`}}),env));
   assert.equal(restored.sources.length,2);

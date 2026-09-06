@@ -53,6 +53,7 @@ const SAFE_CONTENT_ID_RE = /^[A-Za-z0-9._:+-]{1,160}$/;
 const MAX_SESSION_BATCH = 100;
 const MAX_SESSION_SECONDS = 31 * 24 * 60 * 60;
 const API_VERSION = 1;
+const CURRENT_STATISTICS_REVISION = 2;
 
 function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -250,9 +251,10 @@ function parseSession(value: unknown): SessionInput | null {
 async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: DeviceContext): Promise<Response> {
   const input = await readBody(request);
   const progression = parseProgression(input.progression);
+  const statisticsRevision = safeInteger(input.statisticsRevision ?? 1, 1, CURRENT_STATISTICS_REVISION);
   const apps = input.apps === undefined ? undefined : parseApps(input.apps);
   const profileCreatedAt = input.profileCreatedAt === undefined ? null : safeInteger(input.profileCreatedAt,1,now()+300);
-  if (apps === null || (input.profileCreatedAt !== undefined && profileCreatedAt === null)) return json({ok:false,message:'Invalid account statistics.'},400);
+  if (statisticsRevision === null || apps === null || (input.profileCreatedAt !== undefined && profileCreatedAt === null)) return json({ok:false,message:'Invalid account statistics.'},400);
   const rawSessions = Array.isArray(input.sessions) ? input.sessions : [];
   if (!progression) return json({ ok:false, message:'The Grev Home progression snapshot is invalid.' }, 400);
   if (apps && (apps.reduce((n,a)=>n+a.totalSeconds,0)!==progression.totalTrackedSeconds ||
@@ -307,19 +309,21 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
   // Snapshots contain this installation's local data only, never downloaded totals.
   // Older clients still update their own source's high-water marks.
   statements.push(env.DB.prepare(`
-    INSERT INTO grev_home_profile_sources(grev_id,user_id,profile_created_at,total_seconds,completed_sessions,unique_apps,apps_json,updated_at)
-    VALUES(?,?,?,?,?,?,?,?)
+    INSERT INTO grev_home_profile_sources(grev_id,user_id,profile_created_at,total_seconds,completed_sessions,unique_apps,apps_json,updated_at,statistics_revision)
+    VALUES(?,?,?,?,?,?,?,?,?)
     ON CONFLICT(grev_id) DO UPDATE SET
       profile_created_at=CASE WHEN excluded.profile_created_at IS NULL THEN profile_created_at
         WHEN profile_created_at IS NULL THEN excluded.profile_created_at ELSE MIN(profile_created_at,excluded.profile_created_at) END,
-      apps_json=CASE WHEN excluded.total_seconds>=total_seconds AND excluded.completed_sessions>=completed_sessions AND ?=1
+      apps_json=CASE WHEN excluded.statistics_revision>statistics_revision THEN excluded.apps_json
+        WHEN excluded.total_seconds>=total_seconds AND excluded.completed_sessions>=completed_sessions AND ?=1
         THEN excluded.apps_json ELSE apps_json END,
-      total_seconds=MAX(total_seconds,excluded.total_seconds),
-      completed_sessions=MAX(completed_sessions,excluded.completed_sessions),
-      unique_apps=MAX(unique_apps,excluded.unique_apps),updated_at=excluded.updated_at
+      total_seconds=CASE WHEN excluded.statistics_revision>statistics_revision THEN excluded.total_seconds ELSE MAX(total_seconds,excluded.total_seconds) END,
+      completed_sessions=CASE WHEN excluded.statistics_revision>statistics_revision THEN excluded.completed_sessions ELSE MAX(completed_sessions,excluded.completed_sessions) END,
+      unique_apps=CASE WHEN excluded.statistics_revision>statistics_revision THEN excluded.unique_apps ELSE MAX(unique_apps,excluded.unique_apps) END,
+      statistics_revision=MAX(statistics_revision,excluded.statistics_revision),updated_at=excluded.updated_at
     WHERE user_id=excluded.user_id
   `).bind(context.sourceGrevId,context.userId,profileCreatedAt,progression.totalTrackedSeconds,
-    progression.completedSessions,progression.uniqueApps,JSON.stringify(apps ?? []),current,apps ? 1 : 0));
+    progression.completedSessions,progression.uniqueApps,JSON.stringify(apps ?? []),current,statisticsRevision,apps ? 1 : 0));
 
   statements.push(env.DB.prepare(`
     INSERT INTO grev_home_progression_state(
@@ -333,11 +337,11 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
     ON CONFLICT(grev_id) DO UPDATE SET
       link_id=excluded.link_id,
       user_id=excluded.user_id,
-      home_level=CASE WHEN excluded.home_total_xp>=grev_home_progression_state.home_total_xp THEN excluded.home_level ELSE grev_home_progression_state.home_level END,
-      total_tracked_seconds=MAX(grev_home_progression_state.total_tracked_seconds,excluded.total_tracked_seconds),
-      completed_sessions=MAX(grev_home_progression_state.completed_sessions,excluded.completed_sessions),
-      unique_apps=MAX(grev_home_progression_state.unique_apps,excluded.unique_apps),
-      home_total_xp=MAX(grev_home_progression_state.home_total_xp,excluded.home_total_xp),
+      home_level=excluded.home_level,
+      total_tracked_seconds=excluded.total_tracked_seconds,
+      completed_sessions=excluded.completed_sessions,
+      unique_apps=excluded.unique_apps,
+      home_total_xp=excluded.home_total_xp,
       updated_at=excluded.updated_at
   `).bind(
     context.grevId,
@@ -356,7 +360,7 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
       WHERE user_id=?`).bind(context.userId));
   statements.push(env.DB.prepare(`INSERT INTO grev_home_account_progression(user_id,home_total_xp,updated_at)
     SELECT ?,MAX(home_total_xp),? FROM grev_home_progression_state WHERE user_id=?
-    ON CONFLICT(user_id) DO UPDATE SET home_total_xp=MAX(home_total_xp,excluded.home_total_xp),updated_at=excluded.updated_at`)
+    ON CONFLICT(user_id) DO UPDATE SET home_total_xp=excluded.home_total_xp,updated_at=excluded.updated_at`)
     .bind(context.userId,current,context.userId));
   await env.DB.batch(statements);
 
