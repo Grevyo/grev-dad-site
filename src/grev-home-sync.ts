@@ -171,7 +171,7 @@ async function accountData(env:GrevHomeSyncEnv, context:DeviceContext):Promise<R
         CASE WHEN h.home_total_xp>=7650 THEN 10 WHEN h.home_total_xp>=1900 THEN 5 ELSE 1 END)
       ELSE 0 END >= a.criteria_value`).bind(now(),context.userId).run();
   const progression=await env.DB.prepare(`SELECT p.total_xp,COALESCE(h.home_total_xp,0) home_xp
-    FROM user_progression p LEFT JOIN grev_home_progression_state h ON h.user_id=p.user_id WHERE p.user_id=?`)
+    FROM user_progression p LEFT JOIN grev_home_account_progression h ON h.user_id=p.user_id WHERE p.user_id=?`)
     .bind(context.userId).first<{total_xp:number;home_xp:number}>();
   const achievements=await env.DB.prepare(`SELECT a.id,a.name,a.description,a.category,u.awarded_at
     FROM user_achievements u JOIN achievement_definitions a ON a.id=u.achievement_id
@@ -354,6 +354,10 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
       SELECT 1,0 UNION ALL SELECT level+1,required+250+(level-1)*150 FROM levels WHERE level<999
     ) UPDATE grev_home_progression_state SET home_level=(SELECT MAX(level) FROM levels WHERE required<=home_total_xp)
       WHERE user_id=?`).bind(context.userId));
+  statements.push(env.DB.prepare(`INSERT INTO grev_home_account_progression(user_id,home_total_xp,updated_at)
+    SELECT ?,MAX(home_total_xp),? FROM grev_home_progression_state WHERE user_id=?
+    ON CONFLICT(user_id) DO UPDATE SET home_total_xp=MAX(home_total_xp,excluded.home_total_xp),updated_at=excluded.updated_at`)
+    .bind(context.userId,current,context.userId));
   await env.DB.batch(statements);
 
   const [home, combined] = await Promise.all([

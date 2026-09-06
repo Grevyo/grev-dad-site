@@ -146,6 +146,55 @@ function randomUserCode(): string {
   return `${chars.slice(0, 4).join('')}-${chars.slice(4).join('')}`;
 }
 
+function randomFriendCode(): string {
+  const values = crypto.getRandomValues(new Uint8Array(8));
+  const chars = Array.from(values, value => USER_CODE_ALPHABET[value % USER_CODE_ALPHABET.length]);
+  return `GREV-${chars.slice(0, 4).join('')}-${chars.slice(4).join('')}`;
+}
+
+async function ensureFriendCode(db: D1Executor, userId: string): Promise<string> {
+  const existing = await db.prepare(`SELECT friend_code FROM grev_home_friend_codes WHERE user_id=?`)
+    .bind(userId).first<{friend_code:string}>();
+  if (existing) return existing.friend_code;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = randomFriendCode();
+    await db.prepare(`INSERT OR IGNORE INTO grev_home_friend_codes(user_id,friend_code,created_at) VALUES(?,?,?)`)
+      .bind(userId, code, now()).run();
+    const created = await db.prepare(`SELECT friend_code FROM grev_home_friend_codes WHERE user_id=?`)
+      .bind(userId).first<{friend_code:string}>();
+    if (created) return created.friend_code;
+  }
+  throw new Error('FRIEND_CODE_ALLOCATION_FAILED');
+}
+
+const CARD_THEMES = new Set(['grev','midnight','ember','aurora','violet','mono','custom']);
+const CARD_FRAMES = new Set(['role','clean','glow','double']);
+const AVATAR_SHAPES = new Set(['circle','rounded','square']);
+function cleanPublicCard(value: unknown): Record<string, unknown> {
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string,unknown> : {};
+  const theme = String(input.theme ?? 'grev').toLowerCase();
+  const frame = String(input.frame ?? 'role').toLowerCase();
+  const avatarShape = String(input.avatarShape ?? 'circle').toLowerCase();
+  return {
+    theme: CARD_THEMES.has(theme) ? theme : 'grev',
+    frame: CARD_FRAMES.has(frame) ? frame : 'role',
+    avatarShape: AVATAR_SHAPES.has(avatarShape) ? avatarShape : 'circle',
+    showUsername: input.showUsername !== false,
+    showLevel: input.showLevel !== false,
+    showXp: input.showXp !== false,
+    showPlaytime: input.showPlaytime !== false,
+    showSessions: input.showSessions !== false,
+    showStatus: input.showStatus !== false
+  };
+}
+
+async function readPublicCard(db: D1Executor, userId: string): Promise<Record<string,unknown>> {
+  const row = await db.prepare(`SELECT card_json FROM grev_home_public_cards WHERE user_id=?`)
+    .bind(userId).first<{card_json:string}>();
+  if (!row) return cleanPublicCard({});
+  try { return cleanPublicCard(JSON.parse(row.card_json)); } catch { return cleanPublicCard({}); }
+}
+
 function normalizeUserCode(value: unknown): string {
   return String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^(.{4})(.{4})$/, '$1-$2');
 }
@@ -242,8 +291,11 @@ function accountPayload(context: DeviceContext) {
 }
 
 function presencePayload(row: PresenceRow | null) {
-  if (!row || (row.expires_at !== null && row.expires_at <= now())) {
+  if (!row) {
     return { availability:'offline', statusText:'', activityType:'none', activityText:'', expiresAt:null, updatedAt:null };
+  }
+  if (row.expires_at !== null && row.expires_at <= now()) {
+    return { availability:'offline', statusText:row.status_text, activityType:'none', activityText:'', expiresAt:null, updatedAt:row.updated_at };
   }
   return {
     availability: row.availability,
@@ -391,7 +443,8 @@ async function browserLinkDecision(request: Request, env: GrevHomeEnv): Promise<
     UPDATE grev_home_link_requests SET approved_user_id=?,approved_at=?,denied_at=NULL WHERE id=?
   `).bind(user.id, current, row.id).run();
 
-  return json({ ok:true, status:'approved', grevId:row.grev_id, account:{ userId:user.id, username:user.username, displayName:user.displayName } });
+  const friendCode = await ensureFriendCode(db, user.id);
+  return json({ ok:true, status:'approved', grevId:row.grev_id, account:{ userId:user.id, username:user.username, displayName:user.displayName, friendCode } });
 }
 
 async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response> {
@@ -435,6 +488,8 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
     `).bind(tokenId, link.id, row.id, await sha256(accessToken), row.device_name, current, tokenExpiresAt,row.grev_id),
     db.prepare(`UPDATE grev_home_link_requests SET last_token_issued_at=? WHERE id=?`).bind(current, row.id)
   ]);
+  const friendCode = await ensureFriendCode(db, link.user_id);
+  const publicCard = await readPublicCard(db, link.user_id);
 
   return json({
     ok:true,
@@ -451,7 +506,9 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
       grevId:row.grev_id,
       localUsername:row.local_username,
       localDisplayName:row.local_display_name,
-      linkId:link.id
+      linkId:link.id,
+      friendCode,
+      publicCard
     }
   });
 }
@@ -459,7 +516,37 @@ async function linkStatus(request: Request, env: GrevHomeEnv): Promise<Response>
 async function deviceMe(request: Request, env: GrevHomeEnv): Promise<Response> {
   const context = await getDeviceContext(request, env);
   if (!context) return json({ ok:false, message:'Grev Home link authentication failed.' }, 401);
-  return json({ ok:true, apiVersion:API_VERSION, account:accountPayload(context) });
+  return json({ ok:true, apiVersion:API_VERSION, account:{
+    ...accountPayload(context),
+    friendCode:await ensureFriendCode(primaryDatabase(env), context.user.id),
+    publicCard:await readPublicCard(env.DB, context.user.id)
+  } });
+}
+
+async function publicCard(request: Request, env: GrevHomeEnv, context: DeviceContext): Promise<Response> {
+  if (request.method === 'GET') return json({ ok:true, card:await readPublicCard(env.DB, context.user.id) });
+  const input = await readBody(request);
+  const card = cleanPublicCard(input.card);
+  await env.DB.prepare(`INSERT INTO grev_home_public_cards(user_id,card_json,updated_at) VALUES(?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET card_json=excluded.card_json,updated_at=excluded.updated_at`)
+    .bind(context.user.id, JSON.stringify(card), now()).run();
+  return json({ ok:true, card });
+}
+
+async function friendCodeLookup(request: Request, env: GrevHomeEnv, context: DeviceContext): Promise<Response> {
+  const code = String(new URL(request.url).searchParams.get('code') ?? '').trim().toUpperCase();
+  if (!/^GREV-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(code)) {
+    return json({ ok:false, message:'Enter a friend code in the format GREV-XXXX-XXXX.' }, 400);
+  }
+  const row = await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_verified,c.card_json
+    FROM grev_home_friend_codes f JOIN users u ON u.id=f.user_id
+    LEFT JOIN grev_home_public_cards c ON c.user_id=u.id
+    WHERE f.friend_code=? COLLATE NOCASE AND u.status='active'`).bind(code)
+    .first<{id:string;username:string;display_name:string;is_verified:number;card_json:string|null}>();
+  if (!row || row.id === context.user.id) return json({ ok:false, message:'That friend code is not available.' }, 404);
+  let card: Record<string,unknown> = cleanPublicCard({});
+  try { card = cleanPublicCard(row.card_json ? JSON.parse(row.card_json) : {}); } catch { /* defaults */ }
+  return json({ ok:true, user:{userId:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),publicCard:card} });
 }
 
 async function revokeCurrentToken(request: Request, env: GrevHomeEnv): Promise<Response> {
@@ -515,12 +602,14 @@ async function devicePresence(request: Request, env: GrevHomeEnv, context: Devic
 async function friendList(env: GrevHomeEnv, context: DeviceContext): Promise<Response> {
   const userId = context.user.id;
   const rows = await env.DB.prepare(`
-    SELECT u.id,u.username,u.display_name,u.is_verified,
+    SELECT u.id,u.username,u.display_name,u.is_verified,c.card_json,COALESCE(up.total_xp,0) total_xp,
       p.availability,p.status_text,p.activity_type,p.activity_text,p.expires_at,p.updated_at,
       f.created_at
     FROM grev_home_friendships f
     JOIN users u ON u.id=CASE WHEN f.user_low_id=? THEN f.user_high_id ELSE f.user_low_id END
     LEFT JOIN user_presence p ON p.user_id=u.id
+    LEFT JOIN grev_home_public_cards c ON c.user_id=u.id
+    LEFT JOIN user_progression up ON up.user_id=u.id
     WHERE (f.user_low_id=? OR f.user_high_id=?) AND u.status='active'
       AND NOT EXISTS(
         SELECT 1 FROM profile_blocks b
@@ -529,7 +618,7 @@ async function friendList(env: GrevHomeEnv, context: DeviceContext): Promise<Res
       )
     ORDER BY u.display_name COLLATE NOCASE,u.username COLLATE NOCASE
   `).bind(userId, userId, userId, userId, userId).all<{
-    id:string;username:string;display_name:string;is_verified:number;
+    id:string;username:string;display_name:string;is_verified:number;card_json:string|null;total_xp:number;
     availability:string|null;status_text:string|null;activity_type:string|null;activity_text:string|null;
     expires_at:number|null;updated_at:number|null;created_at:number;
   }>();
@@ -541,6 +630,9 @@ async function friendList(env: GrevHomeEnv, context: DeviceContext): Promise<Res
       username:row.username,
       displayName:row.display_name,
       isVerified:Boolean(row.is_verified),
+      totalXp:Number(row.total_xp),
+      level:Math.floor(Number(row.total_xp)/500)+1,
+      publicCard:(() => { try { return cleanPublicCard(row.card_json ? JSON.parse(row.card_json) : {}); } catch { return cleanPublicCard({}); } })(),
       friendsSince:row.created_at,
       presence:presencePayload(row.availability ? {
         availability:row.availability,
@@ -787,6 +879,8 @@ export async function handleGrevHomeRequest(request: Request, env: GrevHomeEnv):
       apiVersion:API_VERSION,
       linking:true,
       friends:true,
+      friendCodes:true,
+      publicProfileCards:true,
       presence:true,
       activity:true,
       environment:env.APP_ENV
@@ -805,6 +899,8 @@ export async function handleGrevHomeRequest(request: Request, env: GrevHomeEnv):
   if (path === '/api/grev-home/link/revoke' && request.method === 'POST') return revokeLink(request, env);
   if (path === '/api/grev-home/presence' && ['GET','PUT'].includes(request.method)) return devicePresence(request, env, context);
   if (path === '/api/grev-home/friends' && request.method === 'GET') return friendList(env, context);
+  if (path === '/api/grev-home/friends/lookup' && request.method === 'GET') return friendCodeLookup(request, env, context);
+  if (path === '/api/grev-home/public-card' && ['GET','PUT'].includes(request.method)) return publicCard(request, env, context);
   if (path === '/api/grev-home/friend-requests' && ['GET','POST'].includes(request.method)) return friendRequests(request, env, context);
   if (path === '/api/grev-home/users' && request.method === 'GET') return searchMembers(request, env, context);
   if (path === '/api/grev-home/activity' && ['GET','POST'].includes(request.method)) return activity(request, env, context);

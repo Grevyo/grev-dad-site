@@ -168,7 +168,8 @@ try {
     CREATE TABLE platform_change_revision(id INTEGER PRIMARY KEY,revision INTEGER,changed_at INTEGER);
     INSERT INTO platform_change_revision VALUES(1,0,0);`);
   for (const migration of ['20260822_grev_home_progression_history.sql','20260822_grev_home_progression_trigger_fix.sql',
-      '20260822_grev_home_history_content_identity.sql','20260904_grev_home_account_restore.sql','20260904_grev_home_shared_achievements.sql']) {
+      '20260822_grev_home_history_content_identity.sql','20260904_grev_home_account_restore.sql','20260904_grev_home_shared_achievements.sql',
+      '20260906_grev_home_friend_codes_public_cards.sql','20260906_grev_home_account_progression.sql']) {
     sqlite.exec(await readFile(new URL('../migrations/'+migration,import.meta.url),'utf8'));
   }
 
@@ -242,12 +243,22 @@ try {
   assert.ok(approved.accessToken);
   assert.equal(approved.account.grevId, 'GABCDContractUserXYZ');
   assert.equal(approved.account.username, 'ContractAdmin');
+  assert.match(approved.account.friendCode, /^GREV-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
 
   const meResponse = await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/me', {
     headers: { Authorization: `Bearer ${approved.accessToken}` }
   }), env);
   assert.equal(meResponse.status, 200);
-  assert.equal((await readJson(meResponse)).account.grevId, 'GABCDContractUserXYZ');
+  const me = await readJson(meResponse);
+  assert.equal(me.account.grevId, 'GABCDContractUserXYZ');
+  assert.equal(me.account.friendCode, approved.account.friendCode, 'Friend code must be stable for the website account');
+
+  const cardResponse = await handleGrevHomeRequest(new Request('https://grev.dad/api/grev-home/public-card', {
+    method:'PUT',headers:{Authorization:`Bearer ${approved.accessToken}`,'Content-Type':'application/json'},
+    body:JSON.stringify({card:{theme:'violet',frame:'glow',avatarShape:'rounded',showXp:false}})
+  }), env);
+  assert.equal(cardResponse.status, 200);
+  assert.equal((await readJson(cardResponse)).card.theme, 'violet');
 
   const syncBundle = join(buildDirectory,'sync.mjs');
   await build({entryPoints:['src/grev-home-sync.ts'],bundle:true,platform:'node',format:'esm',outfile:syncBundle});
@@ -273,6 +284,10 @@ try {
     headers:{Authorization:`Bearer ${secondStart.deviceCode}`}}),env));
   assert.equal(second.account.grevId,'GNEWPCXYZ');
   assert.equal(second.account.userId,approved.account.userId);
+  assert.equal(second.account.friendCode,approved.account.friendCode,'Every linked PC must return the same account friend code');
+  const beforeSecondSource = await sync(approved.accessToken,60);
+  const afterSecondSource = await sync(second.accessToken,0);
+  assert.equal(afterSecondSource.grevDad.totalXp,beforeSecondSource.grevDad.totalXp,'A second GrevID must not credit the same Home XP twice');
   assert.equal((await sync(second.accessToken,0)).grevHome.totalTrackedSeconds,60,'Empty reinstall must not erase totals');
   assert.equal((await sync(second.accessToken,120)).grevHome.totalTrackedSeconds,180,'Independent devices must accumulate');
   assert.equal((await sync(second.accessToken,60)).grevHome.totalTrackedSeconds,180,'Stale snapshots must not lower totals');
