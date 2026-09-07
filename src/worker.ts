@@ -50,6 +50,10 @@ export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
     const legacyCommunityPage = url.pathname === '/hub' || url.pathname === '/members';
+    if (request.method === 'GET' && url.pathname === '/grev-dad-logo-full.png') {
+      const assetUrl = new URL('/0E07EA15-2E29-46CD-B7BE-437938DDC552.png', url);
+      return (env as unknown as DashboardEnv).ASSETS.fetch(new Request(assetUrl.toString(), request));
+    }
     if (request.method === 'GET' && url.pathname === '/profile-customization.js') return bundledAsset(request, env, ['/profile-customization-hardening.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.js') return bundledAsset(request, env, ['/profile-card-baseline.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.css') return bundledAsset(request, env, ['/profile-card-baseline.css'], 'text/css; charset=utf-8');
