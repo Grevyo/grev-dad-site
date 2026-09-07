@@ -170,6 +170,15 @@ async function ensureFriendCode(db: D1Executor, userId: string): Promise<string>
 const CARD_THEMES = new Set(['grev','midnight','ember','aurora','violet','mono','custom']);
 const CARD_FRAMES = new Set(['role','clean','glow','double']);
 const AVATAR_SHAPES = new Set(['circle','rounded','square']);
+const CARD_IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
+function cleanCardImage(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string' || value.length > 1_900_000) return null;
+  const match = value.match(CARD_IMAGE);
+  if (!match || !match[2]) return null;
+  const padding = match[2].endsWith('==') ? 2 : match[2].endsWith('=') ? 1 : 0;
+  return Math.floor(match[2].length * 3 / 4) - padding <= 1_400_000 ? value : null;
+}
 function cleanPublicCard(value: unknown): Record<string, unknown> {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string,unknown> : {};
   const theme = String(input.theme ?? 'grev').toLowerCase();
@@ -184,7 +193,9 @@ function cleanPublicCard(value: unknown): Record<string, unknown> {
     showXp: input.showXp !== false,
     showPlaytime: input.showPlaytime !== false,
     showSessions: input.showSessions !== false,
-    showStatus: input.showStatus !== false
+    showStatus: input.showStatus !== false,
+    avatarMedia: cleanCardImage(input.avatarMedia),
+    coverMedia: cleanCardImage(input.coverMedia)
   };
 }
 
