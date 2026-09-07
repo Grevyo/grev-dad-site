@@ -233,7 +233,7 @@ async function getBrowserUser(request: Request, env: GrevHomeEnv): Promise<Brows
   } : null;
 }
 
-async function getDeviceContext(request: Request, env: GrevHomeEnv): Promise<DeviceContext | null> {
+export async function getDeviceContext(request: Request, env: GrevHomeEnv): Promise<DeviceContext | null> {
   const token = bearerToken(request);
   if (!token) return null;
   const current = now();

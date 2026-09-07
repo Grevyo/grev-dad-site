@@ -1,4 +1,5 @@
 import existingWorker from './worker';
+import { handleGrevHomeMessages } from './grev-home-messages';
 import { handleGrevHomeBrowserAccountRequest } from './grev-home-browser-account';
 import { handleGrevHomeCapabilitiesRequest } from './grev-home-capabilities';
 import { handleGrevHomeLinkMetadataRequest } from './grev-home-link-metadata';
@@ -65,6 +66,9 @@ export default {
       try {
         const capabilitiesResponse = await handleGrevHomeCapabilitiesRequest(request, env);
         if (capabilitiesResponse) return capabilitiesResponse;
+
+        const messagesResponse = await handleGrevHomeMessages(request, env);
+        if (messagesResponse) return messagesResponse;
 
         const browserResponse = await handleGrevHomeBrowserAccountRequest(request, env);
         if (browserResponse) return browserResponse;
