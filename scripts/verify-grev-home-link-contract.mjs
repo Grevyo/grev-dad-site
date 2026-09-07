@@ -300,6 +300,16 @@ try {
   const repaired=await sync(approved.accessToken,60,2);
   assert.equal(repaired.grevHome.totalTrackedSeconds,180,'A newer statistics revision must replace polluted source totals downward');
   assert.equal(legacySource.statistics_revision,2);
+  assert.equal((await sync(approved.accessToken,600000,1)).grevHome.totalTrackedSeconds,180,'Old clients must not restore removed launcher XP');
+  const activeSession={sessionId:randomUUID(),sequence:1,appId:'discord',appName:'Discord',startedAt:current-3600,endedAt:current,durationSeconds:60,outcome:'exited'};
+  async function uploadActive(durationSeconds) {
+    return handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/sync',{
+      method:'POST',headers:{Authorization:`Bearer ${approved.accessToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify({statisticsRevision:2,progression:{totalXp:121,level:1,totalTrackedSeconds:60,completedSessions:1,uniqueApps:1},
+        apps:[{appId:'pcsx2',appName:'pcsx2',totalSeconds:60,sessionCount:1,lastPlayedAt:current}],sessions:[{...activeSession,durationSeconds}]})}),env);
+  }
+  assert.equal((await uploadActive(60)).status,200,'Foreground usage shorter than process lifetime must sync');
+  assert.equal((await uploadActive(4000)).status,400,'Usage longer than process lifetime must be rejected');
   const restored = await readJson(await handleGrevHomeSyncRequest(new Request('https://grev.dad/api/grev-home/account-data',{
     headers:{Authorization:`Bearer ${second.accessToken}`}}),env));
   assert.equal(restored.sources.length,2);

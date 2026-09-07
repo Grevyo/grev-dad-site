@@ -230,7 +230,7 @@ function parseSession(value: unknown): SessionInput | null {
   }
 
   const elapsed = endedAt - startedAt;
-  if (Math.abs(elapsed - durationSeconds) > 5) return null;
+  if (durationSeconds > elapsed + 5) return null;
 
   return {
     sessionId,
@@ -254,7 +254,7 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
   const statisticsRevision = safeInteger(input.statisticsRevision ?? 1, 1, CURRENT_STATISTICS_REVISION);
   const apps = input.apps === undefined ? undefined : parseApps(input.apps);
   const profileCreatedAt = input.profileCreatedAt === undefined ? null : safeInteger(input.profileCreatedAt,1,now()+300);
-  if (statisticsRevision === null || apps === null || (input.profileCreatedAt !== undefined && profileCreatedAt === null)) return json({ok:false,message:'Invalid account statistics.'},400);
+  if (statisticsRevision === null || (statisticsRevision >= 2 && apps === undefined) || apps === null || (input.profileCreatedAt !== undefined && profileCreatedAt === null)) return json({ok:false,message:'Invalid account statistics.'},400);
   const rawSessions = Array.isArray(input.sessions) ? input.sessions : [];
   if (!progression) return json({ ok:false, message:'The Grev Home progression snapshot is invalid.' }, 400);
   if (apps && (apps.reduce((n,a)=>n+a.totalSeconds,0)!==progression.totalTrackedSeconds ||
@@ -321,7 +321,7 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
       completed_sessions=CASE WHEN excluded.statistics_revision>statistics_revision THEN excluded.completed_sessions ELSE MAX(completed_sessions,excluded.completed_sessions) END,
       unique_apps=CASE WHEN excluded.statistics_revision>statistics_revision THEN excluded.unique_apps ELSE MAX(unique_apps,excluded.unique_apps) END,
       statistics_revision=MAX(statistics_revision,excluded.statistics_revision),updated_at=excluded.updated_at
-    WHERE user_id=excluded.user_id
+    WHERE user_id=excluded.user_id AND excluded.statistics_revision>=statistics_revision
   `).bind(context.sourceGrevId,context.userId,profileCreatedAt,progression.totalTrackedSeconds,
     progression.completedSessions,progression.uniqueApps,JSON.stringify(apps ?? []),current,statisticsRevision,apps ? 1 : 0));
 
@@ -351,6 +351,13 @@ async function syncProfile(request: Request, env: GrevHomeSyncEnv, context: Devi
     context.userId,
     context.userId
   ));
+
+  statements.push(env.DB.prepare(`UPDATE grev_home_progression_state SET
+    home_total_xp=(SELECT home_total_xp FROM grev_home_progression_state WHERE grev_id=?),
+    total_tracked_seconds=(SELECT total_tracked_seconds FROM grev_home_progression_state WHERE grev_id=?),
+    completed_sessions=(SELECT completed_sessions FROM grev_home_progression_state WHERE grev_id=?),
+    unique_apps=(SELECT unique_apps FROM grev_home_progression_state WHERE grev_id=?)
+    WHERE user_id=?`).bind(context.grevId,context.grevId,context.grevId,context.grevId,context.userId));
 
   // Store the same level the clients calculate, including XP carried over from
   // the legacy high-water mark. This runs in the same transaction as the totals.
