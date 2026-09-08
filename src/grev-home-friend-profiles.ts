@@ -1,6 +1,6 @@
 import { handleGrevHomeRequest, type GrevHomeEnv } from './grev-home';
 
-type FriendPayload = Record<string, unknown> & { userId?: unknown };
+type FriendPayload = Record<string, unknown> & { userId?: unknown; publicCard?: unknown };
 type FriendsPayload = Record<string, unknown> & { friends?: unknown };
 type AggregateRow = {
   user_id: string;
@@ -59,10 +59,16 @@ export async function handleGrevHomeFriendProfiles(
     friends: friends.map(friend => {
       const userId = typeof friend.userId === 'string' ? friend.userId : '';
       const aggregate = byUser.get(userId);
+      const totalTrackedSeconds = Math.max(0, Number(aggregate?.total_tracked_seconds ?? 0));
+      const completedSessions = Math.max(0, Number(aggregate?.completed_sessions ?? 0));
+      const publicCard = friend.publicCard && typeof friend.publicCard === 'object' && !Array.isArray(friend.publicCard)
+        ? friend.publicCard as Record<string, unknown>
+        : {};
       return {
         ...friend,
-        totalTrackedSeconds: Math.max(0, Number(aggregate?.total_tracked_seconds ?? 0)),
-        completedSessions: Math.max(0, Number(aggregate?.completed_sessions ?? 0))
+        totalTrackedSeconds,
+        completedSessions,
+        publicCard: { ...publicCard, totalTrackedSeconds, completedSessions }
       };
     })
   });
