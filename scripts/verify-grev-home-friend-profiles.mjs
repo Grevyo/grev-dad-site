@@ -79,6 +79,8 @@ try {
   assert.equal(payload.friends[0].userId,friend);
   assert.equal(payload.friends[0].totalTrackedSeconds,4500,'All linked Grev Home profile sources must contribute to friend play time');
   assert.equal(payload.friends[0].completedSessions,6,'All linked Grev Home profile sources must contribute to friend sessions');
+  assert.equal(payload.friends[0].publicCard.totalTrackedSeconds,4500,'Client public-card payload must receive the same account-wide play time');
+  assert.equal(payload.friends[0].publicCard.completedSessions,6,'Client public-card payload must receive the same account-wide sessions');
   assert.equal(payload.friends[0].totalXp,1250);
   assert.equal(payload.friends[0].level,3);
   assert.equal(payload.friends[0].publicCard.showPlaytime,true);
