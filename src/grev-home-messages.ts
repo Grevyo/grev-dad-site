@@ -4,7 +4,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }
 });
-type Db = ReturnType<GrevHomeEnv['DB']['withSession']>;
+type Db = Pick<GrevHomeEnv['DB'], 'prepare' | 'batch'>;
 
 // Always use both directions of the block relationship, including for old conversations.
 export async function canMessage(db: Db, actor: string, other: string): Promise<boolean> {
@@ -19,7 +19,7 @@ export async function canMessage(db: Db, actor: string, other: string): Promise<
   return Boolean(row);
 }
 
-async function directRoom(db: Db, actor: string, other: string): Promise<string> {
+export async function directRoom(db: Db, actor: string, other: string): Promise<string> {
   const existing = await db.prepare(`SELECT r.id FROM chat_rooms r
     JOIN chat_members a ON a.room_id=r.id AND a.user_id=?
     JOIN chat_members b ON b.room_id=r.id AND b.user_id=?
@@ -86,7 +86,8 @@ export async function handleGrevHomeMessages(request: Request, env: GrevHomeEnv)
   if (!(request.headers.get('Content-Type')??'').includes('application/json')) return json({ok:false,message:'JSON required.'},400);
   const raw = await request.text();
   if (raw.length>12000) return json({ok:false,message:'Message too large.'},413);
-  const input = JSON.parse(raw) as Record<string,unknown>;
+  let input: Record<string,unknown>;
+  try { input = JSON.parse(raw); } catch { return json({ok:false,message:'Invalid JSON.'},400); }
   if (!input || typeof input!=='object' || Array.isArray(input)) return json({ok:false,message:'Invalid request.'},400);
   if (match[2]) {
     const lastId = String(input.messageId??'');

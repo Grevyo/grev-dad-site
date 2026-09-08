@@ -82,7 +82,7 @@ function dataUrlByteLength(value: string): number {
   return Math.floor(encoded.length * 3 / 4) - padding;
 }
 
-function validImageDataUrl(value: string): boolean {
+export function validImageDataUrl(value: string): boolean {
   const match = value.match(IMAGE_DATA_URL);
   if (!match || !match[1] || !match[2] || dataUrlByteLength(value) > MAX_MEDIA_BYTES) return false;
 

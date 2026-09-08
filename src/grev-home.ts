@@ -1,3 +1,4 @@
+import { validImageDataUrl } from './profile-media';
 interface D1Result<T> { results: T[]; }
 interface D1Statement {
   bind(...values: unknown[]): D1Statement;
@@ -195,7 +196,9 @@ function cleanPublicCard(value: unknown): Record<string, unknown> {
     showSessions: input.showSessions !== false,
     showStatus: input.showStatus !== false,
     avatarMedia: cleanCardImage(input.avatarMedia),
-    coverMedia: cleanCardImage(input.coverMedia)
+    coverMedia: cleanCardImage(input.coverMedia),
+    bio: cleanText(input.bio,160),
+    statusMessage: cleanText(input.statusMessage,60)
   };
 }
 
@@ -538,6 +541,12 @@ async function publicCard(request: Request, env: GrevHomeEnv, context: DeviceCon
   if (request.method === 'GET') return json({ ok:true, card:await readPublicCard(env.DB, context.user.id) });
   const input = await readBody(request);
   const card = cleanPublicCard(input.card);
+  for (const slot of ['avatarMedia','coverMedia']) {
+    const value = (input.card as Record<string,unknown> | undefined)?.[slot];
+    if (value != null && value !== '' && (typeof value !== 'string' || !validImageDataUrl(value)))
+      return json({ok:false,message:'Choose a valid PNG, JPEG, GIF or WebP image under 1.4 MB.'},400);
+  }
+  if (JSON.stringify(card).length > 1_800_000) return json({ok:false,message:'The combined profile artwork is too large. Use smaller images.'},413);
   await env.DB.prepare(`INSERT INTO grev_home_public_cards(user_id,card_json,updated_at) VALUES(?,?,?)
     ON CONFLICT(user_id) DO UPDATE SET card_json=excluded.card_json,updated_at=excluded.updated_at`)
     .bind(context.user.id, JSON.stringify(card), now()).run();
