@@ -168,7 +168,7 @@ async function ensureFriendCode(db: D1Executor, userId: string): Promise<string>
   throw new Error('FRIEND_CODE_ALLOCATION_FAILED');
 }
 
-const CARD_THEMES = new Set(['grev','midnight','ember','aurora','violet','mono','custom']);
+const CARD_THEMES = new Set(['grev','midnight','ember','aurora','violet','mono','ocean','rose','forest','gold','custom']);
 const CARD_FRAMES = new Set(['role','clean','glow','double']);
 const AVATAR_SHAPES = new Set(['circle','rounded','square']);
 const CARD_IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
