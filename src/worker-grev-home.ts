@@ -2,6 +2,7 @@ import existingWorker from './worker';
 import { handleGrevHomeMessages } from './grev-home-messages';
 import { handleGrevHomeBrowserAccountRequest } from './grev-home-browser-account';
 import { handleGrevHomeCapabilitiesRequest } from './grev-home-capabilities';
+import { handleGrevHomeFriendProfiles } from './grev-home-friend-profiles';
 import { handleGrevHomeLinkMetadataRequest } from './grev-home-link-metadata';
 import { handleGrevHomeRequest, type GrevHomeEnv } from './grev-home';
 import { handleGrevHomeSyncRequest } from './grev-home-sync';
@@ -81,6 +82,9 @@ export default {
 
         const syncResponse = await handleGrevHomeSyncRequest(request, env);
         if (syncResponse) return syncResponse;
+
+        const friendProfilesResponse = await handleGrevHomeFriendProfiles(request, env);
+        if (friendProfilesResponse) return friendProfilesResponse;
 
         const response = await handleGrevHomeRequest(request, env);
         return response ?? workerJson({ ok:false, message:'Unknown Grev Home API route.' }, 404);
