@@ -503,6 +503,83 @@ async function profilePayload(env: ProfileEnv, viewer: Viewer, profileId: string
   });
 }
 
+// --- Grev Home <-> grev.dad tile sync ------------------------------------------------------
+//
+// Deliberately reuses tileFromInput/overlaps/tileFromRow/MAX_TILES - the same primitives
+// scripts/verify-profile-tile-contract.mjs exercises directly and Grev Home's ProfileTileGrid.cs
+// mirrors - rather than a second, drifting copy of "what makes a tile valid". This is a parallel
+// read/write path scoped to just user_profile_tiles (not a refactor of saveProfile's combined
+// card+tiles+preferences save), so it can't regress the existing session-authenticated editor.
+//
+// updatedAt is MAX(tiles.updated_at), 0 when the user has no tiles at all. Grev Home's sync client
+// compares this against its own local ProfileTileLayout.UpdatedAtUtc and pulls or pushes whichever
+// side is newer (last-write-wins) - see GrevDadProfileSyncService.SyncProfileTilesAsync. A device
+// with nothing local (a fresh install) always has updatedAt 0, so it always pulls the cloud
+// layout - this is also how a fresh Grev Home install restores a profile after linking.
+
+// Only DB is needed, so callers (e.g. grev-home-sync.ts's GrevHomeSyncEnv) don't have to carry an
+// ASSETS binding purely to satisfy ProfileEnv's type.
+type ProfileTileSyncEnv = { DB: D1Database };
+
+export async function getProfileTilesForSync(
+  env: ProfileTileSyncEnv, userId: string
+): Promise<{ tiles: ProfileTile[]; updatedAt: number }> {
+  const rows = await env.DB.prepare(`
+    SELECT tile_id,tile_type,grid_x,grid_y,tile_width,tile_height,title,body,
+      link_label,link_url,stat_value,background_type,background_primary,
+      background_secondary,background_angle,background_media,media_fit,media_overlay,
+      text_colour,border_colour,font_family,updated_at
+    FROM user_profile_tiles
+    WHERE user_id=?
+    ORDER BY grid_y,grid_x,position
+  `).bind(userId).all<TileRow & { updated_at: number }>();
+  const updatedAt = rows.results.reduce((max, row) => Math.max(max, row.updated_at), 0);
+  return { tiles: rows.results.map(tileFromRow), updatedAt };
+}
+
+export async function saveProfileTilesForSync(
+  env: ProfileTileSyncEnv, userId: string, rawTiles: unknown
+): Promise<{ ok: true; tiles: ProfileTile[]; updatedAt: number } | { ok: false; message: string }> {
+  if (!Array.isArray(rawTiles) || rawTiles.length > MAX_TILES) {
+    return { ok: false, message: `A profile can have up to ${MAX_TILES} tiles.` };
+  }
+
+  const tiles: ProfileTile[] = [];
+  const seen = new Set<string>();
+  let totalMediaBytes = 0;
+  for (const rawTile of rawTiles) {
+    const tile = tileFromInput(rawTile);
+    if (!tile || seen.has(tile.tileId)) return { ok: false, message: 'The profile contains an invalid or duplicate tile.' };
+    if (tiles.some(existing => overlaps(existing, tile))) return { ok: false, message: 'Profile tiles cannot overlap.' };
+    if (tile.backgroundMedia) totalMediaBytes += dataUrlByteLength(tile.backgroundMedia);
+    if (totalMediaBytes > MAX_PROFILE_MEDIA_BYTES) {
+      return { ok: false, message: 'Profile tile media may use up to 8 MB in total.' };
+    }
+    seen.add(tile.tileId);
+    tiles.push(tile);
+  }
+
+  const updatedAt = Math.floor(Date.now() / 1000);
+  const statements: D1Statement[] = [env.DB.prepare(`DELETE FROM user_profile_tiles WHERE user_id=?`).bind(userId)];
+  tiles.forEach((tile, position) => {
+    statements.push(env.DB.prepare(`
+      INSERT INTO user_profile_tiles(
+        user_id,tile_id,tile_type,position,grid_x,grid_y,tile_width,tile_height,
+        title,body,link_label,link_url,stat_value,background_type,background_primary,
+        background_secondary,background_angle,background_media,media_fit,media_overlay,
+        text_colour,border_colour,font_family,updated_at
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).bind(
+      userId, tile.tileId, tile.tileType, position, tile.x, tile.y, tile.width, tile.height,
+      tile.title, tile.body, tile.linkLabel, tile.linkUrl, tile.statValue, tile.backgroundType,
+      tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia,
+      tile.mediaFit, tile.mediaOverlay, tile.textColour, tile.borderColour, tile.fontFamily, updatedAt
+    ));
+  });
+  await env.DB.batch(statements);
+  return { ok: true, tiles, updatedAt };
+}
+
 async function saveProfile(request: Request, env: ProfileEnv, viewer: Viewer): Promise<Response> {
   if (!sameOrigin(request)) return secureJson({ ok: false, message: 'Origin rejected.' }, { status: 403 });
   const data = await readJson(request);

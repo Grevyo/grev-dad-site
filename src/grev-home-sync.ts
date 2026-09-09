@@ -1,5 +1,6 @@
 import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
 import { base64Url, sha256, json } from './shared/http-security';
+import { getProfileTilesForSync, saveProfileTilesForSync } from './profile';
 export interface GrevHomeSyncEnv {
   DB: D1Database;
   APP_ENV: 'development' | 'pbe' | 'production';
@@ -414,17 +415,42 @@ export async function handleGrevHomeSyncRequest(request: Request, env: GrevHomeS
       activity:true,
       sessionHistory:true,
       progressionSync:true,
+      profileTileSync:true,
       optional:true,
       environment:env.APP_ENV
     });
   }
 
-  if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history' && path !== '/api/grev-home/account-data') return null;
+  const profileTilePaths = path === '/api/grev-home/profile-tiles';
+  if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history' &&
+      path !== '/api/grev-home/account-data' && !profileTilePaths) return null;
   const context = await getDeviceContext(request, env);
   if (!context) return json({ ok:false, message:'Grev Home link authentication required.' }, 401);
   if (path === '/api/grev-home/account-data' && request.method === 'GET') return accountData(env,context);
 
   if (path === '/api/grev-home/sync' && request.method === 'POST') return syncProfile(request, env, context);
   if (path === '/api/grev-home/history' && request.method === 'GET') return history(request, env, context);
+  if (profileTilePaths && request.method === 'GET') return getProfileTiles(env, context);
+  if (profileTilePaths && request.method === 'PUT') return putProfileTiles(request, env, context);
   return json({ ok:false, message:'Method not allowed.' }, 405);
+}
+
+// Bidirectional profile tile sync (see docs/profile-tile-sync.md). userId (not grevId) scopes
+// this - a grev.dad profile has exactly one tile layout shared across every linked device, the
+// same way it already has exactly one card/display name regardless of which device edited it.
+async function getProfileTiles(env: GrevHomeSyncEnv, context: DeviceContext): Promise<Response> {
+  const { tiles, updatedAt } = await getProfileTilesForSync(env, context.userId);
+  return json({ ok:true, apiVersion:API_VERSION, tiles, updatedAt });
+}
+
+async function putProfileTiles(request: Request, env: GrevHomeSyncEnv, context: DeviceContext): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readBody(request);
+  } catch {
+    return json({ ok:false, message:'A valid JSON request body is required.' }, 400);
+  }
+  const result = await saveProfileTilesForSync(env, context.userId, body.tiles);
+  if (!result.ok) return json({ ok:false, message:result.message }, 400);
+  return json({ ok:true, apiVersion:API_VERSION, tiles:result.tiles, updatedAt:result.updatedAt });
 }

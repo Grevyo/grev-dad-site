@@ -6,20 +6,24 @@ on:
       - main
     paths:
       - 'src/profile.ts'
+      - 'src/grev-home-sync.ts'
       - 'src/shared/**'
       - 'public/profile.js'
       - 'public/profile-tile-controller.js'
       - 'scripts/verify-profile-tile-contract.mjs'
+      - 'scripts/verify-profile-tile-sync.mjs'
       - 'package.json'
       - 'tsconfig.json'
       - '.github/workflows/verify-profile-tiles.yml'
   pull_request:
     paths:
       - 'src/profile.ts'
+      - 'src/grev-home-sync.ts'
       - 'src/shared/**'
       - 'public/profile.js'
       - 'public/profile-tile-controller.js'
       - 'scripts/verify-profile-tile-contract.mjs'
+      - 'scripts/verify-profile-tile-sync.mjs'
       - 'package.json'
       - 'tsconfig.json'
       - '.github/workflows/verify-profile-tiles.yml'
