@@ -1,32 +1,12 @@
 import { type ProfileEnv } from './profile';
-
-interface D1Result<T> { results: T[]; }
+import type { D1Result } from './shared/d1-types';
+import { base64Url, sha256, parseCookies } from './shared/http-security';
 
 type Viewer = { id: string; isVerified: boolean; isAdmin: boolean };
 type PrivacyRow = { key: string; visibility: 'all' | 'verified' | 'groups' | 'private'; group_id: string | null };
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
-
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => Boolean(key)));
-}
 
 async function getViewer(request: Request, env: ProfileEnv): Promise<Viewer | null> {
   const token = parseCookies(request)[COOKIE];

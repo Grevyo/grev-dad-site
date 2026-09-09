@@ -79,6 +79,8 @@
 .profile-drop-preview.invalid{border-color:#ff6677;background:rgba(160,35,54,.3)}
 .profile-drop-preview::after{content:attr(data-label);padding:6px 8px;border:1px solid currentColor;background:#090d13;color:#dce9ff;font-size:.67rem;font-weight:950;letter-spacing:.1em;text-transform:uppercase}
 .profile-drop-preview.invalid::after{color:#ff9aaa}
+.profile-grid-cursor{position:relative;z-index:7;pointer-events:none;border:2px dashed #ffcc66;border-radius:4px;box-shadow:0 0 0 2px rgba(255,204,102,.25) inset}
+.profile-grid-cursor-active{border-style:solid;background:rgba(255,204,102,.16)}
 .profile-settings-dialog{width:min(820px,calc(100vw - 28px));max-height:calc(100vh - 32px);padding:0;border:1px solid var(--line-strong);border-radius:0;background:#0b0f14;color:var(--text);box-shadow:12px 12px 0 #000;overflow:auto}
 .profile-settings-dialog::backdrop{background:rgba(3,5,8,.72);backdrop-filter:blur(3px)}
 .profile-dialog-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:20px;border-bottom:1px solid var(--line-strong)}

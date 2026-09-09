@@ -1,4 +1,5 @@
 import { validImageDataUrl } from './profile-media';
+import { base64Url, sha256, parseCookies, json } from './shared/http-security';
 interface D1Result<T> { results: T[]; }
 interface D1Statement {
   bind(...values: unknown[]): D1Statement;
@@ -79,40 +80,6 @@ function primaryDatabase(env: GrevHomeEnv): D1Executor {
   // security-sensitive reads to the primary so every step sees the latest committed state even
   // when D1 read replication is enabled for the database.
   return env.DB.withSession('first-primary');
-}
-
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => key));
-}
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'same-origin',
-      'X-Frame-Options': 'DENY',
-      'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
-    }
-  });
 }
 
 function sameOrigin(request: Request): boolean {

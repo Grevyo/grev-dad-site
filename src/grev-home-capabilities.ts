@@ -1,20 +1,7 @@
 import type { GrevHomeEnv } from './grev-home';
+import { json } from './shared/http-security';
 
 const API_VERSION = 1;
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type':'application/json; charset=utf-8',
-      'Cache-Control':'no-store',
-      'X-Content-Type-Options':'nosniff',
-      'Referrer-Policy':'same-origin',
-      'X-Frame-Options':'DENY',
-      'Permissions-Policy':'camera=(), microphone=(), geolocation=()'
-    }
-  });
-}
 
 export async function handleGrevHomeCapabilitiesRequest(
   request: Request,

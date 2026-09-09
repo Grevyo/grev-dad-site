@@ -1,15 +1,6 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database {
-  prepare(query: string): D1Statement;
-  batch(statements: D1Statement[]): Promise<unknown[]>;
-}
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url, sha256, json } from './shared/http-security';
+import { getProfileTilesForSync, saveProfileTilesForSync } from './profile';
 export interface GrevHomeSyncEnv {
   DB: D1Database;
   APP_ENV: 'development' | 'pbe' | 'production';
@@ -55,32 +46,10 @@ const MAX_SESSION_SECONDS = 31 * 24 * 60 * 60;
 const API_VERSION = 1;
 const CURRENT_STATISTICS_REVISION = 2;
 
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
-
 function bearerToken(request: Request): string | null {
   const authorization = request.headers.get('Authorization') ?? '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || null;
-}
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type':'application/json; charset=utf-8',
-      'Cache-Control':'no-store',
-      'X-Content-Type-Options':'nosniff',
-      'Referrer-Policy':'same-origin',
-      'X-Frame-Options':'DENY',
-      'Permissions-Policy':'camera=(), microphone=(), geolocation=()'
-    }
-  });
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
@@ -446,17 +415,42 @@ export async function handleGrevHomeSyncRequest(request: Request, env: GrevHomeS
       activity:true,
       sessionHistory:true,
       progressionSync:true,
+      profileTileSync:true,
       optional:true,
       environment:env.APP_ENV
     });
   }
 
-  if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history' && path !== '/api/grev-home/account-data') return null;
+  const profileTilePaths = path === '/api/grev-home/profile-tiles';
+  if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history' &&
+      path !== '/api/grev-home/account-data' && !profileTilePaths) return null;
   const context = await getDeviceContext(request, env);
   if (!context) return json({ ok:false, message:'Grev Home link authentication required.' }, 401);
   if (path === '/api/grev-home/account-data' && request.method === 'GET') return accountData(env,context);
 
   if (path === '/api/grev-home/sync' && request.method === 'POST') return syncProfile(request, env, context);
   if (path === '/api/grev-home/history' && request.method === 'GET') return history(request, env, context);
+  if (profileTilePaths && request.method === 'GET') return getProfileTiles(env, context);
+  if (profileTilePaths && request.method === 'PUT') return putProfileTiles(request, env, context);
   return json({ ok:false, message:'Method not allowed.' }, 405);
+}
+
+// Bidirectional profile tile sync (see docs/profile-tile-sync.md). userId (not grevId) scopes
+// this - a grev.dad profile has exactly one tile layout shared across every linked device, the
+// same way it already has exactly one card/display name regardless of which device edited it.
+async function getProfileTiles(env: GrevHomeSyncEnv, context: DeviceContext): Promise<Response> {
+  const { tiles, updatedAt } = await getProfileTilesForSync(env, context.userId);
+  return json({ ok:true, apiVersion:API_VERSION, tiles, updatedAt });
+}
+
+async function putProfileTiles(request: Request, env: GrevHomeSyncEnv, context: DeviceContext): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readBody(request);
+  } catch {
+    return json({ ok:false, message:'A valid JSON request body is required.' }, 400);
+  }
+  const result = await saveProfileTilesForSync(env, context.userId, body.tiles);
+  if (!result.ok) return json({ ok:false, message:result.message }, 400);
+  return json({ ok:true, apiVersion:API_VERSION, tiles:result.tiles, updatedAt:result.updatedAt });
 }

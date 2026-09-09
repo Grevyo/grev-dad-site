@@ -1,4 +1,5 @@
 import type { GrevHomeEnv } from './grev-home';
+import { base64Url, sha256, json } from './shared/http-security';
 
 const encoder = new TextEncoder();
 const API_VERSION = 1;
@@ -10,28 +11,6 @@ type DeviceContext = {
   linkId: string;
   deviceName: string;
 };
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type':'application/json; charset=utf-8',
-      'Cache-Control':'no-store',
-      'X-Content-Type-Options':'nosniff',
-      'Referrer-Policy':'same-origin',
-      'X-Frame-Options':'DENY',
-      'Permissions-Policy':'camera=(), microphone=(), geolocation=()'
-    }
-  });
-}
-
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
 
 function bearerToken(request: Request): string | null {
   const authorization = request.headers.get('Authorization') ?? '';

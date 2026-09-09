@@ -1,8 +1,7 @@
 import { getProfileCardViewer, loadProfileCardBaselines, type ProfileCardBaselineEnv } from './profile-card-baseline';
+import { json } from './shared/http-security';
 
 export type MembersEnv = ProfileCardBaselineEnv;
-
-function json(value:unknown,status=200):Response{return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}});}
 
 export async function handleMembersRequest(request:Request,env:MembersEnv):Promise<Response|null>{
   const url=new URL(request.url);

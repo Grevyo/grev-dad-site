@@ -1,0 +1,64 @@
+name: Verify Profile Tiles
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/profile.ts'
+      - 'src/grev-home-sync.ts'
+      - 'src/shared/**'
+      - 'public/profile.js'
+      - 'public/profile-tile-controller.js'
+      - 'scripts/verify-profile-tile-contract.mjs'
+      - 'scripts/verify-profile-tile-sync.mjs'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/verify-profile-tiles.yml'
+  pull_request:
+    paths:
+      - 'src/profile.ts'
+      - 'src/grev-home-sync.ts'
+      - 'src/shared/**'
+      - 'public/profile.js'
+      - 'public/profile-tile-controller.js'
+      - 'scripts/verify-profile-tile-contract.mjs'
+      - 'scripts/verify-profile-tile-sync.mjs'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/verify-profile-tiles.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: profile-tiles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check Grev.dad worker
+        run: npm run typecheck
+
+      - name: Browser script syntax
+        run: |
+          node --check public/profile.js
+          node --check public/profile-tile-controller.js
+
+      - name: Verify the profile tile grid contract
+        run: npm run verify:profile-tiles

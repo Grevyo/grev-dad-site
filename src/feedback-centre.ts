@@ -1,6 +1,5 @@
-interface D1Result<T>{results:T[]}
-interface D1Statement{bind(...values:unknown[]):D1Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<D1Result<T>>;run():Promise<unknown>}
-interface D1Database{prepare(query:string):D1Statement}
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies as cookies, json } from './shared/http-security';
 export interface FeedbackCentreEnv{DB:D1Database;APP_ENV:'development'|'pbe'|'production'}
 type Viewer={id:string;username:string;displayName:string;isAdmin:boolean;isOwner:boolean}
 const COOKIE='grev_session';
@@ -8,11 +7,7 @@ const encoder=new TextEncoder();
 const CATEGORIES=new Set(['broken','visual','confusing','suggestion','general']);
 const STATUSES=new Set(['new','investigating','fixed','cannot_reproduce','planned','closed']);
 const SEVERITIES=new Set(['low','medium','high','critical']);
-function b64(bytes:Uint8Array){return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
-async function sha256(value:string){return b64(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(value))))}
-function cookies(request:Request):Record<string,string>{return Object.fromEntries((request.headers.get('Cookie')??'').split(';').map(value=>value.trim()).filter(Boolean).map(value=>{const index=value.indexOf('=');return index<0?['','']:[value.slice(0,index),decodeURIComponent(value.slice(index+1))]}).filter(([key])=>Boolean(key)))}
 async function viewerFromRequest(request:Request,env:FeedbackCentreEnv):Promise<Viewer|null>{const token=cookies(request)[COOKIE];if(!token)return null;const row=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_owner,CASE WHEN u.is_owner=1 OR EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='role-admin') THEN 1 ELSE 0 END is_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),Math.floor(Date.now()/1000)).first<{id:string;username:string;display_name:string;is_owner:number;is_admin:number}>();return row?{id:row.id,username:row.username,displayName:row.display_name,isOwner:Boolean(row.is_owner),isAdmin:Boolean(row.is_admin)}:null}
-function json(value:unknown,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}})}
 function sameOrigin(request:Request){const origin=request.headers.get('Origin');return !origin||origin===new URL(request.url).origin}
 async function readBody(request:Request):Promise<Record<string,unknown>>{if(!(request.headers.get('Content-Type')??'').includes('application/json'))throw new Error('JSON_REQUIRED');const value:unknown=await request.json();if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('INVALID_BODY');return value as Record<string,unknown>}
 function text(value:unknown,max:number){return typeof value==='string'?value.trim().slice(0,max):''}

@@ -2,6 +2,14 @@ const profile$ = selector => document.querySelector(selector);
 const PROFILE_COLUMNS = 8;
 const PROFILE_MAX_WIDTH = 6;
 const PROFILE_MAX_HEIGHT = 4;
+// Must match MAX_GRID_Y in src/profile.ts exactly - the server rejects any tile with
+// y > PROFILE_MAX_GRID_Y or y + height > PROFILE_MAX_GRID_Y + 1, and previously nothing on the
+// client enforced either bound, so a tile (or the grid cursor in profile-tile-controller.js)
+// could be moved arbitrarily far down and only fail on save.
+const PROFILE_MAX_GRID_Y = 199;
+// Must match MAX_TILES in src/profile.ts - the server rejects a save with more tiles than this,
+// but nothing previously stopped the editor letting you add one anyway and only finding out later.
+const PROFILE_MAX_TILES = 40;
 const PROFILE_MAX_MEDIA_BYTES = 1_400_000;
 const PROFILE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const PROFILE_FONT_STACKS = {
@@ -58,22 +66,23 @@ function tileOverlaps(a, b) {
 
 function validProfilePlacement(candidate, ignoreId = null) {
   if (
-    candidate.x < 0 || candidate.y < 0 ||
+    candidate.x < 0 || candidate.y < 0 || candidate.y > PROFILE_MAX_GRID_Y ||
     candidate.width < 1 || candidate.width > PROFILE_MAX_WIDTH ||
     candidate.height < 1 || candidate.height > PROFILE_MAX_HEIGHT ||
-    candidate.x + candidate.width > PROFILE_COLUMNS
+    candidate.x + candidate.width > PROFILE_COLUMNS ||
+    candidate.y + candidate.height > PROFILE_MAX_GRID_Y + 1
   ) return false;
   return !profileState.working.tiles.some(tile => tile.tileId !== ignoreId && tileOverlaps(candidate, tile));
 }
 
 function firstFreeProfilePlacement(width, height, ignoreId = null) {
-  for (let y = 0; y < 200; y += 1) {
+  for (let y = 0; y <= PROFILE_MAX_GRID_Y; y += 1) {
     for (let x = 0; x <= PROFILE_COLUMNS - width; x += 1) {
       const candidate = { x, y, width, height };
       if (validProfilePlacement(candidate, ignoreId)) return candidate;
     }
   }
-  return { x: 0, y: 199 - height + 1, width, height };
+  return { x: 0, y: PROFILE_MAX_GRID_Y + 1 - height, width, height };
 }
 
 function profileTileDefaults(type) {
@@ -614,6 +623,10 @@ async function readProfileImage(file, key) {
 }
 
 function addProfileTile(type) {
+  if (profileState.working.tiles.length >= PROFILE_MAX_TILES) {
+    profileEditorMessage(`A profile can have up to ${PROFILE_MAX_TILES} tiles.`, 'error');
+    return;
+  }
   const tile = profileTileDefaults(type);
   profileState.working.tiles.push(tile);
   profileState.selectedId = tile.tileId;

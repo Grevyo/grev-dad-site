@@ -1,6 +1,7 @@
 import { type ProfileEnv } from './profile';
 import { handleProfileCardTilesRequest } from './profile-card-tiles';
 import { handleProfileCustomizationRequest } from './profile-customization';
+import { base64Url as b64, sha256, parseCookies } from './shared/http-security';
 
 type ProfilePayload = {
   profile?: {
@@ -38,26 +39,6 @@ function responseWithPayload(response: Response, payload: unknown): Response {
     statusText: response.statusText,
     headers
   });
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => Boolean(key)));
-}
-
-function b64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
 }
 
 async function currentUserId(request: Request, env: ProfileEnv): Promise<string | null> {
