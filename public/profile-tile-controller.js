@@ -11,7 +11,8 @@
     cursorY: 0,
     activeTileId: null,
     origin: null,
-    addKindIndex: 0
+    addKindIndex: 0,
+    messageOverride: null
   };
 
   function active() {
@@ -47,6 +48,10 @@
     state.origin = null;
   }
 
+  function setMessageOverride(text, type = '') {
+    state.messageOverride = { text, type };
+  }
+
   function handleBrowsing(action) {
     if (['up', 'down', 'left', 'right'].includes(action)) {
       const [dx, dy] = delta(action);
@@ -59,7 +64,7 @@
       const tile = tileAt(state.cursorX, state.cursorY);
       if (!tile) {
         if (profileState.working.tiles.length >= PROFILE_MAX_TILES) {
-          profileEditorMessage(`A profile can have up to ${PROFILE_MAX_TILES} tiles.`, 'error');
+          setMessageOverride(`A profile can have up to ${PROFILE_MAX_TILES} tiles.`, 'error');
           return true;
         }
         state.mode = 'adding';
@@ -91,7 +96,7 @@
     if (action !== 'accept') return false;
 
     if (profileState.working.tiles.length >= PROFILE_MAX_TILES) {
-      profileEditorMessage(`A profile can have up to ${PROFILE_MAX_TILES} tiles.`, 'error');
+      setMessageOverride(`A profile can have up to ${PROFILE_MAX_TILES} tiles.`, 'error');
       exitToBrowsing();
       return true;
     }
@@ -157,14 +162,21 @@
 
   function handleAction(action) {
     if (!active()) return false;
+    // Each action starts with a clean override slot. Handlers use it only for a deliberate
+    // user-facing message (for example the 40-tile ceiling). That message must win over the normal
+    // navigation hint for this action rather than flash and get immediately overwritten.
+    state.messageOverride = null;
     const consumed = state.mode === 'browsing' ? handleBrowsing(action)
       : state.mode === 'adding' ? handleAdding(action)
       : state.mode === 'holding' ? handleHolding(action)
       : handleResizing(action);
     if (consumed) {
+      const override = state.messageOverride;
+      state.messageOverride = null;
       renderProfileGrid();
       renderCursor();
-      profileEditorMessage(hint());
+      if (override) profileEditorMessage(override.text, override.type);
+      else profileEditorMessage(hint());
     }
     return consumed;
   }
