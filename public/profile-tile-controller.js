@@ -23,7 +23,9 @@
 
   function clampCursor() {
     state.cursorX = Math.max(0, Math.min(PROFILE_COLUMNS - 1, state.cursorX));
-    state.cursorY = Math.max(0, state.cursorY);
+    // PROFILE_MAX_GRID_Y (profile.js) is the same row limit the server enforces (MAX_GRID_Y in
+    // src/profile.ts) - the cursor must never be able to wander past what a save would accept.
+    state.cursorY = Math.max(0, Math.min(PROFILE_MAX_GRID_Y, state.cursorY));
   }
 
   function delta(action) {

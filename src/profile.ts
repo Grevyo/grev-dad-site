@@ -134,10 +134,15 @@ const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_MEDIA_BYTES = 1_400_000;
 const MAX_PROFILE_MEDIA_BYTES = 8 * 1024 * 1024;
-const MAX_TILES = 40;
-const GRID_COLUMNS = 8;
-const MAX_TILE_WIDTH = 6;
-const MAX_GRID_Y = 199;
+// Exported so scripts/verify-profile-tile-contract.mjs can assert against the real numbers
+// instead of a copy of them - and so the same constants are visible to anything else that needs
+// this profile's tile grid contract (this is also the source of truth ProfileTileGrid.cs in
+// Grev Home is meant to mirror; see that file's doc comment).
+export const MAX_TILES = 40;
+export const GRID_COLUMNS = 8;
+export const MAX_TILE_WIDTH = 6;
+export const MAX_GRID_Y = 199;
+export const MAX_TILE_HEIGHT = 4;
 const VALID_TILE_TYPES = new Set<ProfileTileType>(['text', 'link', 'media', 'stat']);
 const VALID_BACKGROUND_TYPES = new Set<ProfileBackgroundType>(['solid', 'gradient', 'media']);
 const VALID_MEDIA_FITS = new Set<ProfileMediaFit>(['cover', 'contain', 'stretch']);
@@ -277,7 +282,7 @@ function optionalMedia(value: unknown): string | null | undefined {
   return value;
 }
 
-function validPlacement(tile: ProfileTile): boolean {
+export function validPlacement(tile: ProfileTile): boolean {
   return Number.isInteger(tile.x) && Number.isInteger(tile.y) && Number.isInteger(tile.width) && Number.isInteger(tile.height)
     && tile.x >= 0 && tile.y >= 0 && tile.y <= MAX_GRID_Y
     && tile.width >= 1 && tile.width <= MAX_TILE_WIDTH
@@ -286,7 +291,7 @@ function validPlacement(tile: ProfileTile): boolean {
     && tile.y + tile.height <= MAX_GRID_Y + 1;
 }
 
-function overlaps(a: ProfileTile, b: ProfileTile): boolean {
+export function overlaps(a: ProfileTile, b: ProfileTile): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
@@ -328,7 +333,7 @@ function cardFromInput(value: unknown, fallbackDisplayName: string): ProfileCard
   };
 }
 
-function tileFromInput(value: unknown): ProfileTile | null {
+export function tileFromInput(value: unknown): ProfileTile | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
   const tileId = String(input.tileId ?? '').trim();
