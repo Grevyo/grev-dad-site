@@ -1,5 +1,6 @@
 import { type ProfileEnv } from './profile';
 import { handleProfileMediaRequest } from './profile-media';
+import { base64Url as b64, sha256, parseCookies } from './shared/http-security';
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
@@ -16,26 +17,6 @@ function secureJson(value: unknown, status = 200): Response {
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
     }
   });
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => Boolean(key)));
-}
-
-function b64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
 }
 
 async function currentUserId(request: Request, env: ProfileEnv): Promise<string | null> {

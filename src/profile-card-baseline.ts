@@ -1,11 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-}
-interface D1Database { prepare(query: string): D1Statement; }
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url, sha256, parseCookies as cookies, json } from './shared/http-security';
 export interface ProfileCardBaselineEnv { DB: D1Database; }
 export type ProfileCardViewer = { id:string; isVerified:boolean; isOwner:boolean; isAdmin:boolean };
 type Privacy = { visibility:'all'|'verified'|'groups'|'private'; groupId:string|null };
@@ -27,10 +21,6 @@ const DEFAULT_DESIGN={
   showHeadline:true,showBio:true,showLocation:true,showWebsite:true,cardTileGap:10,cardTileRowHeight:92
 };
 
-function base64Url(bytes:Uint8Array):string{return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');}
-async function sha256(value:string):Promise<string>{return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(value))));}
-function cookies(request:Request):Record<string,string>{return Object.fromEntries((request.headers.get('Cookie')??'').split(';').map(value=>value.trim()).filter(Boolean).map(value=>{const index=value.indexOf('=');return index<0?['','']:[value.slice(0,index),decodeURIComponent(value.slice(index+1))];}).filter(([key])=>key));}
-function json(value:unknown,status=200):Response{return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}});}
 function text(value:unknown,fallback:string|null=null):string|null{return value===null||value===undefined||value===''?fallback:String(value);}
 function number(value:unknown,fallback:number):number{const parsed=Number(value);return Number.isFinite(parsed)?parsed:fallback;}
 function bool(value:unknown,fallback:boolean):boolean{return value===null||value===undefined?fallback:Boolean(value);}

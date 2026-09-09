@@ -1,11 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies } from './shared/http-security';
 interface Env { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; APP_ENV: 'development' | 'pbe' | 'production'; }
 type SessionUser = { id: string; username: string; displayName: string; isVerified: boolean; isOwner: boolean; isAdmin: boolean };
 type ManagedUser = { id: string; username: string; display_name: string; email: string | null; status: string; is_verified: number; is_owner: number; is_admin: number; created_at: number };
@@ -14,9 +8,7 @@ const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function b64(bytes: Uint8Array): string { return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=',''); }
 function unb64(value: string): Uint8Array<ArrayBuffer> { const padded=value.replaceAll('-','+').replaceAll('_','/').padEnd(Math.ceil(value.length/4)*4,'='); return Uint8Array.from(atob(padded), c=>c.charCodeAt(0)); }
-async function sha256(value: string): Promise<string> { return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)))); }
 async function hashPassword(password: string, salt=crypto.getRandomValues(new Uint8Array(16)), iterations=100000) {
   const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,256);
@@ -26,7 +18,6 @@ async function verifyPassword(password:string,salt:string,expected:string,iterat
   const actual=await hashPassword(password,unb64(salt),iterations); const a=unb64(actual.hash),b=unb64(expected); if(a.length!==b.length)return false;
   let difference=0; for(let i=0;i<a.length;i++) difference|=a[i]!^b[i]!; return difference===0;
 }
-function parseCookies(request:Request):Record<string,string>{return Object.fromEntries((request.headers.get('Cookie')??'').split(';').map(v=>v.trim()).filter(Boolean).map(v=>{const i=v.indexOf('=');return[v.slice(0,i),decodeURIComponent(v.slice(i+1))];}));}
 function sessionCookie(token:string,maxAge:number,secure:boolean):string{return `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure?'; Secure':''}`;}
 function clearCookie(secure:boolean):string{return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure?'; Secure':''}`;}
 function json(value:unknown,init:ResponseInit={}):Response{const headers=new Headers(init.headers);headers.set('Content-Type','application/json; charset=utf-8');headers.set('Cache-Control','no-store');return new Response(JSON.stringify(value),{...init,headers});}

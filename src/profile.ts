@@ -1,15 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database {
-  prepare(query: string): D1Statement;
-  batch(statements: D1Statement[]): Promise<unknown[]>;
-}
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies } from './shared/http-security';
 export interface ProfileEnv {
   DB: D1Database;
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -179,27 +169,6 @@ const DEFAULT_PREFERENCES: ProfilePreferences = {
   tileGap: 12,
   outerMargin: 0
 };
-
-function b64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  const entries = (request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? null : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))] as const;
-    })
-    .filter((entry): entry is readonly [string, string] => entry !== null);
-  return Object.fromEntries(entries);
-}
 
 async function getViewer(request: Request, env: ProfileEnv): Promise<Viewer | null> {
   const token = parseCookies(request)[COOKIE];

@@ -1,13 +1,7 @@
 import { type ProfileEnv } from './profile';
 import { handleProfileCardTilesRequest } from './profile-card-tiles';
-
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
+import type { D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies } from './shared/http-security';
 
 type Viewer = { id: string };
 type PageBackgroundType = 'solid' | 'gradient' | 'media';
@@ -165,26 +159,6 @@ function responseWithPayload(response: Response, payload: unknown): Response {
   headers.set('Content-Type', 'application/json; charset=utf-8');
   headers.set('Cache-Control', 'no-store');
   return new Response(JSON.stringify(payload), { status: response.status, statusText: response.statusText, headers });
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => Boolean(key)));
-}
-
-function b64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
 }
 
 async function getViewer(request: Request, env: ProfileEnv): Promise<Viewer | null> {

@@ -1,12 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies as cookies, json } from './shared/http-security';
 export interface GrevNewsSubscriptionsEnv { DB: D1Database; }
 
 type SubscriptionType = 'grev'|'cs2'|'team';
@@ -19,10 +12,6 @@ const encoder=new TextEncoder();
 const GREV_CATEGORIES=new Set(['grev','site','community']);
 const CS2_CATEGORIES=new Set(['cs2','team']);
 
-function b64(bytes:Uint8Array):string{return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');}
-async function sha256(value:string):Promise<string>{return b64(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(value))));}
-function cookies(request:Request):Record<string,string>{return Object.fromEntries((request.headers.get('Cookie')??'').split(';').map(value=>value.trim()).filter(Boolean).map(value=>{const index=value.indexOf('=');return index<0?['','']:[value.slice(0,index),decodeURIComponent(value.slice(index+1))];}).filter(([key])=>Boolean(key)));}
-function json(value:unknown,status=200):Response{return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}});}
 function sameOrigin(request:Request):boolean{const origin=request.headers.get('Origin');return !origin||origin===new URL(request.url).origin;}
 function now():number{return Math.floor(Date.now()/1000);}
 async function viewer(request:Request,env:GrevNewsSubscriptionsEnv):Promise<Viewer|null>{const token=cookies(request)[COOKIE];if(!token)return null;const row=await env.DB.prepare(`SELECT u.id FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),now()).first<{id:string}>();return row?{id:row.id}:null;}

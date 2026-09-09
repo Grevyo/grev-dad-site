@@ -1,13 +1,6 @@
 import { canMessage, directRoom } from './grev-home-messages';
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies as cookies, json } from './shared/http-security';
 export interface ChatProgressionEnv {
   DB: D1Database;
   APP_ENV: 'development' | 'pbe' | 'production';
@@ -24,11 +17,7 @@ const ROOM_RE=/^(chat-global|[0-9a-f-]{36})$/i;
 const GIF_DATA=/^data:image\/gif;base64,([a-z0-9+/]+={0,2})$/i;
 const MAX_GIF_BYTES=1_400_000;
 
-function b64(bytes:Uint8Array):string{return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');}
-async function sha256(value:string):Promise<string>{return b64(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(value))));}
-function cookies(request:Request):Record<string,string>{return Object.fromEntries((request.headers.get('Cookie')??'').split(';').map(v=>v.trim()).filter(Boolean).map(v=>{const i=v.indexOf('=');return i<0?['','']:[v.slice(0,i),decodeURIComponent(v.slice(i+1))];}).filter(([k])=>k));}
 async function userFromRequest(request:Request,env:ChatProgressionEnv):Promise<User|null>{const token=cookies(request)[COOKIE];if(!token)return null;const row=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.is_verified,u.is_owner,CASE WHEN u.is_owner=1 OR EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='role-admin') THEN 1 ELSE 0 END is_admin FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? AND u.status='active'`).bind(await sha256(token),Math.floor(Date.now()/1000)).first<{id:string;username:string;display_name:string;is_verified:number;is_owner:number;is_admin:number}>();return row?{id:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),isOwner:Boolean(row.is_owner),isAdmin:Boolean(row.is_admin)}:null;}
-function json(value:unknown,status=200):Response{return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'}});}
 function sameOrigin(request:Request):boolean{const origin=request.headers.get('Origin');return !origin||origin===new URL(request.url).origin;}
 async function readBody(request:Request):Promise<Record<string,unknown>>{if(!(request.headers.get('Content-Type')??'').includes('application/json'))throw new Error('JSON_REQUIRED');const value:unknown=await request.json();if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('INVALID_BODY');return value as Record<string,unknown>;}
 function now():number{return Math.floor(Date.now()/1000);}

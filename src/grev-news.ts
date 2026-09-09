@@ -1,12 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database { prepare(query: string): D1Statement; batch(statements: D1Statement[]): Promise<unknown[]>; }
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url as b64, sha256, parseCookies as cookies, json } from './shared/http-security';
 export interface GrevNewsEnv {
   DB: D1Database;
   APP_ENV?: 'development' | 'pbe' | 'production';
@@ -52,24 +45,6 @@ const ALLOWED_CATEGORIES = new Set(['grev', 'cs2', 'team', 'site', 'community'])
 const ALLOWED_STATUSES = new Set<NewsStatus>(['draft', 'published', 'archived']);
 const ALLOWED_SOURCE_TYPES = new Set<SourceType>(['steam', 'rss', 'jsonfeed', 'liquipedia']);
 
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), { status, headers: {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'same-origin',
-    'X-Frame-Options': 'DENY',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
-  }});
-}
-function cookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '').split(';').map(value => value.trim()).filter(Boolean).map(value => {
-    const index = value.indexOf('=');
-    return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-  }).filter(([key]) => Boolean(key)));
-}
-function b64(bytes: Uint8Array): string { return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', ''); }
-async function sha256(value: string): Promise<string> { return b64(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)))); }
 async function viewerFromRequest(request: Request, env: GrevNewsEnv): Promise<Viewer | null> {
   const token = cookies(request)[COOKIE];
   if (!token) return null;

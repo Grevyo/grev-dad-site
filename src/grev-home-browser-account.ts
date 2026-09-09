@@ -1,4 +1,5 @@
 import type { GrevHomeEnv } from './grev-home';
+import { sha256, parseCookies, json } from './shared/http-security';
 
 const COOKIE = 'grev_session';
 const encoder = new TextEncoder();
@@ -9,36 +10,6 @@ type BrowserUser = {
   username: string;
   displayName: string;
 };
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'same-origin',
-      'X-Frame-Options': 'DENY'
-    }
-  });
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => key));
-}
-
-async function sha256(value: string): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value)));
-  return btoa(String.fromCharCode(...digest)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
 
 function now(): number {
   return Math.floor(Date.now() / 1000);

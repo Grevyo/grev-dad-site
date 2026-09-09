@@ -1,15 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database {
-  prepare(query: string): D1Statement;
-  batch(statements: D1Statement[]): Promise<unknown[]>;
-}
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url, sha256, parseCookies } from './shared/http-security';
 export interface ExperienceEnv {
   DB: D1Database;
   APP_ENV: 'development' | 'pbe' | 'production';
@@ -48,26 +38,6 @@ const PROFILE_FIELDS = new Set(['headline','bio','location','website','avatar','
 const REACTIONS = new Set(['wave','heart','fire','clap']);
 const MAX_LAYOUT_BYTES = 1_000_000;
 const MAX_PAGE_TILES = 60;
-
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
-
-function parseCookies(request: Request): Record<string, string> {
-  return Object.fromEntries((request.headers.get('Cookie') ?? '')
-    .split(';')
-    .map(value => value.trim())
-    .filter(Boolean)
-    .map(value => {
-      const index = value.indexOf('=');
-      return index < 0 ? ['', ''] : [value.slice(0, index), decodeURIComponent(value.slice(index + 1))];
-    })
-    .filter(([key]) => key));
-}
 
 async function getUser(request: Request, env: ExperienceEnv): Promise<ExperienceUser | null> {
   const token = parseCookies(request)[COOKIE];

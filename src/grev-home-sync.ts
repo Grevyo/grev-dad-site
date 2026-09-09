@@ -1,15 +1,5 @@
-interface D1Result<T> { results: T[]; }
-interface D1Statement {
-  bind(...values: unknown[]): D1Statement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
-  run(): Promise<unknown>;
-}
-interface D1Database {
-  prepare(query: string): D1Statement;
-  batch(statements: D1Statement[]): Promise<unknown[]>;
-}
-
+import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
+import { base64Url, sha256, json } from './shared/http-security';
 export interface GrevHomeSyncEnv {
   DB: D1Database;
   APP_ENV: 'development' | 'pbe' | 'production';
@@ -55,32 +45,10 @@ const MAX_SESSION_SECONDS = 31 * 24 * 60 * 60;
 const API_VERSION = 1;
 const CURRENT_STATISTICS_REVISION = 2;
 
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-async function sha256(value: string): Promise<string> {
-  return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))));
-}
-
 function bearerToken(request: Request): string | null {
   const authorization = request.headers.get('Authorization') ?? '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || null;
-}
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      'Content-Type':'application/json; charset=utf-8',
-      'Cache-Control':'no-store',
-      'X-Content-Type-Options':'nosniff',
-      'Referrer-Policy':'same-origin',
-      'X-Frame-Options':'DENY',
-      'Permissions-Policy':'camera=(), microphone=(), geolocation=()'
-    }
-  });
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
