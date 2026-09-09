@@ -12,6 +12,7 @@ on:
       - 'public/profile-tile-controller.js'
       - 'scripts/verify-profile-tile-contract.mjs'
       - 'scripts/verify-profile-tile-sync.mjs'
+      - 'scripts/verify-profile-tile-controller.mjs'
       - 'package.json'
       - 'tsconfig.json'
       - '.github/workflows/verify-profile-tiles.yml'
@@ -24,6 +25,7 @@ on:
       - 'public/profile-tile-controller.js'
       - 'scripts/verify-profile-tile-contract.mjs'
       - 'scripts/verify-profile-tile-sync.mjs'
+      - 'scripts/verify-profile-tile-controller.mjs'
       - 'package.json'
       - 'tsconfig.json'
       - '.github/workflows/verify-profile-tiles.yml'
@@ -60,5 +62,5 @@ jobs:
           node --check public/profile.js
           node --check public/profile-tile-controller.js
 
-      - name: Verify the profile tile grid contract
+      - name: Verify the profile tile grid contract, sync and controller flow
         run: npm run verify:profile-tiles
