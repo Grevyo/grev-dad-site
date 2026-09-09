@@ -148,9 +148,14 @@
     Enter: 'accept', ' ': 'accept', Escape: 'back', r: 'resize', R: 'resize'
   };
 
+  // Enter/Space must still activate whatever the browser would normally activate (a focused
+  // button, link or other control) - only steal them for the grid cursor when focus is on
+  // something inert (the tile grid itself, or nothing in particular).
+  const NATIVE_ACTIVATION_TARGETS = 'input,textarea,select,button,a,[contenteditable="true"],[role="button"],[tabindex]';
+
   function onKeydown(event) {
     if (!active()) return;
-    if (event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
+    if (event.target instanceof HTMLElement && event.target.closest(NATIVE_ACTIVATION_TARGETS)) return;
     const action = KEY_ACTIONS[event.key];
     if (!action) return;
     if (handleAction(action)) event.preventDefault();
@@ -158,6 +163,8 @@
 
   // Gamepad API: no "keydown" event exists for a gamepad, so this polls each animation frame and
   // edge-detects button transitions itself (a still-held button must not repeat-fire every frame).
+  // Only the lowest-indexed connected pad drives editing - merging every connected controller's
+  // input into one stream would let a second player's pad also move a first player's tiles.
   const GAMEPAD_BUTTON_ACTIONS = { 12: 'up', 13: 'down', 14: 'left', 15: 'right', 0: 'accept', 1: 'back', 2: 'resize' };
   let previouslyPressed = new Set();
   let pollHandle = null;
@@ -166,9 +173,9 @@
     pollHandle = requestAnimationFrame(pollGamepads);
     if (!active()) { previouslyPressed = new Set(); return; }
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const pad = Array.from(pads).find(candidate => candidate);
     const pressedNow = new Set();
-    for (const pad of pads) {
-      if (!pad) continue;
+    if (pad) {
       const axisX = pad.axes[0] ?? 0;
       const axisY = pad.axes[1] ?? 0;
       const AXIS_THRESHOLD = 0.5;
