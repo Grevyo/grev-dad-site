@@ -17,6 +17,7 @@ import { handleMembersRequest, type MembersEnv } from './members';
 import { handleGrevNewsRequest, refreshGrevNewsSources, type GrevNewsEnv } from './grev-news';
 import { handleGrevNewsSubscriptionsRequest, type GrevNewsSubscriptionsEnv } from './grev-news-subscriptions';
 import { applyProfilePrivacy } from './profile-privacy-hardening';
+import { handleWebProfileWidgetsRequest, type UnifiedProfileEnv } from './profile-unified';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
@@ -104,6 +105,8 @@ export default {
     catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Platform request failed',error); return workerJson({ok:false,message:'The content, layout or community request could not be completed.'},500); }
     try { const response = await handleExperienceRequest(request, env as unknown as ExperienceEnv); if (response) return response; }
     catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Experience request failed',error); return workerJson({ok:false,message:'The dashboard or profile experience request could not be completed.'},500); }
+    try { const response = await handleWebProfileWidgetsRequest(request, env as unknown as UnifiedProfileEnv); if (response) return response; }
+    catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Profile widgets request failed',error); return workerJson({ok:false,message:'The profile widgets request could not be completed.'},500); }
     try {
       const profileEnv = env as unknown as ProfileEnv;
       const tileSaveResponse = await handleProfileTileSaveRequest(request, profileEnv); if (tileSaveResponse) return applyProfilePrivacy(request, profileEnv, tileSaveResponse);

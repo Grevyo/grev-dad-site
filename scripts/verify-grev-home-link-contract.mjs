@@ -174,6 +174,8 @@ try {
   }
   sqlite.exec(await readFile(new URL('../migrations/20260906_grev_home_statistics_correction.sql',import.meta.url),'utf8'));
   sqlite.exec(await readFile(new URL('../migrations/20261001_grev_home_cloud_saves.sql',import.meta.url),'utf8'));
+  sqlite.exec(await readFile(new URL('./fixtures/profile-identity-schema.sql',import.meta.url),'utf8'));
+  sqlite.exec(`CREATE TABLE user_profile_tiles(user_id TEXT,background_media TEXT)`);
 
   const database = new TestDatabase(sqlite);
   const env = { DB: database, APP_ENV: 'production' };

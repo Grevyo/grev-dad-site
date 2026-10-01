@@ -1,5 +1,6 @@
 import type { D1Database, D1Result, D1Statement } from './shared/d1-types';
 import { base64Url as b64, sha256, parseCookies } from './shared/http-security';
+import { widgetFromInput, widgetFromRow, type ProfileWidget, type WidgetConfig } from './profile-widgets';
 export interface ProfileEnv {
   DB: D1Database;
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -44,6 +45,9 @@ type ProfileTile = {
   textColour: string;
   borderColour: string;
   fontFamily: ProfileFont;
+  // A live widget (recent games, best friends...) drawn in this tile; null for a plain tile.
+  widget: ProfileWidget | null;
+  widgetConfig: WidgetConfig;
 };
 
 type ProfileCard = {
@@ -119,6 +123,8 @@ type TileRow = {
   text_colour: string;
   border_colour: string;
   font_family: ProfileFont;
+  widget: string | null;
+  widget_config: string | null;
 };
 
 type PreferenceRow = {
@@ -363,6 +369,8 @@ export function tileFromInput(value: unknown): ProfileTile | null {
   if (tileType === 'link' && (!linkUrl || !validUrl(linkUrl))) return null;
   if (tileType === 'media' && !backgroundMedia) return null;
   if (tileType === 'stat' && !statValue) return null;
+  const widget = widgetFromInput(input.widget, input.widgetConfig);
+  if (!widget || (widget.widget && tileType !== 'text')) return null;
 
   const tile: ProfileTile = {
     tileId,
@@ -385,7 +393,9 @@ export function tileFromInput(value: unknown): ProfileTile | null {
     mediaOverlay,
     textColour,
     borderColour,
-    fontFamily
+    fontFamily,
+    widget: widget.widget,
+    widgetConfig: widget.widgetConfig
   };
   return validPlacement(tile) ? tile : null;
 }
@@ -424,7 +434,8 @@ function tileFromRow(row: TileRow): ProfileTile {
     mediaOverlay: row.media_overlay,
     textColour: row.text_colour,
     borderColour: row.border_colour,
-    fontFamily: row.font_family
+    fontFamily: row.font_family,
+    ...widgetFromRow(row.widget, row.widget_config)
   };
 }
 
@@ -451,7 +462,7 @@ async function profilePayload(env: ProfileEnv, viewer: Viewer, profileId: string
       SELECT tile_id,tile_type,grid_x,grid_y,tile_width,tile_height,title,body,
         link_label,link_url,stat_value,background_type,background_primary,
         background_secondary,background_angle,background_media,media_fit,media_overlay,
-        text_colour,border_colour,font_family
+        text_colour,border_colour,font_family,widget,widget_config
       FROM user_profile_tiles
       WHERE user_id=?
       ORDER BY grid_y,grid_x,position
@@ -528,7 +539,7 @@ export async function getProfileTilesForSync(
     SELECT tile_id,tile_type,grid_x,grid_y,tile_width,tile_height,title,body,
       link_label,link_url,stat_value,background_type,background_primary,
       background_secondary,background_angle,background_media,media_fit,media_overlay,
-      text_colour,border_colour,font_family,updated_at
+      text_colour,border_colour,font_family,widget,widget_config,updated_at
     FROM user_profile_tiles
     WHERE user_id=?
     ORDER BY grid_y,grid_x,position
@@ -567,13 +578,14 @@ export async function saveProfileTilesForSync(
         user_id,tile_id,tile_type,position,grid_x,grid_y,tile_width,tile_height,
         title,body,link_label,link_url,stat_value,background_type,background_primary,
         background_secondary,background_angle,background_media,media_fit,media_overlay,
-        text_colour,border_colour,font_family,updated_at
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        text_colour,border_colour,font_family,widget,widget_config,updated_at
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
       userId, tile.tileId, tile.tileType, position, tile.x, tile.y, tile.width, tile.height,
       tile.title, tile.body, tile.linkLabel, tile.linkUrl, tile.statValue, tile.backgroundType,
       tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia,
-      tile.mediaFit, tile.mediaOverlay, tile.textColour, tile.borderColour, tile.fontFamily, updatedAt
+      tile.mediaFit, tile.mediaOverlay, tile.textColour, tile.borderColour, tile.fontFamily,
+      tile.widget, JSON.stringify(tile.widgetConfig), updatedAt
     ));
   });
   await env.DB.batch(statements);
@@ -651,13 +663,14 @@ async function saveProfile(request: Request, env: ProfileEnv, viewer: Viewer): P
         user_id,tile_id,tile_type,position,grid_x,grid_y,tile_width,tile_height,
         title,body,link_label,link_url,stat_value,background_type,background_primary,
         background_secondary,background_angle,background_media,media_fit,media_overlay,
-        text_colour,border_colour,font_family,updated_at
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        text_colour,border_colour,font_family,widget,widget_config,updated_at
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
       viewer.id, tile.tileId, tile.tileType, position, tile.x, tile.y, tile.width, tile.height,
       tile.title, tile.body, tile.linkLabel, tile.linkUrl, tile.statValue, tile.backgroundType,
       tile.backgroundPrimary, tile.backgroundSecondary, tile.backgroundAngle, tile.backgroundMedia,
-      tile.mediaFit, tile.mediaOverlay, tile.textColour, tile.borderColour, tile.fontFamily, now
+      tile.mediaFit, tile.mediaOverlay, tile.textColour, tile.borderColour, tile.fontFamily,
+      tile.widget, JSON.stringify(tile.widgetConfig), now
     ));
   });
 

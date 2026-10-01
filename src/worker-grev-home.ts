@@ -7,6 +7,7 @@ import { handleGrevHomeLinkMetadataRequest } from './grev-home-link-metadata';
 import { handleGrevHomeRequest, type GrevHomeEnv } from './grev-home';
 import { handleGrevHomeSavesRequest, type SaveBucket } from './grev-home-saves';
 import { handleGrevHomeSyncRequest } from './grev-home-sync';
+import { handleGrevHomeProfileRequest } from './profile-unified';
 import { handleGrevHomeTokenLifecycleRequest } from './grev-home-token-lifecycle';
 
 interface AssetsBinding {
@@ -16,6 +17,7 @@ interface AssetsBinding {
 type AppEnv = GrevHomeEnv & {
   ASSETS: AssetsBinding;
   GREV_HOME_SAVES?: SaveBucket;
+  RETROACHIEVEMENTS_API_KEY?: string;
 };
 
 type ExistingWorker = {
@@ -87,6 +89,9 @@ export default {
 
         const syncResponse = await handleGrevHomeSyncRequest(request, env);
         if (syncResponse) return syncResponse;
+
+        const profileResponse = await handleGrevHomeProfileRequest(request, env);
+        if (profileResponse) return profileResponse;
 
         const friendProfilesResponse = await handleGrevHomeFriendProfiles(request, env);
         if (friendProfilesResponse) return friendProfilesResponse;

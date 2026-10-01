@@ -1,4 +1,8 @@
 import { validImageDataUrl } from './profile-media';
+import {
+  identityPatchFromInput, readCanonicalIdentities, readCanonicalIdentity, writeCanonicalIdentity,
+  MAX_BIO_LENGTH, type CanonicalIdentity, type IdentityDatabase
+} from './profile-identity';
 import { base64Url, sha256, parseCookies, json } from './shared/http-security';
 interface D1Result<T> { results: T[]; }
 interface D1Statement {
@@ -147,7 +151,7 @@ function cleanCardImage(value: unknown): string | null {
   const padding = match[2].endsWith('==') ? 2 : match[2].endsWith('=') ? 1 : 0;
   return Math.floor(match[2].length * 3 / 4) - padding <= 1_400_000 ? value : null;
 }
-function cleanPublicCard(value: unknown): Record<string, unknown> {
+export function cleanPublicCard(value: unknown): Record<string, unknown> {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string,unknown> : {};
   const theme = String(input.theme ?? 'grev').toLowerCase();
   const frame = String(input.frame ?? 'role').toLowerCase();
@@ -169,11 +173,30 @@ function cleanPublicCard(value: unknown): Record<string, unknown> {
   };
 }
 
+// The card's display options with the person's one grev.dad identity laid over them: bio,
+// headline, avatar and banner always come from the canonical profile (src/profile-identity.ts).
+function readEmptyIdentity(): CanonicalIdentity {
+  return { headline:null, bio:null, location:null, websiteUrl:null, avatarMedia:null, coverMedia:null };
+}
+
+export function withIdentity(card: Record<string,unknown>, identity: CanonicalIdentity): Record<string,unknown> {
+  return {
+    ...card,
+    headline: identity.headline ?? '',
+    bio: identity.bio ?? '',
+    avatarMedia: identity.avatarMedia,
+    coverMedia: identity.coverMedia
+  };
+}
+
+function parseCard(cardJson: string | null | undefined): Record<string,unknown> {
+  try { return cleanPublicCard(cardJson ? JSON.parse(cardJson) : {}); } catch { return cleanPublicCard({}); }
+}
+
 async function readPublicCard(db: D1Executor, userId: string): Promise<Record<string,unknown>> {
   const row = await db.prepare(`SELECT card_json FROM grev_home_public_cards WHERE user_id=?`)
     .bind(userId).first<{card_json:string}>();
-  if (!row) return cleanPublicCard({});
-  try { return cleanPublicCard(JSON.parse(row.card_json)); } catch { return cleanPublicCard({}); }
+  return withIdentity(parseCard(row?.card_json), await readCanonicalIdentity(db as unknown as IdentityDatabase, userId, null));
 }
 
 function normalizeUserCode(value: unknown): string {
@@ -271,7 +294,7 @@ function accountPayload(context: DeviceContext) {
   };
 }
 
-function presencePayload(row: PresenceRow | null) {
+export function presencePayload(row: PresenceRow | null) {
   if (!row) {
     return { availability:'offline', statusText:'', activityType:'none', activityText:'', expiresAt:null, updatedAt:null };
   }
@@ -507,17 +530,35 @@ async function deviceMe(request: Request, env: GrevHomeEnv): Promise<Response> {
 async function publicCard(request: Request, env: GrevHomeEnv, context: DeviceContext): Promise<Response> {
   if (request.method === 'GET') return json({ ok:true, card:await readPublicCard(env.DB, context.user.id) });
   const input = await readBody(request);
-  const card = cleanPublicCard(input.card);
+  const raw = input.card && typeof input.card === 'object' && !Array.isArray(input.card) ? input.card as Record<string,unknown> : {};
+  const card = cleanPublicCard(raw);
   for (const slot of ['avatarMedia','coverMedia']) {
-    const value = (input.card as Record<string,unknown> | undefined)?.[slot];
+    const value = raw[slot];
     if (value != null && value !== '' && (typeof value !== 'string' || !validImageDataUrl(value)))
       return json({ok:false,message:'Choose a valid PNG, JPEG, GIF or WebP image under 1.4 MB.'},400);
   }
-  if (JSON.stringify(card).length > 1_800_000) return json({ok:false,message:'The combined profile artwork is too large. Use smaller images.'},413);
+
+  // Identity fields go to the canonical profile; only keys the client sent are changed.
+  const identityInput: Record<string,unknown> = {};
+  for (const key of ['avatarMedia','coverMedia','headline']) if (key in raw) identityInput[key] = raw[key];
+  if ('bio' in raw) {
+    const bio = String(raw.bio ?? '').trim().slice(0, MAX_BIO_LENGTH);
+    // Grev Home releases before the profile merge cap bios at 160 characters. Saving one of those
+    // back must not cut a longer grev.dad bio down to its first 160 characters.
+    const current = (await readCanonicalIdentity(env.DB as unknown as IdentityDatabase, context.user.id, null)).bio ?? '';
+    if (!(bio.length === 160 && current.length > 160 && current.startsWith(bio))) identityInput.bio = bio;
+  }
+  const patch = identityPatchFromInput(identityInput);
+  if (typeof patch === 'string') return json({ ok:false, message:patch }, 400);
+  const mediaError = await writeCanonicalIdentity(env.DB as unknown as IdentityDatabase, context.user.id, patch, 'grev-home.public-card');
+  if (mediaError) return json({ ok:false, message:mediaError }, 413);
+
+  const options = { ...card };
+  delete options.bio; delete options.avatarMedia; delete options.coverMedia;
   await env.DB.prepare(`INSERT INTO grev_home_public_cards(user_id,card_json,updated_at) VALUES(?,?,?)
     ON CONFLICT(user_id) DO UPDATE SET card_json=excluded.card_json,updated_at=excluded.updated_at`)
-    .bind(context.user.id, JSON.stringify(card), now()).run();
-  return json({ ok:true, card });
+    .bind(context.user.id, JSON.stringify(options), now()).run();
+  return json({ ok:true, card:await readPublicCard(env.DB, context.user.id) });
 }
 
 async function friendCodeLookup(request: Request, env: GrevHomeEnv, context: DeviceContext): Promise<Response> {
@@ -531,8 +572,7 @@ async function friendCodeLookup(request: Request, env: GrevHomeEnv, context: Dev
     WHERE f.friend_code=? COLLATE NOCASE AND u.status='active'`).bind(code)
     .first<{id:string;username:string;display_name:string;is_verified:number;card_json:string|null}>();
   if (!row || row.id === context.user.id) return json({ ok:false, message:'That friend code is not available.' }, 404);
-  let card: Record<string,unknown> = cleanPublicCard({});
-  try { card = cleanPublicCard(row.card_json ? JSON.parse(row.card_json) : {}); } catch { /* defaults */ }
+  const card = withIdentity(parseCard(row.card_json), await readCanonicalIdentity(env.DB as unknown as IdentityDatabase, row.id, context.user));
   return json({ ok:true, user:{userId:row.id,username:row.username,displayName:row.display_name,isVerified:Boolean(row.is_verified),publicCard:card} });
 }
 
@@ -610,6 +650,7 @@ async function friendList(env: GrevHomeEnv, context: DeviceContext): Promise<Res
     expires_at:number|null;updated_at:number|null;created_at:number;
   }>();
 
+  const identities = await readCanonicalIdentities(env.DB as unknown as IdentityDatabase, rows.results.map(row => row.id), context.user);
   return json({
     ok:true,
     friends:rows.results.map(row => ({
@@ -619,7 +660,7 @@ async function friendList(env: GrevHomeEnv, context: DeviceContext): Promise<Res
       isVerified:Boolean(row.is_verified),
       totalXp:Number(row.total_xp),
       level:Math.floor(Number(row.total_xp)/500)+1,
-      publicCard:(() => { try { return cleanPublicCard(row.card_json ? JSON.parse(row.card_json) : {}); } catch { return cleanPublicCard({}); } })(),
+      publicCard:withIdentity(parseCard(row.card_json), identities.get(row.id) ?? readEmptyIdentity()),
       friendsSince:row.created_at,
       presence:presencePayload(row.availability ? {
         availability:row.availability,
