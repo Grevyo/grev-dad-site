@@ -587,7 +587,22 @@ async function areFriends(db: Db, a: string, b: string): Promise<boolean> {
 
 async function handleBestFriends(request: Request, env: UnifiedProfileEnv, userId: string, friendId: string | null): Promise<Response> {
   const db = env.DB;
-  const list = async () => json({ ok: true, items: await readBestFriends(db, userId, userId) });
+  // Friends who could be picked, so an editor without its own friends list (the website) can
+  // offer them.
+  const list = async () => {
+    const friends = await db.prepare(`
+      SELECT u.id,u.username,u.display_name FROM grev_home_friendships f
+      JOIN users u ON u.id=CASE WHEN f.user_low_id=? THEN f.user_high_id ELSE f.user_low_id END
+      WHERE (f.user_low_id=? OR f.user_high_id=?) AND u.status='active'
+        AND NOT EXISTS(SELECT 1 FROM profile_blocks b WHERE (b.owner_user_id=? AND b.blocked_user_id=u.id) OR (b.owner_user_id=u.id AND b.blocked_user_id=?))
+      ORDER BY u.display_name COLLATE NOCASE LIMIT 200
+    `).bind(userId, userId, userId, userId, userId).all<{ id: string; username: string; display_name: string }>();
+    return json({
+      ok: true,
+      items: await readBestFriends(db, userId, userId),
+      friends: friends.results.map(row => ({ userId: row.id, username: row.username, displayName: row.display_name }))
+    });
+  };
   if (request.method === 'GET') return list();
   if (request.method === 'DELETE') {
     const id = friendId ?? new URL(request.url).searchParams.get('userId') ?? '';
@@ -733,7 +748,13 @@ export async function handleWebProfileWidgetsRequest(request: Request, env: Unif
   if (widgets && request.method === 'GET') {
     const profile = await buildProfileDocument(env, widgets[1]!.toLowerCase(), viewer, true);
     if (!profile) return json({ ok: false, message: 'Profile not found.' }, 404);
-    return json({ ok: true, relationship: profile.relationship, widgets: profile.widgets, widgetKinds: PROFILE_WIDGETS });
+    return json({
+      ok: true,
+      relationship: profile.relationship,
+      isBestFriend: profile.isBestFriend,
+      widgets: profile.widgets,
+      widgetKinds: PROFILE_WIDGETS
+    });
   }
   if (extras) return await handleProfileExtras(request, env, viewer.id, extras[1]!) ?? json({ ok: false, message: 'Not found.' }, 404);
   return json({ ok: false, message: 'Method not allowed.' }, 405);

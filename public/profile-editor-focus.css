@@ -66,4 +66,6 @@
   .profile-focus-nav button{min-width:126px}
   .profile-focus-current h3{font-size:1.1rem}
   .profile-unified-editor[data-focus-editor="true"] .profile-settings-section,.profile-unified-editor[data-focus-editor="true"] .card-tile-dialog-section{padding:11px}
-}
+}/* The step editor hides the dialog tab strip, so the tabbed tile dialogs must show every section
+   at once; otherwise a tile's Content and Appearance settings could not be reached at all. */
+.profile-unified-editor[data-focus-editor="true"] .profile-editor-inline-dialog .guided-editor-panel-hidden:not([hidden]){display:grid!important}
