@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "verify:grev-home": "npm run verify:grev-home-link && npm run verify:grev-home-messages && node scripts/verify-grev-home-cloud-saves.mjs",
     "verify:grev-home-link": "node scripts/verify-grev-home-link-contract.mjs && node scripts/verify-grev-home-friend-profiles.mjs",
+    "verify:grev-home-messages": "esbuild src/grev-home-messages.ts --bundle --format=esm --platform=neutral --outfile=.verify/grev-home-messages.mjs --log-level=error && node scripts/test-friend-message-access.mjs .verify/grev-home-messages.mjs",
     "verify:profile-tiles": "node scripts/verify-profile-tile-contract.mjs && node scripts/verify-profile-tile-sync.mjs && node scripts/verify-profile-tile-controller.mjs",
-    "deploy:pbe": "wrangler d1 migrations apply grev-dad-preview --remote --env pbe && wrangler deploy --env pbe",
-    "deploy:production": "wrangler d1 migrations apply grev-dad-production --remote --env production && wrangler deploy --env production"
+    "deploy:pbe": "(wrangler r2 bucket info grev-dad-saves-pbe >/dev/null 2>&1 || wrangler r2 bucket create grev-dad-saves-pbe) && wrangler d1 migrations apply grev-dad-preview --remote --env pbe && wrangler deploy --env pbe",
+    "deploy:production": "(wrangler r2 bucket info grev-dad-saves >/dev/null 2>&1 || wrangler r2 bucket create grev-dad-saves) && wrangler d1 migrations apply grev-dad-production --remote --env production && wrangler deploy --env production",
+    "e2e:grev-home": "node scripts/e2e-grev-home-client.mjs http://127.0.0.1:8787"
   },
   "devDependencies": {
     "esbuild": "latest",

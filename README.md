@@ -29,6 +29,8 @@ Add these repository Actions secrets:
 - `CLOUDFLARE_API_TOKEN`
 
 The API token must be stored only as a GitHub secret and must never be committed to the repository.
+It needs **Workers R2 Storage: Edit** as well as Workers/D1 access: deployments create the
+Grev Home cloud save bucket (`grev-dad-saves-pbe` / `grev-dad-saves`) if it does not exist yet.
 
 ## Deployment commands
 

@@ -45,14 +45,17 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
-      - name: Verify Grev Home link lifecycle
-        run: npm run verify:grev-home-link
+      - name: Verify Grev Home contracts
+        run: npm run verify:grev-home
 
       - name: Apply production database migrations
         run: npx wrangler d1 migrations apply grev-dad-production --remote --env production
 
       - name: Configure protected LADMIN account
         run: node scripts/bootstrap-ladmin.mjs
+
+      - name: Ensure cloud save bucket exists
+        run: npx wrangler r2 bucket info grev-dad-saves >/dev/null 2>&1 || npx wrangler r2 bucket create grev-dad-saves
 
       - name: Deploy production
         run: npx wrangler deploy --env production

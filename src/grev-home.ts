@@ -860,19 +860,6 @@ export async function handleGrevHomeRequest(request: Request, env: GrevHomeEnv):
   const path = url.pathname;
   if (!path.startsWith('/api/grev-home/')) return null;
 
-  if (path === '/api/grev-home/capabilities' && request.method === 'GET') {
-    return json({
-      ok:true,
-      apiVersion:API_VERSION,
-      linking:true,
-      friends:true,
-      friendCodes:true,
-      publicProfileCards:true,
-      presence:true,
-      activity:true,
-      environment:env.APP_ENV
-    });
-  }
   if (path === '/api/grev-home/link/start' && request.method === 'POST') return linkStart(request, env);
   if (path === '/api/grev-home/link/status' && request.method === 'GET') return linkStatus(request, env);
   if (path === '/api/grev-home/link/request' && request.method === 'GET') return browserLinkRequest(request, env);

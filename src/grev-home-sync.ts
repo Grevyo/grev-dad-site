@@ -152,13 +152,18 @@ async function accountData(env:GrevHomeSyncEnv, context:DeviceContext):Promise<R
   const sources = await env.DB.prepare(`SELECT grev_id,profile_created_at,total_seconds,completed_sessions,unique_apps,apps_json,updated_at
     FROM grev_home_profile_sources WHERE user_id=? ORDER BY grev_id`)
     .bind(context.userId).all<{grev_id:string;profile_created_at:number|null;total_seconds:number;completed_sessions:number;unique_apps:number;apps_json:string;updated_at:number}>();
+  // Lets a newly linked device offer to restore cloud saves without probing every app.
+  const cloudSaves = await env.DB.prepare(`SELECT app_id,size_bytes,updated_at_ms FROM grev_home_cloud_saves
+    WHERE user_id=? ORDER BY app_id`).bind(context.userId)
+    .all<{app_id:string;size_bytes:number;updated_at_ms:number}>();
   return json({ok:true,apiVersion:API_VERSION,userId:context.userId,username:user?.username,displayName:user?.display_name,
     accountCreatedAt:user?.created_at,downloadedAt:now(),
     sharedProgression:{totalXp:Number(progression?.total_xp??0),level:Math.floor(Number(progression?.total_xp??0)/500)+1,
       xpPerLevel:500,homeTotalXp:Number(progression?.home_xp??0)},
     achievements:achievements.results.map(a=>({id:a.id,name:a.name,description:a.description,source:a.category,awardedAt:a.awarded_at})),
     sources:sources.results.map(s=>({grevId:s.grev_id,profileCreatedAt:s.profile_created_at,totalSeconds:s.total_seconds,
-      completedSessions:s.completed_sessions,uniqueApps:s.unique_apps,apps:JSON.parse(s.apps_json),updatedAt:s.updated_at}))});
+      completedSessions:s.completed_sessions,uniqueApps:s.unique_apps,apps:JSON.parse(s.apps_json),updatedAt:s.updated_at})),
+    cloudSaves:cloudSaves.results.map(c=>({appId:c.app_id,sizeBytes:c.size_bytes,updatedAtUtc:new Date(c.updated_at_ms).toISOString()}))});
 }
 
 function parseProgression(value: unknown): ProgressionInput | null {
@@ -404,22 +409,6 @@ async function history(request: Request, env: GrevHomeSyncEnv, context: DeviceCo
 
 export async function handleGrevHomeSyncRequest(request: Request, env: GrevHomeSyncEnv): Promise<Response | null> {
   const path = new URL(request.url).pathname;
-
-  if (path === '/api/grev-home/capabilities' && request.method === 'GET') {
-    return json({
-      ok:true,
-      apiVersion:API_VERSION,
-      linking:true,
-      friends:true,
-      presence:true,
-      activity:true,
-      sessionHistory:true,
-      progressionSync:true,
-      profileTileSync:true,
-      optional:true,
-      environment:env.APP_ENV
-    });
-  }
 
   const profileTilePaths = path === '/api/grev-home/profile-tiles';
   if (path !== '/api/grev-home/sync' && path !== '/api/grev-home/history' &&

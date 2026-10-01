@@ -17,12 +17,14 @@ snapshot totals survive migration even when per-app details were not uploaded.
 Detailed session history continues to follow the existing privacy setting.
 
 New PC: create a local profile, link the existing website account, then allow sync
-to finish. No game files, BIOS, saves, emulator settings or local admin permissions
+to finish. `account-data` also lists the account's cloud saves (`cloudSaves`: app ID,
+size and last upload time) so the new device can offer to restore them. No game files,
+BIOS, emulator settings, local admin permissions or saves for apps without cloud saves
 are restored. Unsynced data on an erased PC cannot be recovered.
 
 Unlink in the new client revokes this device's token family. Website account-wide
 unlink remains an explicit separate action. Profile-source ownership and cloud
 history persist after unlink, preventing reassignment of history to another user.
 
-Run `npm run typecheck` and `npm run verify:grev-home-link` before deployment.
+Run `npm run typecheck` and `npm run verify:grev-home` before deployment.
 The additive migration must deploy before the updated worker/client.

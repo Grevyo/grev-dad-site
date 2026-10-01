@@ -17,6 +17,10 @@
     "database_id": "0e073f43-f79f-4d4f-a599-83736863259c",
     "migrations_dir": "migrations"
   }],
+  "r2_buckets": [{
+    "binding": "GREV_HOME_SAVES",
+    "bucket_name": "grev-dad-saves-dev"
+  }],
   "env": {
     "pbe": {
       "name": "grev-dad-pbe",
@@ -31,6 +35,10 @@
         "database_name": "grev-dad-preview",
         "database_id": "f75094f1-93f9-4e91-b8ba-386c148220c1",
         "migrations_dir": "migrations"
+      }],
+      "r2_buckets": [{
+        "binding": "GREV_HOME_SAVES",
+        "bucket_name": "grev-dad-saves-pbe"
       }]
     },
     "production": {
@@ -46,6 +54,10 @@
         "database_name": "grev-dad-production",
         "database_id": "50aa73a6-edbc-44dc-b4f1-15705a2bf74b",
         "migrations_dir": "migrations"
+      }],
+      "r2_buckets": [{
+        "binding": "GREV_HOME_SAVES",
+        "bucket_name": "grev-dad-saves"
       }]
     }
   }
