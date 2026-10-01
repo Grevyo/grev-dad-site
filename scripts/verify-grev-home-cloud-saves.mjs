@@ -117,6 +117,7 @@ try {
   assert.equal(await handleGrevHomeSavesRequest(new Request('https://grev.test/api/grev-home/friends'), env), null);
   assert.equal((await send('GET', 'retroarch', null)).status, 401, 'saves require a device token');
   assert.equal((await send('GET', 'bad%20id', 'alice-pc-1')).status, 400, 'unsafe app ids are rejected');
+  assert.equal((await send('GET', '...', 'alice-pc-1')).status, 400, 'dot-only app ids are rejected');
   assert.equal((await send('DELETE', 'retroarch', 'alice-pc-1')).status, 405);
 
   // Nothing uploaded yet: HEAD and GET are 404 (Grev Home reads that as "no cloud save").

@@ -59,7 +59,7 @@ async function decide(decision){
     const response=await fetch('/api/grev-home/link/approve',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({userCode:code,decision})});
     const data=await response.json();
     if(!response.ok||!data.ok)throw new Error(data.message||'The link decision could not be saved.');
-    setStatus(decision==='approve'?'Grev Home is linked. You can return to the console.':'The Grev Home link request was denied.',decision==='approve'?'success':'');
+    setStatus(decision==='approve'?'Grev Home is linked. It will finish setting up automatically – you can go back to the console.':'The Grev Home link request was denied.',decision==='approve'?'success':'');
   }catch(error){setStatus(error instanceof Error?error.message:'The link decision could not be saved.','error');approve.disabled=false;deny.disabled=false;}
 }
 approve.addEventListener('click',()=>decide('approve'));deny.addEventListener('click',()=>decide('deny'));load();

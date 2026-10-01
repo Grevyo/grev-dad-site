@@ -69,7 +69,7 @@ export async function handleGrevHomeSavesRequest(request: Request, env: GrevHome
   if (!match) return null;
 
   const appId = decodeURIComponent(match[1]!);
-  if (!SAFE_APP_ID_RE.test(appId)) return json({ ok:false, apiVersion:API_VERSION, message:'Unknown app.' }, 400);
+  if (!SAFE_APP_ID_RE.test(appId) || /^\.+$/.test(appId)) return json({ ok:false, apiVersion:API_VERSION, message:'Unknown app.' }, 400);
   if (!['GET','HEAD','PUT'].includes(request.method)) return json({ ok:false, message:'Method not allowed.' }, 405);
 
   const context = await getDeviceContext(request, env);
