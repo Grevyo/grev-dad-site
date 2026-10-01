@@ -540,7 +540,7 @@ async function publicCard(request: Request, env: GrevHomeEnv, context: DeviceCon
 
   // Identity fields go to the canonical profile; only keys the client sent are changed.
   const identityInput: Record<string,unknown> = {};
-  for (const key of ['avatarMedia','coverMedia','headline']) if (key in raw) identityInput[key] = raw[key];
+  for (const key of ['avatarMedia','coverMedia']) if (key in raw) identityInput[key] = raw[key];
   if ('bio' in raw) {
     const bio = String(raw.bio ?? '').trim().slice(0, MAX_BIO_LENGTH);
     // Grev Home releases before the profile merge cap bios at 160 characters. Saving one of those

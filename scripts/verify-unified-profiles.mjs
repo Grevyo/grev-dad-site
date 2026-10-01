@@ -209,6 +209,13 @@ try {
   assert.ok(!JSON.parse(sqlite.prepare(`SELECT card_json FROM grev_home_public_cards WHERE user_id=?`).get(A).card_json).bio, 'the card no longer stores a copy of the bio');
   card = await read(await core(A, 'PUT', '/api/grev-home/public-card', { card: { ...card.body.card, bio: 'Edited in Grev Home' } }));
   assert.equal(sqlite.prepare(`SELECT bio FROM user_profiles WHERE user_id=?`).get(A).bio, 'Edited in Grev Home');
+  // Grev Home now saves only card display options; that must leave the shared identity alone.
+  const optionsOnly = await read(await core(A, 'PUT', '/api/grev-home/public-card', { card: { theme: 'aurora', frame: 'glow', statusMessage: 'Busy', headline: 'ignored' } }));
+  assert.equal(optionsOnly.status, 200);
+  assert.equal(optionsOnly.body.card.theme, 'aurora');
+  assert.equal(optionsOnly.body.card.bio, 'Edited in Grev Home', 'saving card options keeps the bio');
+  assert.equal(optionsOnly.body.card.avatarMedia, PNG, 'saving card options keeps the avatar');
+  assert.equal(optionsOnly.body.card.headline, 'Retro fan', 'the headline is edited through the profile identity only');
   let friends = await read(await core(B, 'GET', '/api/grev-home/friends'));
   assert.equal(friends.body.friends.find(friend => friend.userId === A).publicCard.bio, 'Edited in Grev Home');
 
