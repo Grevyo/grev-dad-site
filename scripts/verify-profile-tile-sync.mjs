@@ -68,6 +68,7 @@ async function main() {
         background_angle INTEGER NOT NULL DEFAULT 135, background_media TEXT, media_fit TEXT NOT NULL DEFAULT 'cover',
         media_overlay TEXT NOT NULL DEFAULT 'dark', text_colour TEXT NOT NULL DEFAULT '#f4f7fb',
         border_colour TEXT NOT NULL DEFAULT '#394657', font_family TEXT NOT NULL DEFAULT 'system',
+        widget TEXT, widget_config TEXT NOT NULL DEFAULT '{}',
         updated_at INTEGER NOT NULL, PRIMARY KEY(user_id, tile_id));
     `);
 

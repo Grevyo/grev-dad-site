@@ -42,6 +42,9 @@ jobs:
       - name: Configure protected LADMIN account
         run: node scripts/bootstrap-ladmin.mjs
 
+      - name: Ensure cloud save bucket exists
+        run: npx wrangler r2 bucket info grev-dad-saves-pbe >/dev/null 2>&1 || npx wrangler r2 bucket create grev-dad-saves-pbe
+
       - name: Deploy PBE
         shell: bash
         run: |

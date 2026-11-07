@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -53,6 +53,7 @@ try {
     CREATE TABLE grev_home_public_cards(user_id TEXT PRIMARY KEY,card_json TEXT,updated_at INTEGER);
     CREATE TABLE user_progression(user_id TEXT PRIMARY KEY,total_xp INTEGER,level INTEGER,updated_at INTEGER);
   `);
+  sqlite.exec(await readFile(new URL('./fixtures/profile-identity-schema.sql', import.meta.url), 'utf8'));
 
   const me = randomUUID();
   const friend = randomUUID();

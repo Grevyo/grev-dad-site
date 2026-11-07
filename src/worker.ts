@@ -17,15 +17,16 @@ import { handleMembersRequest, type MembersEnv } from './members';
 import { handleGrevNewsRequest, refreshGrevNewsSources, type GrevNewsEnv } from './grev-news';
 import { handleGrevNewsSubscriptionsRequest, type GrevNewsSubscriptionsEnv } from './grev-news-subscriptions';
 import { applyProfilePrivacy } from './profile-privacy-hardening';
+import { handleWebProfileWidgetsRequest, type UnifiedProfileEnv } from './profile-unified';
 
 type AppEnv = Parameters<typeof app.fetch>[1];
 
 const DASHBOARD_ASSETS = new Set([
   '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-discovery.css','/dashboard-discovery.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js','/platform-completion.css','/platform-live-quick.js','/dashboard-freeze-fix.js','/dashboard-news-subscriptions.css','/dashboard-news-subscriptions.js','/editor-guidance.css','/editor-guidance.js',
-  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js','/profile-tile-save-fix.js',
+  '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js','/profile-tile-save-fix.js','/profile-tile-controller.js','/profile-widgets.js','/profile-widgets.css',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-editor-focus.css','/profile-editor-focus.js','/profile-experience.css','/profile-experience.js','/profile-guestbook-enhanced.js',
   '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js',
-  '/news.html','/news.css','/news.js','/admin-news.html','/admin-news.css','/admin-news.js','/grev-dad-logo.svg'
+  '/news.html','/news.css','/news.js','/admin-news.html','/admin-news.css','/admin-news.js','/grev-dad-logo.svg','/grev-home-logo.png'
 ]);
 
 function workerJson(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: {
@@ -104,6 +105,8 @@ export default {
     catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Platform request failed',error); return workerJson({ok:false,message:'The content, layout or community request could not be completed.'},500); }
     try { const response = await handleExperienceRequest(request, env as unknown as ExperienceEnv); if (response) return response; }
     catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Experience request failed',error); return workerJson({ok:false,message:'The dashboard or profile experience request could not be completed.'},500); }
+    try { const response = await handleWebProfileWidgetsRequest(request, env as unknown as UnifiedProfileEnv); if (response) return response; }
+    catch (error) { const message=error instanceof Error?error.message:'UNKNOWN'; if (message==='JSON_REQUIRED'||message==='INVALID_BODY'||error instanceof SyntaxError) return workerJson({ok:false,message:'A valid JSON request body is required.'},400); console.error('Profile widgets request failed',error); return workerJson({ok:false,message:'The profile widgets request could not be completed.'},500); }
     try {
       const profileEnv = env as unknown as ProfileEnv;
       const tileSaveResponse = await handleProfileTileSaveRequest(request, profileEnv); if (tileSaveResponse) return applyProfilePrivacy(request, profileEnv, tileSaveResponse);

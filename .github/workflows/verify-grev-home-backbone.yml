@@ -7,7 +7,8 @@ on:
     paths:
       - 'src/grev-home*.ts'
       - 'src/worker-grev-home.ts'
-      - 'scripts/verify-grev-home-link-contract.mjs'
+      - 'scripts/verify-grev-home-*.mjs'
+      - 'scripts/test-friend-message-access.mjs'
       - 'scripts/smoke-grev-home-api.mjs'
       - 'migrations/*grev_home*.sql'
       - 'package.json'
@@ -17,7 +18,8 @@ on:
     paths:
       - 'src/grev-home*.ts'
       - 'src/worker-grev-home.ts'
-      - 'scripts/verify-grev-home-link-contract.mjs'
+      - 'scripts/verify-grev-home-*.mjs'
+      - 'scripts/test-friend-message-access.mjs'
       - 'scripts/smoke-grev-home-api.mjs'
       - 'migrations/*grev_home*.sql'
       - 'package.json'
@@ -51,8 +53,8 @@ jobs:
       - name: Type-check Grev.dad worker
         run: npm run typecheck
 
-      - name: Verify Grev Home link lifecycle
-        run: npm run verify:grev-home-link
+      - name: Verify Grev Home link lifecycle and messaging access
+        run: npm run verify:grev-home
 
       - name: Verify Grev Home migration ordering
         shell: bash

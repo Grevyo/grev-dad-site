@@ -113,6 +113,13 @@ button,input,select,.primary-action,.secondary-action,.action-link,.admin-badge,
 .fine-print,.auth-switch{font-size:.9rem}
 .auth-switch a,.back-link{color:var(--accent-strong)}
 .back-link{text-decoration:none;font-weight:800}
+/* Grev Home download link on the log-in and sign-up pages. */
+.grev-home-download{display:flex;align-items:center;gap:14px;margin-top:22px;padding:14px 16px;border:1px solid var(--line-strong,#394657);background:color-mix(in srgb,#3157c9 12%,transparent);color:var(--text,#f4f7fb);text-decoration:none;transition:transform .12s,box-shadow .12s}
+.grev-home-download:hover,.grev-home-download:focus-visible{transform:translate(-2px,-2px);box-shadow:4px 4px 0 #000;outline:none;border-color:var(--accent-strong,#7ea6ff)}
+.grev-home-download img{flex:none;width:52px;height:auto}
+.grev-home-download span{display:grid;gap:3px}
+.grev-home-download strong{font-size:1rem}
+.grev-home-download small{color:var(--muted);font-size:.82rem;line-height:1.4}
 
 form{display:grid;gap:17px;margin-top:30px}
 form h2{margin-bottom:0}

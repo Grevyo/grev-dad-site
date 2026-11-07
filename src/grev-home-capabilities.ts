@@ -1,11 +1,11 @@
-import type { GrevHomeEnv } from './grev-home';
+import { CLOUD_SAVE_MAX_BYTES, cloudSavesAvailable, type GrevHomeSavesEnv } from './grev-home-saves';
 import { json } from './shared/http-security';
 
 const API_VERSION = 1;
 
 export async function handleGrevHomeCapabilitiesRequest(
   request: Request,
-  env: GrevHomeEnv
+  env: GrevHomeSavesEnv
 ): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   if (path !== '/api/grev-home/capabilities') return null;
@@ -33,6 +33,14 @@ export async function handleGrevHomeCapabilitiesRequest(
       sessionHistory:true,
       progressionSync:true,
       contentIdentity:true,
+      profileTileSync:true,
+      unifiedProfile:true,
+      profileWidgets:true,
+      favouriteGames:true,
+      bestFriends:true,
+      retroAchievements:true,
+      messaging:true,
+      cloudSaves:cloudSavesAvailable(env),
       offlineHistoryReplay:true,
       stalePresenceReplay:false
     },
@@ -42,7 +50,8 @@ export async function handleGrevHomeCapabilitiesRequest(
       tokenRotationOverlapSeconds:86400,
       presenceMinSeconds:60,
       presenceMaxSeconds:600,
-      syncBatchSessions:100
+      syncBatchSessions:100,
+      cloudSaveMaxBytes:CLOUD_SAVE_MAX_BYTES
     }
   });
 }
