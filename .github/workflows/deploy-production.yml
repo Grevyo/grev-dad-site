@@ -54,11 +54,22 @@ jobs:
       - name: Configure protected LADMIN account
         run: node scripts/bootstrap-ladmin.mjs
 
+      # Cloud saves need this R2 bucket. If it can't be confirmed or created (the API token needs
+      # the "Workers R2 Storage: Edit" permission), the site still deploys, without cloud saves.
       - name: Ensure cloud save bucket exists
-        run: npx wrangler r2 bucket info grev-dad-saves >/dev/null 2>&1 || npx wrangler r2 bucket create grev-dad-saves
+        id: saves
+        shell: bash
+        run: |
+          if npx wrangler r2 bucket info grev-dad-saves >/dev/null 2>&1 || npx wrangler r2 bucket create grev-dad-saves; then
+            echo "config=wrangler.jsonc" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Couldn't confirm or create the R2 bucket grev-dad-saves. Deploying without cloud saves; give the Cloudflare API token R2 edit permission (or create the bucket in the dashboard) and redeploy to turn them on."
+            node scripts/wrangler-without-saves.mjs production
+            echo "config=wrangler.deploy.json" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Deploy production
-        run: npx wrangler deploy --env production
+        run: npx wrangler deploy --config "${{ steps.saves.outputs.config }}" --env production
 
       - name: Verify LADMIN login end to end
         shell: bash
