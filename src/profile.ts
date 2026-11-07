@@ -555,13 +555,24 @@ export async function saveProfileTilesForSync(
     return { ok: false, message: `A profile can have up to ${MAX_TILES} tiles.` };
   }
 
+  // Grev Home builds from before widget tiles send no `widget` key at all (current builds send
+  // `widget: null` for a plain tile). Without this, an older install saving its layout would turn
+  // every widget tile back into a plain text tile on both sides.
+  const stored = await env.DB.prepare(`SELECT tile_id,widget,widget_config FROM user_profile_tiles WHERE user_id=? AND widget IS NOT NULL`)
+    .bind(userId).all<{ tile_id: string; widget: string; widget_config: string | null }>();
+  const storedWidgets = new Map(stored.results.map(row => [row.tile_id, widgetFromRow(row.widget, row.widget_config)]));
+
   const tiles: ProfileTile[] = [];
   const seen = new Set<string>();
   let totalMediaBytes = 0;
   for (const rawTile of rawTiles) {
-    const tile = tileFromInput(rawTile);
+    let tile = tileFromInput(rawTile);
     if (!tile || seen.has(tile.tileId)) return { ok: false, message: 'The profile contains an invalid or duplicate tile.' };
-    if (tiles.some(existing => overlaps(existing, tile))) return { ok: false, message: 'Profile tiles cannot overlap.' };
+    const keptWidget = storedWidgets.get(tile.tileId);
+    if (keptWidget?.widget && tile.tileType === 'text' && !Object.hasOwn(rawTile as object, 'widget')) {
+      tile = { ...tile, ...keptWidget };
+    }
+    if (tiles.some(existing => overlaps(existing, tile!))) return { ok: false, message: 'Profile tiles cannot overlap.' };
     if (tile.backgroundMedia) totalMediaBytes += dataUrlByteLength(tile.backgroundMedia);
     if (totalMediaBytes > MAX_PROFILE_MEDIA_BYTES) {
       return { ok: false, message: 'Profile tile media may use up to 8 MB in total.' };

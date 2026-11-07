@@ -275,6 +275,21 @@ try {
   assert.equal(ownAgain.card.bio, 'Edited in Grev Home', 'the owner always sees their own fields');
   assert.equal(ownAgain.privacy.fields.bio.visibility, 'private');
 
+  // An older Grev Home (no widget support) saving the layout sends tiles without a `widget` key;
+  // the stored widgets must survive. An explicit null (current clients) is a plain tile.
+  {
+    const legacy = widgetTiles.map(({ widget, widgetConfig, ...rest }) => rest);
+    assert.equal((await api.saveProfileTilesForSync({ DB: db }, A, legacy)).ok, true);
+    const kept = sqlite.prepare(`SELECT widget,widget_config FROM user_profile_tiles WHERE user_id=? AND tile_id=?`).get(A, widgetTiles[0].tileId);
+    assert.equal(kept.widget, 'recent-games', 'an older client keeps the widget');
+    assert.equal(JSON.parse(kept.widget_config).count, 2, 'and its item count');
+    const extra = tile(0, 40);
+    assert.equal((await api.saveProfileTilesForSync({ DB: db }, A, [...legacy, { ...extra, widget: null }])).ok, true);
+    assert.equal(sqlite.prepare(`SELECT widget FROM user_profile_tiles WHERE user_id=? AND tile_id=?`).get(A, extra.tileId).widget, null);
+    assert.equal(sqlite.prepare(`SELECT COUNT(*) AS n FROM user_profile_tiles WHERE user_id=? AND widget IS NOT NULL`).get(A).n, 9, 'every widget survives');
+    assert.equal((await api.saveProfileTilesForSync({ DB: db }, A, widgetTiles)).ok, true);
+  }
+
   // Unknown widgets in client input are rejected rather than stored.
   assert.equal((await api.saveProfileTilesForSync({ DB: db }, A, [tile(4, 0, { widget: 'nope' })])).ok, false);
 

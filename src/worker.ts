@@ -26,7 +26,7 @@ const DASHBOARD_ASSETS = new Set([
   '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js','/profile-tile-save-fix.js','/profile-tile-controller.js','/profile-widgets.js','/profile-widgets.css',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-editor-focus.css','/profile-editor-focus.js','/profile-experience.css','/profile-experience.js','/profile-guestbook-enhanced.js',
   '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js',
-  '/news.html','/news.css','/news.js','/admin-news.html','/admin-news.css','/admin-news.js','/grev-dad-logo.svg'
+  '/news.html','/news.css','/news.js','/admin-news.html','/admin-news.css','/admin-news.js','/grev-dad-logo.svg','/grev-home-logo.png'
 ]);
 
 function workerJson(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: {
