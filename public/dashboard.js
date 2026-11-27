@@ -583,10 +583,33 @@ function createCustomMediaButtonContent(feature, editing = false) {
   return content;
 }
 
+function createGrevHomeTileContent(feature, editing = false) {
+  const content = tileSurface(feature, editing, 'dashboard-content-tile dashboard-grev-home-tile');
+  const logo = document.createElement('img');
+  logo.className = 'dashboard-grev-home-logo';
+  logo.src = '/grev-home-logo.png';
+  logo.alt = '';
+  logo.draggable = false;
+  const text = document.createElement('div');
+  text.className = 'dashboard-grev-home-text';
+  const title = document.createElement('strong');
+  title.textContent = 'Grev Home';
+  const summary = document.createElement('span');
+  summary.textContent = 'A controller-first console for your Windows PC, linked to your Grev.dad account.';
+  const action = document.createElement('span');
+  action.className = 'dashboard-grev-home-action';
+  action.textContent = 'Download for Windows';
+  text.append(title, summary, action);
+  content.append(logo, text);
+  if (!editing) content.setAttribute('aria-label', 'Download Grev Home for Windows');
+  return content;
+}
+
 function createTileContent(feature, preferences, editing = false) {
   if (normalizedTileAppearance(feature).contentMode === 'media-button') return createCustomMediaButtonContent(feature, editing);
   if (feature.presentation !== 'content') return createActionTileContent(feature, editing);
   if (feature.id === 'feature-profile') return createProfileTileContent(feature, editing);
+  if (feature.id === 'feature-grev-home') return createGrevHomeTileContent(feature, editing);
   if (feature.id === 'feature-grev-news') return createNewsTileContent(feature, editing);
   return createGenericContentTile(feature, preferences, editing);
 }
