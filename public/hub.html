@@ -6,7 +6,7 @@
 <title>Content hub · Grev.dad</title>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="/hub.css">
-<link rel="stylesheet" href="/profile-card-popover.css">
+
 </head>
 <body>
 <header><strong>Grev.dad</strong><div><a class="header-link" href="/dashboard">Dashboard</a><a class="header-link" href="/profile">Profile</a><a id="hub-admin-link" class="header-link" href="/admin" hidden>Admin</a><button id="logout">Log out</button></div></header>
@@ -38,6 +38,6 @@
 <form id="hub-status-form"><div class="hub-editor-body"><div class="hub-two-column"><label>Availability<select id="hub-presence-availability"><option value="online">Online</option><option value="away">Away</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label><label>Activity type<select id="hub-presence-type"><option value="none">None</option><option value="playing">Playing</option><option value="listening">Listening</option><option value="watching">Watching</option><option value="working">Working on</option></select></label></div><label>Status message<input id="hub-presence-text" maxlength="160" placeholder="What should people know?"></label><label>Activity<input id="hub-presence-activity" maxlength="160" placeholder="Counter-Strike 2, a project, an album…"></label><label>Automatically clear<input id="hub-presence-expires" type="datetime-local"></label></div><footer><span></span><span></span><button type="button" data-status-close>Cancel</button><button class="primary" type="submit">Save status</button></footer></form>
 </dialog>
 <script src="/hub.js" defer></script>
-<script src="/profile-card-popover.js" defer></script>
+
 </body>
 </html>

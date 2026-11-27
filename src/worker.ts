@@ -25,8 +25,8 @@ const DASHBOARD_ASSETS = new Set([
   '/dashboard.css','/dashboard.js','/dashboard-experience.css','/dashboard-experience.js','/platform-dashboard.css','/platform-dashboard.js','/dashboard-discovery.css','/dashboard-discovery.js','/dashboard-advanced.css','/dashboard-advanced.js','/dashboard-collaboration.css','/dashboard-collaboration.js','/platform-completion.css','/platform-live-quick.js','/dashboard-freeze-fix.js','/dashboard-news-subscriptions.css','/dashboard-news-subscriptions.js','/editor-guidance.css','/editor-guidance.js',
   '/admin-dashboard.js','/admin-centre.js','/admin-centre.css','/feature.js','/profile.css','/profile.js','/profile-card.css','/profile-card.js','/profile-card-baseline.css','/profile-card-baseline.js','/profile-card-main-mount.js','/profile-card-shape-lock.js','/profile-card-tiles.css','/profile-card-tiles.js','/profile-customization.css','/profile-customization.js','/profile-canvas.css','/profile-canvas.js','/profile-tile-save-fix.js','/profile-tile-controller.js','/profile-widgets.js','/profile-widgets.css',
   '/profile-customization-hardening.js','/profile-editor-unified.css','/profile-editor-unified.js','/profile-editor-unified-a11y.js','/profile-editor-focus.css','/profile-editor-focus.js','/profile-experience.css','/profile-experience.js','/profile-guestbook-enhanced.js',
-  '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js',
-  '/news.html','/news.css','/news.js','/admin-news.html','/admin-news.css','/admin-news.js','/grev-dad-logo.svg','/grev-home-logo.png','/lock-screen.js','/lock-screen.css'
+  '/platform-profile.css','/platform-profile.js','/profile-card-popover.css','/profile-card-popover.js','/site-shell.css','/site-shell.js','/grev-ambient.js','/site-platform.css','/site-platform.js','/chat-ui.css','/chat-ui.js','/chat-tabs.css','/chat-tabs.js','/feedback-centre.css','/feedback-centre.js','/hub.html','/hub.css','/hub.js','/members.html','/members.css','/members.js',
+  '/news.html','/news.css','/news.js','/admin-news.html','/admin-news.css','/admin-news.js','/grev-dad-logo.svg','/grev-home-logo.png','/lock-screen.js','/lock-screen.css','/grev-ambient.js','/grev-theme.css'
 ]);
 
 function workerJson(value: unknown, status = 200): Response { return new Response(JSON.stringify(value), { status, headers: {
@@ -44,6 +44,7 @@ async function bundledAsset(request: Request, env: AppEnv, appendedPaths: string
   return new Response(content, { status: baseResponse.status, headers });
 }
 
+const GREV_HOME_INSTALLER_URL = 'https://github.com/Grevyo/Grev-Home/releases/latest/download/GrevHomeSetup.exe';
 const PROFILE_CARD_JS=['/profile-card.js','/profile-card-baseline.js','/profile-card-popover.js'];
 const PROFILE_CARD_CSS=['/profile-card.css','/profile-card-tiles.css','/profile-card-baseline.css','/profile-card-popover.css'];
 
@@ -51,6 +52,10 @@ export default {
   async fetch(request: Request, env: AppEnv): Promise<Response> {
     const url = new URL(request.url);
     const legacyCommunityPage = url.pathname === '/hub' || url.pathname === '/members';
+    // One stable link for every 'Download Grev Home' button: the latest release's installer.
+    if (request.method === 'GET' && url.pathname === '/download/grev-home') {
+      return new Response(null, { status: 302, headers: { Location: GREV_HOME_INSTALLER_URL, 'Cache-Control': 'no-store' } });
+    }
     if (request.method === 'GET' && url.pathname === '/grev-dad-logo-full.png') {
       const assetUrl = new URL('/0E07EA15-2E29-46CD-B7BE-437938DDC552.png', url);
       return (env as unknown as DashboardEnv).ASSETS.fetch(new Request(assetUrl.toString(), request));
@@ -60,14 +65,15 @@ export default {
     if (request.method === 'GET' && url.pathname === '/profile-card-tiles.css') return bundledAsset(request, env, ['/profile-card-baseline.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/dashboard.js') return bundledAsset(request, env, ['/dashboard-experience.js','/platform-dashboard.js','/dashboard-discovery.js','/dashboard-advanced.js','/dashboard-collaboration.js','/platform-live-quick.js','/feedback-centre.js','/dashboard-news-subscriptions.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/dashboard.css') return bundledAsset(request, env, ['/dashboard-experience.css','/platform-dashboard.css','/dashboard-discovery.css','/dashboard-advanced.css','/dashboard-collaboration.css','/platform-completion.css','/feedback-centre.css','/dashboard-news-subscriptions.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') return bundledAsset(request, env, ['/profile-canvas.js','/profile-editor-unified-a11y.js','/profile-experience.js','/platform-profile.js','/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/platform-live-quick.js','/profile-guestbook-enhanced.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/profile-editor-unified.js') return bundledAsset(request, env, ['/profile-canvas.js','/profile-editor-unified-a11y.js','/profile-experience.js','/platform-profile.js','/site-shell.js','/grev-ambient.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/platform-live-quick.js','/profile-guestbook-enhanced.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/profile-editor-unified.css') return bundledAsset(request, env, ['/profile-experience.css','/platform-profile.css','/site-shell.css','/site-platform.css',...PROFILE_CARD_CSS,'/chat-ui.css','/chat-tabs.css','/platform-completion.css','/feedback-centre.css','/profile-canvas.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/admin.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/admin-dashboard.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/feature.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/app.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/styles.css') return bundledAsset(request, env, ['/site-shell.css','/site-platform.css',...PROFILE_CARD_CSS,'/chat-ui.css','/chat-tabs.css','/feedback-centre.css'], 'text/css; charset=utf-8');
-    if (request.method === 'GET' && url.pathname === '/hub.js') return bundledAsset(request, env, ['/site-shell.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/admin.js') return bundledAsset(request, env, ['/site-shell.js','/grev-ambient.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/admin-dashboard.js') return bundledAsset(request, env, ['/site-shell.js','/grev-ambient.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/feature.js') return bundledAsset(request, env, ['/site-shell.js','/grev-ambient.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/app.js') return bundledAsset(request, env, ['/site-shell.js','/grev-ambient.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/styles.css') return bundledAsset(request, env, ['/site-shell.css','/site-platform.css',...PROFILE_CARD_CSS,'/chat-ui.css','/chat-tabs.css','/feedback-centre.css','/grev-theme.css'], 'text/css; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/site-shell.js') return bundledAsset(request, env, ['/grev-ambient.js'], 'application/javascript; charset=utf-8');
+    if (request.method === 'GET' && url.pathname === '/hub.js') return bundledAsset(request, env, ['/site-shell.js','/grev-ambient.js','/site-platform.js',...PROFILE_CARD_JS,'/chat-ui.js','/chat-tabs.js','/feedback-centre.js'], 'application/javascript; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/hub.css') return bundledAsset(request, env, ['/site-shell.css','/site-platform.css',...PROFILE_CARD_CSS,'/chat-ui.css','/chat-tabs.css','/feedback-centre.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && url.pathname === '/members.css') return bundledAsset(request, env, ['/profile-card.css','/profile-card-tiles.css','/profile-card-baseline.css'], 'text/css; charset=utf-8');
     if (request.method === 'GET' && (DASHBOARD_ASSETS.has(url.pathname) || url.pathname.startsWith('/achievement-badges/'))) return (env as unknown as DashboardEnv).ASSETS.fetch(request);

@@ -4,19 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Link Grev Home · Grev.dad</title>
+  <link rel="stylesheet" href="/styles.css">
   <style>
-    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b0d12;color:#f5f7fb}
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at top,#192235 0,#0b0d12 52%)}
-    main{width:min(680px,calc(100% - 32px));box-sizing:border-box;background:#121720;border:1px solid #2d3749;border-radius:22px;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.4)}
-    h1{margin:0 0 8px;font-size:30px} p{color:#aeb8ca;line-height:1.55}.code{font:700 26px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.12em;color:#94b5ff;margin:20px 0}.details{display:grid;gap:10px;margin:22px 0;padding:18px;border-radius:14px;background:#0c1119}.row{display:grid;grid-template-columns:150px 1fr;gap:14px}.label{color:#7f8ba1}.value{overflow-wrap:anywhere}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}button{min-width:150px;border-radius:12px;border:1px solid #42516d;background:#202a3b;color:white;padding:12px 18px;font:600 15px inherit;cursor:pointer}button.primary{background:#4f78d8;border-color:#7197ee}button.danger{border-color:#7a4249;background:#311a1d}button:disabled{opacity:.45;cursor:not-allowed}.status{min-height:24px;margin-top:18px;color:#9db7f5}.error{color:#ff9da5}.success{color:#94ddb0}@media(max-width:560px){main{padding:22px}.row{grid-template-columns:1fr;gap:2px}.actions button{width:100%}}
+    /* Same look as the rest of Grev.dad: square panel, offset shadow, blue glow. */
+    body.link-page{min-height:100vh;display:grid;place-items:center;padding:28px;box-sizing:border-box}
+    .link-panel{width:min(680px,100%);box-sizing:border-box;padding:32px;border:1px solid var(--line-strong);background:var(--panel);box-shadow:14px 14px 0 #000,0 0 80px rgba(125,147,255,.15)}
+    .link-head{display:flex;align-items:center;gap:16px;margin-bottom:6px}
+    .link-head img{width:58px;height:auto;filter:drop-shadow(0 0 12px rgba(125,147,255,.55))}
+    .link-head h1{margin:0;font-size:clamp(1.7rem,4vw,2.2rem);letter-spacing:-.03em;text-shadow:0 0 30px rgba(125,147,255,.3)}
+    .link-panel p{color:var(--muted);line-height:1.6}
+    .link-panel form{margin-top:18px;gap:12px}
+    .link-panel input{font:700 1.1rem ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.14em;text-transform:uppercase}
+    .code{font:800 1.7rem ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.16em;color:var(--accent-strong);margin:18px 0;text-shadow:0 0 18px rgba(125,147,255,.5)}
+    .details{display:grid;gap:10px;margin:20px 0;padding:18px;border:1px solid var(--line);background:var(--panel-3)}
+    .row{display:grid;grid-template-columns:150px 1fr;gap:14px}.label{color:var(--muted)}.value{overflow-wrap:anywhere;font-weight:700}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+    .actions button{min-width:150px;min-height:44px;padding:12px 18px;border:1px solid var(--line-strong);background:#171b22;color:var(--text);font-weight:850;cursor:pointer;transition:transform .12s,box-shadow .12s}
+    .actions button:hover:not(:disabled){transform:translate(-2px,-2px);box-shadow:4px 4px 0 #000}
+    .actions button.primary{background:#f4f6fa;border-color:#f4f6fa;color:#090b0f}
+    .actions button.primary:hover:not(:disabled){box-shadow:4px 4px 0 #000,0 0 26px rgba(125,147,255,.45)}
+    .actions button.danger{border-color:#7a4249;background:#311a1d}
+    .status{min-height:24px;margin-top:18px;color:var(--accent-strong)}.error{color:var(--danger)}.success{color:var(--success)}
+    [hidden]{display:none!important}
+    @media(max-width:560px){.link-panel{padding:22px}.row{grid-template-columns:1fr;gap:2px}.actions button{width:100%}}
   </style>
 </head>
-<body>
-<main>
-  <h1>Link Grev Home</h1>
+<body class="link-page">
+<main class="link-panel">
+  <div class="link-head"><img src="/grev-home-logo.png" alt=""><h1>Link Grev Home</h1></div>
   <form action="/link-grev-home" method="get">
-    <label for="approval-code">Paste the approval code generated in Grev Home</label>
-    <input id="approval-code" name="code" type="text" required maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" style="display:block;box-sizing:border-box;width:100%;padding:14px;margin:12px 0;font:inherit;background:#0c1119;color:white;border:1px solid #7197ee;border-radius:8px">
+    <label for="approval-code" style="display:block">Paste the approval code generated in Grev Home</label>
+    <input id="approval-code" name="code" type="text" required maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <button class="primary" type="submit">Review link</button>
   </form>
   <p>Approve this only if the GrevID and device below belong to you. Grev Home never receives your Grev.dad password or browser session.</p>
@@ -35,6 +53,7 @@
   </div>
   <div id="status" class="status" role="status"></div>
 </main>
+<script src="/grev-ambient.js" defer></script>
 <script>
 const params=new URLSearchParams(location.search),code=(params.get('code')||'').trim().toUpperCase();
 const $=id=>document.getElementById(id),status=$('status'),approve=$('approve'),deny=$('deny');
