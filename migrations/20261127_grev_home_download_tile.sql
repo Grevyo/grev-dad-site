@@ -23,3 +23,27 @@ SELECT p.user_id,'feature-grev-home',
   3,2,'blue',unixepoch(),unixepoch()
 FROM user_dashboard_preferences p
 WHERE NOT EXISTS(SELECT 1 FROM user_dashboard_tiles t WHERE t.user_id=p.user_id AND t.feature_id='feature-grev-home');
+
+-- Saved home-page device layouts replace the tile list above when the dashboard loads, so the
+-- tile is appended to each of them too, again in a new row under the existing tiles.
+UPDATE dashboard_device_layouts
+SET layout_json=json_insert(layout_json,'$.tiles[#]',json_object(
+      'featureId','feature-grev-home','x',0,
+      'y',COALESCE((SELECT MAX(json_extract(t.value,'$.y')+json_extract(t.value,'$.height')) FROM json_each(dashboard_device_layouts.layout_json,'$.tiles') t),0),
+      'width',CASE WHEN device_mode='mobile' THEN 2 ELSE 3 END,'height',2,'colour','blue')),
+    updated_at=unixepoch()
+WHERE page_key='home' AND json_valid(layout_json) AND json_type(layout_json,'$.tiles')='array'
+  AND NOT EXISTS(SELECT 1 FROM json_each(dashboard_device_layouts.layout_json,'$.tiles') t
+                 WHERE json_extract(t.value,'$.featureId')='feature-grev-home' OR json_extract(t.value,'$.sourceFeatureId')='feature-grev-home');
+
+-- An administrator's saved default dashboards seed new accounts instead of the feature defaults,
+-- so they get the tile as well.
+UPDATE dashboard_default_layouts
+SET layout_json=json_insert(layout_json,'$.tiles[#]',json_object(
+      'featureId','feature-grev-home','x',0,
+      'y',COALESCE((SELECT MAX(json_extract(t.value,'$.y')+json_extract(t.value,'$.height')) FROM json_each(dashboard_default_layouts.layout_json,'$.tiles') t),0),
+      'width',CASE WHEN device_mode='mobile' THEN 2 ELSE 3 END,'height',2,'colour','blue')),
+    updated_at=unixepoch()
+WHERE json_valid(layout_json) AND json_type(layout_json,'$.tiles')='array'
+  AND NOT EXISTS(SELECT 1 FROM json_each(dashboard_default_layouts.layout_json,'$.tiles') t
+                 WHERE json_extract(t.value,'$.featureId')='feature-grev-home');
