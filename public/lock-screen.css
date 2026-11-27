@@ -1,0 +1,91 @@
+/* Grev.dad lock screen: shown to signed-out visitors before the log-in page.
+   Hold for 3 seconds (mouse, touch, Space/Enter or controller A) to unlock. */
+.gd-lock-pending .auth-shell{visibility:hidden}
+
+.gd-lock{
+  --gd-hold-size:min(64vw,248px);
+  position:fixed;inset:0;z-index:1000;display:grid;place-items:center;overflow:hidden;
+  color:var(--text,#f3f5f8);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  touch-action:none;
+}
+.gd-shutter{
+  position:absolute;left:0;right:0;height:50.5%;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    var(--bg,#080a0d);
+  background-size:32px 32px;
+  transition:transform .62s cubic-bezier(.77,0,.18,1);
+}
+.gd-shutter.top{top:0;background-position:0 0;border-bottom:1px solid transparent}
+.gd-shutter.bottom{bottom:0;background-position:0 100%;border-top:1px solid transparent}
+.gd-seam{
+  position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;z-index:2;
+  background:var(--accent-strong,#a9b7ff);box-shadow:0 0 18px 2px color-mix(in srgb,var(--accent,#7d93ff) 70%,transparent);
+  transform:scaleX(0);opacity:0;pointer-events:none;
+}
+
+.gd-lock-inner{
+  position:relative;z-index:3;display:grid;justify-items:center;gap:18px;
+  padding:24px max(16px,env(safe-area-inset-left,0px));text-align:center;
+  transition:transform .32s ease,opacity .32s ease,filter .32s ease;
+}
+.gd-lock-logo{width:min(56vw,230px);height:auto;display:block;filter:drop-shadow(4px 4px 0 #000)}
+.gd-clock{
+  font-size:clamp(3.4rem,13vw,6.4rem);font-weight:800;line-height:.95;letter-spacing:-.04em;
+  font-variant-numeric:tabular-nums;margin:6px 0 0;
+}
+.gd-date{margin:0;color:var(--muted,#98a2b0);font-weight:600;letter-spacing:.02em}
+
+.gd-hold{
+  position:relative;width:var(--gd-hold-size);aspect-ratio:1/1;max-width:100%;margin-top:18px;
+  display:grid;place-items:center;padding:0;cursor:pointer;
+  background:color-mix(in srgb,var(--panel,#101318) 88%,transparent);
+  border:1px solid var(--line-strong,#596473);color:var(--text,#f3f5f8);
+  box-shadow:6px 6px 0 #000;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;
+}
+.gd-hold:hover,.gd-hold:focus-visible{border-color:var(--accent,#7d93ff);outline:none}
+.gd-hold:focus-visible{box-shadow:6px 6px 0 #000,0 0 0 3px color-mix(in srgb,var(--accent,#7d93ff) 55%,transparent)}
+.gd-hold.is-holding{transform:translate(3px,3px);box-shadow:3px 3px 0 #000;border-color:var(--accent,#7d93ff)}
+.gd-hold>svg{position:absolute;inset:-1px;width:calc(100% + 2px);height:calc(100% + 2px);overflow:visible;pointer-events:none}
+.gd-hold .gd-trace{fill:none;stroke:var(--accent-strong,#a9b7ff);stroke-width:2.4;stroke-linecap:butt;stroke-linejoin:miter}
+.gd-hold .gd-fill{
+  position:absolute;left:0;right:0;bottom:0;height:0;pointer-events:none;
+  background:linear-gradient(to top,color-mix(in srgb,var(--accent,#7d93ff) 34%,transparent),transparent);
+}
+.gd-hold-body{position:relative;display:grid;justify-items:center;gap:10px;pointer-events:none}
+.gd-lock-icon{width:46px;height:46px}
+.gd-lock-icon .shackle{transform-origin:70% 100%;transition:transform .28s cubic-bezier(.3,1.6,.5,1)}
+.gd-lock.is-open .gd-lock-icon .shackle{transform:translateY(-6px) rotate(24deg)}
+.gd-hold-label{font-weight:800;font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase}
+.gd-hold-count{font-size:.85rem;color:var(--muted,#98a2b0);font-variant-numeric:tabular-nums;min-height:1.2em}
+
+.gd-hint{margin:6px 0 0;color:var(--muted,#98a2b0);font-size:.92rem;line-height:1.6;max-width:34ch}
+.gd-hint kbd{
+  display:inline-grid;place-items:center;min-width:1.7em;padding:1px 6px;margin:0 1px;
+  border:1px solid var(--line-strong,#596473);background:var(--panel-2,#151920);color:var(--text,#f3f5f8);
+  font:700 .8rem/1.4 inherit;box-shadow:2px 2px 0 #000;
+}
+.gd-hint kbd.gd-a{border-radius:50%!important;min-width:1.7em;width:1.7em;padding:0;color:#7be495;border-color:#3e8f57}
+.gd-pad-status{margin:0;font-size:.82rem;color:var(--accent-strong,#a9b7ff);min-height:1.3em}
+
+/* Unlock sequence */
+.gd-lock.is-unlocking .gd-lock-inner{transform:scale(1.12);opacity:0;filter:blur(6px)}
+.gd-lock.is-unlocking .gd-seam{animation:gd-seam .42s cubic-bezier(.2,.8,.2,1) forwards}
+.gd-lock.is-splitting .gd-shutter.top{transform:translateY(-101%);border-bottom-color:var(--accent,#7d93ff)}
+.gd-lock.is-splitting .gd-shutter.bottom{transform:translateY(101%);border-top-color:var(--accent,#7d93ff)}
+.gd-lock.is-splitting .gd-seam{animation:gd-seam-out .3s ease forwards}
+@keyframes gd-seam{0%{transform:scaleX(0);opacity:1}100%{transform:scaleX(1);opacity:1}}
+@keyframes gd-seam-out{to{opacity:0;transform:scaleX(1) scaleY(6)}}
+
+.gd-reveal .auth-shell{animation:gd-rise .7s cubic-bezier(.2,.8,.2,1) .12s both}
+@keyframes gd-rise{from{opacity:0;transform:translateY(26px) scale(.965)}to{opacity:1;transform:none}}
+
+@media (max-height:620px){.gd-lock{--gd-hold-size:min(40vh,200px)}.gd-lock-logo{width:160px}.gd-lock-inner{gap:10px}}
+@media (prefers-reduced-motion:reduce){
+  .gd-shutter,.gd-lock-inner,.gd-hold{transition:opacity .25s ease}
+  .gd-lock.is-unlocking .gd-lock-inner{transform:none;filter:none}
+  .gd-lock.is-unlocking .gd-seam,.gd-lock.is-splitting .gd-seam{animation:none}
+  .gd-lock.is-splitting .gd-shutter.top,.gd-lock.is-splitting .gd-shutter.bottom{transform:none;opacity:0}
+  .gd-reveal .auth-shell{animation:none}
+}

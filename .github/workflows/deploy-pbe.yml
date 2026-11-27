@@ -42,40 +42,20 @@ jobs:
       - name: Configure protected LADMIN account
         run: node scripts/bootstrap-ladmin.mjs
 
-      # Cloud saves need this R2 bucket. If it can't be confirmed or created (the API token needs
-      # the "Workers R2 Storage: Edit" permission), the site still deploys, without cloud saves.
+      # Cloud saves need this R2 bucket. This token may not be allowed to manage R2 (it needs
+      # "Workers R2 Storage: Edit"), so failing to check or create it isn't fatal: the deploy
+      # step still binds the bucket if it exists, and only drops cloud saves if it doesn't.
       - name: Ensure cloud save bucket exists
-        id: saves
         shell: bash
         run: |
           if npx wrangler r2 bucket info grev-dad-saves-pbe >/dev/null 2>&1 || npx wrangler r2 bucket create grev-dad-saves-pbe; then
-            echo "config=wrangler.jsonc" >> "$GITHUB_OUTPUT"
+            echo "R2 bucket grev-dad-saves-pbe is ready."
           else
-            echo "::warning::Couldn't confirm or create the R2 bucket grev-dad-saves-pbe. Deploying without cloud saves; give the Cloudflare API token R2 edit permission (or create the bucket in the dashboard) and redeploy to turn them on."
-            node scripts/wrangler-without-saves.mjs pbe
-            echo "config=wrangler.deploy.json" >> "$GITHUB_OUTPUT"
+            echo "::notice::This API token can't check or create R2 buckets. The deploy will still bind grev-dad-saves-pbe if it already exists."
           fi
 
       - name: Deploy PBE
-        shell: bash
-        run: |
-          set +e
-          output=$(npx wrangler deploy --config "${{ steps.saves.outputs.config }}" --env pbe 2>&1)
-          status=$?
-          printf '%s\n' "$output"
-
-          if [ "$status" -eq 0 ]; then
-            exit 0
-          fi
-
-          if printf '%s\n' "$output" | grep -q "Completion token has already been consumed"; then
-            echo "Cloudflare returned transient completion-token error 100312. Retrying once in 20 seconds."
-            sleep 20
-            npx wrangler deploy --config "${{ steps.saves.outputs.config }}" --env pbe
-            exit $?
-          fi
-
-          exit "$status"
+        run: bash scripts/deploy-worker.sh pbe grev-dad-saves-pbe
 
       - name: Verify LADMIN login end to end
         shell: bash
