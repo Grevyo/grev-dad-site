@@ -82,7 +82,9 @@
   const clockTimer = setInterval(tick, 1000);
 
   // ---- Particle field ------------------------------------------------------------------------
-  const ctx = canvas.getContext('2d');
+  // The particles are decoration: if canvas drawing isn't available the lock still works without them.
+  let ctx = null;
+  try { ctx = canvas.getContext('2d'); } catch {}
   const COLORS = ['125,147,255', '169,183,255', '194,125,255', '69,209,255', '255,255,255'];
   let W = 0, H = 0, DPR = 1;
   const particles = [], sparks = [];
@@ -103,8 +105,10 @@
   const resize = () => {
     DPR = Math.min(2, window.devicePixelRatio || 1);
     W = innerWidth; H = innerHeight;
-    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (ctx) {
+      canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
     const want = Math.min(170, Math.round(W * H / 9000));
     while (particles.length < want) particles.push(spawn(false));
     particles.length = want;
@@ -158,6 +162,7 @@
       if (progress >= 1) unlock();
     }
 
+    if (!ctx) { requestAnimationFrame(frame); return; }
     const k = dt / 16.7, p = done ? 0 : progress, t = target();
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
@@ -252,7 +257,7 @@
     lock.classList.remove('is-holding');
     lock.classList.add('is-open', 'is-bursting');
     padStatus.textContent = 'Unlocked';
-    if (!reduceMotion) { exploding = true; burst(); }
+    if (!reduceMotion && ctx) { exploding = true; burst(); }
 
     const at = reduceMotion ? { zoom: 60, split: 160, reveal: 160, done: 480 } : { zoom: 420, split: 980, reveal: 1080, done: 1950 };
     setTimeout(() => lock.classList.add('is-unlocking'), at.zoom);
