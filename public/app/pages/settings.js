@@ -9,7 +9,7 @@ export async function render(container, ctx) {
     h('header', { class: 'page-head' }, h('div', {}, h('p', { class: 'eyebrow', text: 'Settings' }), h('h1', { text: 'Settings' }))),
     h('div', { class: 'grid-2', style: { alignItems: 'start' } },
       identityPanel(profile, ctx),
-      h('div', { class: 'stack' }, accountPanel(ctx), retroPanel(ra.retroAchievements), friendCodePanel(ctx))));
+      h('div', { class: 'stack' }, lookPanel(), accountPanel(ctx), retroPanel(ra.retroAchievements), friendCodePanel(ctx))));
 }
 
 function identityPanel(profile, ctx) {
@@ -119,4 +119,26 @@ function friendCodePanel(ctx) {
   const copy = h('button', { class: 'btn sm', type: 'button', text: 'Copy', onclick: async () => { try { await navigator.clipboard.writeText(code); toast('Friend code copied'); } catch { toast(code); } } });
   return h('section', { class: 'panel stack' }, h('div', {}, h('h2', { text: 'Friend code' }), h('p', { class: 'muted small', text: 'Share this so people can add you from grev.dad or Grev Home.' })),
     h('div', { class: 'row' }, h('span', { class: 'code', text: code || '—' }), code ? copy : null));
+}
+
+/** Visual effects (grev-ambient.js). Saved on this device and applied straight away. */
+function lookPanel() {
+  const fx = window.GrevEffects;
+  if (!fx) return null;
+  const prefs = fx.get();
+  const pointerOk = fx.supportsPointerEffects();
+  const toggle = (key, label, help, available = true, note = '') => {
+    const input = h('input', { type: 'checkbox', role: 'switch', checked: prefs[key], disabled: !available });
+    input.addEventListener('change', () => fx.set(key, input.checked));
+    return h('label', { class: `switch-row${available ? '' : ' off'}` },
+      h('span', { class: 'grow' }, h('strong', { text: label }), h('span', { text: available ? help : note })),
+      input, h('span', { class: 'switch', 'aria-hidden': 'true' }));
+  };
+  return h('section', { class: 'panel stack' },
+    h('div', {}, h('h2', { text: 'Look and feel' }), h('p', { class: 'muted small', text: 'Saved on this device.' })),
+    h('div', { class: 'list' },
+      toggle('background', 'Animated background', fx.reducedMotion ? 'Shown still, because your device asks for reduced motion.' : 'The drifting grid, glow and dots from the unlock screen, behind every page.'),
+      toggle('cursor', 'Custom cursor', 'A Grev.dad-style pointer that lights up over anything you can click.', pointerOk, 'Only available with a mouse or trackpad.'),
+      toggle('trail', 'Cursor trail', 'A faint trail of dots behind the pointer.', pointerOk && !fx.reducedMotion,
+        fx.reducedMotion ? 'Off, because your device asks for reduced motion.' : 'Only available with a mouse or trackpad.')));
 }
