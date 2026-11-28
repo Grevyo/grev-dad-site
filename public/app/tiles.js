@@ -16,6 +16,51 @@ const CARD_ID = '__card__';
 const FONTS = { system: 'Inter,system-ui,sans-serif', display: 'Impact,"Arial Narrow Bold",sans-serif', mono: 'ui-monospace,Consolas,monospace', serif: 'Georgia,"Times New Roman",serif', rounded: '"Nunito","Segoe UI",system-ui,sans-serif' };
 const DEFAULT_LOOK = { backgroundType: 'solid', backgroundPrimary: '#11161d', backgroundSecondary: '#3157c9', backgroundAngle: 135, backgroundMedia: null, mediaFit: 'cover', mediaOverlay: 'dark', textColour: '#f4f7fb', borderColour: '#394657', fontFamily: 'system' };
 
+const SIZES = [['Small', 1, 1], ['Medium', 2, 2], ['Wide', 4, 2], ['Tall', 2, 3], ['Large', 4, 3], ['Banner', 6, 2]];
+const THEMES = [
+  { name: 'Midnight', type: 'solid', c1: '#11161d', c2: '#3157c9', text: '#f4f7fb', border: '#394657' },
+  { name: 'Grev blue', type: 'gradient', c1: '#16224f', c2: '#3157c9', text: '#ffffff', border: '#5a72e0' },
+  { name: 'Violet', type: 'gradient', c1: '#24133f', c2: '#7d4fd8', text: '#ffffff', border: '#a07cf0' },
+  { name: 'Sunset', type: 'gradient', c1: '#3d1626', c2: '#d9603a', text: '#fff7f0', border: '#f08a5d' },
+  { name: 'Mint', type: 'gradient', c1: '#0c302a', c2: '#23a07c', text: '#f0fff9', border: '#49d6a9' },
+  { name: 'Ember', type: 'solid', c1: '#1c1310', c2: '#d9603a', text: '#ffd9c2', border: '#8a4a32' },
+  { name: 'Paper', type: 'solid', c1: '#f1efe8', c2: '#c9c3b4', text: '#15181d', border: '#c9c3b4' }
+];
+const BASIC_KINDS = [
+  ['text', 'Text', 'A title and a few lines.', 'Aa'], ['link', 'Link', 'A button to any web page.', '↗'],
+  ['media', 'Picture', 'A photo or GIF, with a caption.', '▣'], ['stat', 'Big number', 'One value, shown large.', '#']
+];
+const WIDGET_GLYPHS = { 'recent-games': '▶', 'game-activity': '◉', 'most-played': '★', 'favourite-games': '♥', 'best-friends': '☺', bio: '¶', stats: '▤',
+  achievements: '✦', retroachievements: '◆', 'friends-online': '●', 'grev-home': '⌂', 'cloud-saves': '☁', consoles: '▭', clock: '◷' };
+
+/** The add-tile gallery. Resolves with 'text' | 'link' | 'media' | 'stat' | 'widget:<kind>', or null. */
+function pickKind(widgetKinds) {
+  return new Promise(resolve => {
+    let chosen = null;
+    const card = (value, label, description, glyph, live) => h('button', { type: 'button', class: `tg-kind${live ? ' live' : ''}`, onclick: () => { chosen = value; dialog.close(); } },
+      h('span', { class: 'tg-glyph', text: glyph }), h('strong', { text: label }), h('small', { text: description }));
+    const dialog = h('dialog', { class: 'sheet wide' },
+      h('div', { class: 'sheet-head' }, h('h2', { text: 'Add a tile' }), h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: () => dialog.close() }, icon('close'))),
+      h('div', { class: 'sheet-body' },
+        h('p', { class: 'eyebrow', text: 'Your own' }), h('div', { class: 'tg-gallery' }, BASIC_KINDS.map(([v, l, d, g]) => card(v, l, d, g))),
+        h('p', { class: 'eyebrow', text: 'Live widgets' }), h('div', { class: 'tg-gallery' }, widgetKinds.map(k => card(`widget:${k}`, WIDGET_KINDS[k].label, WIDGET_KINDS[k].description, WIDGET_GLYPHS[k] ?? '✦', true)))));
+    // Arrow keys move between cards, like a console menu.
+    dialog.addEventListener('keydown', (event) => {
+      const cards = [...dialog.querySelectorAll('.tg-kind')];
+      const i = cards.indexOf(document.activeElement);
+      if (i < 0 || !['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
+      event.preventDefault();
+      const perRow = Math.max(1, Math.round(dialog.querySelector('.tg-gallery').clientWidth / cards[0].offsetWidth));
+      const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: perRow, ArrowUp: -perRow }[event.key];
+      cards[Math.max(0, Math.min(cards.length - 1, i + step))].focus();
+    });
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(chosen); });
+    document.body.append(dialog);
+    dialog.showModal();
+    dialog.querySelector('.tg-kind')?.focus();
+  });
+}
+
 const overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 const clone = (v) => JSON.parse(JSON.stringify(v));
 /** Like Element.append, but skips null/false children (native append would print "null"). */
@@ -59,7 +104,7 @@ export function createTileGrid(opts) {
   const draftKey = `grevdad:tiles-draft:${opts.userId}:${opts.mode}`;
   const s = {
     tiles: clone(opts.tiles ?? []), widgets: opts.widgets ?? {}, card: opts.card ? { ...opts.card } : null,
-    editing: false, saved: null, undo: [], redo: [], selected: null, cursor: { x: 0, y: 0 }, held: null, saving: false
+    editing: false, session: 0, saved: null, undo: [], redo: [], selected: null, cursor: { x: 0, y: 0 }, held: null, saving: false
   };
   const root = h('div', { class: 'tg-wrap' });
   const toolbar = h('div', { class: 'tg-toolbar', role: 'toolbar', 'aria-label': 'Tile editor' });
@@ -79,6 +124,7 @@ export function createTileGrid(opts) {
   const firstFree = (w, hgt) => { for (let y = 0; y <= GRID.maxY; y++) for (let x = 0; x + w <= GRID.columns; x++) if (valid({ x, y, width: w, height: hgt })) return { x, y }; return null; };
 
   let cell = 80;
+  let firstDraw = true;
   const narrow = () => grid.clientWidth < 620 && !s.editing;
   const measure = () => {
     const width = grid.clientWidth || opts.host.clientWidth || 800;
@@ -120,7 +166,8 @@ export function createTileGrid(opts) {
       h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Redo', title: 'Redo (Ctrl+Y, RB)', disabled: !s.redo.length, onclick: redo }, icon('redo')),
       h('span', { class: 'tg-grow' }),
       h('button', { class: 'btn ghost', type: 'button', onclick: cancelEditing }, 'Cancel'),
-      h('button', { class: 'btn primary', type: 'button', disabled: s.saving, onclick: save }, s.saving ? 'Saving…' : 'Save'));
+      h('button', { class: 'btn primary', type: 'button', disabled: s.saving, onclick: save }, s.saving ? 'Saving…' : 'Save',
+        s.undo.length && !s.saving ? h('span', { class: 'tg-changes', title: 'Unsaved changes', text: String(s.undo.length) }) : null));
   }
 
   function place(el, rect) {
@@ -132,7 +179,8 @@ export function createTileGrid(opts) {
     measure();
     drawToolbar();
     const flow = narrow();
-    grid.className = `tg${s.editing ? ' editing' : ''}${flow ? ' flow' : ''}`;
+    grid.className = `tg${s.editing ? ' editing' : ''}${flow ? ' flow' : ''}${firstDraw ? ' intro' : ''}`;
+    firstDraw = false;
     const rows = Math.max(s.editing ? bottomRow() + 3 : bottomRow(), s.editing ? 6 : 1);
     grid.style.gridTemplateRows = flow ? '' : `repeat(${rows}, var(--tg-cell))`;
     grid.replaceChildren();
@@ -140,33 +188,50 @@ export function createTileGrid(opts) {
       for (let y = 0; y < rows; y++) for (let x = 0; x < GRID.columns; x++) {
         const c = h('div', { class: 'tg-cell', 'data-x': x, 'data-y': y });
         place(c, { x, y, width: 1, height: 1 });
-        c.addEventListener('click', () => { s.cursor = { x, y }; s.selected = null; draw(); });
-        c.addEventListener('dblclick', () => { s.cursor = { x, y }; addTile({ x, y }); });
+        c.title = 'Add a tile here';
+        c.addEventListener('click', () => { s.cursor = { x, y }; s.selected = null; addTile({ x, y }); });
         grid.append(c);
       }
     }
     const ordered = [...items()].sort((a, b) => a.y - b.y || a.x - b.x);
-    for (const item of ordered) {
+    ordered.forEach((item, index) => {
       const isCard = item.tileId === CARD_ID;
       const el = h('div', { class: `tg-tile${isCard ? ' tg-card' : ''}${s.selected === item.tileId ? ' selected' : ''}${s.held?.id === item.tileId ? ' held' : ''}`,
         role: 'gridcell', 'data-id': item.tileId, tabindex: s.editing ? '-1' : null });
+      el.style.setProperty('--i', String(Math.min(index, 12)));
       if (flow) { el.style.gridColumn = `span ${isCard || item.width >= 4 ? 4 : 2}`; el.style.minHeight = `${Math.min(item.height, 3) * 64}px`; }
       else place(el, item);
       el.append(isCard ? (opts.renderCard?.() ?? h('div')) : tileFace(item, s.widgets[item.tileId]));
       if (s.editing) wireEditing(el, item, isCard);
+      if (s.editing && !isCard && s.selected === item.tileId && !s.held) el.append(tileActions(item));
       grid.append(el);
-    }
+    });
     if (s.editing) {
       const cur = h('div', { class: `tg-cursor${s.held ? (s.held.resizing ? ' resizing' : ' holding') : ''}`, 'aria-hidden': 'true' });
       const target = s.held ? items().find(t => t.tileId === s.held.id) : null;
       place(cur, target ?? { ...s.cursor, width: 1, height: 1 });
       grid.append(cur);
       hint.hidden = false;
-      hint.textContent = s.held
-        ? (s.held.resizing ? 'Resizing: arrows / D-pad change the size. Enter or A to confirm, Esc or B to cancel.' : 'Moving: arrows / D-pad move the tile. Enter or A to drop it, Esc or B to cancel.')
-        : 'Drag tiles to move them and their corner to resize. Keyboard or controller: arrows / D-pad, Enter or A to pick up or add, E or Y to edit, R or X to resize, Delete or View to remove.';
+      hint.replaceChildren(...(s.held
+        ? [h('strong', { text: s.held.resizing ? 'Resizing' : 'Moving' }), keys('←↑↓→', 'D-pad', s.held.resizing ? 'size' : 'move'), keys('Enter', 'A', 'done'), keys('Esc', 'B', 'cancel')]
+        : [h('strong', { text: 'Tips' }), h('span', { text: 'Click an empty square to add a tile · drag to move · drag the corner to resize' }),
+           keys('Enter', 'A', 'pick up / add'), keys('E', 'Y', 'edit'), keys('R', 'X', 'resize'), keys('Del', 'View', 'remove'), keys('Ctrl+Z', 'LB', 'undo')]));
     } else hint.hidden = true;
     if (!s.editing && !items().length) grid.append(h('div', { class: 'empty tg-empty', style: { gridColumn: '1 / -1' } }, h('strong', { text: 'No tiles yet' }), opts.editable ? 'Choose Edit to add your first tile.' : 'Nothing to show here yet.'));
+  }
+
+  /** A shortcut: keyboard key, controller button, what it does. */
+  function keys(key, pad, label) {
+    return h('span', { class: 'tg-key' }, h('kbd', { text: key }), h('kbd', { class: 'pad', text: pad }), label);
+  }
+
+  function tileActions(tile) {
+    const bar = h('div', { class: 'tg-actions' },
+      h('button', { type: 'button', title: 'Edit', 'aria-label': 'Edit tile', onclick: () => editTile(tile) }, icon('edit')),
+      h('button', { type: 'button', title: 'Duplicate', 'aria-label': 'Duplicate tile', onclick: () => duplicateTile(tile) }, icon('plus')),
+      h('button', { type: 'button', class: 'danger', title: 'Remove', 'aria-label': 'Remove tile', onclick: () => removeTile(tile) }, icon('trash')));
+    bar.addEventListener('pointerdown', (e) => e.stopPropagation());
+    return bar;
   }
 
   // --- pointer editing --------------------------------------------------------------------------
@@ -321,7 +386,9 @@ export function createTileGrid(opts) {
   // --- add / edit / remove ----------------------------------------------------------------------
   async function addTile(at) {
     if (s.tiles.length >= GRID.maxTiles) { toast(`You can have up to ${GRID.maxTiles} tiles.`); return; }
-    const tile = await openTileEditor(null, at);
+    const kind = await pickKind(opts.widgetKinds);
+    if (!kind) return;
+    const tile = await openTileEditor(null, at, kind);
     if (!tile) return;
     let spot = at && valid({ ...at, width: tile.width, height: tile.height }) ? at : null;
     if (!spot && at) for (const [w, hh] of [[tile.width, tile.height], [2, 2], [2, 1], [1, 1]]) if (valid({ ...at, width: w, height: hh })) { tile.width = w; tile.height = hh; spot = at; break; }
@@ -344,16 +411,34 @@ export function createTileGrid(opts) {
     draw();
   }
 
-  async function removeTile(tile) {
-    if (!await confirmSheet('Remove this tile?', `"${tile.title || WIDGET_KINDS[tile.widget]?.label || 'Untitled tile'}" will be removed when you save. You can undo this.`, 'Remove')) return;
+  function removeTile(tile) {
     record();
     s.tiles = s.tiles.filter(t => t.tileId !== tile.tileId);
     s.selected = null;
     draw();
+    // Undo only applies to the editing session it came from (see endSession).
+    const session = s.session;
+    toast(`Removed "${tile.title || WIDGET_KINDS[tile.widget]?.label || 'tile'}"`, { action: { label: 'Undo', onClick: () => { if (s.editing && s.session === session) undo(); } } });
   }
 
-  function openTileEditor(existing, at) {
+  function duplicateTile(tile) {
+    if (s.tiles.length >= GRID.maxTiles) { toast(`You can have up to ${GRID.maxTiles} tiles.`); return; }
+    const near = [{ x: tile.x + tile.width, y: tile.y }, { x: tile.x, y: tile.y + tile.height }].find(p => valid({ ...p, width: tile.width, height: tile.height }));
+    const spot = near ?? firstFree(tile.width, tile.height);
+    if (!spot) { toast('There is no room left on the grid.'); return; }
+    record();
+    const copy = { ...clone(tile), tileId: uuid(), x: spot.x, y: spot.y };
+    s.tiles.push(copy);
+    s.selected = copy.tileId; s.cursor = { x: spot.x, y: spot.y };
+    draw();
+  }
+
+  function openTileEditor(existing, at, startKind) {
     const t = existing ? clone(existing) : blankTile();
+    if (!existing && startKind) {
+      if (startKind.startsWith('widget:')) { t.widget = startKind.slice(7); t.tileType = 'text'; const size = WIDGET_KINDS[t.widget]?.size; if (size) [t.width, t.height] = size; }
+      else { t.tileType = startKind; [t.width, t.height] = { text: [2, 2], link: [2, 1], media: [2, 2], stat: [2, 1] }[startKind] ?? [2, 2]; if (startKind === 'media') t.backgroundType = 'media'; }
+    }
     const kinds = opts.widgetKinds;
     const field = (label, control, help) => h('label', { class: 'field' }, label, control, help ? h('small', { text: help }) : null);
     const kindSelect = h('select', { name: 'kind' },
@@ -426,6 +511,7 @@ export function createTileGrid(opts) {
       mediaRow.hidden = !(tileType === 'media' || bgType.value === 'media');
       gradientRow.hidden = bgType.value !== 'gradient' || tileType === 'media';
       bgType.parentElement.hidden = tileType === 'media';
+      for (const b of sizes.children) b.classList.toggle('active', b.dataset.size === `${width.value}x${height.value}`);
       preview.replaceChildren(tileFace(current(), existing && kind === (existing.widget ? `widget:${existing.widget}` : existing.tileType) ? s.widgets[t.tileId] : null));
     }
     kindSelect.addEventListener('change', () => {
@@ -433,10 +519,17 @@ export function createTileGrid(opts) {
       if (!existing && kind.startsWith('widget:')) { const size = WIDGET_KINDS[kind.slice(7)]?.size; if (size) { width.value = size[0]; height.value = size[1]; } }
       refresh();
     });
+    const sizes = h('div', { class: 'tg-presets', role: 'group', 'aria-label': 'Size' }, SIZES.map(([label, w, hh]) =>
+      h('button', { type: 'button', 'data-size': `${w}x${hh}`, onclick: () => { width.value = w; height.value = hh; refresh(); } }, h('span', { class: 'tg-size-icon', style: { width: `${w * 5}px`, height: `${hh * 5}px` } }), label)));
+    const themes = h('div', { class: 'tg-themes', role: 'group', 'aria-label': 'Colour theme' }, THEMES.map(theme =>
+      h('button', { type: 'button', title: theme.name, 'aria-label': theme.name, style: { background: theme.type === 'gradient' ? `linear-gradient(135deg, ${theme.c1}, ${theme.c2})` : theme.c1, borderColor: theme.border },
+        onclick: () => { if (bgType.value !== 'media') bgType.value = theme.type; c1.value = theme.c1; c2.value = theme.c2; angle.value = 135; text.value = theme.text; border.value = theme.border; refresh(); } },
+        h('span', { style: { color: theme.text }, text: 'Aa' }))));
     const body2 = h('div', { class: 'stack' },
       field('Tile type', kindSelect), content,
-      h('div', { class: 'grid-2' }, field('Width (1–6)', width), field('Height (1–4)', height)),
-      h('details', { class: 'tg-look' }, h('summary', { text: 'Look' }),
+      h('div', { class: 'field' }, 'Size', sizes, h('div', { class: 'grid-2' }, field('Width (1–6)', width), field('Height (1–4)', height))),
+      h('div', { class: 'field' }, 'Colour theme', themes),
+      h('details', { class: 'tg-look' }, h('summary', { text: 'More styling' }),
         h('div', { class: 'stack' }, field('Background', bgType), h('div', { class: 'grid-2' }, field('Colour', c1), field('Text colour', text)), gradientRow, mediaRow,
           h('div', { class: 'grid-2' }, field('Border colour', border), field('Font', font)))),
       h('div', {}, h('p', { class: 'eyebrow', text: 'Preview' }), preview));
@@ -454,7 +547,14 @@ export function createTileGrid(opts) {
   }
 
   // --- edit session -----------------------------------------------------------------------------
+  /** Leave edit mode: forget this session's history and drop any Undo toast still on screen. */
+  function endSession() {
+    s.editing = false; s.held = null; s.undo = []; s.redo = []; s.session += 1;
+    document.querySelector('.toast')?.remove();
+  }
+
   function startEditing() {
+    s.session += 1;
     s.saved = snapshot(); s.undo = []; s.redo = []; s.editing = true; s.held = null;
     s.cursor = { x: 0, y: 0 }; s.selected = null;
     const draft = readDraft();
@@ -470,7 +570,7 @@ export function createTileGrid(opts) {
 
   async function cancelEditing() {
     if (s.undo.length && !await confirmSheet('Discard changes?', 'Your tile changes since you started editing will be lost.', 'Discard')) return;
-    restore(s.saved); s.editing = false; s.held = null; banner.hidden = true; clearDraft(); draw();
+    restore(s.saved); endSession(); banner.hidden = true; clearDraft(); draw();
   }
 
   async function save() {
@@ -479,17 +579,20 @@ export function createTileGrid(opts) {
     try {
       const result = await opts.onSave({ tiles: clone(s.tiles), card: s.card ? { ...s.card } : null });
       s.tiles = clone(result.tiles ?? s.tiles); s.widgets = result.widgets ?? s.widgets; if (result.card) s.card = { ...result.card };
-      s.editing = false; s.held = null; banner.hidden = true; clearDraft();
+      endSession(); banner.hidden = true; clearDraft();
       toast('Saved');
     } catch (error) { toast(error.message); }
     finally { s.saving = false; draw(); }
   }
 
+  const onBeforeUnload = (event) => { if (s.editing && s.undo.length) { event.preventDefault(); event.returnValue = ''; } };
+  addEventListener('beforeunload', onBeforeUnload);
+
   draw();
   return {
     setData({ tiles, widgets, card }) { if (s.editing) return; s.tiles = clone(tiles ?? []); s.widgets = widgets ?? {}; s.card = card ? { ...card } : s.card; draw(); },
     get editing() { return s.editing; },
-    destroy() { document.removeEventListener('keydown', onKey); cancelAnimationFrame(padFrame); resizeObserver.disconnect(); clearTimeout(draftTimer); }
+    destroy() { removeEventListener('beforeunload', onBeforeUnload); document.removeEventListener('keydown', onKey); cancelAnimationFrame(padFrame); resizeObserver.disconnect(); clearTimeout(draftTimer); }
   };
 }
 

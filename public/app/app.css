@@ -110,9 +110,9 @@ main.page{max-width:1200px;margin:0 auto;padding:28px var(--gutter) 60px;animati
 .btn.ghost:hover:not(:disabled){border-color:var(--line);box-shadow:none;transform:none}
 .btn.sm{min-height:32px;padding:5px 10px;font-size:.85rem}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-label.field{display:grid;gap:6px;font-weight:700;font-size:.88rem}
-label.field small{font-weight:400;color:var(--muted)}
-input[type=text],input[type=search],input[type=password],input[type=email],input[type=url],input:not([type]),textarea,select{
+label.field,div.field{display:grid;gap:6px;font-weight:700;font-size:.88rem}
+label.field small,div.field small{font-weight:400;color:var(--muted)}
+input[type=text],input[type=search],input[type=password],input[type=email],input[type=url],input[type=number],input:not([type]),textarea,select{
   width:100%;padding:11px 12px;border:1px solid #3b434f;background:#090c10;color:#fff;border-radius:0}
 textarea{min-height:90px;resize:vertical}
 input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent),0 0 16px rgba(125,147,255,.2)}
@@ -168,3 +168,181 @@ dialog.sheet::backdrop{background:rgba(3,4,6,.7);backdrop-filter:blur(3px)}
 .panel.stat{display:grid;gap:2px;padding:14px 16px}
 .panel.stat strong{font-size:1.6rem;line-height:1.1}
 main.page:focus{outline:none}
+
+/* ==== Motion ====
+   One easing and a few keyframes used site-wide. Content reveals as it scrolls in (see motion.js),
+   interactive things lift and glow on hover, and everything stops for prefers-reduced-motion. */
+:root{--ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+@keyframes rise{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(102,217,143,.55)}100%{box-shadow:0 0 0 9px rgba(102,217,143,0)}}
+@keyframes shimmer{from{background-position:-200% 0}to{background-position:200% 0}}
+@keyframes wiggle{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}80%{transform:rotate(5deg)}}
+@keyframes drop{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes sheet-in{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes toast-in{0%{opacity:0;transform:translate(-50%,24px)}60%{transform:translate(-50%,-4px)}100%{opacity:1;transform:translate(-50%,0)}}
+@keyframes sweep{from{transform:translateX(-120%) skewX(-20deg)}to{transform:translateX(220%) skewX(-20deg)}}
+@keyframes glow-pulse{50%{box-shadow:0 0 0 1px var(--accent),0 0 26px rgba(125,147,255,.35)}}
+
+/* Scroll reveal: motion.js adds .rv (hidden) and then .in with a stagger index --i. */
+.rv{opacity:0}
+.rv.in{animation:rise .55s var(--ease) both;animation-delay:calc(var(--i,0) * 55ms)}
+.page-head h1{animation:rise .6s var(--ease) both}
+.page-head .eyebrow{animation:rise .5s var(--ease) both}
+.page-head>*:not(div){animation:rise .6s .1s var(--ease) both}
+
+/* Top bar: the active underline slides, hover underlines grow, counts pop, the bell rings for news. */
+.top-nav a::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);
+  transform:scaleX(0);transition:transform .3s var(--ease),opacity .3s;opacity:.5}
+.top-nav a:hover::after{transform:scaleX(.5)}
+.top-nav a[aria-current="page"]::after{transform:scaleX(1);opacity:1}
+.top-nav a .ico,.bottom-nav a .ico{transition:transform .25s var(--spring)}
+.top-nav a:hover .ico,.bottom-nav a:hover .ico{transform:translateY(-2px) scale(1.12)}
+.nav-count{animation:pop .45s var(--spring) both}
+.icon-btn.has-news .ico{animation:wiggle .9s .4s ease both;transform-origin:50% 10%}
+.menu{animation:drop .22s var(--ease) both;transform-origin:top right}
+.menu a,.menu button{transition:background .15s,padding-left .2s var(--ease)}
+.menu a:hover,.menu button:hover{padding-left:16px}
+.avatar{transition:box-shadow .25s,transform .25s var(--spring)}
+.menu-btn:hover .avatar{box-shadow:0 0 0 2px var(--accent),0 0 18px rgba(125,147,255,.45);transform:scale(1.05)}
+.top-brand img{transition:transform .35s var(--spring),filter .35s}
+.top-brand:hover img{transform:scale(1.05) rotate(-1.5deg);filter:drop-shadow(0 0 20px rgba(125,147,255,.75)) drop-shadow(2px 2px 0 #000)}
+
+/* Buttons: a light sweep across primary and accent buttons on hover, and a press-in. */
+.btn{position:relative;overflow:hidden}
+.btn.primary::after,.btn.accent::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-120%) skewX(-20deg);pointer-events:none}
+.btn.primary:hover:not(:disabled)::after,.btn.accent:hover:not(:disabled)::after{animation:sweep .7s ease}
+.btn:active:not(:disabled){transform:translate(0,0)!important;box-shadow:none!important}
+
+/* Panels and list rows respond to the pointer. */
+.panel{transition:border-color .25s,box-shadow .25s,transform .25s var(--ease)}
+.panel.hoverable:hover,.stat:hover{border-color:var(--line-strong);box-shadow:6px 6px 0 #000,0 0 24px rgba(125,147,255,.1);transform:translate(-2px,-2px)}
+.list-item{transition:background .2s,transform .2s var(--ease)}
+a.list-item:hover{transform:translateX(4px)}
+.tabs button{transition:color .2s,border-color .25s}
+.tabs button:hover{color:var(--text)}
+.dot.on{animation:ring 1.8s ease-out infinite}
+
+/* Loading placeholders shimmer instead of sitting still. */
+.loading{min-height:120px;border:1px solid var(--line);background:linear-gradient(100deg,var(--panel) 30%,var(--panel-2) 50%,var(--panel) 70%);background-size:200% 100%;animation:shimmer 1.4s linear infinite;color:transparent}
+
+/* Dialogs, toasts, chat. */
+dialog.sheet[open]{animation:sheet-in .32s var(--spring) both}
+dialog.sheet[open]::backdrop{animation:fade .25s ease both}
+.toast{animation:toast-in .45s var(--spring) both}
+.bubble{animation:rise .35s var(--ease) both}
+.bubble.mine{transform-origin:right bottom}
+
+/* Tiles: a staggered entrance and a lift on hover when not editing. */
+.tg-tile{animation-delay:calc(var(--i,0) * 50ms)}
+.tg:not(.editing) .tg-tile .tile-face,.tg:not(.editing) .pcard{transition:transform .3s var(--ease),box-shadow .3s}
+.tg:not(.editing) .tg-tile:hover .tile-face,.tg:not(.editing) .tg-tile:hover .pcard{transform:translate(-3px,-3px);box-shadow:9px 9px 0 #000,0 0 28px rgba(125,147,255,.18)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}
+  .rv{opacity:1}
+}
+.toast{display:flex;align-items:center;gap:14px}
+.toast-action{border:0;background:none;color:#3157c9;font-weight:900;cursor:pointer;padding:2px 4px;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
+.toast-action:hover{text-decoration:underline}
+
+/* ==== Grev Home dashboard ==== */
+.gh-hero{position:relative;display:grid;grid-template-columns:1fr minmax(160px,1.3fr) 1fr;align-items:center;gap:16px;padding:28px 24px 20px;overflow:hidden;
+  border:1px solid var(--line-strong);background:radial-gradient(600px 220px at 50% 0%,rgba(125,147,255,.16),transparent 70%),linear-gradient(160deg,#121827,#0b0e13);
+  box-shadow:8px 8px 0 #000;animation:rise .6s var(--ease) both}
+.gh-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(125,147,255,.06) 1px,transparent 1px),linear-gradient(rgba(125,147,255,.06) 1px,transparent 1px);background-size:24px 24px;mask-image:radial-gradient(closest-side,#000,transparent);pointer-events:none}
+.gh-node{position:relative;display:grid;justify-items:center;gap:4px;text-align:center;min-width:0}
+.gh-node strong{font-size:1.05rem}
+.gh-node span{color:var(--muted);font-size:.85rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gh-node-icon{display:grid;place-items:center;width:92px;height:92px;margin-bottom:6px;border:1px solid var(--line-strong);background:var(--panel);box-shadow:5px 5px 0 #000;transition:box-shadow .4s,border-color .4s}
+.gh-node-icon img{width:62px;height:62px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(125,147,255,.5))}
+.gh-node-icon .avatar.lg{width:72px;height:72px}
+.state-live .gh-node-icon{border-color:var(--ok);box-shadow:5px 5px 0 #000,0 0 28px rgba(102,217,143,.3);animation:node-breathe 3s ease-in-out infinite}
+.state-live .gh-node:last-of-type .gh-node-icon{animation-delay:1.5s}
+@keyframes node-breathe{50%{box-shadow:5px 5px 0 #000,0 0 40px rgba(102,217,143,.45)}}
+.gh-link{position:relative;display:grid;justify-items:center;gap:8px;text-align:center}
+.gh-line{position:relative;width:100%;height:4px;background:var(--line);overflow:hidden}
+.gh-line i{position:absolute;top:0;width:18%;height:100%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:flow 2.2s linear infinite}
+.gh-line i:nth-child(2){animation-delay:.55s}.gh-line i:nth-child(3){animation-delay:1.1s}.gh-line i:nth-child(4){animation-delay:1.65s;animation-direction:reverse}
+@keyframes flow{from{left:-20%}to{left:100%}}
+.state-live .gh-line{background:rgba(102,217,143,.25)}
+.state-live .gh-line i{background:linear-gradient(90deg,transparent,var(--ok),transparent)}
+.state-idle .gh-line i{animation-duration:5s;opacity:.55}
+.state-off .gh-line{background:repeating-linear-gradient(90deg,var(--bad) 0 10px,transparent 10px 18px);opacity:.6}
+.state-off .gh-line i{display:none}
+.gh-status{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--line-strong);background:var(--panel);font-weight:800;letter-spacing:.04em;box-shadow:3px 3px 0 #000}
+.gh-status-dot{width:10px;height:10px;border-radius:50%;background:var(--faint)}
+.state-live .gh-status{border-color:#2f6b45;color:var(--ok)}.state-live .gh-status-dot{background:var(--ok);animation:ring 1.6s ease-out infinite}
+.state-idle .gh-status{border-color:#7a6125;color:var(--warn)}.state-idle .gh-status-dot{background:var(--warn)}
+.state-off .gh-status{border-color:#7a4249;color:var(--bad)}.state-off .gh-status-dot{background:var(--bad)}
+.gh-link small{color:var(--muted)}
+.gh-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
+.gh-chip{display:inline-flex;align-items:baseline;gap:6px;padding:5px 10px;border:1px solid var(--line);background:rgba(8,10,13,.6);font:700 .82rem var(--mono)}
+.gh-chip small{font:800 .66rem var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+@media (max-width:700px){.gh-hero{grid-template-columns:1fr 1fr}.gh-link{grid-column:1/-1;order:3}.gh-meta{order:4}.gh-node-icon{width:72px;height:72px}.gh-node-icon img{width:48px;height:48px}}
+
+.gh-stat{position:relative;overflow:hidden}
+.gh-stat strong{font-size:1.9rem;font-variant-numeric:tabular-nums}
+.gh-stat-icon{position:absolute;right:12px;top:12px;color:var(--accent);opacity:.35;transition:opacity .3s,transform .4s var(--spring)}
+.gh-stat-icon .ico{width:30px;height:30px}
+.gh-stat:hover .gh-stat-icon{opacity:.8;transform:rotate(-8deg) scale(1.1)}
+
+.gh-plot{position:relative;padding-top:18px}
+.gh-max{position:absolute;top:0;left:0;font-size:.72rem;color:var(--faint)}
+.gh-bars{display:grid;grid-template-columns:repeat(14,1fr);gap:2px;height:170px;align-items:end;border-top:1px dashed var(--line);border-bottom:1px solid var(--line-strong)}
+.gh-bar-slot{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;cursor:default;outline:none}
+.gh-bar{width:min(70%,22px);background:#7d93ff;border-radius:4px 4px 0 0;transform-origin:bottom;animation:grow .7s var(--ease) both;transition:filter .15s}
+.gh-bar.none{background:var(--line)}
+.gh-bar-slot:hover .gh-bar,.gh-bar-slot:focus-visible .gh-bar{filter:brightness(1.25) drop-shadow(0 0 8px rgba(125,147,255,.6))}
+.gh-day{position:absolute;bottom:-22px;font-size:.7rem;color:var(--muted)}
+.gh-bars{margin-bottom:26px}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.gh-tip{position:absolute;top:0;transform:translate(-50%,-6px);z-index:3;display:grid;gap:2px;padding:7px 10px;background:var(--text);color:var(--bg);font-size:.8rem;white-space:nowrap;box-shadow:4px 4px 0 #000;pointer-events:none}
+
+.gh-sync-icon{display:grid;place-items:center;width:36px;height:36px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--muted)}
+.gh-sync-icon.ok{border-color:#2f6b45;color:var(--ok);background:rgba(102,217,143,.07)}
+
+.gh-top{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.gh-top-row{display:flex;align-items:center;gap:10px}
+.gh-top-row strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gh-rank{display:grid;place-items:center;width:24px;height:24px;background:#1b2550;border:1px solid #3d4f9c;color:var(--accent-strong);font-weight:800;font-size:.78rem}
+.gh-meter{height:6px;margin:6px 0 0 34px;background:var(--panel-3);border:1px solid var(--line)}
+.gh-meter i{display:block;height:100%;background:#7d93ff;transform-origin:left;animation:grow-x .8s var(--ease) both}
+@keyframes grow-x{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+.gh-timeline{list-style:none;margin:0;padding:0 0 0 18px;display:grid;gap:14px;border-left:2px solid var(--line)}
+.gh-timeline li{position:relative;display:grid;gap:2px}
+.gh-timeline li::before{content:"";position:absolute;left:-25px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--panel);border:2px solid var(--accent)}
+.gh-timeline li:first-child::before{background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.gh-timeline .badge{justify-self:start}
+
+.gh-devices{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:12px}
+.gh-card{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);background:var(--panel-2);transition:transform .25s var(--ease),border-color .25s,box-shadow .25s}
+.gh-card:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 #000;border-color:var(--line-strong)}
+.gh-card.online{border-color:#2f6b45}
+.gh-card .grow{display:grid;gap:2px;min-width:0}
+.gh-card-icon{display:grid;place-items:center;width:44px;height:44px;background:#1b2550;border:1px solid #3d4f9c;color:var(--accent-strong)}
+.gh-card.online .gh-card-icon{background:rgba(102,217,143,.08);border-color:#2f6b45;color:var(--ok)}
+.gh-online{display:flex;align-items:center;gap:6px;font-size:.85rem}
+.gh-approve{border-color:var(--accent);animation:glow-pulse 2.4s ease-in-out 3}
+.gh-code-input{font-family:var(--mono)!important;letter-spacing:.14em;text-transform:uppercase;font-size:1.1rem!important}
+.gh-request{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px;border:1px solid var(--accent);background:rgba(125,147,255,.06);animation:rise .4s var(--ease) both}
+.gh-request .grow{display:grid;gap:2px;flex:1;min-width:200px}
+.steps li{position:relative}
+.gh-step-n{display:grid;place-items:center;width:28px;height:28px;margin-bottom:4px;background:var(--accent);color:#06080c;font-weight:900}
+.btn{white-space:nowrap}
+.panel-head{flex-wrap:wrap}
+
+/* Switch rows (Settings › Look and feel). */
+.switch-row{position:relative;display:flex;align-items:center;gap:14px;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.switch-row:last-child{border-bottom:0}
+.switch-row .grow{display:grid;gap:2px;flex:1;min-width:0}
+.switch-row .grow span{color:var(--muted);font-size:.85rem}
+.switch-row input{position:absolute;opacity:0;width:1px;height:1px}
+.switch{position:relative;flex:none;width:46px;height:26px;border:1px solid var(--line-strong);background:var(--panel-3);transition:background .2s,border-color .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;background:var(--muted);box-shadow:2px 2px 0 #000;transition:transform .25s var(--spring,ease),background .2s}
+.switch-row input:checked+.switch{background:#1b2550;border-color:var(--accent)}
+.switch-row input:checked+.switch::after{transform:translateX(20px);background:var(--accent);box-shadow:2px 2px 0 #000,0 0 10px rgba(125,147,255,.6)}
+.switch-row input:focus-visible+.switch{outline:2px solid var(--accent);outline-offset:2px}
+.switch-row.off{opacity:.55;cursor:default}

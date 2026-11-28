@@ -28,7 +28,7 @@ export async function render(container, ctx) {
       label, count ? h('span', { class: 'nav-count', style: { position: 'static', marginLeft: '6px' }, text: count }) : null);
   }));
   const show = async () => {
-    body.replaceChildren(h('div', { class: 'empty', text: 'Loading…' }));
+    body.replaceChildren(h('div', { class: 'loading', 'aria-label': 'Loading' }));
     try { await ({ friends: friendsTab, requests: requestsTab, add: addTab, messages: messagesTab })[tab](body, ctx); }
     catch (error) { body.replaceChildren(h('div', { class: 'empty', text: error.message })); }
   };

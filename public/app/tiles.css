@@ -83,3 +83,46 @@
 .pcard .headline{font-weight:600}
 .pcard .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 .pcard .presence{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}
+
+/* Tiles animate in only when the grid first appears, not on every edit. */
+.tg-tile{animation:none}
+.tg.intro .tg-tile{animation:tg-in .45s var(--ease,cubic-bezier(.2,.8,.2,1)) both;animation-delay:calc(var(--i,0) * 50ms)}
+
+/* Editing: empty squares show a plus, the selected tile gets quick actions. */
+.tg-cell{position:relative;transition:background .15s,border-color .15s}
+.tg-cell::after{content:"+";position:absolute;inset:0;display:grid;place-items:center;font-size:1.6rem;font-weight:300;color:var(--accent);opacity:0;transform:scale(.6);transition:opacity .15s,transform .2s var(--spring,ease)}
+.tg-cell:hover{border-color:rgba(125,147,255,.5)}
+.tg-cell:hover::after{opacity:1;transform:none}
+.tg-actions{position:absolute;top:-14px;right:10px;z-index:7;display:flex;gap:2px;padding:3px;background:var(--panel);border:1px solid var(--accent);box-shadow:4px 4px 0 #000,0 0 18px rgba(125,147,255,.35);animation:pop .3s var(--spring,ease) both}
+.tg-actions button{display:grid;place-items:center;width:30px;height:30px;border:0;background:none;color:var(--text);cursor:pointer}
+.tg-actions button:hover{background:var(--panel-2);color:var(--accent-strong)}
+.tg-actions button.danger:hover{color:var(--bad)}
+.tg-actions .ico{width:16px;height:16px}
+.tg.editing .tg-tile.selected .tile-face{animation:glow-pulse 1.6s ease-in-out infinite}
+.tg-changes{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent);color:#06080c;font-size:.72rem;animation:pop .35s var(--spring,ease)}
+.tg-hint{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 12px;border:1px solid var(--line);background:var(--panel-3)}
+.tg-hint strong{color:var(--accent-strong);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase}
+.tg-key{display:inline-flex;align-items:center;gap:4px;font-size:.82rem}
+.tg-key kbd{font:700 .72rem var(--mono);padding:2px 6px;border:1px solid var(--line-strong);border-bottom-width:2px;background:var(--panel-2);color:var(--text)}
+.tg-key kbd.pad{border-radius:9px;color:var(--accent-strong)}
+
+/* Add-tile gallery. */
+dialog.sheet.wide{width:min(760px,calc(100% - 32px))}
+.tg-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:8px}
+.tg-kind{display:grid;gap:4px;align-content:start;text-align:left;padding:14px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);cursor:pointer;
+  transition:transform .2s var(--spring,ease),border-color .2s,box-shadow .2s;animation:rise .4s var(--ease,ease) both}
+.tg-kind:nth-child(n){animation-delay:calc(var(--n,0) * 30ms)}
+.tg-kind:hover,.tg-kind:focus-visible{transform:translate(-3px,-3px);border-color:var(--accent);box-shadow:5px 5px 0 #000,0 0 20px rgba(125,147,255,.25);outline:none}
+.tg-kind small{color:var(--muted);font-size:.78rem;line-height:1.35}
+.tg-glyph{display:grid;place-items:center;width:38px;height:38px;margin-bottom:4px;font-size:1.2rem;font-weight:800;background:#1b2550;border:1px solid #3d4f9c;color:var(--accent-strong)}
+.tg-kind.live .tg-glyph{background:#2a1d45;border-color:#6b4fb0;color:#d4b8ff}
+
+/* Size presets and colour themes in the tile editor. */
+.tg-presets{display:flex;flex-wrap:wrap;gap:6px}
+.tg-presets button{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);font-weight:700;font-size:.82rem;cursor:pointer;transition:border-color .15s,background .15s}
+.tg-presets button:hover{border-color:var(--accent)}
+.tg-presets button.active{border-color:var(--accent);background:#1b2550;box-shadow:inset 0 0 0 1px var(--accent)}
+.tg-size-icon{display:inline-block;background:var(--accent);opacity:.8}
+.tg-themes{display:flex;flex-wrap:wrap;gap:8px}
+.tg-themes button{width:46px;height:46px;border:2px solid;cursor:pointer;font-weight:800;transition:transform .2s var(--spring,ease),box-shadow .2s}
+.tg-themes button:hover{transform:translateY(-3px) scale(1.06);box-shadow:4px 4px 0 #000}

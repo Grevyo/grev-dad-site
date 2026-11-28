@@ -56,12 +56,14 @@ export function avatar(person, size = '') {
 }
 
 let toastTimer;
-export function toast(message) {
+/** A short message at the bottom of the screen, optionally with one action (e.g. Undo). */
+export function toast(message, { action } = {}) {
   document.querySelector('.toast')?.remove();
-  const el = h('div', { class: 'toast', role: 'status', text: message });
+  const el = h('div', { class: 'toast', role: 'status' }, h('span', { text: message }));
+  if (action) el.append(h('button', { class: 'toast-action', type: 'button', text: action.label, onclick: () => { el.remove(); action.onClick(); } }));
   document.body.append(el);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.remove(), 2600);
+  toastTimer = setTimeout(() => el.remove(), action ? 6000 : 2600);
 }
 
 export function ago(seconds) {
@@ -70,6 +72,7 @@ export function ago(seconds) {
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+  if (diff < 86400 * 2) return 'yesterday';
   if (diff < 86400 * 30) return `${Math.floor(diff / 86400)} days ago`;
   return new Date(seconds * 1000).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
