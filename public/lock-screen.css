@@ -159,3 +159,63 @@
   .gd-lock.is-splitting .gd-shutter.top,.gd-lock.is-splitting .gd-shutter.bottom{transform:none;opacity:0;box-shadow:none}
   .gd-reveal .auth-shell,.gd-reveal .brand-panel,.gd-reveal .auth-card,.gd-reveal .auth-card::after{animation:none}
 }
+
+/* ---- Extra hold effects ---- */
+/* The clock glitches harder as the hold fills (amplitude scales with --p cubed). */
+.gd-lock.is-holding .gd-clock{animation:gd-glitch .16s steps(2,end) infinite}
+@keyframes gd-glitch{
+  0%{transform:translate(0,0);clip-path:inset(0 0 0 0)}
+  25%{transform:translate(calc(var(--p) * var(--p) * var(--p) * 10px),0);clip-path:inset(calc(var(--p) * var(--p) * var(--p) * 10%) 0 calc(var(--p) * var(--p) * var(--p) * 52%) 0)}
+  50%{transform:translate(calc(var(--p) * var(--p) * var(--p) * -8px),0);clip-path:inset(calc(var(--p) * var(--p) * var(--p) * 58%) 0 calc(var(--p) * var(--p) * var(--p) * 6%) 0)}
+  75%{transform:translate(calc(var(--p) * var(--p) * var(--p) * 5px),calc(var(--p) * var(--p) * var(--p) * -2px));clip-path:inset(calc(var(--p) * var(--p) * var(--p) * 30%) 0 calc(var(--p) * var(--p) * var(--p) * 30%) 0)}
+  100%{transform:translate(0,0);clip-path:inset(0 0 0 0)}
+}
+/* A scan line sweeps down the screen while you hold, brighter as it fills. */
+.gd-vignette::after{content:"";position:absolute;left:0;right:0;height:120px;top:-120px;opacity:0;
+  background:linear-gradient(to bottom,transparent,rgba(125,147,255,.16),rgba(169,183,255,.35) 50%,rgba(125,147,255,.16),transparent)}
+.gd-lock.is-holding .gd-vignette::after{opacity:calc(.25 + var(--p) * .75);animation:gd-scan 1.1s linear infinite}
+@keyframes gd-scan{to{top:100%}}
+/* The grid pulses with the hold. */
+.gd-lock.is-holding .gd-grid{animation:gd-grid-drift 18s linear infinite,gd-grid-pulse .5s ease-in-out infinite}
+@keyframes gd-grid-pulse{50%{filter:brightness(calc(1.3 + var(--p) * 1.2))}}
+
+/* ---- Extra unlock effects ---- */
+.gd-lock.is-bursting .gd-clock,.gd-lock.is-bursting .gd-date{opacity:0;transition:opacity .12s ease;animation:none}
+.gd-rays{position:absolute;left:var(--bx);top:var(--by);width:300vmax;height:300vmax;margin:-150vmax 0 0 -150vmax;z-index:6;pointer-events:none;opacity:0;
+  background:repeating-conic-gradient(from 0deg,transparent 0deg 7deg,rgba(169,183,255,.55) 8deg 9.5deg,transparent 10.5deg 18deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0,rgba(0,0,0,.6) 12%,transparent 34%);mask-image:radial-gradient(circle,#000 0,rgba(0,0,0,.6) 12%,transparent 34%)}
+.gd-lock.is-bursting .gd-rays{animation:gd-rays 1.1s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes gd-rays{0%{opacity:0;transform:rotate(0deg) scale(.3)}15%{opacity:1}100%{opacity:0;transform:rotate(38deg) scale(1.35)}}
+.gd-lock.is-bursting{animation:gd-chroma .5s ease-out}
+@keyframes gd-chroma{0%{filter:none}12%{filter:saturate(2.4) hue-rotate(-25deg) brightness(1.35)}30%{filter:saturate(1.6) hue-rotate(18deg)}100%{filter:none}}
+
+/* The logo's flight from the lock screen to the log-in panel. */
+.gd-logo-flight{position:fixed;z-index:1001;margin:0;pointer-events:none;transform-origin:0 0;will-change:transform}
+.brand-panel img.gd-logo-waiting{opacity:0!important}
+.brand-panel img.gd-logo-landed{animation:gd-logo-land .7s ease-out}
+@keyframes gd-logo-land{0%{filter:brightness(2.2) drop-shadow(0 0 30px rgba(169,183,255,1))}100%{filter:none}}
+
+/* ---- The log-in form builds in, piece by piece ---- */
+.gd-reveal .brand-panel h1{animation:gd-title-in .9s .35s cubic-bezier(.2,.8,.2,1) both}
+@keyframes gd-title-in{from{opacity:0;letter-spacing:.35em;filter:blur(8px)}to{opacity:1;filter:none}}
+.gd-reveal .brand-panel .eyebrow,.gd-reveal .brand-panel h1 + p{animation:gd-field-in .6s .55s cubic-bezier(.2,.8,.2,1) both}
+.gd-reveal .auth-card .back-link{animation:gd-field-in .5s .3s both}
+.gd-reveal #login-form>*,.gd-reveal #signup-form>*{animation:gd-field-in .55s cubic-bezier(.2,.8,.2,1) both}
+.gd-reveal #login-form>*:nth-child(1){animation-delay:.38s}
+.gd-reveal #login-form>*:nth-child(2){animation-delay:.46s}
+.gd-reveal #login-form>*:nth-child(3){animation-delay:.54s}
+.gd-reveal #login-form>*:nth-child(4){animation-delay:.62s}
+.gd-reveal #login-form>*:nth-child(5){animation-delay:.70s}
+.gd-reveal #login-form>*:nth-child(6){animation-delay:.78s}
+.gd-reveal #login-form button[type="submit"]{animation:gd-field-in .55s .7s cubic-bezier(.2,.8,.2,1) both,gd-button-pulse 1.4s 1.3s ease-out}
+@keyframes gd-field-in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes gd-button-pulse{0%{box-shadow:0 0 0 0 rgba(169,183,255,.75)}100%{box-shadow:0 0 0 18px rgba(169,183,255,0)}}
+.gd-reveal .auth-switch{animation:gd-field-in .5s .86s both}
+.gd-reveal .grev-home-download{animation:gd-card-in .8s .95s cubic-bezier(.2,.9,.25,1.15) both}
+@keyframes gd-card-in{from{opacity:0;transform:translateX(60px) scale(.96)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .gd-lock.is-holding .gd-clock,.gd-lock.is-holding .gd-vignette::after,.gd-lock.is-holding .gd-grid,.gd-lock.is-bursting,.gd-lock.is-bursting .gd-rays{animation:none}
+  .gd-reveal .brand-panel h1,.gd-reveal .brand-panel .eyebrow,.gd-reveal .brand-panel h1 + p,.gd-reveal .auth-card .back-link,
+  .gd-reveal #login-form>*,.gd-reveal #signup-form>*,.gd-reveal #login-form button[type="submit"],.gd-reveal .auth-switch,.gd-reveal .grev-home-download{animation:none}
+}

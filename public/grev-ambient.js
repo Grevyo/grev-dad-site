@@ -20,7 +20,7 @@
     const COLORS = ['125,147,255', '169,183,255', '194,125,255', '69,209,255', '255,255,255'];
     const particles = [];
     const pointer = { x: -9999, y: -9999 };
-    let W = 0, H = 0, DPR = 1, last = performance.now(), running = false;
+    let W = 0, H = 0, DPR = 1, last = performance.now(), running = false, burstUntil = 0;
 
     const make = () => ({
       x: Math.random() * W, y: Math.random() * H,
@@ -54,7 +54,8 @@
           p.vx += (Math.random() - .5) * .015; p.vy += (Math.random() - .5) * .015;
           p.vx *= .985; p.vy *= .985;
           const sp = Math.hypot(p.vx, p.vy);
-          if (sp > 1.6) { p.vx *= 1.6 / sp; p.vy *= 1.6 / sp; }
+          const cap = performance.now() < burstUntil ? 9 : 1.6;
+          if (sp > cap) { p.vx *= cap / sp; p.vy *= cap / sp; }
           if (sp < .05) { p.vx += (Math.random() - .5) * .1; p.vy -= .03; }
           p.x += p.vx * k; p.y += p.vy * k; p.tw += .02 * k;
           if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
@@ -82,6 +83,16 @@
     addEventListener('resize', resize);
     addEventListener('pointermove', (e) => { pointer.x = e.clientX; pointer.y = e.clientY; }, { passive: true });
     document.addEventListener('pointerleave', () => { pointer.x = pointer.y = -9999; });
+    // The lock screen asks for a burst when it opens: every dot is thrown out from that point and drifts back to rest.
+    addEventListener('grev-ambient-burst', (e) => {
+      if (reduceMotion) return;
+      const bx = e.detail?.x ?? W / 2, by = e.detail?.y ?? H / 2;
+      for (const p of particles) {
+        const dx = p.x - bx, dy = p.y - by, d = Math.hypot(dx, dy) || 1, sp = 3 + Math.random() * 6;
+        p.vx = dx / d * sp; p.vy = dy / d * sp;
+      }
+      burstUntil = performance.now() + 1600;
+    });
     document.addEventListener('visibilitychange', () => { if (document.hidden) running = false; else play(); });
     play();
   };
