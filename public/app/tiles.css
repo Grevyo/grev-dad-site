@@ -1,0 +1,85 @@
+/* Tile grid shared by Home and Profile (public/app/tiles.js), plus the live widget styles. */
+.tg-wrap{display:grid;gap:12px;min-width:0}
+.tg-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tg-sep{width:1px;height:28px;background:var(--line);margin:0 4px}
+.tg-grow{flex:1}
+.tg-banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border:1px solid var(--warn);background:rgba(242,195,94,.08);font-size:.9rem}
+.tg-banner span{flex:1;min-width:200px}
+.tg-hint{color:var(--muted);font-size:.85rem}
+
+.tg{--tg-gap:12px;--tg-cell:72px;position:relative;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));
+  grid-auto-rows:var(--tg-cell);gap:var(--tg-gap);min-width:0}
+.tg.flow{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:auto;grid-auto-flow:row dense}
+.tg.flow .tg-tile{display:flex}
+.tg.flow .tg-tile>*{flex:1;height:auto}
+.tg.flow .tile-widget{overflow:visible}
+.tg.flow .tile-body{overflow:visible}
+.tg-cell{border:1px dashed rgba(125,147,255,.16);background:rgba(125,147,255,.025);cursor:copy}
+.tg-cell:hover{background:rgba(125,147,255,.08)}
+.tg-tile{position:relative;min-width:0;min-height:0;animation:tg-in .35s cubic-bezier(.2,.8,.2,1) both}
+.tg.editing .tg-tile{cursor:grab;touch-action:none;user-select:none}
+.tg.editing .tg-tile.dragging{cursor:grabbing;z-index:5;opacity:.92}
+.tg.editing .tg-tile.dragging .tile-face,.tg.editing .tg-tile.held .tile-face{box-shadow:10px 10px 0 #000,0 0 0 2px var(--accent)}
+.tg.editing .tg-tile.selected .tile-face{outline:2px solid var(--accent);outline-offset:2px}
+.tg.editing .tile-face a{pointer-events:none}
+.tg-resize{position:absolute;right:-4px;bottom:-4px;width:18px;height:18px;background:var(--accent);border:2px solid var(--bg);cursor:nwse-resize;z-index:2;touch-action:none}
+.tg-cursor{pointer-events:none;border:2px solid var(--cyan);box-shadow:0 0 0 4px rgba(69,209,255,.18),0 0 24px rgba(69,209,255,.35);z-index:6;transition:all .12s ease;animation:tg-pulse 1.4s ease-in-out infinite}
+.tg-cursor.holding{border-color:var(--accent);box-shadow:0 0 0 4px rgba(125,147,255,.25)}
+.tg-cursor.resizing{border-color:var(--violet);box-shadow:0 0 0 4px rgba(194,125,255,.25)}
+.tg-empty{align-self:start}
+@keyframes tg-in{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tg-pulse{50%{box-shadow:0 0 0 7px rgba(69,209,255,.08),0 0 30px rgba(69,209,255,.2)}}
+@media (prefers-reduced-motion:reduce){.tg-tile,.tg-cursor{animation:none}.tg-cursor{transition:none}}
+
+.tile-face{position:relative;height:100%;display:flex;flex-direction:column;gap:6px;padding:14px;overflow:hidden;
+  border:1px solid;box-shadow:6px 6px 0 #000;isolation:isolate}
+.tile-face.overlay-dark::before,.tile-face.overlay-light::before{content:"";position:absolute;inset:0;z-index:-1}
+.tile-face.overlay-dark::before{background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.7))}
+.tile-face.overlay-light::before{background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.6))}
+.tile-title{font-size:.95rem;letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+.tile-body{font-size:.9rem;opacity:.9;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+.tile-stat{font-size:clamp(1.6rem,4vw,2.6rem);line-height:1;letter-spacing:-.03em}
+.type-stat{justify-content:center}
+.type-media{justify-content:flex-end}
+.tile-link{margin-top:auto;display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:6px 10px;border:1px solid currentColor;color:inherit;text-decoration:none;font-size:.85rem;font-weight:600}
+.tile-link:hover{background:rgba(255,255,255,.08)}
+.tile-widget{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
+.tg-preview{height:180px;max-width:360px}
+.tg-look summary{cursor:pointer;font-weight:600;padding:4px 0}
+.tg-look[open] summary{margin-bottom:10px}
+
+/* Widgets */
+.w-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.w-list li{display:grid;min-width:0}
+.w-list strong,.w-list span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.w-list li>span,.w-sub{font-size:.8rem;opacity:.7}
+.w-empty{font-size:.85rem;opacity:.7}
+.w-stack{display:grid;gap:8px;align-content:start}
+.w-now{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.w-person{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;min-width:0}
+.w-person:hover strong{text-decoration:underline}
+.w-grow{flex:1;min-width:0;display:grid}
+.w-grow span{font-size:.8rem;opacity:.7}
+.w-headline{font-size:1.05rem}
+.w-bio{font-size:.9rem;white-space:pre-wrap;opacity:.9}
+.w-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin:0}
+.w-stats dt{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;opacity:.65}
+.w-stats dd{margin:0;font-weight:700;font-size:1.1rem}
+.w-ra{display:grid}
+.w-ra span{font-size:.85rem;opacity:.75}
+.w-gh{display:flex;gap:14px;align-items:center;height:100%}
+.w-gh img{width:64px;height:64px;object-fit:contain;flex:none}
+.w-big{font-size:2.2rem;line-height:1}
+.w-clock{display:grid;align-content:center;height:100%}
+.w-clock strong{font-size:clamp(1.6rem,3.6vw,2.4rem);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
+.w-clock span{font-size:.85rem;opacity:.75}
+
+/* Profile card (the fixed 4×6 tile) */
+.pcard{height:100%;display:flex;flex-direction:column;gap:12px;padding:20px;background:linear-gradient(160deg,#151a24,#0c0f14);
+  border:1px solid var(--line-strong);box-shadow:8px 8px 0 #000;overflow:hidden}
+.pcard .avatar.lg{width:96px;height:96px;font-size:2rem}
+.pcard h1{font-size:1.6rem}
+.pcard .handle{color:var(--muted)}
+.pcard .headline{font-weight:600}
+.pcard .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+.pcard .presence{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}

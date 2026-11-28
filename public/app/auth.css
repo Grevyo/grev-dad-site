@@ -1,0 +1,39 @@
+/* Sign-in pages (log in, sign up) on the v2 design system. Class names match lock-screen.js. */
+body.auth-page{display:grid;place-items:center;min-height:100vh;padding:28px var(--gutter)}
+.auth-shell{position:relative;width:min(1080px,100%);display:grid;grid-template-columns:1.05fr .95fr;border:1px solid var(--line-strong);
+  background:var(--panel);box-shadow:14px 14px 0 #000,0 0 90px rgba(125,147,255,.16);overflow:hidden;animation:shell-in .6s cubic-bezier(.2,.8,.2,1) both}
+.auth-shell::after{content:"";position:absolute;inset:-1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(169,183,255,.75),transparent) top/60% 1px no-repeat;animation:edge-run 6s linear infinite}
+@keyframes edge-run{0%{background-position:-60% 0}100%{background-position:160% 0}}
+@keyframes shell-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.brand-panel{position:relative;min-height:600px;display:flex;flex-direction:column;justify-content:center;padding:64px;border-right:1px solid var(--line-strong);
+  background:linear-gradient(135deg,transparent 0 58%,rgba(125,147,255,.12) 58% 60%,transparent 60%),#0c1016}
+.brand-panel::before{content:"";position:absolute;top:0;left:0;width:96px;height:6px;background:var(--accent)}
+.brand-panel img{display:block;width:min(100%,400px);height:auto;margin:0 0 24px;filter:drop-shadow(0 0 14px rgba(125,147,255,.45)) drop-shadow(3px 3px 0 #000)}
+.brand-panel h1{margin:4px 0 18px;font-size:clamp(3rem,7vw,5.4rem);line-height:.92;letter-spacing:-.055em;text-shadow:0 0 34px rgba(125,147,255,.35)}
+.brand-panel>p:last-child{color:var(--muted);line-height:1.7;max-width:40ch}
+.auth-card{padding:42px;align-self:center;display:grid;gap:16px}
+.auth-card h2{font-size:1.9rem}
+.auth-card form{display:grid;gap:15px}
+.auth-card form>p{color:var(--muted);line-height:1.5;margin-top:-6px}
+.auth-card label{display:grid;gap:7px;font-size:.88rem;font-weight:800}
+.auth-card label.check{display:flex;align-items:center;gap:9px;font-weight:600;color:var(--muted)}
+.auth-card label.check input{width:17px;height:17px}
+.auth-card .optional{font-weight:400;color:var(--muted)}
+.auth-card button[type=submit]{min-height:46px;border:1px solid #f4f6fa;background:#f4f6fa;color:#090b0f;font-weight:900;cursor:pointer;transition:transform .12s,box-shadow .12s}
+.auth-card button[type=submit]:hover,.auth-card button[type=submit]:focus-visible{transform:translate(-2px,-2px);box-shadow:4px 4px 0 #000,0 0 26px rgba(125,147,255,.45);outline:none}
+.auth-card button[type=submit]:disabled{opacity:.6;cursor:wait;transform:none;box-shadow:none}
+#message{min-height:1.4em;font-size:.9rem;color:var(--bad)}
+.auth-switch{color:var(--muted);font-size:.92rem}
+.back-link{font-weight:800;text-decoration:none}
+.grev-home-download{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid rgba(125,147,255,.55);
+  background:linear-gradient(120deg,rgba(49,87,201,.22),rgba(194,125,255,.10) 60%,rgba(8,10,13,.4));color:var(--text);text-decoration:none;transition:transform .12s,box-shadow .12s}
+.grev-home-download:hover,.grev-home-download:focus-visible{transform:translate(-2px,-2px);box-shadow:4px 4px 0 #000;outline:none;border-color:var(--accent-strong)}
+.grev-home-download::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 35%,rgba(169,183,255,.18) 50%,transparent 65%);transform:translateX(-120%);animation:sweep-loop 5.5s ease-in-out infinite}
+@keyframes sweep-loop{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+.grev-home-download img{flex:none;width:52px;height:auto;filter:drop-shadow(0 0 10px rgba(125,147,255,.55))}
+.grev-home-download>span{display:grid;gap:3px}
+.grev-home-download small{color:var(--muted);font-size:.82rem;line-height:1.4}
+.grev-home-download .gh-cta{justify-self:start;margin-top:6px;padding:4px 9px;border:1px solid rgba(169,183,255,.7);color:#fff;font-weight:800;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;background:rgba(125,147,255,.18)}
+@media (max-width:860px){.auth-shell{grid-template-columns:1fr}.brand-panel{min-height:auto;padding:36px 28px;border-right:0;border-bottom:1px solid var(--line-strong)}.brand-panel h1{font-size:3rem}.auth-card{padding:28px}}
+@media (prefers-reduced-motion:reduce){.auth-shell,.auth-shell::after,.grev-home-download::after{animation:none}}

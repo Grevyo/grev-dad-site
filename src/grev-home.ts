@@ -912,6 +912,11 @@ export async function handleGrevHomeRequest(request: Request, env: GrevHomeEnv):
   if (path === '/api/grev-home/me' && request.method === 'GET') return deviceMe(request, env);
   if (path === '/api/grev-home/token/revoke' && request.method === 'POST') return revokeCurrentToken(request, env);
   if (path === '/api/grev-home/link/revoke' && request.method === 'POST') return revokeLink(request, env);
+  return dispatchSocialRoute(request, env, context, path);
+}
+
+/** Friends, friend requests, member search, presence and activity, for an already-authenticated caller. */
+async function dispatchSocialRoute(request: Request, env: GrevHomeEnv, context: DeviceContext, path: string): Promise<Response> {
   if (path === '/api/grev-home/presence' && ['GET','PUT'].includes(request.method)) return devicePresence(request, env, context);
   if (path === '/api/grev-home/friends' && request.method === 'GET') return friendList(env, context);
   if (path === '/api/grev-home/friends/lookup' && request.method === 'GET') return friendCodeLookup(request, env, context);
@@ -928,4 +933,35 @@ export async function handleGrevHomeRequest(request: Request, env: GrevHomeEnv):
   if (friendRemove && request.method === 'DELETE') return removeFriend(env, context, friendRemove[1]!);
 
   return json({ ok:false, message:'Unknown Grev Home API route.' }, 404);
+}
+
+/**
+ * The website's friends API (grev.dad v2): the same friends, friend requests, member search and
+ * presence handlers Grev Home uses, authenticated by the browser session instead of a device token.
+ * /api/v2/{friends|friend-requests|users|presence}... maps onto /api/grev-home/... . Writes must be
+ * same-origin. Device-only actions (activity reporting, presence heartbeats) are not exposed.
+ */
+export async function handleWebSocialRequest(request: Request, env: GrevHomeEnv): Promise<Response | null> {
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/api\/v2\/((?:friends|friend-requests|users|presence)(?:\/.*)?)$/);
+  if (!match) return null;
+  if (request.method !== 'GET' && !sameOrigin(request)) return json({ ok:false, message:'Origin rejected.' }, 403);
+  const user = await getBrowserUser(request, env);
+  if (!user) return json({ ok:false, message:'Authentication required.' }, 401);
+  const rest = match[1]!;
+  if (rest.startsWith('presence') && request.method !== 'GET') return json({ ok:false, message:'Method not allowed.' }, 405);
+  const context: DeviceContext = { tokenId:'', linkId:'', grevId:'', localUsername:user.username, localDisplayName:user.displayName, user };
+  const devicePath = `/api/grev-home/${rest}`;
+  const forwarded = new Request(new URL(devicePath + url.search, url).toString(), request);
+  return dispatchSocialRoute(forwarded, env, context, devicePath);
+}
+
+/** The signed-in browser user, or null. */
+export async function sessionUser(request: Request, env: GrevHomeEnv) {
+  return getBrowserUser(request, env);
+}
+
+/** This member's friend code, creating one if they have none yet. */
+export async function friendCodeFor(env: GrevHomeEnv, userId: string): Promise<string> {
+  return ensureFriendCode(primaryDatabase(env), userId);
 }

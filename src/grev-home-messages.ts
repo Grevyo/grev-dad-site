@@ -1,4 +1,4 @@
-import { getDeviceContext, type GrevHomeEnv } from './grev-home';
+import { getDeviceContext, sessionUser, type GrevHomeEnv } from './grev-home';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
@@ -48,11 +48,25 @@ export async function handleGrevHomeMessages(request: Request, env: GrevHomeEnv)
   if (!url.pathname.startsWith('/api/grev-home/messages')) return null;
   const context = await getDeviceContext(request, env);
   if (!context) return json({ok:false,message:'Link authentication required.'},401);
+  return messagesRoute(request, env, context.user.id, context.user.displayName, url.pathname.replace('/api/grev-home/messages', ''));
+}
+
+/** The website's messages API (/api/v2/messages...): the same conversations, signed in by session. */
+export async function handleWebMessages(request: Request, env: GrevHomeEnv): Promise<Response|null> {
+  const url = new URL(request.url);
+  if (url.pathname !== '/api/v2/messages' && !url.pathname.startsWith('/api/v2/messages/')) return null;
+  const user = await sessionUser(request, env);
+  if (!user) return json({ok:false,message:'Authentication required.'},401);
+  return messagesRoute(request, env, user.id, user.displayName, url.pathname.replace('/api/v2/messages', ''));
+}
+
+/** sub is '' for the conversation list, or '/{otherUserId}' / '/{otherUserId}/read'. */
+async function messagesRoute(request: Request, env: GrevHomeEnv, actor: string, actorName: string, sub: string): Promise<Response> {
+  const url = new URL(request.url);
   const origin = request.headers.get('Origin');
   if (request.method !== 'GET' && origin && origin !== url.origin) return json({ok:false,message:'Origin rejected.'},403);
   const db = env.DB.withSession('first-primary');
-  const actor = context.user.id;
-  if (url.pathname === '/api/grev-home/messages' && request.method === 'GET') {
+  if (sub === '' && request.method === 'GET') {
     const rows = await db.prepare(`SELECT r.id roomId,u.id userId,u.display_name displayName,
       (SELECT COUNT(*) FROM chat_messages m WHERE m.room_id=r.id AND m.sender_user_id<>?
         AND m.deleted_at IS NULL AND m.created_at>COALESCE(a.last_read_at,0)) unread
@@ -65,7 +79,7 @@ export async function handleGrevHomeMessages(request: Request, env: GrevHomeEnv)
     for (const row of rows.results) if (await canMessage(db,actor,row.userId)) conversations.push(row);
     return json({ok:true,conversations});
   }
-  const match = url.pathname.match(/^\/api\/grev-home\/messages\/([0-9a-f-]{36})(\/read)?$/i);
+  const match = sub.match(/^\/([0-9a-f-]{36})(\/read)?$/i);
   if (!match) return json({ok:false,message:'Unknown messaging route.'},404);
   const other = match[1]!;
   if (!await canMessage(db,actor,other)) return json({ok:false,message:'Messaging is only available between active, unblocked friends.'},403);
@@ -116,8 +130,8 @@ export async function handleGrevHomeMessages(request: Request, env: GrevHomeEnv)
     db.prepare(`INSERT OR IGNORE INTO notifications(id,recipient_user_id,actor_user_id,notification_type,title,body,target_url,metadata_json,created_at)
       SELECT ?,?,?,'chat.message',?,'New private message',?,?,? WHERE EXISTS(
         SELECT 1 FROM chat_messages WHERE id=? AND room_id=? AND sender_user_id=? AND body=?)`)
-      .bind(`home-message-${id}`,other,actor,`New message from ${context.user.displayName}`,
-        `/dashboard#chat-${roomId}`,JSON.stringify({roomId,messageId:id}),now,id,roomId,actor,body)
+      .bind(`home-message-${id}`,other,actor,`New message from ${actorName}`,
+        `/friends/${actor}`,JSON.stringify({roomId,messageId:id}),now,id,roomId,actor,body)
   ]);
   const stored = await db.prepare('SELECT room_id,sender_user_id,body FROM chat_messages WHERE id=?')
     .bind(id).first<{room_id:string;sender_user_id:string;body:string}>();

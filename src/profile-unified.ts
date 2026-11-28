@@ -759,3 +759,18 @@ export async function handleWebProfileWidgetsRequest(request: Request, env: Unif
   if (extras) return await handleProfileExtras(request, env, viewer.id, extras[1]!) ?? json({ ok: false, message: 'Not found.' }, 404);
   return json({ ok: false, message: 'Method not allowed.' }, 405);
 }
+
+/** Widget data for tiles the owner is looking at themselves (the v2 Home page). */
+export async function resolveOwnerWidgets(env: UnifiedProfileEnv, ownerId: string, tiles: TileLike[]) {
+  const viewer: Viewer = { id: ownerId, isVerified: true, isAdmin: false };
+  const [publicCard, identity] = await Promise.all([
+    readPublicCardOptions(env.DB, ownerId),
+    readCanonicalIdentity(env.DB as unknown as IdentityDatabase, ownerId, null)
+  ]);
+  return resolveWidgets({ env, ownerId, relationship: 'self', viewer, publicCard }, tiles, identity);
+}
+
+/** /favourites, /best-friends and /retroachievements for an already-authenticated website user. */
+export async function handleProfileExtrasFor(request: Request, env: UnifiedProfileEnv, userId: string, rest: string) {
+  return handleProfileExtras(request, env, userId, rest);
+}

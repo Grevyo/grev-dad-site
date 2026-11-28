@@ -8,8 +8,8 @@ on:
       - 'src/profile.ts'
       - 'src/grev-home-sync.ts'
       - 'src/shared/**'
-      - 'public/profile.js'
-      - 'public/profile-tile-controller.js'
+      - 'src/site-api.ts'
+      - 'public/app/**'
       - 'scripts/verify-profile-tile-contract.mjs'
       - 'scripts/verify-profile-tile-sync.mjs'
       - 'scripts/verify-profile-tile-controller.mjs'
@@ -21,8 +21,8 @@ on:
       - 'src/profile.ts'
       - 'src/grev-home-sync.ts'
       - 'src/shared/**'
-      - 'public/profile.js'
-      - 'public/profile-tile-controller.js'
+      - 'src/site-api.ts'
+      - 'public/app/**'
       - 'scripts/verify-profile-tile-contract.mjs'
       - 'scripts/verify-profile-tile-sync.mjs'
       - 'scripts/verify-profile-tile-controller.mjs'
@@ -59,8 +59,7 @@ jobs:
 
       - name: Browser script syntax
         run: |
-          node --check public/profile.js
-          node --check public/profile-tile-controller.js
+          for file in public/app/*.js public/app/pages/*.js public/lock-screen.js public/grev-ambient.js; do node --check "$file"; done
 
       - name: Verify the profile tile grid contract, sync and controller flow
         run: npm run verify:profile-tiles
