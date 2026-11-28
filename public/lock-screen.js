@@ -1,25 +1,25 @@
-// Grev.dad lock screen for signed-out visitors (on / and /login).
+// Grev.dad lock screen for signed-out visitors (on / and /login, which both show the log-in form).
 // Hold for 2 seconds to unlock: mouse or touch press, Space/Enter, or A on a controller (Gamepad API).
 // Grev Home's in-app browser presses A as a single click, so a click that no pointer or key held
 // (event.detail === 0) runs the same 2-second unlock by itself.
 //
 // The whole screen reacts to the hold: a particle field drifts at rest, then streams into the
 // button, the grid zooms and brightens, the glow closes in and the screen trembles near the end.
-// Unlocking fires a flash, a shockwave and a particle burst, then the screen splits open.
+// Lightning arcs reach in from the edges and a ring of light orbits and tightens round the button.
+// Unlocking fires a flash, light rays, a shockwave and a particle burst, shatters the clock, splits
+// the screen open and flies the logo into its place on the log-in panel, while the form builds in.
 (() => {
   const HOLD_MS = 2000;
   const DRAIN_MS = 500;
-  const HANDOFF_KEY = 'grevdad:unlocked-at';
   const root = document.documentElement;
-  const onLanding = location.pathname === '/';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const release = () => root.classList.remove('gd-lock-pending');
 
-  // Unlocking on the landing page continues straight to /login; don't lock that page again.
-  let handoff = 0;
-  try { handoff = Number(sessionStorage.getItem(HANDOFF_KEY)) || 0; sessionStorage.removeItem(HANDOFF_KEY); } catch {}
-  if (!onLanding && Date.now() - handoff < 15000) {
+  // Coming back from the sign-up page you've already unlocked: just build the form in.
+  let fromSignup = false;
+  try { const ref = new URL(document.referrer); fromSignup = ref.origin === location.origin && ref.pathname === '/signup'; } catch {}
+  if (fromSignup) {
     release();
     root.classList.add('gd-reveal');
     document.querySelector('#login-form input[name="identifier"]')?.focus({ preventScroll: true });
@@ -40,6 +40,7 @@
     <div class="gd-seam" aria-hidden="true"></div>
     <div class="gd-flash" aria-hidden="true"></div>
     <div class="gd-shock" aria-hidden="true"></div>
+    <div class="gd-rays" aria-hidden="true"></div>
     <div class="gd-lock-inner">
       <img class="gd-lock-logo" src="/grev-dad-logo-full.png" alt="Grev.dad">
       <p class="gd-clock" aria-hidden="true"></p>
@@ -87,7 +88,9 @@
   try { ctx = canvas.getContext('2d'); } catch {}
   const COLORS = ['125,147,255', '169,183,255', '194,125,255', '69,209,255', '255,255,255'];
   let W = 0, H = 0, DPR = 1;
-  const particles = [], sparks = [];
+  const particles = [], sparks = [], arcs = [];
+  const orbit = Array.from({ length: 48 }, (_, i) => ({ a: i / 48 * Math.PI * 2, r: Math.random() * .25 + .9, c: COLORS[i % COLORS.length] }));
+  let spin = 0;
   const target = () => {
     const r = button.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -132,6 +135,30 @@
     }
   };
 
+  // A jagged bolt from a random point on the screen edge to the button.
+  const bolt = (t) => {
+    const side = Math.floor(Math.random() * 4);
+    let x = side === 0 ? 0 : side === 1 ? W : Math.random() * W;
+    let y = side === 2 ? 0 : side === 3 ? H : Math.random() * H;
+    const pts = [[x, y]], steps = 12;
+    for (let i = 1; i <= steps; i++) {
+      const f = i / steps, jitter = (1 - f) * 38;
+      pts.push([x + (t.x - x) * f + (Math.random() - .5) * jitter, y + (t.y - y) * f + (Math.random() - .5) * jitter]);
+    }
+    arcs.push({ pts, life: 1, c: COLORS[Math.floor(Math.random() * 4)] });
+  };
+
+  // The clock breaks into sparks that fly out from where its digits were.
+  const shatter = (el, count) => {
+    const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    for (let i = 0; i < count; i++) {
+      const x = r.left + Math.random() * r.width, y = r.top + r.height * (.15 + Math.random() * .7);
+      const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1, sp = Math.random() * 7 + 2;
+      sparks.push({ x, y, px: x, py: y, vx: dx / d * sp + (Math.random() - .5) * 2, vy: dy / d * sp - Math.random() * 3,
+        r: Math.random() * 2 + .8, c: COLORS[Math.floor(Math.random() * COLORS.length)], life: 1, decay: Math.random() * .014 + .01 });
+    }
+  };
+
   // ---- Hold state -----------------------------------------------------------------------------
   const holders = new Set();
   let progress = 0, last = performance.now(), done = false, alive = true, exploding = false;
@@ -155,9 +182,11 @@
 
   const frame = (now) => {
     if (!alive) return;
-    const dt = Math.min(48, now - last); last = now;
+    // The hold is timed in real time, so a slow device still unlocks after 2 seconds; only the
+    // particle motion uses a capped step.
+    const real = Math.min(250, now - last), dt = Math.min(48, real); last = now;
     if (!done) {
-      progress = holders.size ? Math.min(1, progress + dt / HOLD_MS) : Math.max(0, progress - dt / DRAIN_MS);
+      progress = holders.size ? Math.min(1, progress + real / HOLD_MS) : Math.max(0, progress - real / DRAIN_MS);
       draw();
       if (progress >= 1) unlock();
     }
@@ -190,6 +219,28 @@
       } else {
         ctx.fillStyle = `rgba(${q.c},${alpha})`;
         ctx.beginPath(); ctx.arc(q.x, q.y, q.r * (1 + p), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // Lightning, more of it the longer you hold.
+    if (!done && !reduceMotion && holders.size && Math.random() < p * p * .55) bolt(t);
+    for (let i = arcs.length - 1; i >= 0; i--) {
+      const arc = arcs[i];
+      arc.life -= .11 * k;
+      if (arc.life <= 0) { arcs.splice(i, 1); continue; }
+      for (const [width, alpha] of [[6, .12], [2.4, .35], [1, .95]]) {
+        ctx.strokeStyle = `rgba(${arc.c},${alpha * arc.life})`; ctx.lineWidth = width;
+        ctx.beginPath(); arc.pts.forEach(([x, y], j) => j ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+      }
+    }
+    // A ring of light orbiting the button, tightening and speeding up as the hold fills.
+    if (p > 0 && !reduceMotion) {
+      const r0 = button.getBoundingClientRect().width * .5;
+      spin += (.01 + p * .12) * k;
+      const radius = r0 * (2.4 - p * 1.2);
+      for (const o of orbit) {
+        const ang = o.a + spin * o.r, rr = radius * o.r;
+        ctx.fillStyle = `rgba(${o.c},${Math.min(1, p * 1.4)})`;
+        ctx.beginPath(); ctx.arc(t.x + Math.cos(ang) * rr, t.y + Math.sin(ang) * rr * .92, 1.2 + p * 2, 0, Math.PI * 2); ctx.fill();
       }
     }
     for (let i = sparks.length - 1; i >= 0; i--) {
@@ -247,6 +298,30 @@
   };
 
   // ---- Unlock sequence ------------------------------------------------------------------------
+  // The lock screen's logo flies to the log-in panel's logo and lands in its place.
+  const flyLogo = (delay, duration) => {
+    const from = $('.gd-lock-logo'), to = document.querySelector('.brand-panel img');
+    if (!from || !to || reduceMotion || !from.animate) return;
+    const a = from.getBoundingClientRect();
+    const clone = from.cloneNode(true);
+    clone.className = 'gd-logo-flight';
+    Object.assign(clone.style, { left: `${a.left}px`, top: `${a.top}px`, width: `${a.width}px`, height: `${a.height}px` });
+    to.classList.add('gd-logo-waiting');
+    setTimeout(() => {
+      document.body.append(clone);
+      from.style.visibility = 'hidden';
+      // Measured as the panel will sit once its rise has finished.
+      const b = to.getBoundingClientRect(), scale = b.width / a.width;
+      const dx = b.left - a.left, dy = b.top - a.top;
+      const flight = clone.animate([
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', filter: 'drop-shadow(0 0 0 rgba(125,147,255,0))' },
+        { transform: `translate(${dx * .35}px,${dy * .35 - 70}px) scale(${(1 + scale) / 2 * 1.25}) rotate(-6deg)`, filter: 'drop-shadow(0 0 40px rgba(169,183,255,1))', offset: .45 },
+        { transform: `translate(${dx}px,${dy}px) scale(${scale}) rotate(0deg)`, filter: 'drop-shadow(0 0 14px rgba(125,147,255,.6))' }
+      ], { duration, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' });
+      flight.onfinish = () => { to.classList.remove('gd-logo-waiting'); to.classList.add('gd-logo-landed'); clone.remove(); };
+    }, delay);
+  };
+
   function unlock() {
     if (done) return;
     done = true; holders.clear(); progress = 1; draw();
@@ -257,22 +332,20 @@
     lock.classList.remove('is-holding');
     lock.classList.add('is-open', 'is-bursting');
     padStatus.textContent = 'Unlocked';
-    if (!reduceMotion && ctx) { exploding = true; burst(); }
-
-    const at = reduceMotion ? { zoom: 60, split: 160, reveal: 160, done: 480 } : { zoom: 420, split: 980, reveal: 1080, done: 1950 };
-    setTimeout(() => lock.classList.add('is-unlocking'), at.zoom);
-    if (onLanding) {
-      setTimeout(() => {
-        try { sessionStorage.setItem(HANDOFF_KEY, String(Date.now())); } catch {}
-        lock.classList.add('is-splitting');
-        setTimeout(() => location.assign('/login'), reduceMotion ? 200 : 520);
-      }, at.split);
-      return;
+    if (!reduceMotion && ctx) {
+      exploding = true; burst(); arcs.length = 0;
+      for (let i = 0; i < 6; i++) bolt(t);
+      shatter(clock, 260); shatter(date, 60);
     }
+
+    const at = reduceMotion ? { zoom: 60, split: 160, reveal: 160, done: 480 } : { zoom: 420, split: 980, reveal: 1080, done: 2300 };
+    flyLogo(at.zoom - 60, at.reveal + 800 - at.zoom + 60);
+    setTimeout(() => lock.classList.add('is-unlocking'), at.zoom);
     setTimeout(() => lock.classList.add('is-splitting'), at.split);
     setTimeout(() => {
       shell?.removeAttribute('inert'); shell?.removeAttribute('aria-hidden');
       root.classList.add('gd-reveal');
+      window.dispatchEvent(new CustomEvent('grev-ambient-burst', { detail: { x: innerWidth / 2, y: innerHeight / 2 } }));
     }, at.reveal);
     setTimeout(() => {
       alive = false; removeEventListener('resize', resize); lock.remove();

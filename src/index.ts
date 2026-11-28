@@ -304,7 +304,7 @@ export default{async fetch(request:Request,env:Env):Promise<Response>{
   try{
     if(path.startsWith('/api/'))response=await handleApi(request,env,path);
     else if(['/styles.css','/app.js','/admin.js','/favicon.svg'].includes(path))response=await env.ASSETS.fetch(assetRequest(request,path));
-    else if(path==='/')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/index.html'));
+    else if(path==='/')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/login.html'));
     else if(path==='/login')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/login.html'));
     else if(path==='/signup')response=(await getSessionUser(request,env))?redirect('/dashboard'):await env.ASSETS.fetch(assetRequest(request,'/signup.html'));
     else if(path==='/dashboard')response=(await getSessionUser(request,env))?await env.ASSETS.fetch(assetRequest(request,'/dashboard.html')):redirect('/login');
