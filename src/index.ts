@@ -74,7 +74,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
       env.DB.prepare(`INSERT INTO audit_events(id,event_type,target_type,target_id,metadata_json,created_at) VALUES(?,'account.registered','user',?,'{}',?)`).bind(crypto.randomUUID(),id,now)
     ]);}catch{return json({ok:false,message:'That username or email is already in use.'},{status:409});}
     const created=await createSession(env,id,false,request.headers.get('User-Agent'));
-    return json({ok:true,next:'/dashboard',message:'Account created. Complete your account setup from the dashboard.'},{status:201,headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
+    return json({ok:true,next:'/home',message:'Account created. Welcome to Grev.dad.'},{status:201,headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
   }
 
   if(path==='/api/auth/login'&&request.method==='POST'){
@@ -82,7 +82,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
     const row=await env.DB.prepare(`SELECT u.id,u.status,c.password_iterations,c.password_salt,c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE lower(u.username)=? OR (u.email IS NOT NULL AND lower(u.email)=?)`).bind(identifier,identifier).first<{id:string;status:string;password_iterations:number;password_salt:string;password_hash:string}>();
     if(!row||row.status!=='active'||!(await verifyPassword(password,row.password_salt,row.password_hash,row.password_iterations)))return json({ok:false,message:'Invalid username/email or password.'},{status:401});
     const created=await createSession(env,row.id,remember,request.headers.get('User-Agent'));
-    return json({ok:true,next:'/dashboard'},{headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
+    return json({ok:true,next:'/home'},{headers:{'Set-Cookie':sessionCookie(created.token,created.maxAge,usesSecureCookies(env))}});
   }
 
   if(path==='/api/auth/logout'&&request.method==='POST'){
@@ -163,7 +163,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
     statements.push(env.DB.prepare(`INSERT INTO user_onboarding(user_id,intentions_completed_at,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET intentions_completed_at=excluded.intentions_completed_at,updated_at=excluded.updated_at`).bind(user.id,now,now));
     statements.push(audit(env,user.id,'account.intentions_updated','user',user.id,{intentionIds},now));
     await env.DB.batch(statements);
-    return json({ok:true,next:'/dashboard',message:'Your Grev.dad interests and account groups have been updated.'});
+    return json({ok:true,next:'/home',message:'Your Grev.dad interests and account groups have been updated.'});
   }
 
   if(path==='/api/intentions'&&request.method==='GET'){
@@ -186,7 +186,7 @@ async function handleApi(request:Request,env:Env,path:string):Promise<Response>{
       statements.push(env.DB.prepare(`INSERT OR IGNORE INTO group_memberships(group_id,user_id,assigned_by,assigned_at) SELECT group_id,?,?,? FROM intention_group_grants WHERE intention_id=?`).bind(user.id,user.id,now,intentionId));
     }
     if(requestedIds.length){statements.push(audit(env,user.id,'account.intentions_selected','user',user.id,{intentionIds:requestedIds},now));await env.DB.batch(statements);}
-    return json({ok:true,next:'/dashboard',message:requestedIds.length?'Your intentions have been saved and the matching areas have been added.':'You can choose intentions later from your dashboard.'});
+    return json({ok:true,next:'/home',message:requestedIds.length?'Your intentions have been saved and the matching areas have been added.':'You can choose intentions later from your dashboard.'});
   }
 
   if(path==='/api/admin/summary'&&request.method==='GET'){

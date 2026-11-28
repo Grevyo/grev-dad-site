@@ -1,4 +1,4 @@
-import existingWorker from './worker';
+import siteWorker from './site-worker';
 import { handleGrevHomeMessages } from './grev-home-messages';
 import { handleGrevHomeBrowserAccountRequest } from './grev-home-browser-account';
 import { handleGrevHomeCapabilitiesRequest } from './grev-home-capabilities';
@@ -29,7 +29,7 @@ type ExistingWorker = {
   ) => Promise<void>;
 };
 
-const delegate = existingWorker as unknown as ExistingWorker;
+const delegate = siteWorker as unknown as ExistingWorker;
 
 function workerJson(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
@@ -108,28 +108,11 @@ export default {
       }
     }
 
+    // Grev Home opens /link-grev-home?code=… to approve a console; approval now lives on the Grev Home page.
     if (request.method === 'GET' && url.pathname === '/link-grev-home') {
-      if (!await isBrowserAuthenticated(request, env)) {
-        const login = new URL('/login', url);
-        login.searchParams.set('next', `${url.pathname}${url.search}`);
-        return Response.redirect(login.toString(), 303);
-      }
-
-      const assetUrl = new URL('/link-grev-home.html', url);
-      assetUrl.search = url.search;
-      return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      return new Response(null, { status: 302, headers: { Location: `/grev-home${url.search}`, 'Cache-Control': 'no-store' } });
     }
 
     return delegate.fetch(request, env);
-  },
-
-  async scheduled(
-    controller: unknown,
-    env: AppEnv,
-    ctx: { waitUntil(promise: Promise<unknown>): void }
-  ): Promise<void> {
-    if (delegate.scheduled) {
-      await delegate.scheduled(controller, env, ctx);
-    }
   }
 };

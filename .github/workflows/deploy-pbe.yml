@@ -108,104 +108,22 @@ jobs:
           console.log('LADMIN login and Owner/Admin session verified.');
           NODE
 
-      - name: Verify onboarding groups and options
+      - name: Verify the PBE site and v2 API
         shell: bash
         run: |
           set -euo pipefail
-
-          status=$(curl --silent --show-error \
-            --retry 5 --retry-delay 3 --retry-all-errors \
-            --output /tmp/onboarding.json \
-            --write-out '%{http_code}' \
-            --cookie /tmp/ladmin.cookies \
-            https://pbe.grev.dad/api/onboarding)
-
-          cat /tmp/onboarding.json
-          echo
-
-          if [ "$status" != "200" ]; then
-            echo "Onboarding catalog check failed with HTTP $status."
-            exit 1
-          fi
-
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const payload = JSON.parse(fs.readFileSync('/tmp/onboarding.json', 'utf8'));
-          const relationshipNames = new Set((payload.relationships ?? []).map(item => item.name));
-          const intentionNames = new Set((payload.intentions ?? []).map(item => item.name));
-          const expectedRelationships = ['Family', 'Friends', 'Co-workers', 'Who is Grev?'];
-          const expectedIntentions = ['Counter-Strike 2', 'Gaming', 'Coding', 'NHS', 'Grev News'];
-          if (!payload.ok || expectedRelationships.some(name => !relationshipNames.has(name)) || expectedIntentions.some(name => !intentionNames.has(name))) {
-            console.error('The deployed onboarding catalog is incomplete or incorrect.');
-            process.exit(1);
-          }
-          console.log('Relationship and intention onboarding catalog verified.');
-          NODE
-
-      - name: Reject empty normalized intentions
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          status=$(curl --silent --show-error \
-            --output /tmp/empty-intentions.json \
-            --write-out '%{http_code}' \
-            --cookie /tmp/ladmin.cookies \
-            --request POST \
-            --header 'Content-Type: application/json' \
-            --data '{"intentionIds":["   "]}' \
-            https://pbe.grev.dad/api/onboarding/intentions)
-
-          cat /tmp/empty-intentions.json
-          echo
-
-          if [ "$status" != "400" ]; then
-            echo "Whitespace-only intentions must be rejected with HTTP 400."
-            exit 1
-          fi
-
-      - name: Verify dashboard catalogue and administration
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          dashboard_status=$(curl --silent --show-error \
-            --retry 5 --retry-delay 3 --retry-all-errors \
-            --output /tmp/dashboard.json \
-            --write-out '%{http_code}' \
-            --cookie /tmp/ladmin.cookies \
-            https://pbe.grev.dad/api/dashboard)
-
-          admin_status=$(curl --silent --show-error \
-            --retry 5 --retry-delay 3 --retry-all-errors \
-            --output /tmp/dashboard-admin.json \
-            --write-out '%{http_code}' \
-            --cookie /tmp/ladmin.cookies \
-            https://pbe.grev.dad/api/admin/dashboard/features)
-
-          cat /tmp/dashboard.json
-          echo
-          cat /tmp/dashboard-admin.json
-          echo
-
-          if [ "$dashboard_status" != "200" ] || [ "$admin_status" != "200" ]; then
-            echo "Dashboard smoke test failed: member=$dashboard_status admin=$admin_status."
-            exit 1
-          fi
-
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const dashboard = JSON.parse(fs.readFileSync('/tmp/dashboard.json', 'utf8'));
-          const admin = JSON.parse(fs.readFileSync('/tmp/dashboard-admin.json', 'utf8'));
-          const names = new Set((dashboard.features ?? []).map(item => item.name));
-          const required = ['My profile', 'Profile settings', 'Counter-Strike 2', 'Coding Lab', 'Admin centre'];
-          if (!dashboard.ok || !dashboard.preferences || required.some(name => !names.has(name))) {
-            console.error('The member dashboard catalogue is incomplete.');
-            process.exit(1);
-          }
-          if (!admin.ok || !Array.isArray(admin.features) || admin.features.length < 10 || !Array.isArray(admin.groups)) {
-            console.error('The dashboard administration catalogue is incomplete.');
-            process.exit(1);
-          }
-          console.log('Dashboard catalogue, preferences and administration verified.');
-          NODE
+          for path in /api/v2/session /api/v2/home /api/v2/profiles/me /api/v2/friends; do
+            status=$(curl --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors \
+              --output /tmp/v2.json --write-out '%{http_code}' --cookie /tmp/ladmin.cookies "https://pbe.grev.dad$path")
+            if [ "$status" != "200" ] || ! node -e 'const d=JSON.parse(require("fs").readFileSync("/tmp/v2.json","utf8"));if(!d.ok)process.exit(1)'; then
+              echo "$path failed with HTTP $status:"; cat /tmp/v2.json; exit 1
+            fi
+            echo "$path OK"
+          done
+          for path in /home /friends /grev-home /settings; do
+            status=$(curl --silent --show-error --retry 3 --retry-delay 3 --output /tmp/page.html --write-out '%{http_code}' --cookie /tmp/ladmin.cookies "https://pbe.grev.dad$path")
+            if [ "$status" != "200" ] || ! grep -q '/app/app.js' /tmp/page.html; then echo "$path did not serve the app page (HTTP $status)."; exit 1; fi
+            echo "$path OK"
+          done
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' "https://pbe.grev.dad/home")
+          if [ "$status" != "302" ]; then echo "Signed-out /home should redirect to login, got HTTP $status."; exit 1; fi

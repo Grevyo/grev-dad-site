@@ -1,11 +1,23 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in · Grev.dad</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/lock-screen.css"><script>document.documentElement.classList.add('gd-lock-pending');setTimeout(function(){document.documentElement.classList.remove('gd-lock-pending')},4000)</script></head>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Log in · Grev.dad</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/app/app.css"><link rel="stylesheet" href="/app/auth.css"><link rel="stylesheet" href="/lock-screen.css">
+<script>document.documentElement.classList.add('gd-lock-pending');setTimeout(function(){document.documentElement.classList.remove('gd-lock-pending')},4000)</script>
+</head>
 <body class="auth-page">
 <main class="auth-shell">
-<section class="brand-panel"><img src="/grev-dad-logo-full.png" alt="Grev.dad" style="display:block;width:min(100%,420px);height:auto;object-fit:contain;margin:0 0 24px"><p class="eyebrow">Welcome back</p><h1>Log in</h1><p>Use your current username or an email address attached to your account.</p></section>
-<section class="auth-card"><form id="login-form"><h2>Member login</h2><label>Username or email<input name="identifier" required autocomplete="username"></label><label>Password<input name="password" type="password" required autocomplete="current-password"></label><label class="check"><input name="rememberMe" type="checkbox"> Keep me signed in</label><button type="submit">Log in</button></form><p id="message" role="status"></p><p class="auth-switch">No account yet? <a href="/signup">Create one</a></p><a class="grev-home-download" href="/download/grev-home"><img src="/grev-home-logo.png" alt="Grev Home logo" width="52" height="55"><span><strong>Looking for the Grev Home download?</strong><small>Turn a Windows PC into a controller-first console, linked to your Grev.dad account.</small><span class="gh-cta">Download for Windows</span></span></a></section>
+<section class="brand-panel"><img src="/grev-dad-logo-full.png" alt="Grev.dad" width="400" height="140"><p class="eyebrow">Welcome back</p><h1>Log in</h1><p>Your Grev Home profile, friends, games and saves, online.</p></section>
+<section class="auth-card">
+<form id="login-form"><h2>Member login</h2><label>Username or email<input name="identifier" required autocomplete="username"></label><label>Password<input name="password" type="password" required autocomplete="current-password"></label><label class="check"><input name="rememberMe" type="checkbox"> Keep me signed in</label><button type="submit">Log in</button></form>
+<p id="message" role="alert"></p>
+<p class="auth-switch">No account yet? <a href="/signup">Create one</a></p>
+<a class="grev-home-download" href="/download/grev-home"><img src="/grev-home-logo.png" alt="Grev Home logo" width="52" height="55"><span><strong>Looking for the Grev Home download?</strong><small>Turn a Windows PC into a controller-first console, linked to your Grev.dad account.</small><span class="gh-cta">Download for Windows</span></span></a>
+</section>
 </main>
-<script src="/app.js" defer></script>
+<script src="/grev-ambient.js" defer></script>
+<script src="/app/auth.js" defer></script>
 <script src="/lock-screen.js" defer></script>
 </body></html>
