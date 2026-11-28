@@ -161,7 +161,8 @@ async function conversation(container, ctx, userId) {
     if (changed) {
       draw();
       const last = messages.at(-1);
-      if (last && last.senderUserId !== me) { api(`/api/v2/messages/${userId}/read`, { method: 'POST', body: { messageId: last.id } }).then(() => ctx.refreshSession()).catch(() => {}); }
+      // Mark everything shown as read, even when the newest message is our own (sent elsewhere).
+      if (last) { api(`/api/v2/messages/${userId}/read`, { method: 'POST', body: { messageId: last.id } }).then(() => ctx.refreshSession()).catch(() => {}); }
     }
   };
   try { await load(); } catch (error) { log.replaceChildren(h('p', { class: 'msg bad', text: error.message })); form.hidden = true; return; }

@@ -115,10 +115,15 @@ async function render() {
   try {
     const module = await found.route.load();
     if (token !== state.renderToken) return;
-    page.replaceChildren();
+    // Each render gets its own container, so a slow page that finishes after the visitor has moved on
+    // only touches a detached element, and its cleanup runs straight away.
+    const view = h('div', { class: 'view' });
+    page.replaceChildren(view);
     page.style.animation = 'none'; void page.offsetWidth; page.style.animation = '';
-    state.cleanup = await module.render(page, { session: state.session, params: found.params, query: new URLSearchParams(location.search), navigate, refreshSession, toast });
-    if (token === state.renderToken) page.focus({ preventScroll: true });
+    const cleanup = await module.render(view, { session: state.session, params: found.params, query: new URLSearchParams(location.search), navigate, refreshSession, toast });
+    if (token !== state.renderToken) { if (typeof cleanup === 'function') { try { cleanup(); } catch {} } return; }
+    state.cleanup = cleanup;
+    page.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   } catch (error) {
     console.error(error);

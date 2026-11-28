@@ -52,11 +52,11 @@ export function tileFace(tile, widgetData) {
 }
 
 /**
- * opts: host, mode ('home'|'profile'), editable, tiles, widgets, card ({x,y} or null), renderCard(),
+ * opts: host, userId (scopes saved drafts to the signed-in account), mode ('home'|'profile'), editable, tiles, widgets, card ({x,y} or null), renderCard(),
  * widgetKinds (ids offered in the editor), onSave({tiles, card}) → {tiles, widgets, card}.
  */
 export function createTileGrid(opts) {
-  const draftKey = `grevdad:tiles-draft:${opts.mode}`;
+  const draftKey = `grevdad:tiles-draft:${opts.userId}:${opts.mode}`;
   const s = {
     tiles: clone(opts.tiles ?? []), widgets: opts.widgets ?? {}, card: opts.card ? { ...opts.card } : null,
     editing: false, saved: null, undo: [], redo: [], selected: null, cursor: { x: 0, y: 0 }, held: null, saving: false

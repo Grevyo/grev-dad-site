@@ -26,7 +26,7 @@ export async function render(container, ctx) {
     host);
 
   const grid = createTileGrid({
-    host, mode: 'profile', editable: profile.isSelf,
+    host, userId: ctx.session.user.id, mode: 'profile', editable: profile.isSelf,
     tiles: profile.tiles, widgets: profile.widgets ?? {},
     card: { x: profile.preferences?.cardX ?? 0, y: profile.preferences?.cardY ?? 0 },
     widgetKinds: PROFILE_WIDGETS,

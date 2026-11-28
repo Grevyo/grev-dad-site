@@ -18,7 +18,7 @@ export async function render(container, ctx) {
 
   const data = await api('/api/v2/home');
   const grid = createTileGrid({
-    host, mode: 'home', editable: true, tiles: data.tiles, widgets: data.widgets, card: null, widgetKinds: HOME_WIDGETS,
+    host, userId: user.id, mode: 'home', editable: true, tiles: data.tiles, widgets: data.widgets, card: null, widgetKinds: HOME_WIDGETS,
     onSave: async ({ tiles }) => api('/api/v2/home', { method: 'PUT', body: { tiles } })
   });
   // Live widgets (friends online, consoles) refresh in the background while you're not editing.
