@@ -138,7 +138,7 @@ function lookPanel() {
     h('div', {}, h('h2', { text: 'Look and feel' }), h('p', { class: 'muted small', text: 'Saved on this device.' })),
     h('div', { class: 'list' },
       toggle('background', 'Animated background', fx.reducedMotion ? 'Shown still, because your device asks for reduced motion.' : 'The drifting grid, glow and dots from the unlock screen, behind every page.'),
-      toggle('cursor', 'Custom cursor', 'A Grev.dad-style pointer that lights up over anything you can click.', pointerOk, 'Only available with a mouse or trackpad.'),
+      toggle('cursor', 'Custom cursor', 'An arrow pointer in Grev.dad colours that glows over anything you can click.', pointerOk, 'Only available with a mouse or trackpad.'),
       toggle('trail', 'Cursor trail', 'A faint trail of dots behind the pointer.', pointerOk && !fx.reducedMotion,
         fx.reducedMotion ? 'Off, because your device asks for reduced motion.' : 'Only available with a mouse or trackpad.')));
 }

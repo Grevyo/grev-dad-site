@@ -1,8 +1,8 @@
 // Grev.dad ambient effects, loaded on every page (sign-in pages and the app):
 //  - Animated background: the unlock screen's look behind every page — a slowly drifting grid,
 //    a soft glow that follows the pointer, twinkling dots nudged aside by the pointer, and a vignette.
-//  - Custom cursor: an app-style square ring and dot that turn into a glowing diamond over anything
-//    clickable. Text fields keep the normal text cursor.
+//  - Custom cursor: an arrow pointer in the site's colours that glows violet over anything clickable.
+//    Text fields keep the normal text cursor.
 //  - Cursor trail: a very faint scatter of the background's dots and streaks behind the pointer.
 // Each can be turned off in Settings (stored per device). The cursor and trail only run with a mouse
 // or trackpad; for prefers-reduced-motion the background is drawn still and the trail stays off.
@@ -53,15 +53,16 @@ html.gx-bg{background-image:radial-gradient(1100px 620px at 50% -12%,rgba(125,14
 @media (prefers-reduced-motion:reduce){.gx-grid,.gx-glow{animation:none}}
 .gd-cursor-on,.gd-cursor-on *{cursor:none!important}
 .gd-cursor-on input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=range]),.gd-cursor-on textarea,.gd-cursor-on [contenteditable=true]{cursor:text!important}
-.gd-cursor{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;opacity:0;transition:opacity .2s}
+.gd-cursor{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;opacity:0;transition:opacity .2s;will-change:transform}
 .gd-cursor.show{opacity:1}
-.gd-cursor-dot{width:6px;height:6px;margin:-3px 0 0 -3px;background:#a9b7ff;box-shadow:0 0 8px rgba(125,147,255,.9)}
-.gd-cursor-ring{width:26px;height:26px;margin:-13px 0 0 -13px}
-.gd-cursor-ring i{position:absolute;inset:0;border:1.5px solid rgba(125,147,255,.85);box-shadow:3px 3px 0 rgba(0,0,0,.8),0 0 14px rgba(125,147,255,.25);transition:transform .25s cubic-bezier(.34,1.56,.64,1),border-color .2s,background .2s,box-shadow .2s}
-.gd-cursor-ring.link i{transform:rotate(45deg) scale(1.35);border-color:#c27dff;background:rgba(194,125,255,.08);box-shadow:0 0 18px rgba(194,125,255,.45)}
-.gd-cursor-ring.down i{transform:scale(.7)}
-.gd-cursor-ring.link.down i{transform:rotate(45deg) scale(1)}
 .gd-cursor.text{opacity:0!important}
+.gd-cursor svg{display:block;width:22px;height:27px;overflow:visible;transform-origin:2px 2px;transition:transform .2s cubic-bezier(.34,1.56,.64,1),filter .2s;
+  filter:drop-shadow(2px 2px 0 rgba(0,0,0,.85)) drop-shadow(0 0 6px rgba(125,147,255,.55))}
+.gd-cursor .gd-fill-link{opacity:0;transition:opacity .2s}
+.gd-cursor.link svg{transform:rotate(-10deg) scale(1.08);filter:drop-shadow(2px 2px 0 rgba(0,0,0,.85)) drop-shadow(0 0 10px rgba(194,125,255,.8))}
+.gd-cursor.link .gd-fill-link{opacity:1}
+.gd-cursor.down svg{transform:scale(.86)}
+.gd-cursor.link.down svg{transform:rotate(-10deg) scale(.94)}
 .grev-trail{position:fixed;inset:0;width:100%;height:100%;z-index:2147483646;pointer-events:none}`;
   document.head.append(style);
 
@@ -176,46 +177,47 @@ html.gx-bg{background-image:radial-gradient(1100px 620px at 50% -12%,rgba(125,14
 
   // --- custom cursor -----------------------------------------------------------------------------
   function cursor() {
-    const dot = document.createElement('div'); dot.className = 'gd-cursor gd-cursor-dot';
-    const ring = document.createElement('div'); ring.className = 'gd-cursor gd-cursor-ring'; ring.append(document.createElement('i'));
-    [dot, ring].forEach(el => el.setAttribute('aria-hidden', 'true'));
-    const CLICKABLE = 'a[href],button,[role=button],[role=tab],[role=menuitem],select,summary,label,input[type=checkbox],input[type=radio],input[type=color],input[type=file],.tg-cell,.tg.editing .tg-tile,.gh-bar-slot';
+    // An arrow pointer in the site's colours. Its tip is the hotspot, so it clicks exactly where the
+    // normal cursor would; it follows the mouse with no lag.
+    const el = document.createElement('div');
+    el.className = 'gd-cursor';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<svg viewBox="0 0 22 27" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gd-cur-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9d3ff"/><stop offset=".55" stop-color="#7d93ff"/><stop offset="1" stop-color="#5a6fe0"/></linearGradient>
+        <linearGradient id="gd-cur-b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0dcff"/><stop offset=".55" stop-color="#c27dff"/><stop offset="1" stop-color="#8a4fe0"/></linearGradient>
+      </defs>
+      <path d="M2 2 L2 21.5 L7.2 16.8 L10.6 24.6 L14 23.1 L10.7 15.4 L17.6 15.4 Z" fill="url(#gd-cur-a)" stroke="#06080c" stroke-width="1.6" stroke-linejoin="round"/>
+      <path class="gd-fill-link" d="M2 2 L2 21.5 L7.2 16.8 L10.6 24.6 L14 23.1 L10.7 15.4 L17.6 15.4 Z" fill="url(#gd-cur-b)" stroke="#06080c" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M4.2 6.2 L4.2 15.5" stroke="rgba(255,255,255,.75)" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>`;
+    const CLICKABLE = 'a[href],button,[role=button],[role=tab],[role=menuitem],[role=switch],select,summary,label,input[type=checkbox],input[type=radio],input[type=color],input[type=file],.tg-cell,.tg.editing .tg-tile,.gh-bar-slot,.gd-lock-button';
     const TEXT = 'input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=range]),textarea,[contenteditable=true]';
-    const at = { x: -100, y: -100 };
     let on = false, frame = 0;
 
-    const move = () => {
-      frame = 0;
-      if (!on) return;
-      // The ring trails the dot slightly; it snaps for reduced motion.
-      const ease = reduceMotion ? 1 : .38;
-      at.x += (pointer.x - at.x) * ease; at.y += (pointer.y - at.y) * ease;
-      dot.style.transform = `translate3d(${pointer.x}px,${pointer.y}px,0)`;
-      ring.style.transform = `translate3d(${at.x}px,${at.y}px,0)`;
-      if (Math.abs(pointer.x - at.x) > .3 || Math.abs(pointer.y - at.y) > .3) frame = requestAnimationFrame(move);
-    };
+    // The SVG tip sits at (2,2), so shift by that to line the tip up with the real pointer.
+    const place = () => { frame = 0; el.style.transform = `translate3d(${pointer.x - 2}px,${pointer.y - 2}px,0)`; };
     const onMove = (e) => {
       if (!on || e.pointerType === 'touch') return;
-      if (at.x < -50) { at.x = e.clientX; at.y = e.clientY; }
       const target = e.target instanceof Element ? e.target : null;
       const overText = Boolean(target?.closest(TEXT));
-      dot.classList.toggle('text', overText); ring.classList.toggle('text', overText);
-      ring.classList.toggle('link', !overText && Boolean(target?.closest(CLICKABLE)));
-      dot.classList.add('show'); ring.classList.add('show');
-      if (!frame) frame = requestAnimationFrame(move);
+      el.classList.toggle('text', overText);
+      el.classList.toggle('link', !overText && Boolean(target?.closest(CLICKABLE)));
+      el.classList.add('show');
+      if (!frame) frame = requestAnimationFrame(place);
     };
-    const hide = () => { dot.classList.remove('show'); ring.classList.remove('show'); };
+    const hide = () => el.classList.remove('show');
     addEventListener('pointermove', onMove, { passive: true });
-    addEventListener('pointerdown', () => ring.classList.add('down'));
-    addEventListener('pointerup', () => ring.classList.remove('down'));
+    addEventListener('pointerdown', () => el.classList.add('down'));
+    addEventListener('pointerup', () => el.classList.remove('down'));
     document.addEventListener('pointerleave', hide);
     addEventListener('blur', hide);
 
     const apply = (p) => {
       on = p.cursor && finePointer.matches;
       document.documentElement.classList.toggle('gd-cursor-on', on);
-      if (on) { if (!dot.isConnected) document.body.append(ring, dot); }
-      else { dot.remove(); ring.remove(); at.x = at.y = -100; }
+      if (on) { if (!el.isConnected) document.body.append(el); }
+      else el.remove();
     };
     listeners.add(apply);
     finePointer.addEventListener?.('change', () => apply(prefs));
