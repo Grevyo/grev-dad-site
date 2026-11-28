@@ -104,7 +104,7 @@ export function createTileGrid(opts) {
   const draftKey = `grevdad:tiles-draft:${opts.userId}:${opts.mode}`;
   const s = {
     tiles: clone(opts.tiles ?? []), widgets: opts.widgets ?? {}, card: opts.card ? { ...opts.card } : null,
-    editing: false, saved: null, undo: [], redo: [], selected: null, cursor: { x: 0, y: 0 }, held: null, saving: false
+    editing: false, session: 0, saved: null, undo: [], redo: [], selected: null, cursor: { x: 0, y: 0 }, held: null, saving: false
   };
   const root = h('div', { class: 'tg-wrap' });
   const toolbar = h('div', { class: 'tg-toolbar', role: 'toolbar', 'aria-label': 'Tile editor' });
@@ -416,7 +416,9 @@ export function createTileGrid(opts) {
     s.tiles = s.tiles.filter(t => t.tileId !== tile.tileId);
     s.selected = null;
     draw();
-    toast(`Removed "${tile.title || WIDGET_KINDS[tile.widget]?.label || 'tile'}"`, { action: { label: 'Undo', onClick: undo } });
+    // Undo only applies to the editing session it came from (see endSession).
+    const session = s.session;
+    toast(`Removed "${tile.title || WIDGET_KINDS[tile.widget]?.label || 'tile'}"`, { action: { label: 'Undo', onClick: () => { if (s.editing && s.session === session) undo(); } } });
   }
 
   function duplicateTile(tile) {
@@ -545,7 +547,14 @@ export function createTileGrid(opts) {
   }
 
   // --- edit session -----------------------------------------------------------------------------
+  /** Leave edit mode: forget this session's history and drop any Undo toast still on screen. */
+  function endSession() {
+    s.editing = false; s.held = null; s.undo = []; s.redo = []; s.session += 1;
+    document.querySelector('.toast')?.remove();
+  }
+
   function startEditing() {
+    s.session += 1;
     s.saved = snapshot(); s.undo = []; s.redo = []; s.editing = true; s.held = null;
     s.cursor = { x: 0, y: 0 }; s.selected = null;
     const draft = readDraft();
@@ -561,7 +570,7 @@ export function createTileGrid(opts) {
 
   async function cancelEditing() {
     if (s.undo.length && !await confirmSheet('Discard changes?', 'Your tile changes since you started editing will be lost.', 'Discard')) return;
-    restore(s.saved); s.editing = false; s.held = null; banner.hidden = true; clearDraft(); draw();
+    restore(s.saved); endSession(); banner.hidden = true; clearDraft(); draw();
   }
 
   async function save() {
@@ -570,7 +579,7 @@ export function createTileGrid(opts) {
     try {
       const result = await opts.onSave({ tiles: clone(s.tiles), card: s.card ? { ...s.card } : null });
       s.tiles = clone(result.tiles ?? s.tiles); s.widgets = result.widgets ?? s.widgets; if (result.card) s.card = { ...result.card };
-      s.editing = false; s.held = null; banner.hidden = true; clearDraft();
+      endSession(); banner.hidden = true; clearDraft();
       toast('Saved');
     } catch (error) { toast(error.message); }
     finally { s.saving = false; draw(); }
