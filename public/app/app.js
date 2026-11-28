@@ -1,6 +1,7 @@
 // grev.dad v2 app shell: top bar, phone bottom bar and a small client router for the five sections.
 import { api } from './api.js';
 import { h, icon, avatar, toast } from './ui.js';
+import { animateView } from './motion.js';
 
 const ROUTES = [
   { pattern: /^\/home$/, section: 'home', load: () => import('./pages/home.js') },
@@ -11,7 +12,7 @@ const ROUTES = [
   { pattern: /^\/admin$/, section: 'admin', load: () => import('./pages/admin.js') }
 ];
 
-const state = { session: null, cleanup: null, renderToken: 0 };
+const state = { session: null, cleanup: null, renderToken: 0, bellTotal: 0 };
 const top = document.getElementById('top');
 const bottom = document.getElementById('bottom-nav');
 const page = document.getElementById('page');
@@ -68,6 +69,9 @@ function renderShell(active) {
   const total = counts.friendRequests + counts.unreadMessages;
   const bell = h('button', { class: 'icon-btn', type: 'button', 'aria-label': total ? `Notifications, ${total} new` : 'Notifications', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, icon('bell'));
   if (total || !state.session.grevHome.linked) bell.append(h('span', { class: 'nav-count', text: total || '!' }));
+  // Ring the bell only when something new has arrived since it was last drawn.
+  if (total > state.bellTotal) bell.classList.add('has-news');
+  state.bellTotal = total;
   bell.addEventListener('click', (e) => { e.stopPropagation(); openMenu(bell, notificationsMenu); });
   const me = h('button', { class: 'menu-btn', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Account menu' }, avatar(user), h('span', { class: 'name', text: user.displayName }));
   me.addEventListener('click', (e) => { e.stopPropagation(); openMenu(me, accountMenu); });
@@ -122,7 +126,8 @@ async function render() {
     page.style.animation = 'none'; void page.offsetWidth; page.style.animation = '';
     const cleanup = await module.render(view, { session: state.session, params: found.params, query: new URLSearchParams(location.search), navigate, refreshSession, toast });
     if (token !== state.renderToken) { if (typeof cleanup === 'function') { try { cleanup(); } catch {} } return; }
-    state.cleanup = cleanup;
+    const stopMotion = animateView(view);
+    state.cleanup = () => { stopMotion(); if (typeof cleanup === 'function') cleanup(); };
     page.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   } catch (error) {

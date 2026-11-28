@@ -76,8 +76,15 @@ async function linkDevice(cookie, profile) {
   const pending = expectOk(await call('GET', `api/grev-home/link/status?id=${start.linkId}`, { token:start.deviceCode }), 'link/status pending');
   assert.equal(pending.status, 'pending');
 
-  const page = await fetch(start.verificationUri.replace(/^https?:\/\/[^/]+/, base), { headers:{ Cookie:cookie }, redirect:'manual' });
-  assert.equal(page.status, 200, 'the signed-in link page must render');
+  // Grev Home's link opens /link-grev-home?code=…, which hands the code to the Grev Home page.
+  const link = await fetch(start.verificationUri.replace(/^https?:\/\/[^/]+/, base), { headers:{ Cookie:cookie }, redirect:'manual' });
+  assert.equal(link.status, 302, 'the link address forwards to the Grev Home page');
+  const target = new URL(link.headers.get('Location'), base);
+  assert.equal(target.pathname, '/grev-home');
+  assert.equal(target.searchParams.get('code'), start.userCode, 'the link code is carried over');
+  const page = await fetch(target, { headers:{ Cookie:cookie }, redirect:'manual' });
+  assert.equal(page.status, 200, 'the signed-in Grev Home page must render');
+  assert.match(await page.text(), /\/app\/app\.js/, 'the Grev Home page is the app page');
   const view = expectOk(await call('GET', `api/grev-home/link/request?code=${encodeURIComponent(start.userCode)}`, { cookie }), 'link/request');
   assert.equal(view.request.grevId, profile.grevId);
   expectOk(await call('POST', 'api/grev-home/link/approve', { cookie, body:{ userCode:start.userCode, decision:'approve' } }), 'link/approve');
@@ -203,13 +210,13 @@ assert.equal(asBob.relationship, 'friend');
 assert.equal(asBob.card.headline, 'Retro fan');
 assert.equal(expectOk(await call('GET', 'api/grev-home/public-card', { token:alice.accessToken }), 'public card').card.bio, 'Hello from Grev Home');
 // The website shows the same profile, and saving it from the web editor keeps the widgets.
-const webProfile = expectOk(await call('GET', `api/profiles/${alice.account.userId}`, { cookie:aliceCookie }), 'web profile').profile;
+const webProfile = expectOk(await call('GET', `api/v2/profiles/${alice.account.userId}`, { cookie:aliceCookie }), 'web profile').profile;
 assert.equal(webProfile.card.bio, 'Hello from Grev Home');
 assert.equal(webProfile.tiles.find(item => item.widget === 'recent-games')?.widgetConfig.count, 3);
-expectOk(await call('PUT', 'api/profile/tiles', { cookie:aliceCookie, body:{ tiles:webProfile.tiles, preferences:webProfile.preferences } }), 'web tile save');
+expectOk(await call('PUT', 'api/v2/profile/layout', { cookie:aliceCookie, body:{ tiles:webProfile.tiles, cardX:webProfile.preferences.cardX, cardY:webProfile.preferences.cardY } }), 'web tile save');
 const afterWebSave = expectOk(await call('GET', 'api/grev-home/profile-tiles', { token:alice.accessToken }), 'tiles after web save');
 assert.deepEqual(afterWebSave.tiles.map(item => item.widget).sort(), ['best-friends', 'bio', 'favourite-games', 'recent-games']);
-const webWidgets = expectOk(await call('GET', `api/profile/widgets/${alice.account.userId}`, { cookie:bobCookie }), 'web widgets');
+const webWidgets = expectOk(await call('GET', `api/v2/profiles/${alice.account.userId}`, { cookie:bobCookie }), 'web widgets').profile;
 assert.equal(webWidgets.relationship, 'friend');
 assert.equal(Object.values(webWidgets.widgets).find(value => value.widget === 'recent-games').items[0].appId, 'retroarch');
 step('unified profile: widgets, identity, favourites, best friends, web round-trip');

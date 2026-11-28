@@ -248,6 +248,63 @@ async function listSaves(env: SiteEnv, user: User) {
   return { available: Boolean(env.GREV_HOME_SAVES), saves: rows.results.map(r => ({ appId: r.app_id, sizeBytes: r.size_bytes, sourceGrevId: r.source_grev_id, updatedAt: Math.floor(r.updated_at_ms / 1000) })) };
 }
 
+// --- Grev Home dashboard -------------------------------------------------------------------------
+
+const DAY = 86400;
+
+/** Everything the Grev Home page shows about the link between this account and Grev Home. */
+async function grevHomeSummary(env: SiteEnv, user: User) {
+  const now = nowSeconds();
+  const link = await env.DB.prepare(`SELECT id,grev_id,local_username,local_display_name,created_at,last_seen_at FROM grev_home_links WHERE user_id=? AND revoked_at IS NULL`)
+    .bind(user.id).first<{ id: string; grev_id: string; local_username: string; local_display_name: string; created_at: number; last_seen_at: number | null }>();
+  const chartStart = Math.floor(now / DAY) * DAY - 13 * DAY;
+  const [devices, presence, progression, daily, recent, top, tiles, identity, saves, friends] = await Promise.all([
+    link ? env.DB.prepare(`SELECT id,device_name,created_at,last_used_at FROM grev_home_tokens WHERE link_id=? AND revoked_at IS NULL AND expires_at>?
+        ORDER BY COALESCE(last_used_at,created_at) DESC`).bind(link.id, now)
+      .all<{ id: string; device_name: string; created_at: number; last_used_at: number | null }>() : null,
+    env.DB.prepare(`SELECT availability,status_text,activity_type,activity_text,expires_at,updated_at FROM user_presence WHERE user_id=?`)
+      .bind(user.id).first<{ availability: string; status_text: string; activity_type: string; activity_text: string; expires_at: number | null; updated_at: number }>(),
+    // Same totals the profile Stats widget and Grev Home show: summed across this account's local profiles.
+    env.DB.prepare(`SELECT COALESCE((SELECT SUM(total_seconds) FROM grev_home_profile_sources WHERE user_id=?1),0) seconds,
+        COALESCE((SELECT SUM(completed_sessions) FROM grev_home_profile_sources WHERE user_id=?1),0) sessions,
+        COALESCE((SELECT COUNT(DISTINCT app_id) FROM grev_home_session_history WHERE user_id=?1),0) games,
+        (SELECT MAX(updated_at) FROM grev_home_profile_sources WHERE user_id=?1) updated_at`).bind(user.id)
+      .first<{ seconds: number; sessions: number; games: number; updated_at: number | null }>(),
+    env.DB.prepare(`SELECT CAST((ended_at-?)/${DAY} AS INTEGER) day,SUM(duration_seconds) seconds,COUNT(*) sessions FROM grev_home_session_history
+        WHERE user_id=? AND ended_at>=? GROUP BY day`).bind(chartStart, user.id, chartStart).all<{ day: number; seconds: number; sessions: number }>(),
+    env.DB.prepare(`SELECT app_name,ended_at,duration_seconds,outcome FROM grev_home_session_history WHERE user_id=? ORDER BY ended_at DESC LIMIT 6`)
+      .bind(user.id).all<{ app_name: string; ended_at: number; duration_seconds: number; outcome: string }>(),
+    env.DB.prepare(`SELECT app_id,MAX(app_name) app_name,SUM(duration_seconds) seconds,COUNT(*) sessions,MAX(ended_at) last_played FROM grev_home_session_history
+        WHERE user_id=? GROUP BY app_id ORDER BY seconds DESC LIMIT 5`).bind(user.id)
+      .all<{ app_id: string; app_name: string; seconds: number; sessions: number; last_played: number }>(),
+    env.DB.prepare(`SELECT COUNT(*) count,MAX(updated_at) updated_at FROM user_profile_tiles WHERE user_id=?`).bind(user.id).first<{ count: number; updated_at: number | null }>(),
+    env.DB.prepare(`SELECT updated_at FROM user_profiles WHERE user_id=?`).bind(user.id).first<{ updated_at: number | null }>(),
+    env.DB.prepare(`SELECT COUNT(*) count,COALESCE(SUM(size_bytes),0) bytes,MAX(updated_at_ms) latest FROM grev_home_cloud_saves WHERE user_id=?`)
+      .bind(user.id).first<{ count: number; bytes: number; latest: number | null }>(),
+    env.DB.prepare(`SELECT COUNT(*) total,SUM(CASE WHEN p.expires_at>? AND p.availability<>'offline' THEN 1 ELSE 0 END) online
+        FROM grev_home_friendships f LEFT JOIN user_presence p ON p.user_id=CASE WHEN f.user_low_id=? THEN f.user_high_id ELSE f.user_low_id END
+        WHERE f.user_low_id=? OR f.user_high_id=?`).bind(now, user.id, user.id, user.id).first<{ total: number; online: number | null }>()
+  ]);
+  const online = Boolean(presence && presence.expires_at && presence.expires_at > now && presence.availability !== 'offline');
+  const byDay = new Map((daily.results ?? []).map(row => [row.day, row]));
+  return {
+    linked: Boolean(link),
+    link: link ? { grevId: link.grev_id, localUsername: link.local_username, localDisplayName: link.local_display_name, linkedAt: link.created_at, lastSeenAt: link.last_seen_at } : null,
+    // A PC counts as online while its token has been used within the presence window (10 minutes).
+    devices: (devices?.results ?? []).map(d => ({ id: d.id, deviceName: d.device_name, linkedAt: d.created_at, lastUsedAt: d.last_used_at,
+      online: Boolean(d.last_used_at && now - d.last_used_at < 600) })),
+    presence: { online, availability: online ? presence!.availability : 'offline', playing: online && presence!.activity_type === 'playing' ? presence!.activity_text : null,
+      status: online ? presence!.status_text : null, updatedAt: presence?.updated_at ?? null },
+    stats: { totalSeconds: Number(progression?.seconds ?? 0), sessions: Number(progression?.sessions ?? 0), games: Number(progression?.games ?? 0), syncedAt: progression?.updated_at ?? null },
+    chart: Array.from({ length: 14 }, (_, day) => ({ date: chartStart + day * DAY, seconds: Number(byDay.get(day)?.seconds ?? 0), sessions: Number(byDay.get(day)?.sessions ?? 0) })),
+    recentSessions: (recent.results ?? []).map(r => ({ title: r.app_name, endedAt: r.ended_at, durationSeconds: r.duration_seconds, failed: r.outcome === 'failed' })),
+    topGames: (top.results ?? []).map(g => ({ appId: g.app_id, title: g.app_name, totalSeconds: g.seconds, sessions: g.sessions, lastPlayedAt: g.last_played })),
+    sync: { profileTiles: Number(tiles?.count ?? 0), tilesUpdatedAt: tiles?.updated_at ?? null, profileUpdatedAt: identity?.updated_at ?? null, progressUpdatedAt: progression?.updated_at ?? null },
+    saves: { available: Boolean(env.GREV_HOME_SAVES), count: Number(saves?.count ?? 0), totalBytes: Number(saves?.bytes ?? 0), latestAt: saves?.latest ? Math.floor(saves.latest / 1000) : null },
+    friends: { total: Number(friends?.total ?? 0), online: Number(friends?.online ?? 0) }
+  };
+}
+
 // --- routing -----------------------------------------------------------------------------------
 
 export async function handleSiteApiRequest(request: Request, env: SiteEnv): Promise<Response | null> {
@@ -297,6 +354,7 @@ export async function handleSiteApiRequest(request: Request, env: SiteEnv): Prom
     return json({ ok: true, ...await homePayload(env, user) });
   }
 
+  if (path === '/api/v2/grev-home' && request.method === 'GET') return json({ ok: true, ...await grevHomeSummary(env, user) });
   if (path === '/api/v2/saves' && request.method === 'GET') return json({ ok: true, ...await listSaves(env, user) });
 
   return json({ ok: false, message: 'Not found.' }, 404);

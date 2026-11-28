@@ -9,7 +9,7 @@ export async function render(container, ctx) {
   document.title = 'Home · Grev.dad';
   const hour = new Date().getHours();
   const greeting = hour < 5 ? 'Up late' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const host = h('div', {}, h('div', { class: 'empty', text: 'Loading your tiles…' }));
+  const host = h('div', {}, h('div', { class: 'loading', 'aria-label': 'Loading your tiles' }));
   container.append(
     h('header', { class: 'page-head' },
       h('div', {}, h('p', { class: 'eyebrow', text: 'Home' }), h('h1', { text: `${greeting}, ${user.displayName}` })),

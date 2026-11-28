@@ -6,7 +6,7 @@ import { PROFILE_WIDGETS } from '../widgets.js';
 
 export async function render(container, ctx) {
   const name = decodeURIComponent(ctx.params[0]);
-  container.append(h('div', { class: 'empty', text: 'Loading profile…' }));
+  container.append(h('div', { class: 'loading', style: { minHeight: '420px' }, 'aria-label': 'Loading profile' }));
   let profile;
   try { ({ profile } = await api(`/api/v2/profiles/${encodeURIComponent(name)}`)); }
   catch (error) {
